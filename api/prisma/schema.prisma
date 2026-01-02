@@ -19,17 +19,87 @@ model Tenant {
   subdomain    String    @unique @db.VarChar(63)
   company_name String    @db.VarChar(200)
   is_active    Boolean   @default(true)
+
+  // LEGAL & TAX INFORMATION
+  legal_business_name      String    @db.VarChar(200)
+  dba_name                 String?   @db.VarChar(200)
+  business_entity_type     String    @db.VarChar(50) // sole_proprietorship, llc, corporation, partnership, dba
+  state_of_registration    String    @db.VarChar(2)
+  date_of_incorporation    DateTime?
+  ein                      String    @unique @db.VarChar(10) // XX-XXXXXXX format
+  state_tax_id             String?   @db.VarChar(50)
+  sales_tax_permit         String?   @db.VarChar(50)
+
+  // CONTACT INFORMATION
+  primary_contact_phone    String    @db.VarChar(20)
+  secondary_phone          String?   @db.VarChar(20)
+  primary_contact_email    String    @db.VarChar(255)
+  support_email            String?   @db.VarChar(255)
+  billing_email            String?   @db.VarChar(255)
+  website_url              String?   @db.VarChar(255)
+  instagram_url            String?   @db.VarChar(255)
+  facebook_url             String?   @db.VarChar(255)
+  tiktok_url               String?   @db.VarChar(255)
+  youtube_url              String?   @db.VarChar(255)
+
+  // FINANCIAL & PAYMENT INFORMATION
+  bank_name                String?   @db.VarChar(100)
+  routing_number           String?   @db.VarChar(9)
+  account_number           String?   @db.VarChar(50)
+  account_type             String?   @db.VarChar(20) // checking, savings
+  venmo_username           String?   @db.VarChar(50)
+  venmo_qr_code_file_id    String?   @db.VarChar(36)
+
+  // BRANDING
+  logo_file_id             String?   @db.VarChar(36)
+  primary_brand_color      String?   @db.VarChar(7) // #RRGGBB
+  secondary_brand_color    String?   @db.VarChar(7)
+  accent_color             String?   @db.VarChar(7)
+
+  // INVOICE & QUOTE SETTINGS
+  invoice_prefix           String    @default("INV") @db.VarChar(10)
+  next_invoice_number      Int       @default(1)
+  quote_prefix             String    @default("Q-") @db.VarChar(10)
+  next_quote_number        Int       @default(1)
+  default_quote_validity_days Int    @default(30)
+  default_quote_terms      String?   @db.Text
+  default_quote_footer     String?   @db.Text
+  default_invoice_footer   String?   @db.Text
+  default_payment_instructions String? @db.Text
+
+  // OPERATIONAL
+  timezone                 String    @default("America/New_York") @db.VarChar(50)
+
+  // SUBSCRIPTION MANAGEMENT
+  subscription_plan_id     String?   @db.VarChar(36)
+  subscription_status      String    @default("trial") @db.VarChar(20) // trial, active, suspended, cancelled
+  trial_end_date           DateTime?
+  billing_cycle            String?   @db.VarChar(20) // monthly, annual
+  next_billing_date        DateTime?
+
   created_at   DateTime  @default(now())
   updated_at   DateTime  @updatedAt
   deleted_at   DateTime?
 
   // Relations
-  users      User[]
-  roles      Role[]
-  audit_logs AuditLog[]
+  subscription_plan   SubscriptionPlan?   @relation(fields: [subscription_plan_id], references: [id])
+  users               User[]
+  roles               Role[]
+  audit_logs          AuditLog[]
+  addresses           TenantAddress[]
+  licenses            TenantLicense[]
+  insurance           TenantInsurance?
+  payment_terms       TenantPaymentTerms?
+  business_hours      TenantBusinessHours?
+  custom_hours        TenantCustomHours[]
+  service_areas       TenantServiceArea[]
 
   @@index([subdomain])
   @@index([is_active])
+  @@index([ein])
+  @@index([subscription_status])
+  @@index([trial_end_date])
+  @@index([subscription_plan_id])
   @@map("tenant")
 }
 
@@ -67,6 +137,7 @@ model User {
   refresh_tokens RefreshToken[]
   user_roles     UserRole[]
   audit_logs     AuditLog[]
+  signature      UserSignature?
 
   @@unique([email, tenant_id], name: "email_tenant_unique")
   @@index([tenant_id, is_active])
@@ -171,4 +242,269 @@ model AuditLog {
   @@index([actor_user_id])
   @@index([action])
   @@map("audit_log")
+}
+
+// ============================================
+// SUBSCRIPTION PLAN - Subscription tiers
+// ============================================
+
+model SubscriptionPlan {
+  id             String   @id @default(uuid()) @db.VarChar(36)
+  name           String   @unique @db.VarChar(100) // Free, Basic, Pro, Enterprise
+  description    String?  @db.Text
+  monthly_price  Decimal  @db.Decimal(10, 2)
+  annual_price   Decimal  @db.Decimal(10, 2)
+  max_users      Int
+  feature_flags  Json // JSON object with boolean flags for features
+  is_active      Boolean  @default(true)
+  is_default     Boolean  @default(false)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  // Relations
+  tenants Tenant[]
+
+  @@index([is_active])
+  @@index([is_default])
+  @@map("subscription_plan")
+}
+
+// ============================================
+// LICENSE TYPE - Admin-managed license types
+// ============================================
+
+model LicenseType {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  // Relations
+  licenses TenantLicense[]
+
+  @@index([is_active])
+  @@map("license_type")
+}
+
+// ============================================
+// TENANT ADDRESS - Multiple addresses per tenant
+// ============================================
+
+model TenantAddress {
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  tenant_id    String   @db.VarChar(36)
+  address_type String   @db.VarChar(20) // legal, billing, service, mailing, office
+  line1        String   @db.VarChar(255)
+  line2        String?  @db.VarChar(255)
+  city         String   @db.VarChar(100)
+  state        String   @db.VarChar(2) // 2-letter state code
+  zip_code     String   @db.VarChar(10) // 5 or 9 digits
+  country      String   @default("USA") @db.VarChar(3)
+  lat          Decimal? @db.Decimal(10, 8)
+  long         Decimal? @db.Decimal(11, 8)
+  is_po_box    Boolean  @default(false)
+  is_default   Boolean  @default(false)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, address_type])
+  @@index([tenant_id, is_default])
+  @@map("tenant_address")
+}
+
+// ============================================
+// TENANT LICENSE - Professional licenses
+// ============================================
+
+model TenantLicense {
+  id                   String    @id @default(uuid()) @db.VarChar(36)
+  tenant_id            String    @db.VarChar(36)
+  license_type_id      String?   @db.VarChar(36) // Null if "Other" selected
+  custom_license_type  String?   @db.VarChar(100) // Used if license_type_id is null
+  license_number       String    @db.VarChar(100)
+  issuing_state        String    @db.VarChar(2)
+  issue_date           DateTime?
+  expiry_date          DateTime
+  document_file_id     String?   @db.VarChar(36)
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+
+  // Relations
+  tenant       Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  license_type LicenseType? @relation(fields: [license_type_id], references: [id])
+
+  @@index([tenant_id, expiry_date])
+  @@index([expiry_date]) // For global expiry alerts
+  @@map("tenant_license")
+}
+
+// ============================================
+// TENANT INSURANCE - Insurance and bonding
+// ============================================
+
+model TenantInsurance {
+  id                    String    @id @default(uuid()) @db.VarChar(36)
+  tenant_id             String    @unique @db.VarChar(36) // One insurance record per tenant
+  gl_insurance_provider String?   @db.VarChar(100) // General Liability
+  gl_policy_number      String?   @db.VarChar(100)
+  gl_coverage_amount    Decimal?  @db.Decimal(12, 2)
+  gl_effective_date     DateTime?
+  gl_expiry_date        DateTime?
+  gl_document_file_id   String?   @db.VarChar(36)
+  wc_insurance_provider String?   @db.VarChar(100) // Workers Comp
+  wc_policy_number      String?   @db.VarChar(100)
+  wc_coverage_amount    Decimal?  @db.Decimal(12, 2)
+  wc_effective_date     DateTime?
+  wc_expiry_date        DateTime?
+  wc_document_file_id   String?   @db.VarChar(36)
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([gl_expiry_date])
+  @@index([wc_expiry_date])
+  @@map("tenant_insurance")
+}
+
+// ============================================
+// TENANT PAYMENT TERMS - Default payment terms
+// ============================================
+
+model TenantPaymentTerms {
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  tenant_id  String   @unique @db.VarChar(36) // One default per tenant
+  terms_json Json // Array of payment milestones
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("tenant_payment_terms")
+}
+
+// ============================================
+// TENANT BUSINESS HOURS - Standard weekly hours
+// ============================================
+
+model TenantBusinessHours {
+  id               String   @id @default(uuid()) @db.VarChar(36)
+  tenant_id        String   @unique @db.VarChar(36)
+  monday_closed    Boolean  @default(false)
+  monday_open1     String?  @db.VarChar(5) // HH:MM format
+  monday_close1    String?  @db.VarChar(5)
+  monday_open2     String?  @db.VarChar(5) // Optional second shift
+  monday_close2    String?  @db.VarChar(5)
+  tuesday_closed   Boolean  @default(false)
+  tuesday_open1    String?  @db.VarChar(5)
+  tuesday_close1   String?  @db.VarChar(5)
+  tuesday_open2    String?  @db.VarChar(5)
+  tuesday_close2   String?  @db.VarChar(5)
+  wednesday_closed Boolean  @default(false)
+  wednesday_open1  String?  @db.VarChar(5)
+  wednesday_close1 String?  @db.VarChar(5)
+  wednesday_open2  String?  @db.VarChar(5)
+  wednesday_close2 String?  @db.VarChar(5)
+  thursday_closed  Boolean  @default(false)
+  thursday_open1   String?  @db.VarChar(5)
+  thursday_close1  String?  @db.VarChar(5)
+  thursday_open2   String?  @db.VarChar(5)
+  thursday_close2  String?  @db.VarChar(5)
+  friday_closed    Boolean  @default(false)
+  friday_open1     String?  @db.VarChar(5)
+  friday_close1    String?  @db.VarChar(5)
+  friday_open2     String?  @db.VarChar(5)
+  friday_close2    String?  @db.VarChar(5)
+  saturday_closed  Boolean  @default(true)
+  saturday_open1   String?  @db.VarChar(5)
+  saturday_close1  String?  @db.VarChar(5)
+  saturday_open2   String?  @db.VarChar(5)
+  saturday_close2  String?  @db.VarChar(5)
+  sunday_closed    Boolean  @default(true)
+  sunday_open1     String?  @db.VarChar(5)
+  sunday_close1    String?  @db.VarChar(5)
+  sunday_open2     String?  @db.VarChar(5)
+  sunday_close2    String?  @db.VarChar(5)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("tenant_business_hours")
+}
+
+// ============================================
+// TENANT CUSTOM HOURS - Holidays and special dates
+// ============================================
+
+model TenantCustomHours {
+  id         String    @id @default(uuid()) @db.VarChar(36)
+  tenant_id  String    @db.VarChar(36)
+  date       DateTime  @db.Date
+  reason     String    @db.VarChar(255) // e.g., "Christmas", "Vacation"
+  closed     Boolean   @default(false)
+  open_time  String?   @db.VarChar(5) // Nullable if closed=true
+  close_time String?   @db.VarChar(5)
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, date], name: "tenant_date_unique")
+  @@index([tenant_id, date])
+  @@map("tenant_custom_hours")
+}
+
+// ============================================
+// TENANT SERVICE AREA - Service coverage areas
+// ============================================
+
+model TenantServiceArea {
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  tenant_id    String   @db.VarChar(36)
+  type         String   @db.VarChar(20) // city, zipcode, radius
+  value        String   @db.VarChar(100) // City name, ZIP code, or description
+  latitude     Decimal  @db.Decimal(10, 8)
+  longitude    Decimal  @db.Decimal(11, 8)
+  radius_miles Decimal? @db.Decimal(5, 2) // Only for radius type
+  state        String?  @db.VarChar(2) // For city type
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, type])
+  @@index([latitude, longitude]) // For distance queries
+  @@map("tenant_service_area")
+}
+
+// ============================================
+// USER SIGNATURE - Estimator signatures
+// ============================================
+
+model UserSignature {
+  id                String   @id @default(uuid()) @db.VarChar(36)
+  user_id           String   @unique @db.VarChar(36) // One signature per user
+  signature_file_id String   @db.VarChar(36) // Reference to file storage
+  signature_name    String   @db.VarChar(100) // Full name for display
+  signature_title   String?  @db.VarChar(100) // e.g., "Lead Estimator"
+  signature_phone   String?  @db.VarChar(20)
+  signature_email   String?  @db.VarChar(255)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_signature")
 }

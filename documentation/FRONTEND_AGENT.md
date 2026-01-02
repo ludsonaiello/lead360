@@ -1440,6 +1440,8 @@ When you finish a module, provide this report:
 - Icons consistent: ✅ [Heroicons, Lucide, etc.]
 - Animations smooth: ✅
 - No visual bugs: ✅
+- We have a dashboard and global config that you should follow. 
+- frontend developers have a ./app/documentation/*.md file with the previous developers that you should UPDATE the STATUS documentation and generate your [module]_MODULE.md file with details that you built for the next developers. 
 
 ### Known Limitations
 

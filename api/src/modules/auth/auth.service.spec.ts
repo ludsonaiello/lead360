@@ -156,6 +156,12 @@ describe('AuthService', () => {
       phone: '+15559876543',
       tenant_subdomain: 'new-company',
       company_name: 'New Company LLC',
+      legal_business_name: 'New Company LLC',
+      business_entity_type: 'llc',
+      state_of_registration: 'CA',
+      ein: '12-3456789',
+      primary_contact_phone: '5551234567',
+      primary_contact_email: 'contact@newcompany.com',
     };
 
     it('should successfully register a new user and tenant', async () => {

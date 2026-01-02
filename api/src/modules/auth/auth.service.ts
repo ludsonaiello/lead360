@@ -74,11 +74,17 @@ export class AuthService {
 
     // Create tenant and user in a transaction
     const result = await this.prisma.$transaction(async (tx) => {
-      // Create tenant
+      // Create tenant with required fields
       const tenant = await tx.tenant.create({
         data: {
           subdomain: registerDto.tenant_subdomain,
           company_name: registerDto.company_name,
+          legal_business_name: registerDto.legal_business_name,
+          business_entity_type: registerDto.business_entity_type,
+          state_of_registration: registerDto.state_of_registration,
+          ein: registerDto.ein,
+          primary_contact_phone: registerDto.primary_contact_phone,
+          primary_contact_email: registerDto.primary_contact_email,
           is_active: true,
         },
       });
@@ -91,6 +97,34 @@ export class AuthService {
           description: 'Tenant owner with full access',
           is_system: true,
         },
+      });
+
+      // Create business hours (use provided or default to Mon-Fri 9-5)
+      const businessHoursData = registerDto.business_hours || {
+        monday_closed: false,
+        monday_open1: '09:00',
+        monday_close1: '17:00',
+        tuesday_closed: false,
+        tuesday_open1: '09:00',
+        tuesday_close1: '17:00',
+        wednesday_closed: false,
+        wednesday_open1: '09:00',
+        wednesday_close1: '17:00',
+        thursday_closed: false,
+        thursday_open1: '09:00',
+        thursday_close1: '17:00',
+        friday_closed: false,
+        friday_open1: '09:00',
+        friday_close1: '17:00',
+        saturday_closed: true,
+        sunday_closed: true,
+      };
+
+      await tx.tenantBusinessHours.create({
+        data: {
+          tenant_id: tenant.id,
+          ...businessHoursData,
+        } as any,
       });
 
       // Create user

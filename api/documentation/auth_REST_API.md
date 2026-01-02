@@ -47,9 +47,34 @@ Creates a new user account and tenant.
   "password": "MySecure@Pass123",
   "first_name": "John",
   "last_name": "Doe",
-  "phone": "+15551234567",
+  "phone": "5551234567",
   "tenant_subdomain": "acme-roofing",
-  "company_name": "Acme Roofing LLC"
+  "company_name": "Acme Roofing LLC",
+  "legal_business_name": "Acme Roofing LLC",
+  "business_entity_type": "llc",
+  "state_of_registration": "CA",
+  "ein": "12-3456789",
+  "primary_contact_phone": "5551234567",
+  "primary_contact_email": "contact@acmeroofing.com",
+  "business_hours": {
+    "monday_closed": false,
+    "monday_open1": "08:00",
+    "monday_close1": "17:00",
+    "tuesday_closed": false,
+    "tuesday_open1": "08:00",
+    "tuesday_close1": "17:00",
+    "wednesday_closed": false,
+    "wednesday_open1": "08:00",
+    "wednesday_close1": "17:00",
+    "thursday_closed": false,
+    "thursday_open1": "08:00",
+    "thursday_close1": "17:00",
+    "friday_closed": false,
+    "friday_open1": "08:00",
+    "friday_close1": "17:00",
+    "saturday_closed": true,
+    "sunday_closed": true
+  }
 }
 ```
 
@@ -59,9 +84,26 @@ Creates a new user account and tenant.
 | password | string | Yes | 8-72 chars, uppercase, lowercase, special char | User password |
 | first_name | string | Yes | 1-100 chars | First name |
 | last_name | string | Yes | 1-100 chars | Last name |
-| phone | string | No | E.164 format (e.g., +15551234567) | Phone number |
+| phone | string | No | 10 digits, no formatting | User phone number |
 | tenant_subdomain | string | Yes | 3-63 chars, alphanumeric + hyphens, lowercase | Subdomain for tenant |
-| company_name | string | Yes | 2-200 chars | Company name |
+| company_name | string | Yes | 2-200 chars | Company display name |
+| legal_business_name | string | Yes | 2-200 chars | Legal business name (official registered name) |
+| business_entity_type | string | Yes | Enum: sole_proprietorship, llc, corporation, partnership, dba, other | Business entity type |
+| state_of_registration | string | Yes | 2-letter state code (e.g., "CA") | State where business is registered |
+| ein | string | Yes | Format: XX-XXXXXXX (9 digits with hyphen) | Employer Identification Number |
+| primary_contact_phone | string | Yes | 10 digits, no formatting | Primary contact phone |
+| primary_contact_email | string | Yes | Valid email | Primary contact email |
+| business_hours | object | No | Business hours object (see below) | Optional: Custom business hours (defaults to Mon-Fri 9-5 if omitted) |
+
+**Business Hours Object** (Optional):
+- If provided, can include any combination of the following fields for each day:
+- `{day}_closed`: Boolean (true = closed, false = open)
+- `{day}_open1`: String in HH:MM format (first opening time)
+- `{day}_close1`: String in HH:MM format (first closing time)
+- `{day}_open2`: String in HH:MM format (second shift opening - for lunch breaks)
+- `{day}_close2`: String in HH:MM format (second shift closing)
+- Days: monday, tuesday, wednesday, thursday, friday, saturday, sunday
+- If omitted entirely, defaults to Mon-Fri 9:00-17:00, weekends closed
 
 **Success Response (201 Created)**:
 ```json

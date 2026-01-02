@@ -148,13 +148,13 @@
 
 ### 0.4 Multi-Tenant Resolution
 
-**Status**: `Not Started`
+**Status**: `Started`
 
 #### Documentation
 
-- [ ] contracts/multi-tenant-contract.md
-- [ ] backend/module-multi-tenant.md
-- [ ] frontend/module-multi-tenant.md
+- [X] contracts/multi-tenant-contract.md
+- [X] backend/module-multi-tenant.md
+- [X] frontend/module-multi-tenant.md
 
 #### Backend Development
 

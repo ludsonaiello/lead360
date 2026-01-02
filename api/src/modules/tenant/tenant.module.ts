@@ -1,0 +1,75 @@
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { PrismaModule } from '../../core/database/prisma.module';
+
+// Controllers
+import { TenantController } from './tenant.controller';
+import { AdminController } from './admin.controller';
+
+// Services
+import { TenantService } from './services/tenant.service';
+import { TenantAddressService } from './services/tenant-address.service';
+import { TenantLicenseService } from './services/tenant-license.service';
+import { TenantInsuranceService } from './services/tenant-insurance.service';
+import { TenantPaymentTermsService } from './services/tenant-payment-terms.service';
+import { TenantBusinessHoursService } from './services/tenant-business-hours.service';
+import { TenantServiceAreaService } from './services/tenant-service-area.service';
+import { SubscriptionService } from './services/subscription.service';
+import { LicenseTypeService } from './services/license-type.service';
+
+// Middleware
+import { TenantResolutionMiddleware } from './middleware/tenant-resolution.middleware';
+
+// Guards
+import { FeatureFlagGuard } from './guards/feature-flag.guard';
+
+// Background Jobs
+import { LicenseExpiryCheckJob } from './jobs/license-expiry-check.job';
+import { InsuranceExpiryCheckJob } from './jobs/insurance-expiry-check.job';
+
+@Module({
+  imports: [PrismaModule],
+  controllers: [TenantController, AdminController],
+  providers: [
+    // Services
+    TenantService,
+    TenantAddressService,
+    TenantLicenseService,
+    TenantInsuranceService,
+    TenantPaymentTermsService,
+    TenantBusinessHoursService,
+    TenantServiceAreaService,
+    SubscriptionService,
+    LicenseTypeService,
+
+    // Middleware
+    TenantResolutionMiddleware,
+
+    // Guards
+    FeatureFlagGuard,
+
+    // Background Jobs
+    LicenseExpiryCheckJob,
+    InsuranceExpiryCheckJob,
+  ],
+  exports: [
+    TenantService,
+    TenantAddressService,
+    TenantLicenseService,
+    TenantInsuranceService,
+    TenantPaymentTermsService,
+    TenantBusinessHoursService,
+    TenantServiceAreaService,
+    SubscriptionService,
+    LicenseTypeService,
+    TenantResolutionMiddleware,
+    FeatureFlagGuard,
+  ],
+})
+export class TenantModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Apply TenantResolutionMiddleware globally to all routes
+    consumer
+      .apply(TenantResolutionMiddleware)
+      .forRoutes('*'); // Apply to all routes
+  }
+}
