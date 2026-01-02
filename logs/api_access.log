@@ -1,0 +1,8 @@
+145.223.120.93 - - [01/Jan/2026:23:09:43 +0000] "HEAD / HTTP/2.0" 502 0 "-" "curl/8.5.0"
+71.248.186.63 - - [02/Jan/2026:00:02:50 +0000] "GET / HTTP/2.0" 502 559 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+71.248.186.63 - - [02/Jan/2026:00:02:50 +0000] "GET /favicon.ico HTTP/2.0" 502 559 "https://api.lead360.app/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+71.248.186.63 - - [02/Jan/2026:00:03:05 +0000] "GET / HTTP/2.0" 200 12 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+71.248.186.63 - - [02/Jan/2026:00:03:05 +0000] "GET /favicon.ico HTTP/2.0" 404 66 "https://api.lead360.app/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+71.248.186.63 - - [02/Jan/2026:00:05:47 +0000] "GET /health HTTP/2.0" 200 64 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+71.248.186.63 - - [02/Jan/2026:00:22:39 +0000] "GET /health HTTP/2.0" 200 69 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+145.223.120.93 - - [02/Jan/2026:00:25:32 +0000] "GET /health HTTP/2.0" 200 71 "-" "curl/8.5.0"
