@@ -110,9 +110,9 @@
 
 #### Documentation
 
-- [ ] contracts/authentication-contract.md
-- [ ] backend/module-authentication.md
-- [ ] frontend/module-authentication.md
+- [x] contracts/authentication-contract.md
+- [x] backend/module-authentication.md
+- [x] frontend/module-authentication.md
 
 #### Backend Development
 
@@ -127,6 +127,8 @@
 - [ ] Write unit tests (auth service)
 - [ ] Write integration tests (auth endpoints)
 - [ ] Generate API documentation
+- [ ] Implement 2Factor
+- [ ] Implement Social Login
 
 #### Frontend Development
 
@@ -139,6 +141,8 @@
 - [ ] Create logout functionality
 - [ ] Write component tests
 - [ ] Write E2E tests (login flow)
+- [ ] Implement 2Factor
+- [ ] Implement Social Login
 
 ---
 
