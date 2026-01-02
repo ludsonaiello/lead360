@@ -54,6 +54,26 @@ export class UserProfileDto {
   created_at: string;
 }
 
+export class PartialUserDto {
+  @ApiProperty({ description: 'User ID', example: 'uuid' })
+  id: string;
+
+  @ApiProperty({ description: 'User email', example: 'john@example.com' })
+  email: string;
+
+  @ApiProperty({ description: 'User first name', example: 'John' })
+  first_name: string;
+
+  @ApiProperty({ description: 'User last name', example: 'Doe' })
+  last_name: string;
+
+  @ApiProperty({ description: 'Is active', example: false })
+  is_active: boolean;
+
+  @ApiProperty({ description: 'Email verified', example: false })
+  email_verified: boolean;
+}
+
 export class TenantDto {
   @ApiProperty({ description: 'Tenant ID', example: 'uuid' })
   id: string;
@@ -123,7 +143,7 @@ export class RefreshResponseDto {
 export class RegisterResponseDto {
   @ApiProperty({
     description: 'Created user (partial)',
-    type: () => PartialUserDto,
+    type: PartialUserDto,
   })
   user: PartialUserDto;
 
@@ -139,26 +159,6 @@ export class RegisterResponseDto {
       'Registration successful. Please check your email to activate your account.',
   })
   message: string;
-}
-
-export class PartialUserDto {
-  @ApiProperty({ description: 'User ID', example: 'uuid' })
-  id: string;
-
-  @ApiProperty({ description: 'User email', example: 'john@example.com' })
-  email: string;
-
-  @ApiProperty({ description: 'User first name', example: 'John' })
-  first_name: string;
-
-  @ApiProperty({ description: 'User last name', example: 'Doe' })
-  last_name: string;
-
-  @ApiProperty({ description: 'Is active', example: false })
-  is_active: boolean;
-
-  @ApiProperty({ description: 'Email verified', example: false })
-  email_verified: boolean;
 }
 
 export class MessageResponseDto {
