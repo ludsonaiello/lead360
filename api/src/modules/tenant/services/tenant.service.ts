@@ -267,7 +267,7 @@ export class TenantService {
             action: 'UPDATE',
             entity_type: 'Tenant',
             entity_id: tenantId,
-            changes: changes,
+            metadata_json: changes,
           } as any,
         });
       }

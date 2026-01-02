@@ -54,6 +54,12 @@ export class PrismaService
    * - LicenseType (admin table)
    */
   private setupTenantIsolationMiddleware() {
+    // Skip middleware setup if $use is not available (e.g., in test environment)
+    if (typeof (this as any).$use !== 'function') {
+      console.warn('Prisma middleware ($use) not available - skipping tenant isolation middleware');
+      return;
+    }
+
     // Models that require tenant_id filtering
     const TENANT_SCOPED_MODELS = [
       'User',

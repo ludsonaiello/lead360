@@ -48,10 +48,16 @@ export class TenantResolutionMiddleware implements NestMiddleware {
       const host = req.headers.host || '';
       const subdomain = this.extractSubdomain(host);
 
-      // If no subdomain or special subdomain, skip tenant resolution
+      // If no subdomain or special subdomain, try to get tenant_id from JWT
       if (!subdomain || this.SPECIAL_SUBDOMAINS.includes(subdomain)) {
-        // For special subdomains, allow request to continue
-        // Controller will handle authorization (e.g., admin endpoints require admin auth)
+        // For localhost/IP access (e.g., tests), extract tenant_id from JWT token
+        if (req.user && req.user.tenant_id) {
+          req.tenant_id = req.user.tenant_id;
+          // Optionally load full tenant object
+          const tenant = await this.tenantService.findById(req.user.tenant_id);
+          req.tenant = tenant;
+        }
+        // Allow request to continue
         return next();
       }
 
@@ -84,11 +90,18 @@ export class TenantResolutionMiddleware implements NestMiddleware {
    * - acme-roofing.lead360.app → acme-roofing
    * - acme-roofing.localhost:3000 → acme-roofing
    * - localhost:3000 → null (no subdomain)
+   * - 127.0.0.1 → null (IP address, no subdomain)
    * - www.lead360.app → www
    */
   private extractSubdomain(host: string): string | null {
     // Remove port if present
     const hostWithoutPort = host.split(':')[0];
+
+    // Check if host is an IP address (IPv4)
+    const ipv4Regex = /^\d+\.\d+\.\d+\.\d+$/;
+    if (ipv4Regex.test(hostWithoutPort)) {
+      return null; // IP addresses have no subdomain
+    }
 
     // Split by dots
     const parts = hostWithoutPort.split('.');
@@ -112,11 +125,15 @@ export class TenantResolutionMiddleware implements NestMiddleware {
    */
   private shouldSkipTenantResolution(path: string): boolean {
     const skipPaths = [
-      '/api/v1/auth/register', // Tenant creation happens here
-      '/api/v1/auth/check-subdomain', // Subdomain availability check
-      '/api/v1/admin', // Admin endpoints (use different auth)
+      '/api/v1/auth/', // Auth endpoints (registration, login, etc.)
+      '/auth/', // Auth endpoints without global prefix
+      '/api/v1/tenants/check-subdomain', // Subdomain availability check
+      '/tenants/check-subdomain', // Without global prefix
+      '/api/v1/admin', // Admin endpoints
+      '/admin', // Admin endpoints without global prefix
       '/health', // Health check
       '/api/docs', // Swagger docs
+      '/api/v1/health', // Health with prefix
     ];
 
     return skipPaths.some((skipPath) => path.startsWith(skipPath));

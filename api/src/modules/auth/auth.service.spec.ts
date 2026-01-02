@@ -107,6 +107,15 @@ describe('AuthService', () => {
               .mockResolvedValue({ id: 'role-uuid', name: 'Owner' }),
           },
           userRole: { create: jest.fn() },
+          tenantBusinessHours: {
+            create: jest.fn().mockResolvedValue({
+              id: 'hours-uuid',
+              tenant_id: 'tenant-uuid',
+              monday_closed: false,
+              monday_open1: '09:00',
+              monday_close1: '17:00',
+            }),
+          },
           auditLog: { create: jest.fn() },
         }),
       ),
@@ -196,6 +205,12 @@ describe('AuthService', () => {
                 .mockResolvedValue({ id: 'role-uuid', name: 'Owner' }),
             },
             userRole: { create: jest.fn() },
+            tenantBusinessHours: {
+              create: jest.fn().mockResolvedValue({
+                id: 'hours-uuid',
+                tenant_id: newTenant.id,
+              }),
+            },
             auditLog: { create: jest.fn() },
           });
         },

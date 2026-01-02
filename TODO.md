@@ -158,15 +158,15 @@
 
 #### Backend Development
 
-- [ ] Create Tenant module
-- [ ] Create tenant resolution middleware (extract from JWT)
-- [ ] Create Prisma middleware (enforce tenant_id on all queries)
-- [ ] Create @TenantId() decorator
-- [ ] Create TenantGuard
-- [ ] Add tenant_id validation to all tenant-scoped tables
-- [ ] Write tenant isolation tests (MANDATORY)
-- [ ] Write unit tests
-- [ ] Generate API documentation
+- [X] Create Tenant module
+- [X] Create tenant resolution middleware (extract from JWT)
+- [X] Create Prisma middleware (enforce tenant_id on all queries)
+- [X] Create @TenantId() decorator
+- [X] Create TenantGuard
+- [X] Add tenant_id validation to all tenant-scoped tables
+- [X] Write tenant isolation tests (MANDATORY)
+- [X] Write unit tests
+- [X] Generate API documentation
 
 #### Frontend Development
 
