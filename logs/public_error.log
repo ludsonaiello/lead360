@@ -1,1 +1,2 @@
 2026/01/02 03:46:27 [error] 887534#887534: *15034 access forbidden by rule, client: 54.236.84.252, server: lead360.app, request: "GET /.git/config HTTP/1.1", host: "www.lead360.app"
+2026/01/02 04:33:33 [error] 887530#887530: *17346 access forbidden by rule, client: 54.236.84.252, server: lead360.app, request: "GET /.git/config HTTP/1.1", host: "lead360.app"

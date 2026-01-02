@@ -49,29 +49,29 @@
 #### Backend Development
 
 - [ ] Initialize NestJS monorepo (Turborepo/Nx)
-- [ ] Configure Prisma ORM
-- [ ] Setup MySQL connection
-- [ ] Configure TypeScript
-- [ ] Setup ESLint + Prettier
-- [ ] Configure environment variables (.env structure)
+- [X] Configure Prisma ORM
+- [X] Setup MySQL connection
+- [X] Configure TypeScript
+- [X] Setup ESLint + Prettier
+- [X] Configure environment variables (.env structure)
 - [ ] Setup testing framework (Jest)
 - [ ] Create initial folder structure (src/modules, src/core)
 
 #### Frontend Development
 
-- [ ] Initialize Next.js app (App Router)
-- [ ] Configure TypeScript
-- [ ] Setup Tailwind CSS
-- [ ] Setup ESLint + Prettier
-- [ ] Configure environment variables (.env.local)
+- [X] Initialize Next.js app (App Router)
+- [X] Configure TypeScript
+- [X] Setup Tailwind CSS
+- [X] Setup ESLint + Prettier
+- [X] Configure environment variables (.env.local)
 - [ ] Setup testing framework (Jest + React Testing Library)
-- [ ] Create initial folder structure (app, components, lib)
+- [X] Create initial folder structure (app, components, lib)
 
 #### Shared Packages
 
-- [ ] Create packages/shared for types
-- [ ] Create packages/ui for shared components
-- [ ] Create packages/config for shared configs
+- [X] Create packages/shared for types
+- [X] Create packages/ui for shared components
+- [X] Create packages/config for shared configs
 
 ---
 
@@ -86,20 +86,20 @@
 
 #### Backend Development
 
-- [ ] Create Prisma schema (initial)
-- [ ] Create tenant table
-- [ ] Create user table
-- [ ] Create role table
-- [ ] Create permission table
-- [ ] Create audit_log table
-- [ ] Create initial migration
-- [ ] Create seed data script (dev tenant + admin user)
-- [ ] Test migration on local database
+- [X] Create Prisma schema (initial)
+- [X] Create tenant table
+- [X] Create user table
+- [X] Create role table
+- [X] Create permission table
+- [X] Create audit_log table
+- [X] Create initial migration
+- [X] Create seed data script (dev tenant + admin user)
+- [X] Test migration on local database
 
 #### Tests
 
-- [ ] Migration runs successfully
-- [ ] Seed data creates test tenant
+- [X] Migration runs successfully
+- [X] Seed data creates test tenant
 - [ ] Seed data creates admin user
 
 ---
