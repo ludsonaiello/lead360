@@ -144,3 +144,5 @@
 71.248.186.63 - - [02/Jan/2026:01:52:46 +0000] "GET /favicon.ico HTTP/2.0" 200 9292 "https://everything.lead360.app/tenant-debug" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
 71.248.186.63 - - [02/Jan/2026:01:53:01 +0000] "GET /tenant-debug HTTP/2.0" 500 21 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
 71.248.186.63 - - [02/Jan/2026:01:53:01 +0000] "GET /favicon.ico HTTP/2.0" 200 9292 "https://everything.lead360.app/tenant-debug" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+71.248.186.63 - - [02/Jan/2026:03:02:22 +0000] "GET /tenant-debug HTTP/2.0" 502 559 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+71.248.186.63 - - [02/Jan/2026:03:02:22 +0000] "GET /favicon.ico HTTP/2.0" 502 559 "https://everything.lead360.app/tenant-debug" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
