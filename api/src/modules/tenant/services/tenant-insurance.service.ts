@@ -1,13 +1,18 @@
 import {
   Injectable,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { FileStorageService } from '../../../core/file-storage/file-storage.service';
 import { UpdateInsuranceDto } from '../dto/update-insurance.dto';
 
 @Injectable()
 export class TenantInsuranceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly fileStorage: FileStorageService,
+  ) {}
 
   /**
    * Get insurance for a tenant (creates default record if not exists)
@@ -15,12 +20,52 @@ export class TenantInsuranceService {
   async findOrCreate(tenantId: string) {
     let insurance = await this.prisma.tenantInsurance.findUnique({
       where: { tenant_id: tenantId } as any,
+      include: {
+        gl_document_file: {
+          select: {
+            file_id: true,
+            original_filename: true,
+            mime_type: true,
+            size_bytes: true,
+            created_at: true,
+          },
+        },
+        wc_document_file: {
+          select: {
+            file_id: true,
+            original_filename: true,
+            mime_type: true,
+            size_bytes: true,
+            created_at: true,
+          },
+        },
+      } as any,
     });
 
     // If no insurance record exists, create empty one
     if (!insurance) {
       insurance = await this.prisma.tenantInsurance.create({
         data: { tenant_id: tenantId } as any,
+        include: {
+          gl_document_file: {
+            select: {
+              file_id: true,
+              original_filename: true,
+              mime_type: true,
+              size_bytes: true,
+              created_at: true,
+            },
+          },
+          wc_document_file: {
+            select: {
+              file_id: true,
+              original_filename: true,
+              mime_type: true,
+              size_bytes: true,
+              created_at: true,
+            },
+          },
+        } as any,
       });
     }
 
@@ -38,6 +83,26 @@ export class TenantInsuranceService {
       const updated = await tx.tenantInsurance.update({
         where: { tenant_id: tenantId } as any,
         data: updateInsuranceDto,
+        include: {
+          gl_document_file: {
+            select: {
+              file_id: true,
+              original_filename: true,
+              mime_type: true,
+              size_bytes: true,
+              created_at: true,
+            },
+          },
+          wc_document_file: {
+            select: {
+              file_id: true,
+              original_filename: true,
+              mime_type: true,
+              size_bytes: true,
+              created_at: true,
+            },
+          },
+        } as any,
       });
 
       // Audit log
@@ -159,5 +224,245 @@ export class TenantInsuranceService {
       wc_covered: wcCovered,
       all_covered: glCovered && wcCovered,
     };
+  }
+
+  /**
+   * Upload General Liability insurance document
+   */
+  async uploadGLDocument(tenantId: string, file: Express.Multer.File, userId: string) {
+    // Get or create insurance record
+    const insurance = await this.findOrCreate(tenantId);
+
+    // Upload file using FileStorageService
+    const { file_id, url, metadata } = await this.fileStorage.uploadFile(
+      tenantId,
+      file,
+      {
+        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'],
+        maxSizeBytes: 10 * 1024 * 1024, // 10MB
+        category: 'insurance',
+      },
+    );
+
+    // If insurance already has a GL document, delete the old one
+    if (insurance.gl_document_file_id) {
+      const oldFile = await this.prisma.file.findUnique({
+        where: { file_id: insurance.gl_document_file_id },
+      });
+      if (oldFile) {
+        await this.fileStorage.deleteFileByPath(oldFile.storage_path);
+        await this.prisma.file.delete({ where: { id: oldFile.id } });
+      }
+    }
+
+    // Create File record in database
+    await this.prisma.file.create({
+      data: {
+        file_id,
+        tenant_id: tenantId,
+        original_filename: metadata.original_filename,
+        mime_type: metadata.mime_type,
+        size_bytes: metadata.size_bytes,
+        category: 'insurance',
+        storage_path: metadata.storage_path,
+        uploaded_by: userId,
+        entity_type: 'insurance_gl',
+        entity_id: insurance.id,
+      },
+    });
+
+    // Update insurance with gl_document_file_id
+    await this.prisma.tenantInsurance.update({
+      where: { id: insurance.id },
+      data: { gl_document_file_id: file_id },
+    });
+
+    // Create audit log
+    await this.prisma.auditLog.create({
+      data: {
+        tenant_id: tenantId,
+        actor_user_id: userId,
+        action: 'insurance_gl_document_uploaded',
+        entity_type: 'insurance',
+        entity_id: insurance.id,
+        metadata_json: {
+          file_id,
+          original_filename: metadata.original_filename,
+          size_bytes: metadata.size_bytes,
+        },
+      },
+    });
+
+    return {
+      message: 'GL document uploaded successfully',
+      file_id,
+      url,
+    };
+  }
+
+  /**
+   * Upload Workers Compensation insurance document
+   */
+  async uploadWCDocument(tenantId: string, file: Express.Multer.File, userId: string) {
+    // Get or create insurance record
+    const insurance = await this.findOrCreate(tenantId);
+
+    // Upload file using FileStorageService
+    const { file_id, url, metadata } = await this.fileStorage.uploadFile(
+      tenantId,
+      file,
+      {
+        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'],
+        maxSizeBytes: 10 * 1024 * 1024, // 10MB
+        category: 'insurance',
+      },
+    );
+
+    // If insurance already has a WC document, delete the old one
+    if (insurance.wc_document_file_id) {
+      const oldFile = await this.prisma.file.findUnique({
+        where: { file_id: insurance.wc_document_file_id },
+      });
+      if (oldFile) {
+        await this.fileStorage.deleteFileByPath(oldFile.storage_path);
+        await this.prisma.file.delete({ where: { id: oldFile.id } });
+      }
+    }
+
+    // Create File record in database
+    await this.prisma.file.create({
+      data: {
+        file_id,
+        tenant_id: tenantId,
+        original_filename: metadata.original_filename,
+        mime_type: metadata.mime_type,
+        size_bytes: metadata.size_bytes,
+        category: 'insurance',
+        storage_path: metadata.storage_path,
+        uploaded_by: userId,
+        entity_type: 'insurance_wc',
+        entity_id: insurance.id,
+      },
+    });
+
+    // Update insurance with wc_document_file_id
+    await this.prisma.tenantInsurance.update({
+      where: { id: insurance.id },
+      data: { wc_document_file_id: file_id },
+    });
+
+    // Create audit log
+    await this.prisma.auditLog.create({
+      data: {
+        tenant_id: tenantId,
+        actor_user_id: userId,
+        action: 'insurance_wc_document_uploaded',
+        entity_type: 'insurance',
+        entity_id: insurance.id,
+        metadata_json: {
+          file_id,
+          original_filename: metadata.original_filename,
+          size_bytes: metadata.size_bytes,
+        },
+      },
+    });
+
+    return {
+      message: 'WC document uploaded successfully',
+      file_id,
+      url,
+    };
+  }
+
+  /**
+   * Delete General Liability insurance document
+   */
+  async deleteGLDocument(tenantId: string, userId: string) {
+    const insurance = await this.findOrCreate(tenantId);
+
+    if (!insurance.gl_document_file_id) {
+      throw new BadRequestException('Insurance does not have a GL document');
+    }
+
+    // Get file record
+    const fileRecord = await this.prisma.file.findUnique({
+      where: { file_id: insurance.gl_document_file_id },
+    });
+
+    if (fileRecord) {
+      // Delete from filesystem (hard delete)
+      await this.fileStorage.deleteFileByPath(fileRecord.storage_path);
+
+      // Delete from database (hard delete)
+      await this.prisma.file.delete({ where: { id: fileRecord.id } });
+    }
+
+    // Update insurance to remove gl_document_file_id
+    await this.prisma.tenantInsurance.update({
+      where: { id: insurance.id },
+      data: { gl_document_file_id: null },
+    });
+
+    // Create audit log
+    await this.prisma.auditLog.create({
+      data: {
+        tenant_id: tenantId,
+        actor_user_id: userId,
+        action: 'insurance_gl_document_deleted',
+        entity_type: 'insurance',
+        entity_id: insurance.id,
+        metadata_json: {
+          file_id: insurance.gl_document_file_id,
+        },
+      },
+    });
+
+    return { message: 'GL document deleted successfully' };
+  }
+
+  /**
+   * Delete Workers Compensation insurance document
+   */
+  async deleteWCDocument(tenantId: string, userId: string) {
+    const insurance = await this.findOrCreate(tenantId);
+
+    if (!insurance.wc_document_file_id) {
+      throw new BadRequestException('Insurance does not have a WC document');
+    }
+
+    // Get file record
+    const fileRecord = await this.prisma.file.findUnique({
+      where: { file_id: insurance.wc_document_file_id },
+    });
+
+    if (fileRecord) {
+      // Delete from filesystem (hard delete)
+      await this.fileStorage.deleteFileByPath(fileRecord.storage_path);
+
+      // Delete from database (hard delete)
+      await this.prisma.file.delete({ where: { id: fileRecord.id } });
+    }
+
+    // Update insurance to remove wc_document_file_id
+    await this.prisma.tenantInsurance.update({
+      where: { id: insurance.id },
+      data: { wc_document_file_id: null },
+    });
+
+    // Create audit log
+    await this.prisma.auditLog.create({
+      data: {
+        tenant_id: tenantId,
+        actor_user_id: userId,
+        action: 'insurance_wc_document_deleted',
+        entity_type: 'insurance',
+        entity_id: insurance.id,
+        metadata_json: {
+          file_id: insurance.wc_document_file_id,
+        },
+      },
+    });
+
+    return { message: 'WC document deleted successfully' };
   }
 }

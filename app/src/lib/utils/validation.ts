@@ -92,14 +92,42 @@ export const companyNameSchema = z
  */
 export const registerSchema = z
   .object({
+    // User fields
     email: emailSchema,
     password: passwordSchema,
     confirm_password: z.string(),
     first_name: nameSchema,
     last_name: nameSchema,
     phone: phoneSchema,
+    // Tenant fields - basic
     tenant_subdomain: subdomainSchema,
     company_name: companyNameSchema,
+    // Tenant fields - required at registration
+    legal_business_name: z
+      .string()
+      .min(2, 'Legal business name must be at least 2 characters')
+      .max(200, 'Legal business name must be less than 200 characters')
+      .trim(),
+    business_entity_type: z.enum([
+      'sole_proprietorship',
+      'llc',
+      'corporation',
+      's-corporation',
+      'partnership',
+      'dba',
+    ]),
+    state_of_registration: z
+      .string()
+      .length(2, 'State must be 2-letter code')
+      .regex(/^[A-Z]{2}$/, 'State must be uppercase letters')
+      .transform((val) => val.toUpperCase()),
+    ein: z
+      .string()
+      .regex(/^\d{2}-\d{7}$/, 'EIN must be in format XX-XXXXXXX'),
+    primary_contact_phone: phoneSchema.refine((val) => !!val && val.trim() !== '', {
+      message: 'Primary contact phone is required',
+    }),
+    primary_contact_email: emailSchema,
   })
   .refine((data) => data.password === data.confirm_password, {
     message: 'Passwords do not match',
@@ -197,3 +225,275 @@ export function calculatePasswordStrength(password: string): 'weak' | 'medium' |
     return 'weak';
   }
 }
+
+// ==========================================
+// TENANT VALIDATION SCHEMAS
+// ==========================================
+
+/**
+ * EIN validation schema (XX-XXXXXXX format)
+ */
+export const einSchema = z
+  .string()
+  .regex(/^\d{2}-\d{7}$/, 'EIN must be in format XX-XXXXXXX')
+  .optional()
+  .or(z.literal(''));
+
+/**
+ * ZIP code validation schema (XXXXX or XXXXX-XXXX)
+ */
+export const zipCodeSchema = z
+  .string()
+  .regex(/^\d{5}(-\d{4})?$/, 'ZIP code must be XXXXX or XXXXX-XXXX format');
+
+/**
+ * State code validation schema (2-letter uppercase)
+ */
+export const stateCodeSchema = z
+  .string()
+  .length(2, 'State must be 2-letter code')
+  .regex(/^[A-Z]{2}$/, 'State must be uppercase letters');
+
+/**
+ * Hex color validation schema (#RRGGBB)
+ */
+export const hexColorSchema = z
+  .string()
+  .regex(/^#[0-9A-F]{6}$/i, 'Must be a valid hex color (e.g., #007BFF)')
+  .optional()
+  .or(z.literal(''));
+
+/**
+ * Time validation schema (HH:MM format, 24-hour)
+ */
+export const timeSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Invalid time format (HH:MM)')
+  .optional()
+  .nullable();
+
+/**
+ * Business Info Step 1: Legal & Tax
+ */
+export const businessLegalSchema = z.object({
+  legal_business_name: z.string().max(200).optional().or(z.literal('')),
+  dba_name: z.string().max(200).optional().or(z.literal('')),
+  business_entity_type: z.enum(['sole_proprietorship', 'llc', 'corporation', 's-corporation', 'partnership', 'dba']).optional(),
+  state_of_registration: stateCodeSchema.optional().or(z.literal('')),
+  date_of_incorporation: z.string().optional().or(z.literal('')), // ISO date
+  ein: einSchema,
+  state_tax_id: z.string().max(50).optional().or(z.literal('')),
+  sales_tax_permit: z.string().max(50).optional().or(z.literal('')),
+});
+
+export type BusinessLegalFormData = z.infer<typeof businessLegalSchema>;
+
+/**
+ * Business Info Step 2: Contact
+ */
+export const businessContactSchema = z.object({
+  primary_contact_phone: phoneSchema,
+  secondary_phone: phoneSchema,
+  primary_contact_email: emailSchema.optional().or(z.literal('')),
+  support_email: emailSchema.optional().or(z.literal('')),
+  billing_email: emailSchema.optional().or(z.literal('')),
+  website_url: z.string().url('Invalid URL').optional().or(z.literal('')),
+  instagram_url: z.string().url('Invalid URL').optional().or(z.literal('')),
+  facebook_url: z.string().url('Invalid URL').optional().or(z.literal('')),
+  tiktok_url: z.string().url('Invalid URL').optional().or(z.literal('')),
+  youtube_url: z.string().url('Invalid URL').optional().or(z.literal('')),
+});
+
+export type BusinessContactFormData = z.infer<typeof businessContactSchema>;
+
+/**
+ * Business Info Step 3: Financial
+ */
+export const businessFinancialSchema = z.object({
+  bank_name: z.string().max(100).optional().or(z.literal('')),
+  routing_number: z.string().regex(/^\d{9}$/, 'Routing number must be 9 digits').optional().or(z.literal('')),
+  account_number: z.string().max(17).optional().or(z.literal('')),
+  account_type: z.enum(['checking', 'savings']).optional(),
+  venmo_username: z.string().max(50).optional().or(z.literal('')),
+});
+
+export type BusinessFinancialFormData = z.infer<typeof businessFinancialSchema>;
+
+/**
+ * Business Info Step 4: Invoice & Quote Settings
+ */
+export const businessInvoiceSchema = z.object({
+  invoice_prefix: z.string().max(10).optional().or(z.literal('')),
+  next_invoice_number: z.number().int().min(1).optional(),
+  quote_prefix: z.string().max(10).optional().or(z.literal('')),
+  next_quote_number: z.number().int().min(1).optional(),
+  default_quote_validity_days: z.number().int().min(1).max(365).optional(),
+  default_quote_terms: z.string().max(1000).optional().or(z.literal('')),
+  default_quote_footer: z.string().max(500).optional().or(z.literal('')),
+  default_invoice_footer: z.string().max(500).optional().or(z.literal('')),
+  default_payment_instructions: z.string().max(500).optional().or(z.literal('')),
+});
+
+export type BusinessInvoiceFormData = z.infer<typeof businessInvoiceSchema>;
+
+/**
+ * Address form schema
+ */
+export const addressSchema = z.object({
+  address_type: z.enum(['legal', 'billing', 'service', 'mailing', 'office']),
+  line1: z.string().min(1, 'Address line 1 is required').max(255),
+  line2: z.string().max(255).optional().or(z.literal('')),
+  city: z.string().min(1, 'City is required').max(100),
+  state: stateCodeSchema,
+  zip_code: zipCodeSchema,
+  country: z.string().optional(),
+  lat: z.number().min(-90).max(90).optional().nullable(),
+  long: z.number().min(-180).max(180).optional().nullable(),
+  is_po_box: z.boolean().optional(),
+  is_default: z.boolean().optional(),
+}).refine(
+  (data) => !(data.address_type === 'legal' && data.is_po_box),
+  { message: 'Legal address cannot be a PO Box', path: ['is_po_box'] }
+);
+
+export type AddressFormData = z.infer<typeof addressSchema>;
+
+/**
+ * License form schema
+ */
+export const licenseSchema = z.object({
+  license_type_id: z.string().uuid().optional(),
+  custom_license_type: z.string().max(100).optional().or(z.literal('')),
+  license_number: z.string().min(1, 'License number is required').max(100),
+  issuing_state: stateCodeSchema,
+  issue_date: z.string().min(1, 'Issue date is required'),
+  expiry_date: z.string().min(1, 'Expiry date is required'),
+  document_file_id: z.string().uuid().optional().nullable(),
+}).refine(
+  (data) => data.license_type_id || data.custom_license_type,
+  { message: 'Either select a license type or enter a custom type', path: ['license_type_id'] }
+);
+
+export type LicenseFormData = z.infer<typeof licenseSchema>;
+
+/**
+ * Insurance form schema
+ */
+export const insuranceSchema = z.object({
+  gl_insurance_provider: z.string().max(100).optional().or(z.literal('')),
+  gl_policy_number: z.string().max(100).optional().or(z.literal('')),
+  gl_coverage_amount: z.number().min(0).optional().nullable(),
+  gl_effective_date: z.string().optional().or(z.literal('')),
+  gl_expiry_date: z.string().optional().or(z.literal('')),
+  gl_document_file_id: z.string().uuid().optional().nullable(),
+  wc_insurance_provider: z.string().max(100).optional().or(z.literal('')),
+  wc_policy_number: z.string().max(100).optional().or(z.literal('')),
+  wc_coverage_amount: z.number().min(0).optional().nullable(),
+  wc_effective_date: z.string().optional().or(z.literal('')),
+  wc_expiry_date: z.string().optional().or(z.literal('')),
+  wc_document_file_id: z.string().uuid().optional().nullable(),
+});
+
+export type InsuranceFormData = z.infer<typeof insuranceSchema>;
+
+/**
+ * Payment term schema
+ */
+export const paymentTermSchema = z.object({
+  sequence: z.number().int().min(1),
+  type: z.enum(['percentage', 'fixed']),
+  amount: z.number().min(0),
+  description: z.string().min(1, 'Description is required').max(255),
+});
+
+/**
+ * Payment terms schema
+ */
+export const paymentTermsSchema = z.object({
+  terms: z.array(paymentTermSchema).min(1, 'At least one payment term is required'),
+}).refine(
+  (data) => {
+    // Validate sequence is sequential (1, 2, 3, ...)
+    const sequences = data.terms.map(t => t.sequence).sort((a, b) => a - b);
+    return sequences.every((seq, idx) => seq === idx + 1);
+  },
+  { message: 'Sequence numbers must be sequential (1, 2, 3, ...)', path: ['terms'] }
+);
+
+export type PaymentTermsFormData = z.infer<typeof paymentTermsSchema>;
+
+/**
+ * Business hours schema (for one day)
+ */
+const dayHoursSchema = z.object({
+  closed: z.boolean(),
+  open1: timeSchema,
+  close1: timeSchema,
+  open2: timeSchema,
+  close2: timeSchema,
+}).refine(
+  (data) => {
+    if (data.closed) return true;
+    // If not closed, must have open1 and close1
+    return data.open1 !== null && data.close1 !== null;
+  },
+  { message: 'Opening and closing times are required when not closed' }
+);
+
+/**
+ * Custom hours schema
+ */
+export const customHoursSchema = z.object({
+  date: z.string().min(1, 'Date is required'),
+  label: z.string().min(1, 'Label is required').max(100),
+  is_closed: z.boolean(),
+  open1: timeSchema,
+  close1: timeSchema,
+  open2: timeSchema,
+  close2: timeSchema,
+}).refine(
+  (data) => {
+    if (!data.is_closed) {
+      return data.open1 && data.close1;
+    }
+    return true;
+  },
+  { message: 'Opening and closing times are required when not closed', path: ['open1'] }
+);
+
+export type CustomHoursFormData = z.infer<typeof customHoursSchema>;
+
+/**
+ * Service area schema
+ */
+export const serviceAreaSchema = z.object({
+  area_type: z.enum(['city', 'zipcode', 'radius']),
+  city: z.string().max(100).optional().or(z.literal('')),
+  state: stateCodeSchema.optional().or(z.literal('')),
+  zipcode: zipCodeSchema.optional().or(z.literal('')),
+  center_lat: z.number().min(-90).max(90).optional().nullable(),
+  center_long: z.number().min(-180).max(180).optional().nullable(),
+  radius_miles: z.number().min(1).max(500).optional().nullable(),
+}).refine(
+  (data) => {
+    if (data.area_type === 'city') return data.city && data.state;
+    if (data.area_type === 'zipcode') return data.zipcode;
+    if (data.area_type === 'radius') return data.center_lat && data.center_long && data.radius_miles;
+    return false;
+  },
+  { message: 'Missing required fields for selected area type', path: ['area_type'] }
+);
+
+export type ServiceAreaFormData = z.infer<typeof serviceAreaSchema>;
+
+/**
+ * Branding schema
+ */
+export const brandingSchema = z.object({
+  primary_brand_color: hexColorSchema,
+  secondary_brand_color: hexColorSchema,
+  accent_color: hexColorSchema,
+  logo_file_id: z.string().uuid().optional(),
+});
+
+export type BrandingFormData = z.infer<typeof brandingSchema>;

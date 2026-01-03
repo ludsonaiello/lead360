@@ -17,7 +17,7 @@ export class UpdateBrandingDto {
   @Matches(/^#[0-9A-Fa-f]{6}$/, {
     message: 'Must be a valid hex color code (e.g., #007BFF)',
   })
-  primary_color?: string;
+  primary_brand_color?: string;
 
   @ApiPropertyOptional({
     description: 'Secondary brand color (hex format)',
@@ -28,7 +28,18 @@ export class UpdateBrandingDto {
   @Matches(/^#[0-9A-Fa-f]{6}$/, {
     message: 'Must be a valid hex color code',
   })
-  secondary_color?: string;
+  secondary_brand_color?: string;
+
+  @ApiPropertyOptional({
+    description: 'Accent color (hex format)',
+    example: '#28A745',
+  })
+  @IsString()
+  @IsOptional()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, {
+    message: 'Must be a valid hex color code',
+  })
+  accent_color?: string;
 
   @ApiPropertyOptional({
     description: 'Logo file ID (reference to uploaded file)',

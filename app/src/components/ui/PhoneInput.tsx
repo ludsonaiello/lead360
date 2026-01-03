@@ -11,10 +11,12 @@ interface PhoneInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElemen
   label?: string;
   error?: string;
   helperText?: string;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
 }
 
 export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
-  ({ label, error, helperText, className = '', onChange, value, ...props }, ref) => {
+  ({ label, error, helperText, leftIcon, rightIcon, className = '', onChange, value, ...props }, ref) => {
     const [displayValue, setDisplayValue] = useState('');
 
     const formatPhoneNumber = (input: string): string => {
@@ -86,7 +88,12 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
 
         {/* Visible formatted input with +1 prefix displayed */}
         <div className="relative">
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-900 dark:text-gray-100 font-medium pointer-events-none">
+          {leftIcon && (
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+              {leftIcon}
+            </div>
+          )}
+          <div className={`absolute ${leftIcon ? 'left-11' : 'left-4'} top-1/2 -translate-y-1/2 text-gray-900 dark:text-gray-100 font-medium pointer-events-none`}>
             +1
           </div>
           <input
@@ -94,7 +101,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
             value={displayValue}
             onChange={handleChange}
             className={`
-              w-full pl-12 pr-4 py-3 border-2 rounded-lg
+              w-full ${leftIcon ? 'pl-[4.5rem]' : 'pl-12'} ${rightIcon ? 'pr-11' : 'pr-4'} py-3 border-2 rounded-lg
               text-gray-900 dark:text-gray-100 font-medium
               bg-white dark:bg-gray-700
               placeholder:text-gray-400 dark:placeholder:text-gray-500
@@ -110,6 +117,11 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
             placeholder="(555) 123-4567"
             id={props.id}
           />
+          {rightIcon && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+              {rightIcon}
+            </div>
+          )}
         </div>
 
         {error && <p className="mt-2 text-sm font-medium text-red-600 dark:text-red-400">{error}</p>}

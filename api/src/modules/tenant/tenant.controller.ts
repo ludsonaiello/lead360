@@ -16,6 +16,7 @@ import {
   DefaultValuePipe,
   UploadedFile,
   UseInterceptors,
+  Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -33,6 +34,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { FeatureFlagGuard } from './guards/feature-flag.guard';
 
+import { PrismaService } from '../../core/database/prisma.service';
 import { TenantService } from './services/tenant.service';
 import { TenantAddressService } from './services/tenant-address.service';
 import { TenantLicenseService } from './services/tenant-license.service';
@@ -61,7 +63,10 @@ import { UpdateServiceAreaDto } from './dto/update-service-area.dto';
 @Controller('tenants')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class TenantController {
+  private readonly logger = new Logger(TenantController.name);
+
   constructor(
+    private readonly prisma: PrismaService,
     private readonly tenantService: TenantService,
     private readonly addressService: TenantAddressService,
     private readonly licenseService: TenantLicenseService,
@@ -85,6 +90,18 @@ export class TenantController {
   @ApiOperation({ summary: 'Update current tenant profile' })
   @ApiResponse({ status: 200, description: 'Tenant profile updated successfully' })
   async updateCurrentTenant(@Request() req, @Body() updateTenantDto: UpdateTenantDto) {
+    // Log all incoming request data for debugging (using WARN so it shows in console)
+    this.logger.log('===== PATCH /tenants/current - Incoming Request Data =====');
+    this.logger.log(`Tenant ID: ${req.user.tenant_id}`);
+    this.logger.log(`User ID: ${req.user.id}`);
+    this.logger.log('Raw Body (all fields):');
+    this.logger.log(JSON.stringify(updateTenantDto, null, 2));
+    this.logger.log('Field-by-field breakdown:');
+    for (const [key, value] of Object.entries(updateTenantDto)) {
+      this.logger.log(`  ${key}: ${JSON.stringify(value)} (type: ${typeof value})`);
+    }
+    this.logger.log('==========================================================');
+
     return this.tenantService.update(req.user.tenant_id, updateTenantDto, req.user.id);
   }
 
@@ -125,7 +142,16 @@ export class TenantController {
   @ApiResponse({ status: 200, description: 'Logo uploaded successfully' })
   @ApiResponse({ status: 400, description: 'Invalid file type or size' })
   async uploadLogo(@Request() req, @UploadedFile() file: Express.Multer.File) {
-    return this.tenantService.uploadLogo(req.user.tenant_id, file);
+    return this.tenantService.uploadLogo(req.user.tenant_id, file, req.user.id);
+  }
+
+  @Delete('current/logo')
+  @Roles('Owner', 'Admin')
+  @ApiOperation({ summary: 'Delete tenant logo' })
+  @ApiResponse({ status: 200, description: 'Logo deleted successfully' })
+  @ApiResponse({ status: 400, description: 'Tenant does not have a logo' })
+  async deleteLogo(@Request() req) {
+    return this.tenantService.deleteLogo(req.user.tenant_id, req.user.id);
   }
 
   @Get('check-subdomain')
@@ -241,12 +267,65 @@ export class TenantController {
     return this.licenseService.delete(req.user.tenant_id, id, req.user.id);
   }
 
+  @Get('license-types')
+  @ApiOperation({ summary: 'Get all active license types (for dropdowns)' })
+  @ApiResponse({ status: 200, description: 'License types retrieved successfully' })
+  async getLicenseTypes() {
+    // Return all active license types for dropdown selection
+    return this.prisma.licenseType.findMany({
+      where: { is_active: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   @Get('current/licenses/:id/status')
   @ApiOperation({ summary: 'Get license status (expired, expiring soon, valid)' })
   @ApiParam({ name: 'id', description: 'License ID' })
   @ApiResponse({ status: 200, description: 'License status retrieved' })
   async getLicenseStatus(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.licenseService.getLicenseStatus(req.user.tenant_id, id);
+  }
+
+  @Post('current/licenses/:id/document')
+  @Roles('Owner', 'Admin')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload document for a license' })
+  @ApiParam({ name: 'id', description: 'License ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'License document (PDF, PNG, JPG - max 10MB)',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Document uploaded successfully' })
+  async uploadLicenseDocument(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.licenseService.uploadDocument(req.user.tenant_id, id, file, req.user.id);
+  }
+
+  @Delete('current/licenses/:id/document')
+  @Roles('Owner', 'Admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete document for a license' })
+  @ApiParam({ name: 'id', description: 'License ID' })
+  @ApiResponse({ status: 204, description: 'Document deleted successfully' })
+  async deleteLicenseDocument(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
+    return this.licenseService.deleteDocument(req.user.tenant_id, id, req.user.id);
   }
 
   // ========== INSURANCE ==========
@@ -278,6 +357,68 @@ export class TenantController {
   @ApiResponse({ status: 200, description: 'Coverage status retrieved' })
   async checkInsuranceCoverage(@Request() req) {
     return this.insuranceService.checkCoverage(req.user.tenant_id);
+  }
+
+  @Post('current/insurance/gl-document')
+  @Roles('Owner', 'Admin')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload General Liability insurance document' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'GL insurance document (PDF, PNG, JPG - max 10MB)',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'GL document uploaded successfully' })
+  async uploadGLDocument(@Request() req, @UploadedFile() file: Express.Multer.File) {
+    return this.insuranceService.uploadGLDocument(req.user.tenant_id, file, req.user.id);
+  }
+
+  @Post('current/insurance/wc-document')
+  @Roles('Owner', 'Admin')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload Workers Compensation insurance document' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'WC insurance document (PDF, PNG, JPG - max 10MB)',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'WC document uploaded successfully' })
+  async uploadWCDocument(@Request() req, @UploadedFile() file: Express.Multer.File) {
+    return this.insuranceService.uploadWCDocument(req.user.tenant_id, file, req.user.id);
+  }
+
+  @Delete('current/insurance/gl-document')
+  @Roles('Owner', 'Admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete General Liability insurance document' })
+  @ApiResponse({ status: 204, description: 'GL document deleted successfully' })
+  async deleteGLDocument(@Request() req) {
+    return this.insuranceService.deleteGLDocument(req.user.tenant_id, req.user.id);
+  }
+
+  @Delete('current/insurance/wc-document')
+  @Roles('Owner', 'Admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete Workers Compensation insurance document' })
+  @ApiResponse({ status: 204, description: 'WC document deleted successfully' })
+  async deleteWCDocument(@Request() req) {
+    return this.insuranceService.deleteWCDocument(req.user.tenant_id, req.user.id);
   }
 
   // ========== PAYMENT TERMS ==========

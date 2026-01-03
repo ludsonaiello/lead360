@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { FileStorageService } from '../../../core/file-storage';
 import { CreateTenantDto } from '../dto/create-tenant.dto';
@@ -40,10 +41,16 @@ const RESERVED_SUBDOMAINS = [
 
 @Injectable()
 export class TenantService {
+  private readonly uploadBasePath: string;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly fileStorage: FileStorageService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    const uploadsPath = this.configService.get<string>('UPLOADS_PATH') || '/var/www/lead360.app/app/uploads/public';
+    this.uploadBasePath = uploadsPath;
+  }
 
   /**
    * Find tenant by subdomain (used by middleware for tenant resolution)
@@ -53,6 +60,24 @@ export class TenantService {
       where: { subdomain } as any,
       include: {
         subscription_plan: true,
+        logo_file: {
+          select: {
+            file_id: true,
+            original_filename: true,
+            mime_type: true,
+            size_bytes: true,
+            created_at: true,
+          },
+        },
+        venmo_qr_code_file: {
+          select: {
+            file_id: true,
+            original_filename: true,
+            mime_type: true,
+            size_bytes: true,
+            created_at: true,
+          },
+        },
       } as any,
     });
 
@@ -75,14 +100,64 @@ export class TenantService {
       where: { id: tenantId } as any,
       include: {
         subscription_plan: true,
+        logo_file: {
+          select: {
+            file_id: true,
+            original_filename: true,
+            mime_type: true,
+            size_bytes: true,
+            created_at: true,
+          },
+        },
+        venmo_qr_code_file: {
+          select: {
+            file_id: true,
+            original_filename: true,
+            mime_type: true,
+            size_bytes: true,
+            created_at: true,
+          },
+        },
         addresses: {
           orderBy: { is_default: 'desc' } as any,
         } as any,
         licenses: {
-          include: { license_type: true } as any,
+          include: {
+            license_type: true,
+            document_file: {
+              select: {
+                file_id: true,
+                original_filename: true,
+                mime_type: true,
+                size_bytes: true,
+                created_at: true,
+              },
+            },
+          } as any,
           orderBy: { expiry_date: 'asc' } as any,
         } as any,
-        insurance: true,
+        insurance: {
+          include: {
+            gl_document_file: {
+              select: {
+                file_id: true,
+                original_filename: true,
+                mime_type: true,
+                size_bytes: true,
+                created_at: true,
+              },
+            },
+            wc_document_file: {
+              select: {
+                file_id: true,
+                original_filename: true,
+                mime_type: true,
+                size_bytes: true,
+                created_at: true,
+              },
+            },
+          },
+        },
         payment_terms: true,
         business_hours: true,
         custom_hours: {
@@ -285,8 +360,9 @@ export class TenantService {
     const tenant = await this.prisma.tenant.update({
       where: { id: tenantId } as any,
       data: {
-        primary_color: brandingDto.primary_color,
-        secondary_color: brandingDto.secondary_color,
+        primary_brand_color: brandingDto.primary_brand_color,
+        secondary_brand_color: brandingDto.secondary_brand_color,
+        accent_color: brandingDto.accent_color,
         logo_file_id: brandingDto.logo_file_id,
         company_website: brandingDto.company_website,
         tagline: brandingDto.tagline,
@@ -417,14 +493,135 @@ export class TenantService {
   /**
    * Upload tenant logo
    */
-  async uploadLogo(tenantId: string, file: Express.Multer.File): Promise<{ url: string }> {
+  async uploadLogo(
+    tenantId: string,
+    file: Express.Multer.File,
+    userId: string,
+  ): Promise<{ file_id: string; url: string; metadata: any }> {
+    // Get current tenant to check for existing logo
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId } as any,
+      select: { logo_file_id: true } as any,
+    });
+
+    // Upload new logo
     const { file_id, url } = await this.fileStorage.uploadLogo(tenantId, file);
 
+    // If tenant has existing logo, delete it (hard delete)
+    const existingLogoFileId = tenant?.logo_file_id as string | null | undefined;
+    if (existingLogoFileId) {
+      const oldFile = await this.prisma.file.findUnique({
+        where: { file_id: existingLogoFileId },
+      });
+      if (oldFile) {
+        await this.fileStorage.deleteFileByPath(oldFile.storage_path);
+        await this.prisma.file.delete({ where: { id: oldFile.id } });
+      }
+    }
+
+    // Get file extension from original filename
+    const fileExtension = file.originalname.split('.').pop();
+    const fileName = `${file_id}.${fileExtension}`;
+    const storagePath = `${this.uploadBasePath}/${tenantId}/images/${fileName}`;
+
+    // Create File record in database
+    await this.prisma.file.create({
+      data: {
+        file_id,
+        tenant_id: tenantId,
+        original_filename: file.originalname,
+        mime_type: file.mimetype,
+        size_bytes: file.size,
+        category: 'logo',
+        storage_path: storagePath,
+        uploaded_by: userId,
+        entity_type: 'tenant_logo',
+        entity_id: tenantId,
+      },
+    });
+
+    // Update tenant with logo_file_id
     await this.prisma.tenant.update({
       where: { id: tenantId } as any,
       data: { logo_file_id: file_id } as any,
     });
 
-    return { url };
+    // Create audit log
+    await this.prisma.auditLog.create({
+      data: {
+        tenant_id: tenantId,
+        actor_user_id: userId,
+        action: 'tenant_logo_uploaded',
+        entity_type: 'tenant',
+        entity_id: tenantId,
+        metadata_json: {
+          file_id,
+          original_filename: file.originalname,
+          size_bytes: file.size,
+        },
+      },
+    });
+
+    // Return file metadata
+    return {
+      file_id,
+      url,
+      metadata: {
+        original_filename: file.originalname,
+        mime_type: file.mimetype,
+        size_bytes: file.size,
+        storage_path: storagePath,
+      },
+    };
+  }
+
+  /**
+   * Delete tenant logo
+   */
+  async deleteLogo(tenantId: string, userId: string): Promise<{ message: string }> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId } as any,
+      select: { logo_file_id: true } as any,
+    });
+
+    const logoFileId = tenant?.logo_file_id as string | null | undefined;
+    if (!logoFileId) {
+      throw new BadRequestException('Tenant does not have a logo');
+    }
+
+    // Get file record
+    const fileRecord = await this.prisma.file.findUnique({
+      where: { file_id: logoFileId },
+    });
+
+    if (fileRecord) {
+      // Delete from filesystem (hard delete)
+      await this.fileStorage.deleteFileByPath(fileRecord.storage_path);
+
+      // Delete from database (hard delete)
+      await this.prisma.file.delete({ where: { id: fileRecord.id } });
+    }
+
+    // Update tenant to remove logo_file_id
+    await this.prisma.tenant.update({
+      where: { id: tenantId } as any,
+      data: { logo_file_id: null } as any,
+    });
+
+    // Create audit log
+    await this.prisma.auditLog.create({
+      data: {
+        tenant_id: tenantId,
+        actor_user_id: userId,
+        action: 'tenant_logo_deleted',
+        entity_type: 'tenant',
+        entity_id: tenantId,
+        metadata_json: {
+          file_id: logoFileId,
+        },
+      },
+    });
+
+    return { message: 'Logo deleted successfully' };
   }
 }

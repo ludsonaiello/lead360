@@ -1,14 +1,18 @@
 import { Injectable, NestMiddleware, NotFoundException } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { TenantService } from '../services/tenant.service';
+import { AuthenticatedUser } from '../../auth/entities/jwt-payload.entity';
 
-// Extend Express Request to include tenant_id
+// Extend Express Request to include tenant_id and tenant
+// Note: 'user' is defined by Passport.js and set by JwtStrategy
 declare global {
   namespace Express {
     interface Request {
       tenant_id?: string;
       tenant?: any;
     }
+    // Extend Express.User to match our AuthenticatedUser type
+    interface User extends AuthenticatedUser {}
   }
 }
 

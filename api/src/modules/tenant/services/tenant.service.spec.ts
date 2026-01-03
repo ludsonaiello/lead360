@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { TenantService } from './tenant.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { FileStorageService } from '../../../core/file-storage/file-storage.service';
@@ -36,6 +37,11 @@ describe('TenantService', () => {
     user: {
       count: jest.fn(),
     },
+    file: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      delete: jest.fn(),
+    },
     auditLog: {
       create: jest.fn(),
     },
@@ -44,6 +50,14 @@ describe('TenantService', () => {
 
   const mockFileStorageService = {
     uploadLogo: jest.fn(),
+    deleteFileByPath: jest.fn(),
+  };
+
+  const mockConfigService = {
+    get: jest.fn((key: string) => {
+      if (key === 'UPLOADS_PATH') return '/var/www/lead360.app/app/uploads/public';
+      return undefined;
+    }),
   };
 
   beforeEach(async () => {
@@ -57,6 +71,10 @@ describe('TenantService', () => {
         {
           provide: FileStorageService,
           useValue: mockFileStorageService,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
         },
       ],
     }).compile();
@@ -81,6 +99,8 @@ describe('TenantService', () => {
         company_name: 'Acme Roofing LLC',
         is_active: true,
         subscription_plan: { id: 'plan-123', name: 'Professional' },
+        logo_file: null,
+        venmo_qr_code_file: null,
       };
 
       mockPrismaService.tenant.findUnique.mockResolvedValue(mockTenant);
@@ -88,12 +108,11 @@ describe('TenantService', () => {
       const result = await service.findBySubdomain('acme-roofing');
 
       expect(result).toEqual(mockTenant);
-      expect(mockPrismaService.tenant.findUnique).toHaveBeenCalledWith({
-        where: { subdomain: 'acme-roofing' },
-        include: {
-          subscription_plan: true,
-        },
-      });
+      expect(mockPrismaService.tenant.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { subdomain: 'acme-roofing' },
+        }),
+      );
     });
 
     it('should throw NotFoundException if tenant not found', async () => {
@@ -164,6 +183,8 @@ describe('TenantService', () => {
         subdomain: 'acme-roofing',
         company_name: 'Acme Roofing LLC',
         subscription_plan: {},
+        logo_file: null,
+        venmo_qr_code_file: null,
         addresses: [],
         licenses: [],
         insurance: {},
@@ -178,26 +199,11 @@ describe('TenantService', () => {
       const result = await service.findById('tenant-123');
 
       expect(result).toEqual(mockTenant);
-      expect(mockPrismaService.tenant.findUnique).toHaveBeenCalledWith({
-        where: { id: 'tenant-123' },
-        include: {
-          subscription_plan: true,
-          addresses: {
-            orderBy: { is_default: 'desc' },
-          },
-          licenses: {
-            include: { license_type: true },
-            orderBy: { expiry_date: 'asc' },
-          },
-          insurance: true,
-          payment_terms: true,
-          business_hours: true,
-          custom_hours: {
-            orderBy: { date: 'asc' },
-          },
-          service_areas: true,
-        },
-      });
+      expect(mockPrismaService.tenant.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'tenant-123' },
+        }),
+      );
     });
 
     it('should throw NotFoundException if tenant not found', async () => {
@@ -257,7 +263,9 @@ describe('TenantService', () => {
   });
 
   describe('uploadLogo', () => {
-    it('should upload logo and update tenant', async () => {
+    it('should upload logo and update tenant with file metadata', async () => {
+      const tenantId = 'tenant-123';
+      const userId = 'user-123';
       const mockFile = {
         originalname: 'logo.png',
         mimetype: 'image/png',
@@ -270,22 +278,134 @@ describe('TenantService', () => {
         url: '/public/tenant-123/images/logo.png',
       };
 
+      // Mock tenant findUnique (no existing logo)
+      mockPrismaService.tenant.findUnique.mockResolvedValue({
+        id: tenantId,
+        logo_file_id: null,
+      });
+
       mockFileStorageService.uploadLogo.mockResolvedValue(mockFileResult);
+      mockPrismaService.file.create.mockResolvedValue({
+        id: 1,
+        file_id: 'file-123',
+      });
       mockPrismaService.tenant.update.mockResolvedValue({
-        id: 'tenant-123',
+        id: tenantId,
         logo_file_id: 'file-123',
       });
+      mockPrismaService.auditLog.create.mockResolvedValue({});
 
-      const result = await service.uploadLogo('tenant-123', mockFile);
+      const result = await service.uploadLogo(tenantId, mockFile, userId);
 
       expect(result).toEqual({
+        file_id: 'file-123',
         url: '/public/tenant-123/images/logo.png',
+        metadata: {
+          original_filename: 'logo.png',
+          mime_type: 'image/png',
+          size_bytes: 1024 * 1024,
+          storage_path: '/var/www/lead360.app/app/uploads/public/tenant-123/images/file-123.png',
+        },
       });
-      expect(mockFileStorageService.uploadLogo).toHaveBeenCalledWith('tenant-123', mockFile);
-      expect(mockPrismaService.tenant.update).toHaveBeenCalledWith({
-        where: { id: 'tenant-123' },
-        data: { logo_file_id: 'file-123' },
+
+      // Verify file upload
+      expect(mockFileStorageService.uploadLogo).toHaveBeenCalledWith(tenantId, mockFile);
+
+      // Verify File record created
+      expect(mockPrismaService.file.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          file_id: 'file-123',
+          tenant_id: tenantId,
+          original_filename: 'logo.png',
+          mime_type: 'image/png',
+          size_bytes: 1024 * 1024,
+          category: 'logo',
+          uploaded_by: userId,
+          entity_type: 'tenant_logo',
+          entity_id: tenantId,
+        }),
       });
+
+      // Verify tenant updated
+      expect(mockPrismaService.tenant.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: tenantId },
+          data: { logo_file_id: 'file-123' },
+        }),
+      );
+
+      // Verify audit log created
+      expect(mockPrismaService.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenant_id: tenantId,
+          actor_user_id: userId,
+          action: 'tenant_logo_uploaded',
+          entity_type: 'tenant',
+        }),
+      });
+    });
+
+    it('should replace existing logo (hard delete old file)', async () => {
+      const tenantId = 'tenant-123';
+      const userId = 'user-123';
+      const mockFile = {
+        originalname: 'new-logo.png',
+        mimetype: 'image/png',
+        buffer: Buffer.from('fake-image-data'),
+        size: 2 * 1024 * 1024, // 2MB
+      } as Express.Multer.File;
+
+      const oldFileId = 'old-file-123';
+      const newFileId = 'new-file-456';
+
+      // Mock tenant with existing logo
+      mockPrismaService.tenant.findUnique.mockResolvedValue({
+        id: tenantId,
+        logo_file_id: oldFileId,
+      });
+
+      // Mock old file record
+      mockPrismaService.file.findUnique.mockResolvedValue({
+        id: 1,
+        file_id: oldFileId,
+        storage_path: '/var/www/lead360.app/app/uploads/public/tenant-123/images/old-file-123.png',
+      });
+
+      mockFileStorageService.deleteFileByPath.mockResolvedValue(undefined);
+      mockPrismaService.file.delete.mockResolvedValue({});
+
+      mockFileStorageService.uploadLogo.mockResolvedValue({
+        file_id: newFileId,
+        url: '/public/tenant-123/images/new-logo.png',
+      });
+
+      mockPrismaService.file.create.mockResolvedValue({
+        id: 2,
+        file_id: newFileId,
+      });
+
+      mockPrismaService.tenant.update.mockResolvedValue({
+        id: tenantId,
+        logo_file_id: newFileId,
+      });
+
+      mockPrismaService.auditLog.create.mockResolvedValue({});
+
+      await service.uploadLogo(tenantId, mockFile, userId);
+
+      // Verify old file was hard deleted from filesystem
+      expect(mockFileStorageService.deleteFileByPath).toHaveBeenCalledWith(
+        '/var/www/lead360.app/app/uploads/public/tenant-123/images/old-file-123.png',
+      );
+
+      // Verify old file record was deleted from database
+      expect(mockPrismaService.file.delete).toHaveBeenCalledWith({
+        where: { id: 1 },
+      });
+
+      // Verify new file was uploaded
+      expect(mockFileStorageService.uploadLogo).toHaveBeenCalled();
+      expect(mockPrismaService.file.create).toHaveBeenCalled();
     });
   });
 

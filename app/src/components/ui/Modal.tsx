@@ -12,7 +12,7 @@ import { X } from 'lucide-react';
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title?: string;
+  title?: string | React.ReactNode;
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   showCloseButton?: boolean;
@@ -72,7 +72,7 @@ export function Modal({
                 {(title || showCloseButton) && (
                   <div className="flex items-center justify-between mb-4">
                     {title && (
-                      <Dialog.Title as="h3" className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                      <Dialog.Title as="h3" className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                         {title}
                       </Dialog.Title>
                     )}

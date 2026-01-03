@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   Users,
   FileText,
+  Building2,
   Settings,
   HelpCircle,
   X,
@@ -32,7 +33,8 @@ const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Customers', href: '/customers', icon: Users },
   { name: 'Documents', href: '/documents', icon: FileText },
-  { name: 'Settings', href: '/settings/profile', icon: Settings },
+  { name: 'Business Settings', href: '/settings/business', icon: Building2 },
+  { name: 'Profile Settings', href: '/settings/profile', icon: Settings },
   { name: 'Help', href: '/help', icon: HelpCircle },
 ];
 

@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Modal, ModalContent, ModalActions } from '@/components/ui/Modal';
+import { formatErrorForDisplay } from '@/lib/utils/errors';
 import { authApi } from '@/lib/api/auth';
 
 const forgotPasswordSchema = z.object({
@@ -22,7 +23,7 @@ type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 
 export function ForgotPasswordForm() {
   const [isLoading, setIsLoading] = useState(false);
-  const [errorModal, setErrorModal] = useState<string | null>(null);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
   const [successModal, setSuccessModal] = useState(false);
 
   const {
@@ -41,7 +42,8 @@ export function ForgotPasswordForm() {
       setSuccessModal(true);
       reset();
     } catch (error: any) {
-      setErrorModal(error.response?.data?.message || 'Failed to send reset email. Please try again.');
+      const errorInfo = formatErrorForDisplay(error, 'forgot-password');
+      setErrorModal({ title: errorInfo.title, message: errorInfo.message });
     } finally {
       setIsLoading(false);
     }
@@ -71,9 +73,9 @@ export function ForgotPasswordForm() {
       </form>
 
       {/* Error Modal */}
-      <Modal isOpen={!!errorModal} onClose={() => setErrorModal(null)} title="Error">
+      <Modal isOpen={!!errorModal} onClose={() => setErrorModal(null)} title={errorModal?.title || 'Error'}>
         <ModalContent>
-          <p className="text-gray-900 dark:text-gray-100">{errorModal}</p>
+          <p className="text-gray-700 dark:text-gray-300">{errorModal?.message}</p>
         </ModalContent>
         <ModalActions>
           <Button onClick={() => setErrorModal(null)}>Try Again</Button>

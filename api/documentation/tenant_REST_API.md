@@ -40,6 +40,32 @@ https://{subdomain}.lead360.app
 
 ---
 
+## File Metadata
+
+**IMPORTANT**: All file-related fields (`logo_file_id`, `document_file_id`, `gl_document_file_id`, `wc_document_file_id`, `venmo_qr_code_file_id`) include full file metadata in API responses.
+
+**File Metadata Object**:
+```json
+{
+  "file_id": "uuid",
+  "original_filename": "example.pdf",
+  "mime_type": "application/pdf",
+  "size_bytes": 2048576,
+  "created_at": "2024-01-01T10:00:00Z"
+}
+```
+
+**Benefits**:
+- No extra API calls needed to get file information
+- Display original filenames instead of UUIDs
+- Show file type icons based on MIME type
+- Format file sizes (e.g., "2.1 MB")
+- Build download URLs immediately
+
+**Null Values**: If no file is uploaded, the `*_file_id` will be `null` and the corresponding `*_file` object will also be `null`.
+
+---
+
 ## Role-Based Access Control (RBAC)
 
 | Endpoint Type | Allowed Roles |
@@ -111,9 +137,23 @@ Retrieve complete tenant profile including all relations.
   "account_type": "checking",
   "venmo_username": "@acmeroofing",
   "venmo_qr_code_file_id": "file-uuid-venmo",
+  "venmo_qr_code_file": {
+    "file_id": "file-uuid-venmo",
+    "original_filename": "venmo-qr.png",
+    "mime_type": "image/png",
+    "size_bytes": 12345,
+    "created_at": "2024-01-15T10:35:00Z"
+  },
 
   // BRANDING
   "logo_file_id": "file-uuid-logo",
+  "logo_file": {
+    "file_id": "file-uuid-logo",
+    "original_filename": "acme-logo.png",
+    "mime_type": "image/png",
+    "size_bytes": 45678,
+    "created_at": "2024-01-15T10:30:00Z"
+  },
   "primary_brand_color": "#007BFF",
   "secondary_brand_color": "#6C757D",
   "accent_color": "#28A745",
@@ -232,8 +272,9 @@ Update visual branding settings.
 **Request Body**:
 ```json
 {
-  "primary_color": "#007BFF",
-  "secondary_color": "#6C757D",
+  "primary_brand_color": "#007BFF",
+  "secondary_brand_color": "#6C757D",
+  "accent_color": "#28A745",
   "logo_file_id": "file-uuid-123",
   "company_website": "https://acmeroofing.com",
   "tagline": "Quality roofing since 1995"
@@ -241,16 +282,21 @@ Update visual branding settings.
 ```
 
 **Field Validations**:
-- `primary_color`, `secondary_color`: Hex format (`#RRGGBB`)
+- `primary_brand_color`, `secondary_brand_color`, `accent_color`: Hex format (`#RRGGBB`)
 - `company_website`: Valid URL
 - `tagline`: Max 200 characters
+- All fields are optional
 
 **Response** (200 OK):
 ```json
 {
   "id": "uuid",
-  "primary_color": "#007BFF",
-  ...
+  "primary_brand_color": "#007BFF",
+  "secondary_brand_color": "#6C757D",
+  "accent_color": "#28A745",
+  "logo_file_id": "file-uuid-123",
+  "company_website": "https://acmeroofing.com",
+  "tagline": "Quality roofing since 1995"
 }
 ```
 
@@ -272,7 +318,7 @@ Upload a logo image for the tenant. Accepted formats: PNG, JPG, JPEG, SVG (max 5
 **File Validations**:
 - **Formats**: PNG, JPG, JPEG, SVG
 - **Max Size**: 5MB
-- **Storage Location**: `./uploads/public/{tenant}/images/`
+- **Storage Location**: `${UPLOADS_PATH}/{tenant}/images/` (configured via environment variable)
 
 **Example using cURL**:
 ```bash
@@ -298,9 +344,24 @@ fetch('https://api.lead360.app/api/v1/tenants/current/logo', {
 **Response** (200 OK):
 ```json
 {
-  "url": "/public/acme-roofing/images/logo-uuid.png"
+  "file_id": "550e8400-e29b-41d4-a716-446655440000",
+  "url": "/public/acme-roofing/images/logo-550e8400-e29b-41d4-a716-446655440000.png",
+  "metadata": {
+    "original_filename": "company-logo.png",
+    "mime_type": "image/png",
+    "size_bytes": 45678,
+    "storage_path": "/var/www/lead360.app/app/uploads/public/acme-roofing/images/logo-550e8400-e29b-41d4-a716-446655440000.png"
+  }
 }
 ```
+
+**Response Fields**:
+- `file_id`: Unique identifier for the file record
+- `url`: Relative URL path to access the logo
+- `metadata.original_filename`: Original name of the uploaded file
+- `metadata.mime_type`: MIME type of the image (image/png, image/jpeg, image/svg+xml)
+- `metadata.size_bytes`: File size in bytes
+- `metadata.storage_path`: Absolute path where the file is stored on the server
 
 **Error Responses**:
 - `400 Bad Request` - Invalid file type or size exceeds 5MB
@@ -309,9 +370,43 @@ fetch('https://api.lead360.app/api/v1/tenants/current/logo', {
 
 **Notes**:
 - The uploaded logo is automatically set as the tenant's `logo_file_id`
-- Previous logo files are NOT automatically deleted
+- Previous logo files are **automatically deleted** (hard delete from filesystem and database)
 - The returned URL is relative to the uploads directory
 - Files are stored with a UUID prefix to prevent naming conflicts
+- File metadata is stored in the database for tracking purposes
+
+---
+
+### 6. Delete Tenant Logo
+
+Delete the tenant's logo image (hard delete from filesystem and database).
+
+**Endpoint**: `DELETE /api/v1/tenants/current/logo`
+
+**Authorization**: Required (Owner, Admin only)
+
+**Example using cURL**:
+```bash
+curl -X DELETE https://api.lead360.app/api/v1/tenants/current/logo \
+  -H "Authorization: Bearer <token>"
+```
+
+**Response** (200 OK):
+```json
+{
+  "message": "Logo deleted successfully"
+}
+```
+
+**Error Responses**:
+- `400 Bad Request` - Tenant does not have a logo
+- `401 Unauthorized` - Missing/invalid token
+- `403 Forbidden` - Insufficient permissions (requires Owner or Admin role)
+
+**Notes**:
+- Permanently deletes the logo file from both filesystem and database
+- Sets `logo_file_id` to null in the tenant record
+- Creates an audit log entry for the deletion
 
 ---
 
@@ -582,6 +677,13 @@ Retrieve all professional licenses for the tenant.
     "issue_date": "2020-01-15",
     "expiry_date": "2025-01-15",
     "document_file_id": "file-uuid",
+    "document_file": {
+      "file_id": "file-uuid",
+      "original_filename": "contractor-license-ca.pdf",
+      "mime_type": "application/pdf",
+      "size_bytes": 2048576,
+      "created_at": "2024-01-02T14:30:00Z"
+    },
     "license_type": {
       "id": "uuid",
       "name": "General Contractor License",
@@ -592,6 +694,44 @@ Retrieve all professional licenses for the tenant.
   }
 ]
 ```
+
+---
+
+### Get All License Types
+
+Retrieve all active license types available for selection (dropdown/autocomplete).
+
+**Endpoint**: `GET /api/v1/tenants/license-types`
+
+**Authorization**: Required (All roles)
+
+**Response** (200 OK):
+```json
+[
+  {
+    "id": "uuid",
+    "name": "General Contractor License",
+    "description": "Required for general construction work"
+  },
+  {
+    "id": "uuid",
+    "name": "Plumbing License",
+    "description": "Required for plumbing work"
+  },
+  {
+    "id": "uuid",
+    "name": "Electrical License",
+    "description": "Required for electrical work"
+  }
+]
+```
+
+**Notes**:
+- Returns only active license types (`is_active = true`)
+- Results are sorted alphabetically by name
+- This is a **global reference table** (not tenant-specific)
+- Used for dropdown/select options when creating licenses
+- If the desired license type is not in the list, users can select "Other" and use `custom_license_type` field
 
 ---
 
@@ -686,7 +826,7 @@ Update an existing license.
 
 ### Delete License
 
-Delete a license.
+Delete a license and all associated files (**cascading hard delete**).
 
 **Endpoint**: `DELETE /api/v1/tenants/current/licenses/:id`
 
@@ -695,7 +835,17 @@ Delete a license.
 **Path Parameters**:
 - `id`: License UUID
 
-**Response** (204 No Content)
+**Response** (200 OK):
+```json
+{
+  "message": "License deleted successfully"
+}
+```
+
+**Important Notes**:
+- **Cascading Delete**: When a license is deleted, any associated document file is **permanently deleted** from both the filesystem and database
+- This is a **hard delete** operation - the license and its files cannot be recovered
+- An audit log entry is created tracking the deletion, including the deleted file ID if applicable
 
 ---
 
@@ -726,6 +876,85 @@ Get expiry status of a license.
 
 ---
 
+### Upload License Document
+
+Upload a document (PDF, PNG, JPG) for a specific license.
+
+**Endpoint**: `POST /api/v1/tenants/current/licenses/:id/document`
+
+**Authorization**: Requires `Owner` or `Admin` role
+
+**Content-Type**: `multipart/form-data`
+
+**URL Parameters**:
+- `id` (required) - License ID (UUID)
+
+**Request Body**:
+```
+file: <binary> (required) - License document (PDF, PNG, JPG - max 10MB)
+```
+
+**Example Request** (cURL):
+```bash
+curl -X POST https://api.lead360.app/api/v1/tenants/current/licenses/{license-id}/document \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -F "file=@/path/to/license.pdf"
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "message": "Document uploaded successfully",
+  "file_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "url": "/public/tenant-uuid/files/a1b2c3d4-e5f6-7890-abcd-ef1234567890.pdf"
+}
+```
+
+**Notes**:
+- If license already has a document, the old one is **permanently deleted** (hard delete)
+- File is validated for type (PDF, PNG, JPG, JPEG only) and size (max 10MB)
+- Creates audit log entry for document upload
+- Updates `document_file_id` field on license record
+
+**Error Responses**:
+- `400 Bad Request` - Invalid file type or size
+- `404 Not Found` - License not found or belongs to different tenant
+- `403 Forbidden` - Insufficient permissions
+
+---
+
+### Delete License Document
+
+Delete the document attached to a license (**permanent hard delete**).
+
+**Endpoint**: `DELETE /api/v1/tenants/current/licenses/:id/document`
+
+**Authorization**: Requires `Owner` or `Admin` role
+
+**URL Parameters**:
+- `id` (required) - License ID (UUID)
+
+**Example Request**:
+```bash
+curl -X DELETE https://api.lead360.app/api/v1/tenants/current/licenses/{license-id}/document \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Success Response** (204 No Content)
+
+**Notes**:
+- File is permanently deleted from filesystem immediately
+- Database record is hard deleted
+- Sets `document_file_id = null` on license record
+- Creates audit log entry
+
+**Error Responses**:
+- `400 Bad Request` - License does not have a document
+- `404 Not Found` - License not found
+- `403 Forbidden` - Insufficient permissions
+
+---
+
 ## Insurance
 
 ### Get Insurance Information
@@ -748,6 +977,13 @@ Retrieve insurance information for the tenant (GL and WC).
   "gl_effective_date": "2024-01-01",
   "gl_expiry_date": "2025-01-01",
   "gl_document_file_id": "file-uuid",
+  "gl_document_file": {
+    "file_id": "file-uuid",
+    "original_filename": "general-liability-certificate.pdf",
+    "mime_type": "application/pdf",
+    "size_bytes": 1536000,
+    "created_at": "2024-01-01T09:15:00Z"
+  },
 
   "wc_insurance_provider": "Hartford",
   "wc_policy_number": "WC-789012",
@@ -755,6 +991,13 @@ Retrieve insurance information for the tenant (GL and WC).
   "wc_effective_date": "2024-01-01",
   "wc_expiry_date": "2025-01-01",
   "wc_document_file_id": "file-uuid",
+  "wc_document_file": {
+    "file_id": "file-uuid",
+    "original_filename": "workers-comp-policy.pdf",
+    "mime_type": "application/pdf",
+    "size_bytes": 2097152,
+    "created_at": "2024-01-01T09:20:00Z"
+  },
 
   "created_at": "2024-01-01T00:00:00Z",
   "updated_at": "2024-01-15T00:00:00Z"
@@ -850,6 +1093,116 @@ Check if both GL and WC insurance are currently valid.
   "all_covered": false
 }
 ```
+
+---
+
+### Upload General Liability (GL) Insurance Document
+
+Upload a document for GL insurance.
+
+**Endpoint**: `POST /api/v1/tenants/current/insurance/gl-document`
+
+**Authorization**: Requires `Owner` or `Admin` role
+
+**Content-Type**: `multipart/form-data`
+
+**Request Body**:
+```
+file: <binary> (required) - GL insurance document (PDF, PNG, JPG - max 10MB)
+```
+
+**Example Request**:
+```bash
+curl -X POST https://api.lead360.app/api/v1/tenants/current/insurance/gl-document \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -F "file=@/path/to/gl-insurance.pdf"
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "message": "GL document uploaded successfully",
+  "file_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "url": "/public/tenant-uuid/files/a1b2c3d4-e5f6-7890-abcd-ef1234567890.pdf"
+}
+```
+
+**Notes**:
+- Replaces existing GL document if present (old file permanently deleted)
+- Updates `gl_document_file_id` on insurance record
+- Creates audit log entry
+
+---
+
+### Upload Workers Compensation (WC) Insurance Document
+
+Upload a document for WC insurance.
+
+**Endpoint**: `POST /api/v1/tenants/current/insurance/wc-document`
+
+**Authorization**: Requires `Owner` or `Admin` role
+
+**Content-Type**: `multipart/form-data`
+
+**Request Body**:
+```
+file: <binary> (required) - WC insurance document (PDF, PNG, JPG - max 10MB)
+```
+
+**Example Request**:
+```bash
+curl -X POST https://api.lead360.app/api/v1/tenants/current/insurance/wc-document \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -F "file=@/path/to/wc-insurance.pdf"
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "message": "WC document uploaded successfully",
+  "file_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "url": "/public/tenant-uuid/files/a1b2c3d4-e5f6-7890-abcd-ef1234567890.pdf"
+}
+```
+
+**Notes**:
+- Replaces existing WC document if present (old file permanently deleted)
+- Updates `wc_document_file_id` on insurance record
+- Creates audit log entry
+
+---
+
+### Delete GL Insurance Document
+
+Delete the GL insurance document (**permanent hard delete**).
+
+**Endpoint**: `DELETE /api/v1/tenants/current/insurance/gl-document`
+
+**Authorization**: Requires `Owner` or `Admin` role
+
+**Success Response** (204 No Content)
+
+**Notes**:
+- Permanently deletes file from filesystem and database
+- Sets `gl_document_file_id = null`
+- Creates audit log entry
+
+---
+
+### Delete WC Insurance Document
+
+Delete the WC insurance document (**permanent hard delete**).
+
+**Endpoint**: `DELETE /api/v1/tenants/current/insurance/wc-document`
+
+**Authorization**: Requires `Owner` or `Admin` role
+
+**Success Response** (204 No Content)
+
+**Notes**:
+- Permanently deletes file from filesystem and database
+- Sets `wc_document_file_id = null`
+- Creates audit log entry
 
 ---
 

@@ -12,19 +12,85 @@ import { useRouter } from 'next/navigation';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { PhoneInput } from '@/components/ui/PhoneInput';
+import { Select, SelectOption } from '@/components/ui/Select';
+import { MaskedInput } from '@/components/ui/MaskedInput';
 import { Button } from '@/components/ui/Button';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 import { Modal, ModalContent, ModalActions } from '@/components/ui/Modal';
 import { registerSchema, type RegisterFormData } from '@/lib/utils/validation';
+import { formatErrorForDisplay } from '@/lib/utils/errors';
+import { sanitizePhone, sanitizeEIN, sanitizeString } from '@/lib/utils/sanitize';
 import { authApi } from '@/lib/api/auth';
 
 type Step = 1 | 2 | 3;
+
+const businessEntityTypeOptions: SelectOption[] = [
+  { value: 'sole_proprietorship', label: 'Sole Proprietorship' },
+  { value: 'llc', label: 'LLC (Limited Liability Company)' },
+  { value: 'corporation', label: 'Corporation' },
+  { value: 's-corporation', label: 'S-Corporation' },
+  { value: 'partnership', label: 'Partnership' },
+  { value: 'dba', label: 'DBA (Doing Business As)' },
+];
+
+const US_STATES: SelectOption[] = [
+  { value: 'AL', label: 'Alabama' },
+  { value: 'AK', label: 'Alaska' },
+  { value: 'AZ', label: 'Arizona' },
+  { value: 'AR', label: 'Arkansas' },
+  { value: 'CA', label: 'California' },
+  { value: 'CO', label: 'Colorado' },
+  { value: 'CT', label: 'Connecticut' },
+  { value: 'DE', label: 'Delaware' },
+  { value: 'FL', label: 'Florida' },
+  { value: 'GA', label: 'Georgia' },
+  { value: 'HI', label: 'Hawaii' },
+  { value: 'ID', label: 'Idaho' },
+  { value: 'IL', label: 'Illinois' },
+  { value: 'IN', label: 'Indiana' },
+  { value: 'IA', label: 'Iowa' },
+  { value: 'KS', label: 'Kansas' },
+  { value: 'KY', label: 'Kentucky' },
+  { value: 'LA', label: 'Louisiana' },
+  { value: 'ME', label: 'Maine' },
+  { value: 'MD', label: 'Maryland' },
+  { value: 'MA', label: 'Massachusetts' },
+  { value: 'MI', label: 'Michigan' },
+  { value: 'MN', label: 'Minnesota' },
+  { value: 'MS', label: 'Mississippi' },
+  { value: 'MO', label: 'Missouri' },
+  { value: 'MT', label: 'Montana' },
+  { value: 'NE', label: 'Nebraska' },
+  { value: 'NV', label: 'Nevada' },
+  { value: 'NH', label: 'New Hampshire' },
+  { value: 'NJ', label: 'New Jersey' },
+  { value: 'NM', label: 'New Mexico' },
+  { value: 'NY', label: 'New York' },
+  { value: 'NC', label: 'North Carolina' },
+  { value: 'ND', label: 'North Dakota' },
+  { value: 'OH', label: 'Ohio' },
+  { value: 'OK', label: 'Oklahoma' },
+  { value: 'OR', label: 'Oregon' },
+  { value: 'PA', label: 'Pennsylvania' },
+  { value: 'RI', label: 'Rhode Island' },
+  { value: 'SC', label: 'South Carolina' },
+  { value: 'SD', label: 'South Dakota' },
+  { value: 'TN', label: 'Tennessee' },
+  { value: 'TX', label: 'Texas' },
+  { value: 'UT', label: 'Utah' },
+  { value: 'VT', label: 'Vermont' },
+  { value: 'VA', label: 'Virginia' },
+  { value: 'WA', label: 'Washington' },
+  { value: 'WV', label: 'West Virginia' },
+  { value: 'WI', label: 'Wisconsin' },
+  { value: 'WY', label: 'Wyoming' },
+];
 
 export function RegisterForm() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [errorModal, setErrorModal] = useState<string | null>(null);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
   const [successModal, setSuccessModal] = useState(false);
   const [subdomainStatus, setSubdomainStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
 
@@ -33,6 +99,7 @@ export function RegisterForm() {
     handleSubmit,
     watch,
     trigger,
+    setValue,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -66,7 +133,16 @@ export function RegisterForm() {
     let fieldsToValidate: (keyof RegisterFormData)[] = [];
 
     if (currentStep === 1) {
-      fieldsToValidate = ['tenant_subdomain', 'company_name'];
+      fieldsToValidate = [
+        'tenant_subdomain',
+        'company_name',
+        'legal_business_name',
+        'business_entity_type',
+        'state_of_registration',
+        'ein',
+        'primary_contact_phone',
+        'primary_contact_email',
+      ];
     } else if (currentStep === 2) {
       fieldsToValidate = ['first_name', 'last_name', 'email', 'phone', 'password', 'confirm_password'];
     }
@@ -93,18 +169,31 @@ export function RegisterForm() {
       // Remove confirm_password before sending to API
       const { confirm_password, ...registrationData } = data;
 
-      // Ensure phone is in E.164 format or undefined
+      // Sanitize all fields before sending to API
+      // This ensures clean data even though backend has sanitization (defense-in-depth)
       const payload = {
-        ...registrationData,
-        phone: registrationData.phone && registrationData.phone.trim() !== ''
-          ? registrationData.phone
-          : undefined,
+        // User fields
+        email: sanitizeString(registrationData.email)!,
+        password: registrationData.password, // Don't sanitize password
+        first_name: sanitizeString(registrationData.first_name)!,
+        last_name: sanitizeString(registrationData.last_name)!,
+        phone: sanitizePhone(registrationData.phone), // Convert E.164 to 10-digit format
+        // Tenant fields
+        tenant_subdomain: sanitizeString(registrationData.tenant_subdomain)!,
+        company_name: sanitizeString(registrationData.company_name)!,
+        legal_business_name: sanitizeString(registrationData.legal_business_name)!,
+        business_entity_type: registrationData.business_entity_type,
+        state_of_registration: registrationData.state_of_registration,
+        ein: sanitizeEIN(registrationData.ein)!,
+        primary_contact_phone: sanitizePhone(registrationData.primary_contact_phone)!,
+        primary_contact_email: sanitizeString(registrationData.primary_contact_email)!,
       };
 
       await authApi.register(payload);
       setSuccessModal(true);
-    } catch (error: any) {
-      setErrorModal(error.response?.data?.message || 'Registration failed. Please try again.');
+    } catch (error) {
+      const errorInfo = formatErrorForDisplay(error, 'register');
+      setErrorModal({ title: errorInfo.title, message: errorInfo.message });
     } finally {
       setIsLoading(false);
     }
@@ -162,6 +251,7 @@ export function RegisterForm() {
               required
               autoFocus
               disabled={isLoading}
+              helperText="Your business name as it will appear in the application"
             />
 
             <div>
@@ -171,7 +261,7 @@ export function RegisterForm() {
                 error={errors.tenant_subdomain?.message}
                 required
                 disabled={isLoading}
-                helperText="This will be your unique URL: subdomain.lead360.com"
+                helperText="This will be your unique URL: subdomain.lead360.app"
                 rightIcon={
                   subdomainStatus === 'checking' ? (
                     <Loader2 className="h-4 w-4 animate-spin text-gray-500 dark:text-gray-400" />
@@ -189,6 +279,69 @@ export function RegisterForm() {
                 <p className="mt-2 text-sm font-medium text-red-600 dark:text-red-400">✗ Not available</p>
               )}
             </div>
+
+            <Input
+              label="Legal Business Name"
+              {...register('legal_business_name')}
+              error={errors.legal_business_name?.message}
+              required
+              disabled={isLoading}
+              helperText="Your official registered business name"
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Select
+                label="Business Entity Type"
+                options={businessEntityTypeOptions}
+                value={watch('business_entity_type') || ''}
+                onChange={(value) =>
+                  setValue(
+                    'business_entity_type',
+                    value as 'sole_proprietorship' | 'llc' | 'corporation' | 's-corporation' | 'partnership' | 'dba'
+                  )
+                }
+                error={errors.business_entity_type?.message}
+                required
+              />
+
+              <Select
+                label="State of Registration"
+                options={US_STATES}
+                value={watch('state_of_registration') || ''}
+                onChange={(value) => setValue('state_of_registration', value)}
+                error={errors.state_of_registration?.message}
+                searchable
+                required
+              />
+            </div>
+
+            <MaskedInput
+              label="EIN (Employer Identification Number)"
+              {...register('ein')}
+              mask="99-9999999"
+              maskChar={null}
+              placeholder="XX-XXXXXXX"
+              error={errors.ein?.message}
+              required
+            />
+
+            <PhoneInput
+              label="Primary Contact Phone"
+              {...register('primary_contact_phone')}
+              error={errors.primary_contact_phone?.message}
+              required
+              placeholder="+1 (555) 123-4567"
+            />
+
+            <Input
+              label="Primary Contact Email"
+              type="email"
+              {...register('primary_contact_email')}
+              error={errors.primary_contact_email?.message}
+              required
+              disabled={isLoading}
+              helperText="Main business contact email"
+            />
 
             <Button type="button" onClick={handleNext} fullWidth disabled={subdomainStatus !== 'available'}>
               Next
@@ -291,7 +444,32 @@ export function RegisterForm() {
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Your Unique URL</p>
-                    <p className="text-base font-bold text-blue-600 dark:text-blue-400">{watch('tenant_subdomain')}.lead360.com</p>
+                    <p className="text-base font-bold text-blue-600 dark:text-blue-400">{watch('tenant_subdomain')}.lead360.app</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Legal Business Name</p>
+                    <p className="text-base font-bold text-gray-900 dark:text-gray-100">{watch('legal_business_name')}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Business Type</p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                        {businessEntityTypeOptions.find((o) => o.value === watch('business_entity_type'))?.label}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">State</p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{watch('state_of_registration')}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">EIN</p>
+                    <p className="text-base font-bold text-gray-900 dark:text-gray-100">{watch('ein')}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Primary Contact</p>
+                    <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{watch('primary_contact_email')}</p>
+                    <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{watch('primary_contact_phone')}</p>
                   </div>
                 </div>
               </div>
@@ -334,9 +512,9 @@ export function RegisterForm() {
       </form>
 
       {/* Error Modal */}
-      <Modal isOpen={!!errorModal} onClose={() => setErrorModal(null)} title="Registration Failed">
+      <Modal isOpen={!!errorModal} onClose={() => setErrorModal(null)} title={errorModal?.title || 'Error'}>
         <ModalContent>
-          <p className="text-gray-900 dark:text-gray-100">{errorModal}</p>
+          <p className="text-gray-700 dark:text-gray-300">{errorModal?.message}</p>
         </ModalContent>
         <ModalActions>
           <Button onClick={() => setErrorModal(null)}>Try Again</Button>

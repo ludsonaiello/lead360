@@ -9,6 +9,10 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
+import {
+  SanitizeZipCode,
+  ToUpperCase,
+} from '../../../common/validators/formatted-inputs';
 
 export enum AddressType {
   LEGAL = 'legal',
@@ -58,19 +62,30 @@ export class CreateAddressDto {
   })
   @IsString()
   @Length(2, 2)
+  @ToUpperCase()
   @Matches(/^[A-Z]{2}$/, { message: 'Must be a valid 2-letter state code' })
-  @Transform(({ value }) => value?.toUpperCase())
   state: string;
 
   @ApiProperty({
-    description: 'ZIP code (5 or 9 digits)',
+    description: 'ZIP code (accepts any format, stores as XXXXX or XXXXX-XXXX)',
     example: '02101',
   })
   @IsString()
+  @SanitizeZipCode()
   @Matches(/^\d{5}(-\d{4})?$/, {
     message: 'ZIP code must be 5 digits or ZIP+4 format',
   })
   zip_code: string;
+
+  @ApiPropertyOptional({
+    description: 'Country code (3-letter ISO code)',
+    example: 'USA',
+    default: 'USA',
+  })
+  @IsString()
+  @IsOptional()
+  @Length(3, 3)
+  country?: string;
 
   @ApiPropertyOptional({
     description: 'Latitude',

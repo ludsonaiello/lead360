@@ -8,6 +8,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
+import { SanitizeDate } from '../../../common/validators/formatted-inputs';
 
 export class CreateLicenseDto {
   @ApiPropertyOptional({
@@ -46,17 +47,19 @@ export class CreateLicenseDto {
   issuing_state: string;
 
   @ApiPropertyOptional({
-    description: 'Issue date',
+    description: 'Issue date (accepts YYYY-MM-DD or ISO-8601)',
     example: '2020-01-15',
   })
+  @SanitizeDate()
   @IsDateString()
   @IsOptional()
   issue_date?: string;
 
   @ApiProperty({
-    description: 'Expiry date',
+    description: 'Expiry date (accepts YYYY-MM-DD or ISO-8601)',
     example: '2025-01-15',
   })
+  @SanitizeDate()
   @IsDateString()
   expiry_date: string;
 

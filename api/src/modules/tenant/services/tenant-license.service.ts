@@ -4,12 +4,16 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { FileStorageService } from '../../../core/file-storage/file-storage.service';
 import { CreateLicenseDto } from '../dto/create-license.dto';
 import { UpdateLicenseDto } from '../dto/update-license.dto';
 
 @Injectable()
 export class TenantLicenseService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly fileStorage: FileStorageService,
+  ) {}
 
   /**
    * Get all licenses for a tenant
@@ -17,7 +21,18 @@ export class TenantLicenseService {
   async findAll(tenantId: string) {
     return this.prisma.tenantLicense.findMany({
       where: { tenant_id: tenantId } as any,
-      include: { license_type: true } as any,
+      include: {
+        license_type: true,
+        document_file: {
+          select: {
+            file_id: true,
+            original_filename: true,
+            mime_type: true,
+            size_bytes: true,
+            created_at: true,
+          },
+        },
+      } as any,
       orderBy: { expiry_date: 'asc' } as any,
     });
   }
@@ -31,7 +46,18 @@ export class TenantLicenseService {
         id: licenseId,
         tenant_id: tenantId, // CRITICAL: Tenant isolation
       } as any,
-      include: { license_type: true } as any,
+      include: {
+        license_type: true,
+        document_file: {
+          select: {
+            file_id: true,
+            original_filename: true,
+            mime_type: true,
+            size_bytes: true,
+            created_at: true,
+          },
+        },
+      } as any,
     });
 
     if (!license) {
@@ -215,6 +241,21 @@ export class TenantLicenseService {
     // Verify license exists and belongs to tenant
     const existingLicense = await this.findOne(tenantId, licenseId);
 
+    // If license has an associated document, delete it (hard delete)
+    if (existingLicense.document_file_id) {
+      const fileRecord = await this.prisma.file.findUnique({
+        where: { file_id: existingLicense.document_file_id },
+      });
+
+      if (fileRecord) {
+        // Delete from filesystem
+        await this.fileStorage.deleteFileByPath(fileRecord.storage_path);
+
+        // Delete from database
+        await this.prisma.file.delete({ where: { id: fileRecord.id } });
+      }
+    }
+
     await this.prisma.$transaction(async (tx) => {
       await tx.tenantLicense.delete({
         where: { id: licenseId } as any,
@@ -228,7 +269,10 @@ export class TenantLicenseService {
           action: 'DELETE',
           entity_type: 'TenantLicense',
           entity_id: licenseId,
-          metadata_json: {  deleted: existingLicense } as any,
+          metadata_json: {
+            deleted: existingLicense,
+            deleted_file_id: existingLicense.document_file_id || null,
+          } as any,
         } as any,
       });
     });
@@ -261,5 +305,131 @@ export class TenantLicenseService {
       status,
       days_until_expiry: daysUntilExpiry,
     };
+  }
+
+  /**
+   * Upload document for a license
+   */
+  async uploadDocument(
+    tenantId: string,
+    licenseId: string,
+    file: Express.Multer.File,
+    userId: string,
+  ) {
+    // Verify license exists and belongs to tenant
+    const license = await this.findOne(tenantId, licenseId);
+
+    // Upload file using FileStorageService
+    const { file_id, url, metadata } = await this.fileStorage.uploadFile(
+      tenantId,
+      file,
+      {
+        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'],
+        maxSizeBytes: 10 * 1024 * 1024, // 10MB
+        category: 'license',
+      },
+    );
+
+    // If license already has a document, delete the old one
+    if (license.document_file_id) {
+      const oldFile = await this.prisma.file.findUnique({
+        where: { file_id: license.document_file_id },
+      });
+      if (oldFile) {
+        await this.fileStorage.deleteFileByPath(oldFile.storage_path);
+        await this.prisma.file.delete({ where: { id: oldFile.id } });
+      }
+    }
+
+    // Create File record in database
+    const fileRecord = await this.prisma.file.create({
+      data: {
+        file_id,
+        tenant_id: tenantId,
+        original_filename: metadata.original_filename,
+        mime_type: metadata.mime_type,
+        size_bytes: metadata.size_bytes,
+        category: 'license',
+        storage_path: metadata.storage_path,
+        uploaded_by: userId,
+        entity_type: 'license',
+        entity_id: licenseId,
+      },
+    });
+
+    // Update license with document_file_id
+    await this.prisma.tenantLicense.update({
+      where: { id: licenseId },
+      data: { document_file_id: file_id },
+    });
+
+    // Create audit log
+    await this.prisma.auditLog.create({
+      data: {
+        tenant_id: tenantId,
+        actor_user_id: userId,
+        action: 'license_document_uploaded',
+        entity_type: 'license',
+        entity_id: licenseId,
+        metadata_json: {
+          file_id,
+          original_filename: metadata.original_filename,
+          size_bytes: metadata.size_bytes,
+        },
+      },
+    });
+
+    return {
+      message: 'Document uploaded successfully',
+      file_id,
+      url,
+    };
+  }
+
+  /**
+   * Delete document for a license
+   */
+  async deleteDocument(tenantId: string, licenseId: string, userId: string) {
+    // Verify license exists and belongs to tenant
+    const license = await this.findOne(tenantId, licenseId);
+
+    if (!license.document_file_id) {
+      throw new BadRequestException('License does not have a document');
+    }
+
+    // Get file record
+    const fileRecord = await this.prisma.file.findUnique({
+      where: { file_id: license.document_file_id },
+    });
+
+    if (fileRecord) {
+      // Delete from filesystem (hard delete)
+      await this.fileStorage.deleteFileByPath(fileRecord.storage_path);
+
+      // Delete from database (hard delete)
+      await this.prisma.file.delete({ where: { id: fileRecord.id } });
+    }
+
+    // Update license to remove document_file_id
+    await this.prisma.tenantLicense.update({
+      where: { id: licenseId },
+      data: { document_file_id: null },
+    });
+
+    // Create audit log
+    await this.prisma.auditLog.create({
+      data: {
+        tenant_id: tenantId,
+        actor_user_id: userId,
+        action: 'license_document_deleted',
+        entity_type: 'license',
+        entity_id: licenseId,
+        metadata_json: {
+          file_id: license.document_file_id,
+        },
+      },
+    });
+
+    return { message: 'Document deleted successfully' };
   }
 }

@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Modal, ModalContent, ModalActions } from '@/components/ui/Modal';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
+import { getUserFriendlyError } from '@/lib/utils/errors';
 import { authApi } from '@/lib/api/auth';
 import toast from 'react-hot-toast';
 
@@ -67,7 +68,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
       reset();
       onClose();
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Failed to change password';
+      const errorMessage = getUserFriendlyError(error, 'change-password');
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);

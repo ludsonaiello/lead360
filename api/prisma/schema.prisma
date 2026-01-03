@@ -83,6 +83,8 @@ model Tenant {
 
   // Relations
   subscription_plan   SubscriptionPlan?   @relation(fields: [subscription_plan_id], references: [id])
+  logo_file           File?               @relation("TenantLogo", fields: [logo_file_id], references: [file_id])
+  venmo_qr_code_file  File?               @relation("TenantVenmoQR", fields: [venmo_qr_code_file_id], references: [file_id])
   users               User[]
   roles               Role[]
   audit_logs          AuditLog[]
@@ -93,6 +95,7 @@ model Tenant {
   business_hours      TenantBusinessHours?
   custom_hours        TenantCustomHours[]
   service_areas       TenantServiceArea[]
+  files               File[]
 
   @@index([subdomain])
   @@index([is_active])
@@ -138,6 +141,7 @@ model User {
   user_roles     UserRole[]
   audit_logs     AuditLog[]
   signature      UserSignature?
+  uploaded_files File[]
 
   @@unique([email, tenant_id], name: "email_tenant_unique")
   @@index([tenant_id, is_active])
@@ -335,8 +339,9 @@ model TenantLicense {
   updated_at           DateTime  @updatedAt
 
   // Relations
-  tenant       Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  license_type LicenseType? @relation(fields: [license_type_id], references: [id])
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  license_type  LicenseType? @relation(fields: [license_type_id], references: [id])
+  document_file File?        @relation("LicenseDocument", fields: [document_file_id], references: [file_id])
 
   @@index([tenant_id, expiry_date])
   @@index([expiry_date]) // For global expiry alerts
@@ -366,7 +371,9 @@ model TenantInsurance {
   updated_at            DateTime  @updatedAt
 
   // Relations
-  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  tenant           Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  gl_document_file File?  @relation("GLInsuranceDocument", fields: [gl_document_file_id], references: [file_id])
+  wc_document_file File?  @relation("WCInsuranceDocument", fields: [wc_document_file_id], references: [file_id])
 
   @@index([gl_expiry_date])
   @@index([wc_expiry_date])
@@ -507,4 +514,43 @@ model UserSignature {
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("user_signature")
+}
+
+// ============================================
+// FILE - File metadata tracking
+// ============================================
+
+model File {
+  id                String    @id @default(uuid()) @db.VarChar(36)
+  tenant_id         String    @db.VarChar(36)
+  file_id           String    @unique @db.VarChar(36)
+  original_filename String    @db.VarChar(255)
+  mime_type         String    @db.VarChar(100)
+  size_bytes        Int
+  category          String    @db.VarChar(50)
+  storage_path      String    @db.VarChar(500)
+  uploaded_by       String    @db.VarChar(36)
+  entity_type       String?   @db.VarChar(50)
+  entity_id         String?   @db.VarChar(36)
+  is_orphan         Boolean   @default(false)
+  orphaned_at       DateTime?
+  is_trashed        Boolean   @default(false)
+  trashed_at        DateTime?
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  // Relations
+  tenant                    Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  uploader                  User               @relation(fields: [uploaded_by], references: [id])
+  tenant_logos              Tenant[]           @relation("TenantLogo")
+  tenant_venmo_qrs          Tenant[]           @relation("TenantVenmoQR")
+  license_documents         TenantLicense[]    @relation("LicenseDocument")
+  gl_insurance_documents    TenantInsurance[]  @relation("GLInsuranceDocument")
+  wc_insurance_documents    TenantInsurance[]  @relation("WCInsuranceDocument")
+
+  @@index([tenant_id, category])
+  @@index([tenant_id, is_orphan])
+  @@index([tenant_id, is_trashed])
+  @@index([file_id])
+  @@map("file")
 }

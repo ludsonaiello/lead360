@@ -10,6 +10,7 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -108,7 +109,10 @@ export class AuthController {
     description: 'Invalid or expired refresh token',
   })
   async refresh(@Req() request: Request) {
-    const { userId } = request.user as { userId: string; tokenHash: string };
+    const userId = request.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException('User not authenticated');
+    }
     return this.authService.refresh(userId);
   }
 

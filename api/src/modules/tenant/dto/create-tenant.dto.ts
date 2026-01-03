@@ -9,14 +9,22 @@ import {
   Min,
   IsDateString,
   IsNotIn,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
+import {
+  SanitizePhone,
+  SanitizeEIN,
+  ToUpperCase,
+  ToLowerCase,
+  SanitizeDate,
+} from '../../../common/validators/formatted-inputs';
 
 export enum BusinessEntityType {
   SOLE_PROPRIETORSHIP = 'sole_proprietorship',
   LLC = 'llc',
   CORPORATION = 'corporation',
+  S_CORPORATION = 's-corporation',
   PARTNERSHIP = 'partnership',
   DBA = 'dba',
 }
@@ -49,7 +57,7 @@ export class CreateTenantDto {
   @IsNotIn(RESERVED_SUBDOMAINS, {
     message: 'This subdomain is reserved and cannot be used',
   })
-  @Transform(({ value }) => value?.toLowerCase())
+  @ToLowerCase()
   subdomain: string;
 
   @ApiProperty({
@@ -92,32 +100,27 @@ export class CreateTenantDto {
   })
   @IsString()
   @Length(2, 2)
+  @ToUpperCase()
   @Matches(/^[A-Z]{2}$/, { message: 'Must be a valid 2-letter state code' })
-  @Transform(({ value }) => value?.toUpperCase())
   state_of_registration: string;
 
   @ApiPropertyOptional({
-    description: 'Date of incorporation',
+    description: 'Date of incorporation (accepts YYYY-MM-DD or ISO-8601)',
     example: '2020-01-15',
   })
+  @SanitizeDate()
   @IsDateString()
   @IsOptional()
   date_of_incorporation?: string;
 
   @ApiProperty({
-    description: 'Employer Identification Number (EIN) in format XX-XXXXXXX',
+    description: 'Employer Identification Number (accepts any format, stores as XX-XXXXXXX)',
     example: '12-3456789',
   })
   @IsString()
+  @SanitizeEIN()
   @Matches(/^\d{2}-\d{7}$/, {
     message: 'EIN must be in format XX-XXXXXXX (9 digits)',
-  })
-  @Transform(({ value }) => {
-    // Auto-format if user enters 9 digits without hyphen
-    if (/^\d{9}$/.test(value)) {
-      return `${value.slice(0, 2)}-${value.slice(2)}`;
-    }
-    return value;
   })
   ein: string;
 
@@ -125,8 +128,9 @@ export class CreateTenantDto {
     description: 'State tax ID',
     example: 'ST-123456',
   })
-  @IsString()
   @IsOptional()
+  @ValidateIf((o) => o.state_tax_id !== null && o.state_tax_id !== '')
+  @IsString()
   @Length(1, 50)
   state_tax_id?: string;
 
@@ -134,30 +138,43 @@ export class CreateTenantDto {
     description: 'Sales tax permit number',
     example: 'STP-789012',
   })
-  @IsString()
   @IsOptional()
+  @ValidateIf((o) => o.sales_tax_permit !== null && o.sales_tax_permit !== '')
+  @IsString()
   @Length(1, 50)
   sales_tax_permit?: string;
 
+  @ApiPropertyOptional({
+    description: 'Country code (3-letter ISO code)',
+    example: 'USA',
+    default: 'USA',
+  })
+  @IsString()
+  @IsOptional()
+  @Length(3, 3)
+  country?: string;
+
   // CONTACT INFORMATION
   @ApiProperty({
-    description: 'Primary contact phone (10 digits)',
+    description: 'Primary contact phone (accepts any format, stores as 10 digits only)',
     example: '5551234567',
   })
   @IsString()
+  @SanitizePhone()
   @Matches(/^\d{10}$/, {
-    message: 'Phone must be 10 digits (no formatting)',
+    message: 'Phone must be 10 digits',
   })
   primary_contact_phone: string;
 
   @ApiPropertyOptional({
-    description: 'Secondary phone (10 digits)',
+    description: 'Secondary phone (accepts any format, stores as 10 digits only)',
     example: '5559876543',
   })
   @IsString()
   @IsOptional()
+  @SanitizePhone()
   @Matches(/^\d{10}$/, {
-    message: 'Phone must be 10 digits (no formatting)',
+    message: 'Phone must be 10 digits',
   })
   secondary_phone?: string;
 
@@ -238,4 +255,179 @@ export class CreateTenantDto {
   @IsString()
   @IsOptional()
   timezone?: string;
+
+  // FINANCIAL & PAYMENT INFORMATION
+  @ApiPropertyOptional({
+    description: 'Bank name',
+    example: 'Wells Fargo',
+  })
+  @IsOptional()
+  @ValidateIf((o) => o.bank_name !== null && o.bank_name !== '')
+  @IsString()
+  @Length(1, 100)
+  bank_name?: string;
+
+  @ApiPropertyOptional({
+    description: 'Bank routing number (9 digits, accepts any format)',
+    example: '123456789',
+  })
+  @IsString()
+  @IsOptional()
+  routing_number?: string;
+
+  @ApiPropertyOptional({
+    description: 'Bank account number (accepts any format)',
+    example: '123456789012',
+  })
+  @IsString()
+  @IsOptional()
+  account_number?: string;
+
+  @ApiPropertyOptional({
+    description: 'Account type',
+    example: 'checking',
+    enum: ['checking', 'savings'],
+  })
+  @IsString()
+  @IsOptional()
+  account_type?: string;
+
+  @ApiPropertyOptional({
+    description: 'Venmo username',
+    example: '@acmeroofing',
+  })
+  @IsOptional()
+  @ValidateIf((o) => o.venmo_username !== null && o.venmo_username !== '')
+  @IsString()
+  @Length(1, 50)
+  venmo_username?: string;
+
+  @ApiPropertyOptional({
+    description: 'Venmo QR code file ID',
+    example: 'file_abc123',
+  })
+  @IsString()
+  @IsOptional()
+  venmo_qr_code_file_id?: string;
+
+  // BRANDING
+  @ApiPropertyOptional({
+    description: 'Logo file ID',
+    example: 'file_logo123',
+  })
+  @IsString()
+  @IsOptional()
+  logo_file_id?: string;
+
+  @ApiPropertyOptional({
+    description: 'Primary brand color (hex)',
+    example: '#FF5733',
+  })
+  @IsString()
+  @IsOptional()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'Must be a valid hex color (#RRGGBB)' })
+  primary_brand_color?: string;
+
+  @ApiPropertyOptional({
+    description: 'Secondary brand color (hex)',
+    example: '#33FF57',
+  })
+  @IsString()
+  @IsOptional()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'Must be a valid hex color (#RRGGBB)' })
+  secondary_brand_color?: string;
+
+  @ApiPropertyOptional({
+    description: 'Accent color (hex)',
+    example: '#5733FF',
+  })
+  @IsString()
+  @IsOptional()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'Must be a valid hex color (#RRGGBB)' })
+  accent_color?: string;
+
+  // INVOICE & QUOTE SETTINGS
+  @ApiPropertyOptional({
+    description: 'Invoice number prefix',
+    example: 'INV',
+    default: 'INV',
+  })
+  @IsOptional()
+  @ValidateIf((o) => o.invoice_prefix !== null && o.invoice_prefix !== '')
+  @IsString()
+  @Length(1, 10)
+  invoice_prefix?: string;
+
+  @ApiPropertyOptional({
+    description: 'Next invoice number',
+    example: 1001,
+    default: 1,
+  })
+  @IsInt()
+  @IsOptional()
+  @Min(1)
+  next_invoice_number?: number;
+
+  @ApiPropertyOptional({
+    description: 'Quote number prefix',
+    example: 'Q-',
+    default: 'Q-',
+  })
+  @IsOptional()
+  @ValidateIf((o) => o.quote_prefix !== null && o.quote_prefix !== '')
+  @IsString()
+  @Length(1, 10)
+  quote_prefix?: string;
+
+  @ApiPropertyOptional({
+    description: 'Next quote number',
+    example: 1001,
+    default: 1,
+  })
+  @IsInt()
+  @IsOptional()
+  @Min(1)
+  next_quote_number?: number;
+
+  @ApiPropertyOptional({
+    description: 'Default quote validity days',
+    example: 30,
+    default: 30,
+  })
+  @IsInt()
+  @IsOptional()
+  @Min(1)
+  default_quote_validity_days?: number;
+
+  @ApiPropertyOptional({
+    description: 'Default quote terms',
+    example: 'Payment due upon acceptance',
+  })
+  @IsString()
+  @IsOptional()
+  default_quote_terms?: string;
+
+  @ApiPropertyOptional({
+    description: 'Default quote footer text',
+    example: 'Thank you for your business!',
+  })
+  @IsString()
+  @IsOptional()
+  default_quote_footer?: string;
+
+  @ApiPropertyOptional({
+    description: 'Default invoice footer text',
+    example: 'Thank you for your business!',
+  })
+  @IsString()
+  @IsOptional()
+  default_invoice_footer?: string;
+
+  @ApiPropertyOptional({
+    description: 'Default payment instructions',
+    example: 'Please make checks payable to ACME Roofing LLC',
+  })
+  @IsString()
+  @IsOptional()
+  default_payment_instructions?: string;
 }

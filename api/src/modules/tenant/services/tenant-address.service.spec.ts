@@ -87,7 +87,6 @@ describe('TenantAddressService', () => {
       const createdAddress = {
         id: 'addr-456',
         tenant_id: 'tenant-123',
-        is_default: false,
         ...createDto,
       };
 

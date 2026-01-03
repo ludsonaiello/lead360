@@ -9,6 +9,12 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  SanitizePhone,
+  SanitizeEIN,
+  ToLowerCase,
+  ToUpperCase,
+} from '../../../common/validators/formatted-inputs';
 
 export class RegisterDto {
   @ApiProperty({
@@ -17,7 +23,8 @@ export class RegisterDto {
     maxLength: 255,
   })
   @IsEmail({}, { message: 'Invalid email format' })
-  @Transform(({ value }) => value?.toLowerCase()?.trim())
+  @ToLowerCase()
+  @Transform(({ value }) => value?.trim())
   @MaxLength(255)
   email: string;
 
@@ -65,15 +72,15 @@ export class RegisterDto {
   last_name: string;
 
   @ApiPropertyOptional({
-    description: 'User phone number in E.164 format',
-    example: '+15551234567',
+    description: 'User phone number (accepts any format, stores as 10 digits only)',
+    example: '5551234567',
     maxLength: 20,
   })
   @IsOptional()
   @IsString()
-  @MaxLength(20)
-  @Matches(/^\+?[1-9]\d{1,14}$/, {
-    message: 'Phone number must be in E.164 format',
+  @SanitizePhone()
+  @Matches(/^\d{10}$/, {
+    message: 'Phone must be 10 digits',
   })
   phone?: string;
 
@@ -91,7 +98,8 @@ export class RegisterDto {
     message:
       'Subdomain must be lowercase, alphanumeric with hyphens (not at start or end)',
   })
-  @Transform(({ value }) => value?.toLowerCase()?.trim())
+  @ToLowerCase()
+  @Transform(({ value }) => value?.trim())
   tenant_subdomain: string;
 
   @ApiProperty({
@@ -133,34 +141,29 @@ export class RegisterDto {
   @IsString()
   @MinLength(2)
   @MaxLength(2)
+  @ToUpperCase()
   @Matches(/^[A-Z]{2}$/, { message: 'Must be a valid 2-letter state code' })
-  @Transform(({ value }) => value?.toUpperCase())
   state_of_registration: string;
 
   @ApiProperty({
-    description: 'Employer Identification Number (EIN) in format XX-XXXXXXX',
+    description: 'Employer Identification Number (accepts any format, stores as XX-XXXXXXX)',
     example: '12-3456789',
   })
   @IsString()
+  @SanitizeEIN()
   @Matches(/^\d{2}-\d{7}$/, {
     message: 'EIN must be in format XX-XXXXXXX (9 digits)',
-  })
-  @Transform(({ value }) => {
-    // Auto-format if user enters 9 digits without hyphen
-    if (/^\d{9}$/.test(value)) {
-      return `${value.slice(0, 2)}-${value.slice(2)}`;
-    }
-    return value;
   })
   ein: string;
 
   @ApiProperty({
-    description: 'Primary contact phone (10 digits)',
+    description: 'Primary contact phone (accepts any format, stores as 10 digits only)',
     example: '5551234567',
   })
   @IsString()
+  @SanitizePhone()
   @Matches(/^\d{10}$/, {
-    message: 'Phone must be 10 digits (no formatting)',
+    message: 'Phone must be 10 digits',
   })
   primary_contact_phone: string;
 

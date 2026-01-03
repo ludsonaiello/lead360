@@ -5,12 +5,13 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { loginSchema, LoginFormData } from '@/lib/utils/validation';
+import { formatErrorForDisplay } from '@/lib/utils/errors';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -22,7 +23,7 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [errorModal, setErrorModal] = useState<string | null>(null);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
 
   const {
     register,
@@ -38,9 +39,8 @@ export function LoginForm() {
       setErrorModal(null);
       await login({ ...data, remember_me: rememberMe });
     } catch (error: any) {
-      console.error('Login error:', error);
-      const message = error?.message || 'Invalid email or password. Please try again.';
-      setErrorModal(message);
+      const errorInfo = formatErrorForDisplay(error, 'login');
+      setErrorModal({ title: errorInfo.title, message: errorInfo.message });
     } finally {
       setIsLoading(false);
     }
@@ -122,9 +122,9 @@ export function LoginForm() {
       </form>
 
       {/* Error Modal */}
-      <Modal isOpen={!!errorModal} onClose={() => setErrorModal(null)} title="Login Failed">
+      <Modal isOpen={!!errorModal} onClose={() => setErrorModal(null)} title={errorModal?.title || 'Error'}>
         <ModalContent>
-          <p>{errorModal}</p>
+          <p className="text-gray-700 dark:text-gray-300">{errorModal?.message}</p>
         </ModalContent>
         <ModalActions>
           <Button onClick={() => setErrorModal(null)}>Try Again</Button>

@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 import { Modal, ModalContent, ModalActions } from '@/components/ui/Modal';
+import { formatErrorForDisplay } from '@/lib/utils/errors';
 import { authApi } from '@/lib/api/auth';
 
 const resetPasswordSchema = z
@@ -42,7 +43,7 @@ interface ResetPasswordFormProps {
 export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [errorModal, setErrorModal] = useState<string | null>(null);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
   const [successModal, setSuccessModal] = useState(false);
 
   const {
@@ -62,9 +63,8 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
       await authApi.resetPassword(token, data.password);
       setSuccessModal(true);
     } catch (error: any) {
-      setErrorModal(
-        error.response?.data?.message || 'Failed to reset password. The link may be invalid or expired.'
-      );
+      const errorInfo = formatErrorForDisplay(error, 'reset-password');
+      setErrorModal({ title: errorInfo.title, message: errorInfo.message });
     } finally {
       setIsLoading(false);
     }
@@ -110,10 +110,10 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
       </form>
 
       {/* Error Modal */}
-      <Modal isOpen={!!errorModal} onClose={() => setErrorModal(null)} title="Reset Failed">
+      <Modal isOpen={!!errorModal} onClose={() => setErrorModal(null)} title={errorModal?.title || 'Error'}>
         <ModalContent>
-          <p className="text-gray-900 dark:text-gray-100">{errorModal}</p>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 font-medium">
+          <p className="text-gray-700 dark:text-gray-300">{errorModal?.message}</p>
+          <p className="mt-3 text-sm text-gray-600 dark:text-gray-400 font-medium">
             You can request a new password reset link if this one has expired.
           </p>
         </ModalContent>

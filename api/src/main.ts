@@ -2,10 +2,22 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
+
+  // Global logging interceptor (logs RAW request BEFORE validation)
+  app.useGlobalInterceptors(new LoggingInterceptor());
+
+  // Global exception filters (order matters - HttpExceptionFilter runs first)
+  app.useGlobalFilters(
+    new HttpExceptionFilter(), // Handles HttpException with validation errors
+    new GlobalExceptionFilter(), // Catches all other exceptions
+  );
 
   // Global validation pipe
   app.useGlobalPipes(
