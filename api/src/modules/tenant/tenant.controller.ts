@@ -42,6 +42,7 @@ import { TenantInsuranceService } from './services/tenant-insurance.service';
 import { TenantPaymentTermsService } from './services/tenant-payment-terms.service';
 import { TenantBusinessHoursService } from './services/tenant-business-hours.service';
 import { TenantServiceAreaService } from './services/tenant-service-area.service';
+import { ServiceService } from './services/service.service';
 
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
@@ -57,6 +58,7 @@ import { CreateCustomHoursDto } from './dto/create-custom-hours.dto';
 import { UpdateCustomHoursDto } from './dto/update-custom-hours.dto';
 import { CreateServiceAreaDto } from './dto/create-service-area.dto';
 import { UpdateServiceAreaDto } from './dto/update-service-area.dto';
+import { AssignServicesDto } from './dto/assign-services.dto';
 
 @ApiTags('Tenants')
 @ApiBearerAuth()
@@ -74,6 +76,7 @@ export class TenantController {
     private readonly paymentTermsService: TenantPaymentTermsService,
     private readonly businessHoursService: TenantBusinessHoursService,
     private readonly serviceAreaService: TenantServiceAreaService,
+    private readonly serviceService: ServiceService,
   ) {}
 
   // ========== TENANT PROFILE ==========
@@ -561,5 +564,30 @@ export class TenantController {
     @Query('long', new DefaultValuePipe(0), ParseIntPipe) long: number,
   ) {
     return this.serviceAreaService.checkCoverage(req.user.tenant_id, lat, long);
+  }
+
+  // ========== SERVICES (TENANT) ==========
+
+  @Get('current/services')
+  @ApiOperation({ summary: 'Get all available services (for selection)' })
+  @ApiResponse({ status: 200, description: 'Services retrieved successfully' })
+  async getAllAvailableServices() {
+    return this.serviceService.findAll(false); // Only active services
+  }
+
+  @Get('current/assigned-services')
+  @ApiOperation({ summary: 'Get tenant\'s assigned services' })
+  @ApiResponse({ status: 200, description: 'Assigned services retrieved successfully' })
+  async getAssignedServices(@Request() req) {
+    return this.serviceService.getTenantServices(req.user.tenant_id);
+  }
+
+  @Post('current/assign-services')
+  @Roles('Owner', 'Admin')
+  @ApiOperation({ summary: 'Assign services to tenant' })
+  @ApiResponse({ status: 200, description: 'Services assigned successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid service IDs' })
+  async assignServices(@Request() req, @Body() assignDto: AssignServicesDto) {
+    return this.serviceService.assignServices(req.user.tenant_id, assignDto, req.user.userId);
   }
 }

@@ -123,8 +123,6 @@ export function LicenseFormModal({ isOpen, onClose, onSuccess, license }: Licens
     },
   });
 
-  console.log(license);
-
   useEffect(() => {
     loadLicenseTypes();
   }, []);

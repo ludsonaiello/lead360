@@ -2,8 +2,10 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { Prisma } from '@prisma/client';
 import { UpdateBusinessHoursDto } from '../dto/update-business-hours.dto';
 import { CreateCustomHoursDto } from '../dto/create-custom-hours.dto';
 import { UpdateCustomHoursDto } from '../dto/update-custom-hours.dto';
@@ -159,20 +161,32 @@ export class TenantBusinessHoursService {
    * Get all custom hours (holidays, special dates) for a tenant
    */
   async findAllCustomHours(tenantId: string) {
-    return this.prisma.tenantCustomHours.findMany({
+    const customHours = await this.prisma.tenantCustomHours.findMany({
       where: { tenant_id: tenantId } as any,
       orderBy: { date: 'asc' } as any,
     });
+
+    // Format dates to YYYY-MM-DD (strip time component since DB stores DATE only)
+    return customHours.map((ch) => ({
+      ...ch,
+      date: ch.date instanceof Date ? ch.date.toISOString().split('T')[0] : ch.date,
+    }));
   }
 
   /**
    * Get custom hours for a specific date
    */
-  async findCustomHoursByDate(tenantId: string, date: string) {
+  async findCustomHoursByDate(tenantId: string, date: string | Date) {
+    // Ensure date is a Date object at noon UTC
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    if (typeof date === 'string') {
+      dateObj.setUTCHours(12, 0, 0, 0);
+    }
+
     return this.prisma.tenantCustomHours.findFirst({
       where: {
         tenant_id: tenantId,
-        date: new Date(date),
+        date: dateObj,
       } as any,
     });
   }
@@ -191,9 +205,9 @@ export class TenantBusinessHoursService {
 
     // Validate time logic if not closed
     if (!createDto.closed) {
-      if (!createDto.open1 || !createDto.close1) {
+      if (!createDto.open_time1 || !createDto.close_time1) {
         throw new BadRequestException(
-          'Opening time 1 and closing time 1 are required when not closed',
+          'First shift opening and closing times are required when not closed',
         );
       }
 
@@ -202,47 +216,62 @@ export class TenantBusinessHoursService {
         return hours * 60 + minutes;
       };
 
-      if (timeToMinutes(createDto.open1) >= timeToMinutes(createDto.close1)) {
-        throw new BadRequestException('Opening time 1 must be before closing time 1');
+      if (timeToMinutes(createDto.open_time1) >= timeToMinutes(createDto.close_time1)) {
+        throw new BadRequestException('First shift opening time must be before closing time');
       }
 
-      if (createDto.open2 && createDto.close2) {
-        if (timeToMinutes(createDto.close1) >= timeToMinutes(createDto.open2)) {
+      if (createDto.open_time2 && createDto.close_time2) {
+        if (timeToMinutes(createDto.close_time1) >= timeToMinutes(createDto.open_time2)) {
           throw new BadRequestException(
-            'Closing time 1 must be before opening time 2',
+            'First shift closing time must be before second shift opening time',
           );
         }
-        if (timeToMinutes(createDto.open2) >= timeToMinutes(createDto.close2)) {
-          throw new BadRequestException('Opening time 2 must be before closing time 2');
+        if (timeToMinutes(createDto.open_time2) >= timeToMinutes(createDto.close_time2)) {
+          throw new BadRequestException('Second shift opening time must be before closing time');
         }
       }
     }
 
-    const customHours = await this.prisma.$transaction(async (tx) => {
-      const newCustomHours = await tx.tenantCustomHours.create({
-        data: {
-          tenant_id: tenantId,
-          ...createDto,
-          date: new Date(createDto.date),
-        } as any,
+    try {
+      const customHours = await this.prisma.$transaction(async (tx) => {
+        const newCustomHours = await tx.tenantCustomHours.create({
+          data: {
+            tenant_id: tenantId,
+            ...createDto,
+            // date is already a Date object at noon UTC from DTO transformation
+          } as any,
+        });
+
+        // Audit log
+        await tx.auditLog.create({
+          data: {
+            tenant_id: tenantId,
+            actor_user_id: userId,
+            action: 'CREATE',
+            entity_type: 'TenantCustomHours',
+            entity_id: newCustomHours.id,
+            metadata_json: {  created: createDto } as any,
+          } as any,
+        });
+
+        return newCustomHours;
       });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          action: 'CREATE',
-          entity_type: 'TenantCustomHours',
-          entity_id: newCustomHours.id,
-          metadata_json: {  created: createDto } as any,
-        } as any,
-      });
-
-      return newCustomHours;
-    });
-
-    return customHours;
+      // Format date to YYYY-MM-DD (strip time component since DB stores DATE only)
+      return {
+        ...customHours,
+        date: customHours.date instanceof Date ? customHours.date.toISOString().split('T')[0] : customHours.date,
+      };
+    } catch (error) {
+      // Handle unique constraint violation (duplicate date)
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException(
+          `Custom hours already exist for this date. Please use update instead.`,
+        );
+      }
+      // Re-throw other errors
+      throw error;
+    }
   }
 
   /**
@@ -266,31 +295,81 @@ export class TenantBusinessHoursService {
       throw new NotFoundException('Custom hours not found');
     }
 
-    const customHours = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.tenantCustomHours.update({
-        where: { id: customHoursId } as any,
-        data: updateDto,
-      });
+    // Validate time logic if updating to not closed
+    const isClosed = updateDto.closed !== undefined ? updateDto.closed : existing.closed;
+    if (!isClosed) {
+      const open1 = updateDto.open_time1 || existing.open_time1;
+      const close1 = updateDto.close_time1 || existing.close_time1;
+      const open2 = updateDto.open_time2 !== undefined ? updateDto.open_time2 : existing.open_time2;
+      const close2 = updateDto.close_time2 !== undefined ? updateDto.close_time2 : existing.close_time2;
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          action: 'UPDATE',
-          entity_type: 'TenantCustomHours',
-          entity_id: customHoursId,
-          metadata_json: { 
-            old: existing,
-            new: updateDto,
+      if (!open1 || !close1) {
+        throw new BadRequestException(
+          'First shift opening and closing times are required when not closed',
+        );
+      }
+
+      const timeToMinutes = (time: string): number => {
+        const [hours, minutes] = time.split(':').map(Number);
+        return hours * 60 + minutes;
+      };
+
+      if (timeToMinutes(open1) >= timeToMinutes(close1)) {
+        throw new BadRequestException('First shift opening time must be before closing time');
+      }
+
+      if (open2 && close2) {
+        if (timeToMinutes(close1) >= timeToMinutes(open2)) {
+          throw new BadRequestException(
+            'First shift closing time must be before second shift opening time',
+          );
+        }
+        if (timeToMinutes(open2) >= timeToMinutes(close2)) {
+          throw new BadRequestException('Second shift opening time must be before closing time');
+        }
+      }
+    }
+
+    try {
+      const customHours = await this.prisma.$transaction(async (tx) => {
+        const updated = await tx.tenantCustomHours.update({
+          where: { id: customHoursId } as any,
+          data: updateDto,
+        });
+
+        // Audit log
+        await tx.auditLog.create({
+          data: {
+            tenant_id: tenantId,
+            actor_user_id: userId,
+            action: 'UPDATE',
+            entity_type: 'TenantCustomHours',
+            entity_id: customHoursId,
+            metadata_json: {
+              old: existing,
+              new: updateDto,
+            } as any,
           } as any,
-        } as any,
+        });
+
+        return updated;
       });
 
-      return updated;
-    });
-
-    return customHours;
+      // Format date to YYYY-MM-DD (strip time component since DB stores DATE only)
+      return {
+        ...customHours,
+        date: customHours.date instanceof Date ? customHours.date.toISOString().split('T')[0] : customHours.date,
+      };
+    } catch (error) {
+      // Handle unique constraint violation (duplicate date if date was changed)
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException(
+          `Custom hours already exist for this date. Please choose a different date.`,
+        );
+      }
+      // Re-throw other errors
+      throw error;
+    }
   }
 
   /**

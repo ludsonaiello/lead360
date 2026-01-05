@@ -25,6 +25,7 @@ export interface TenantProfile {
   ein: string | null;
   state_tax_id: string | null;
   sales_tax_permit: string | null;
+  services_offered: string[]; // Array of service names
 
   // CONTACT INFORMATION
   primary_contact_phone: string | null;
@@ -63,6 +64,10 @@ export interface TenantProfile {
   default_quote_footer: string | null;
   default_invoice_footer: string | null;
   default_payment_instructions: string | null;
+  sales_tax_rate: number | null; // 0-99.999%
+  default_profit_margin: number | null; // 0-999.99%
+  default_overhead_rate: number | null; // 0-999.99%
+  default_contingency_rate: number | null; // 0-999.99%
 
   // OPERATIONAL
   timezone: string | null;
@@ -283,7 +288,7 @@ export interface PaymentTerm {
 export interface PaymentTerms {
   id: string;
   tenant_id: string;
-  terms: PaymentTerm[];
+  terms_json: PaymentTerm[];
   created_at: string;
   updated_at: string;
 }
@@ -410,34 +415,34 @@ export interface CustomHours {
   id: string;
   tenant_id: string;
   date: string; // ISO 8601 date string
-  label: string;
-  is_closed: boolean;
-  open1: string | null; // HH:MM format
-  close1: string | null;
-  open2: string | null;
-  close2: string | null;
+  reason: string;
+  closed: boolean;
+  open_time1: string | null; // HH:MM format
+  close_time1: string | null;
+  open_time2: string | null;
+  close_time2: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface CreateCustomHoursData {
   date: string;
-  label: string;
-  is_closed: boolean;
-  open1?: string | null;
-  close1?: string | null;
-  open2?: string | null;
-  close2?: string | null;
+  reason: string;
+  closed: boolean;
+  open_time1?: string | null;
+  close_time1?: string | null;
+  open_time2?: string | null;
+  close_time2?: string | null;
 }
 
 export interface UpdateCustomHoursData {
   date?: string;
-  label?: string;
-  is_closed?: boolean;
-  open1?: string | null;
-  close1?: string | null;
-  open2?: string | null;
-  close2?: string | null;
+  reason?: string;
+  closed?: boolean;
+  open_time1?: string | null;
+  close_time1?: string | null;
+  open_time2?: string | null;
+  close_time2?: string | null;
 }
 
 // ==========================================
@@ -447,35 +452,41 @@ export interface UpdateCustomHoursData {
 export interface ServiceArea {
   id: string;
   tenant_id: string;
-  area_type: 'city' | 'zipcode' | 'radius';
-  city: string | null;
-  state: string | null;
-  zipcode: string | null;
-  center_lat: number | null;
-  center_long: number | null;
-  radius_miles: number | null;
+  type: 'city' | 'zipcode' | 'radius' | 'state'; // Database field is 'type', not 'area_type'
+  value: string; // City name, ZIP code, or description
+  latitude: string; // Decimal as string
+  longitude: string; // Decimal as string
+  radius_miles: string | null; // Decimal as string
+  state: string | null; // 2-letter code
+  city_name: string | null; // City name for all types (except entire state)
+  zipcode: string | null; // ZIP code for all types (except entire state)
+  entire_state: boolean; // True for state type, false for others
   created_at: string;
   updated_at: string;
 }
 
 export interface CreateServiceAreaData {
-  area_type: 'city' | 'zipcode' | 'radius';
+  area_type: 'city' | 'zipcode' | 'radius' | 'state';
   city?: string | null;
   state?: string | null;
   zipcode?: string | null;
   center_lat?: number | null;
   center_long?: number | null;
   radius_miles?: number | null;
+  city_name?: string | null;
+  entire_state?: boolean;
 }
 
 export interface UpdateServiceAreaData {
-  area_type?: 'city' | 'zipcode' | 'radius';
+  area_type?: 'city' | 'zipcode' | 'radius' | 'state';
   city?: string | null;
   state?: string | null;
   zipcode?: string | null;
   center_lat?: number | null;
   center_long?: number | null;
   radius_miles?: number | null;
+  city_name?: string | null;
+  entire_state?: boolean;
 }
 
 export interface ServiceAreaWithDistance extends ServiceArea {
@@ -485,6 +496,24 @@ export interface ServiceAreaWithDistance extends ServiceArea {
 export interface ServiceCoverageCheck {
   is_covered: boolean;
   covering_areas: ServiceAreaWithDistance[];
+}
+
+// ==========================================
+// SERVICES
+// ==========================================
+
+export interface Service {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AssignServicesData {
+  service_ids: string[]; // Array of service UUIDs (0-50 items)
 }
 
 // ==========================================

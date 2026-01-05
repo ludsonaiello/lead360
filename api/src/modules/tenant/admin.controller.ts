@@ -27,12 +27,15 @@ import { Roles } from '../auth/decorators';
 import { TenantService } from './services/tenant.service';
 import { SubscriptionService } from './services/subscription.service';
 import { LicenseTypeService } from './services/license-type.service';
+import { ServiceService } from './services/service.service';
 
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { CreateSubscriptionPlanDto } from './dto/create-subscription-plan.dto';
 import { UpdateSubscriptionPlanDto } from './dto/update-subscription-plan.dto';
 import { CreateLicenseTypeDto } from './dto/create-license-type.dto';
 import { UpdateLicenseTypeDto } from './dto/update-license-type.dto';
+import { CreateServiceDto } from './dto/create-service.dto';
+import { UpdateServiceDto } from './dto/update-service.dto';
 
 /**
  * Admin Controller
@@ -52,6 +55,7 @@ export class AdminController {
     private readonly tenantService: TenantService,
     private readonly subscriptionService: SubscriptionService,
     private readonly licenseTypeService: LicenseTypeService,
+    private readonly serviceService: ServiceService,
   ) {}
 
   // ========== TENANT MANAGEMENT ==========
@@ -292,5 +296,57 @@ export class AdminController {
         total: totalUsers,
       },
     };
+  }
+
+  // ========== SERVICE MANAGEMENT ==========
+
+  @Get('services')
+  @ApiOperation({ summary: 'List all services (admin-only)' })
+  @ApiQuery({ name: 'include_inactive', required: false, description: 'Include inactive services', example: false })
+  @ApiResponse({ status: 200, description: 'Services retrieved successfully' })
+  async getAllServices(
+    @Query('include_inactive', new DefaultValuePipe(false), ParseBoolPipe) includeInactive: boolean,
+  ) {
+    return this.serviceService.findAll(includeInactive);
+  }
+
+  @Get('services/:id')
+  @ApiOperation({ summary: 'Get service by ID (admin-only)' })
+  @ApiParam({ name: 'id', description: 'Service UUID' })
+  @ApiResponse({ status: 200, description: 'Service retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Service not found' })
+  async getService(@Param('id', ParseUUIDPipe) id: string) {
+    return this.serviceService.findOne(id);
+  }
+
+  @Post('services')
+  @ApiOperation({ summary: 'Create a new service (admin-only)' })
+  @ApiResponse({ status: 201, description: 'Service created successfully' })
+  @ApiResponse({ status: 409, description: 'Service already exists' })
+  async createService(@Body() createDto: CreateServiceDto) {
+    return this.serviceService.create(createDto);
+  }
+
+  @Patch('services/:id')
+  @ApiOperation({ summary: 'Update a service (admin-only)' })
+  @ApiParam({ name: 'id', description: 'Service UUID' })
+  @ApiResponse({ status: 200, description: 'Service updated successfully' })
+  @ApiResponse({ status: 404, description: 'Service not found' })
+  @ApiResponse({ status: 409, description: 'Service name/slug already exists' })
+  async updateService(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateDto: UpdateServiceDto,
+  ) {
+    return this.serviceService.update(id, updateDto);
+  }
+
+  @Post('services/:id/delete')
+  @ApiOperation({ summary: 'Delete a service (admin-only)' })
+  @ApiParam({ name: 'id', description: 'Service UUID' })
+  @ApiResponse({ status: 200, description: 'Service deleted successfully' })
+  @ApiResponse({ status: 400, description: 'Cannot delete service assigned to tenants' })
+  @ApiResponse({ status: 404, description: 'Service not found' })
+  async deleteService(@Param('id', ParseUUIDPipe) id: string) {
+    return this.serviceService.delete(id);
   }
 }

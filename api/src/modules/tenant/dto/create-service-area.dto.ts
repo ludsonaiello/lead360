@@ -15,6 +15,7 @@ export enum ServiceAreaType {
   CITY = 'city',
   ZIPCODE = 'zipcode',
   RADIUS = 'radius',
+  STATE = 'state',
 }
 
 export class CreateServiceAreaDto {

@@ -7,9 +7,14 @@ import {
   IsEnum,
   IsInt,
   Min,
+  Max,
   IsDateString,
   IsNotIn,
   ValidateIf,
+  IsNumber,
+  IsArray,
+  ArrayMinSize,
+  ArrayMaxSize,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
@@ -430,4 +435,57 @@ export class CreateTenantDto {
   @IsString()
   @IsOptional()
   default_payment_instructions?: string;
+
+  // BUSINESS SETTINGS
+  @ApiPropertyOptional({
+    description: 'Sales tax rate (percentage)',
+    example: 6.25,
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(99.999)
+  sales_tax_rate?: number;
+
+  @ApiPropertyOptional({
+    description: 'Array of service IDs to assign to tenant',
+    example: ['uuid-1', 'uuid-2'],
+    type: [String],
+  })
+  @IsArray()
+  @IsOptional()
+  @IsString({ each: true })
+  @ArrayMinSize(0)
+  @ArrayMaxSize(50)
+  services_offered?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Default profit margin (percentage) for quotes',
+    example: 15.0,
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(999.99)
+  default_profit_margin?: number;
+
+  @ApiPropertyOptional({
+    description: 'Default overhead rate (percentage) for quotes',
+    example: 12.5,
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(999.99)
+  default_overhead_rate?: number;
+
+  @ApiPropertyOptional({
+    description: 'Default contingency rate (percentage) for quotes',
+    example: 5.0,
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(999.99)
+  default_contingency_rate?: number;
 }

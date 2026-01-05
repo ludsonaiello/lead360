@@ -164,6 +164,11 @@ export class TenantService {
           orderBy: { date: 'asc' } as any,
         } as any,
         service_areas: true,
+        tenant_services: {
+          include: {
+            service: true,
+          },
+        },
       } as any,
     });
 
@@ -171,7 +176,13 @@ export class TenantService {
       throw new NotFoundException(`Tenant not found`);
     }
 
-    return tenant;
+    // Transform tenant_services to services_offered array for backward compatibility
+    const services_offered = tenant.tenant_services?.map((ts: any) => ts.service) || [];
+
+    return {
+      ...tenant,
+      services_offered,
+    };
   }
 
   /**
@@ -313,11 +324,14 @@ export class TenantService {
       throw new NotFoundException('Tenant not found');
     }
 
+    // Extract services_offered if present (handle separately)
+    const { services_offered, ...tenantData } = updateTenantDto as any;
+
     // Track changes for audit log
     const changes: Record<string, { old: any; new: any }> = {};
-    Object.keys(updateTenantDto).forEach((key) => {
+    Object.keys(tenantData).forEach((key) => {
       const oldValue = existingTenant[key];
-      const newValue = updateTenantDto[key];
+      const newValue = tenantData[key];
       if (oldValue !== newValue) {
         changes[key] = { old: oldValue, new: newValue };
       }
@@ -327,11 +341,35 @@ export class TenantService {
     const updatedTenant = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.tenant.update({
         where: { id: tenantId } as any,
-        data: updateTenantDto,
+        data: tenantData,
         include: {
           subscription_plan: true,
         } as any,
       });
+
+      // Handle services_offered if provided
+      if (services_offered !== undefined && Array.isArray(services_offered)) {
+        // Delete existing service assignments
+        await tx.tenantService.deleteMany({
+          where: { tenant_id: tenantId } as any,
+        });
+
+        // Create new service assignments if array is not empty
+        if (services_offered.length > 0) {
+          await tx.tenantService.createMany({
+            data: services_offered.map((service_id: string) => ({
+              tenant_id: tenantId,
+              service_id,
+            })) as any,
+          });
+        }
+
+        // Add to audit log
+        changes['services_offered'] = {
+          old: 'previous_services',
+          new: services_offered,
+        };
+      }
 
       // Create audit log entry for changes
       if (Object.keys(changes).length > 0) {

@@ -21,6 +21,7 @@ interface WizardProps {
   onNext?: () => void;
   onPrevious?: () => void;
   onFinish?: () => void;
+  onStepClick?: (stepIndex: number) => void;
   canGoNext?: boolean;
   canGoPrevious?: boolean;
   isLoading?: boolean;
@@ -34,6 +35,7 @@ export function Wizard({
   onNext,
   onPrevious,
   onFinish,
+  onStepClick,
   canGoNext = true,
   canGoPrevious = true,
   isLoading = false,
@@ -51,19 +53,26 @@ export function Wizard({
         {/* Step labels */}
         <div className="flex justify-between mb-4">
           {steps.map((step, index) => (
-            <div
+            <button
               key={step.id}
-              className={`flex items-center gap-2 ${
+              type="button"
+              onClick={() => onStepClick?.(index)}
+              disabled={!onStepClick || isLoading}
+              className={`flex items-center gap-2 transition-all ${
                 index === currentStep
                   ? 'text-blue-600 dark:text-blue-400 font-semibold'
                   : index < currentStep
                   ? 'text-green-600 dark:text-green-400 font-medium'
                   : 'text-gray-500 dark:text-gray-400 font-medium'
+              } ${
+                onStepClick && !isLoading
+                  ? 'hover:scale-105 cursor-pointer'
+                  : 'cursor-default'
               }`}
             >
               <div
                 className={`
-                  w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2
+                  w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all
                   ${
                     index === currentStep
                       ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400'
@@ -76,7 +85,7 @@ export function Wizard({
                 {index + 1}
               </div>
               <span className="hidden sm:inline text-sm">{step.label}</span>
-            </div>
+            </button>
           ))}
         </div>
 

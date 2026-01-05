@@ -56,8 +56,6 @@ export function BrandingForm({ tenant, onUpdate }: BrandingFormProps) {
     },
   });
 
-  console.log(tenant);
-
   const primaryColor = watch('primary_brand_color') || '#007BFF';
   const secondaryColor = watch('secondary_brand_color') || '#6C757D';
   const accentColor = watch('accent_color') || '#28A745';
@@ -209,7 +207,7 @@ export function BrandingForm({ tenant, onUpdate }: BrandingFormProps) {
                     <img
                       src={logoUrl}
                       alt="Company Logo"
-                      className="h-12 object-contain bg-white rounded px-2 py-1"
+                      className="h-12 object-contain"
                     />
                   ) : (
                     <div className="h-12 w-32 bg-white/20 rounded flex items-center justify-center text-xs">

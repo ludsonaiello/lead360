@@ -33,12 +33,15 @@ export function ServiceAreaList() {
       setIsLoading(true);
       const data = await tenantApi.getAllServiceAreas();
       setServiceAreas(data);
+      console.log(data);
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Failed to load service areas');
     } finally {
       setIsLoading(false);
     }
   };
+
+  console.log(serviceAreas);
 
   const handleEdit = (area: ServiceArea) => {
     setEditingArea(area);
@@ -81,28 +84,38 @@ export function ServiceAreaList() {
   };
 
   const getAreaTypeBadge = (type: string) => {
-    const variants: Record<string, 'info' | 'success' | 'warning'> = {
+    const variants: Record<string, 'info' | 'success' | 'warning' | 'neutral'> = {
       city: 'info',
       zipcode: 'success',
       radius: 'warning',
+      state: 'neutral',
+    };
+
+    const labels: Record<string, string> = {
+      city: 'City',
+      zipcode: 'ZIP Code',
+      radius: 'Radius',
+      state: 'Entire State',
     };
 
     return (
       <Badge
         variant={variants[type] || 'neutral'}
-        label={type.charAt(0).toUpperCase() + type.slice(1)}
+        label={labels[type] || type.charAt(0).toUpperCase() + type.slice(1)}
       />
     );
   };
 
   const formatAreaDescription = (area: ServiceArea) => {
-    switch (area.area_type) {
+    switch (area.type) {
       case 'city':
-        return `${area.city}, ${area.state}`;
+        return `${area.value}, ${area.state}`;
       case 'zipcode':
-        return area.zipcode;
+        return area.value;
       case 'radius':
-        return `${area.radius_miles} miles from (${area.center_lat?.toFixed(4)}, ${area.center_long?.toFixed(4)})`;
+        return `${area.radius_miles} miles from (${parseFloat(area.latitude).toFixed(4)}, ${parseFloat(area.longitude).toFixed(4)})`;
+      case 'state':
+        return area.value; // Already contains state name
       default:
         return 'Unknown';
     }
@@ -110,9 +123,10 @@ export function ServiceAreaList() {
 
   // Group areas by type
   const groupedAreas = {
-    city: serviceAreas.filter((a) => a.area_type === 'city'),
-    zipcode: serviceAreas.filter((a) => a.area_type === 'zipcode'),
-    radius: serviceAreas.filter((a) => a.area_type === 'radius'),
+    city: serviceAreas.filter((a) => a.type === 'city'),
+    zipcode: serviceAreas.filter((a) => a.type === 'zipcode'),
+    radius: serviceAreas.filter((a) => a.type === 'radius'),
+    state: serviceAreas.filter((a) => a.type === 'state'),
   };
 
   if (isLoading) {
@@ -167,9 +181,11 @@ export function ServiceAreaList() {
                   >
                     <div>
                       <p className="font-semibold text-gray-900 dark:text-gray-100">
-                        {area.city}
+                        {area.value}, {area.state}
                       </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{area.state}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {parseFloat(area.latitude).toFixed(4)}, {parseFloat(area.longitude).toFixed(4)}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -200,16 +216,23 @@ export function ServiceAreaList() {
                 <MapPin className="w-5 h-5 text-green-600 dark:text-green-400" />
                 ZIP Codes ({groupedAreas.zipcode.length})
               </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {groupedAreas.zipcode.map((area) => (
                   <div
                     key={area.id}
                     className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
                   >
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">
-                      {area.zipcode}
-                    </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900 dark:text-gray-100">
+                        {area.value}
+                      </p>
+                      {area.city_name && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          {area.city_name}, {area.state}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 ml-2">
                       <button
                         onClick={() => handleEdit(area)}
                         className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
@@ -246,10 +269,10 @@ export function ServiceAreaList() {
                   >
                     <div>
                       <p className="font-semibold text-gray-900 dark:text-gray-100">
-                        {area.radius_miles} mile radius
+                        {area.value}
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Center: {area.center_lat?.toFixed(4)}, {area.center_long?.toFixed(4)}
+                        Center: {parseFloat(area.latitude).toFixed(4)}, {parseFloat(area.longitude).toFixed(4)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -266,6 +289,44 @@ export function ServiceAreaList() {
                         title="Delete"
                       >
                         <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Entire States */}
+          {groupedAreas.state.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                Entire States ({groupedAreas.state.length})
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {groupedAreas.state.map((area) => (
+                  <div
+                    key={area.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
+                  >
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">
+                      {area.value}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleEdit(area)}
+                        className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                        title="Edit"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClick(area)}
+                        className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     </div>
                   </div>
@@ -300,7 +361,7 @@ export function ServiceAreaList() {
             </p>
             <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-2">
               <div className="flex items-center gap-2">
-                {getAreaTypeBadge(deletingArea.area_type)}
+                {getAreaTypeBadge(deletingArea.type)}
               </div>
               <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                 {formatAreaDescription(deletingArea)}

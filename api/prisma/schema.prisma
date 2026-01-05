@@ -67,6 +67,12 @@ model Tenant {
   default_invoice_footer   String?   @db.Text
   default_payment_instructions String? @db.Text
 
+  // BUSINESS SETTINGS
+  sales_tax_rate           Decimal?  @db.Decimal(5, 3) // Percentage (0.000 - 99.999%)
+  default_profit_margin    Decimal?  @db.Decimal(5, 2) // Percentage (0.00 - 999.99%)
+  default_overhead_rate    Decimal?  @db.Decimal(5, 2) // Percentage (0.00 - 999.99%)
+  default_contingency_rate Decimal?  @db.Decimal(5, 2) // Percentage (0.00 - 999.99%)
+
   // OPERATIONAL
   timezone                 String    @default("America/New_York") @db.VarChar(50)
 
@@ -95,6 +101,7 @@ model Tenant {
   business_hours      TenantBusinessHours?
   custom_hours        TenantCustomHours[]
   service_areas       TenantServiceArea[]
+  tenant_services     TenantService[]
   files               File[]
 
   @@index([subdomain])
@@ -453,15 +460,17 @@ model TenantBusinessHours {
 // ============================================
 
 model TenantCustomHours {
-  id         String    @id @default(uuid()) @db.VarChar(36)
-  tenant_id  String    @db.VarChar(36)
-  date       DateTime  @db.Date
-  reason     String    @db.VarChar(255) // e.g., "Christmas", "Vacation"
-  closed     Boolean   @default(false)
-  open_time  String?   @db.VarChar(5) // Nullable if closed=true
-  close_time String?   @db.VarChar(5)
-  created_at DateTime  @default(now())
-  updated_at DateTime  @updatedAt
+  id          String    @id @default(uuid()) @db.VarChar(36)
+  tenant_id   String    @db.VarChar(36)
+  date        DateTime  @db.Date
+  reason      String    @db.VarChar(255) // e.g., "Christmas", "Vacation"
+  closed      Boolean   @default(false)
+  open_time1  String?   @db.VarChar(5) // First shift opening time
+  close_time1 String?   @db.VarChar(5) // First shift closing time
+  open_time2  String?   @db.VarChar(5) // Second shift opening time (after lunch)
+  close_time2 String?   @db.VarChar(5) // Second shift closing time
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
 
   // Relations
   tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -476,16 +485,19 @@ model TenantCustomHours {
 // ============================================
 
 model TenantServiceArea {
-  id           String   @id @default(uuid()) @db.VarChar(36)
-  tenant_id    String   @db.VarChar(36)
-  type         String   @db.VarChar(20) // city, zipcode, radius
-  value        String   @db.VarChar(100) // City name, ZIP code, or description
-  latitude     Decimal  @db.Decimal(10, 8)
-  longitude    Decimal  @db.Decimal(11, 8)
-  radius_miles Decimal? @db.Decimal(5, 2) // Only for radius type
-  state        String?  @db.VarChar(2) // For city type
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
+  id            String   @id @default(uuid()) @db.VarChar(36)
+  tenant_id     String   @db.VarChar(36)
+  type          String   @db.VarChar(20) // city, zipcode, radius, state
+  value         String   @db.VarChar(100) // City name, ZIP code, or description
+  latitude      Decimal  @db.Decimal(10, 8)
+  longitude     Decimal  @db.Decimal(11, 8)
+  radius_miles  Decimal? @db.Decimal(5, 2) // Only for radius type
+  state         String?  @db.VarChar(2) // State code (2 letters)
+  city_name     String?  @db.VarChar(100) // City name (optional)
+  zipcode       String?  @db.VarChar(10) // ZIP code (optional)
+  entire_state  Boolean  @default(false) // True if covering entire state
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
 
   // Relations
   tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -553,4 +565,45 @@ model File {
   @@index([tenant_id, is_trashed])
   @@index([file_id])
   @@map("file")
+}
+
+// ============================================
+// SERVICE - Master list of available services
+// ============================================
+
+model Service {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  name        String   @unique @db.VarChar(100) // e.g., "Roofing", "Gutter", "Plumbing"
+  slug        String   @unique @db.VarChar(100) // e.g., "roofing", "gutter", "plumbing"
+  description String?  @db.VarChar(500)
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  // Relations
+  tenant_services TenantService[]
+
+  @@index([is_active])
+  @@index([slug])
+  @@map("service")
+}
+
+// ============================================
+// TENANT SERVICE - Junction table for tenant services
+// ============================================
+
+model TenantService {
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  tenant_id  String   @db.VarChar(36)
+  service_id String   @db.VarChar(36)
+  created_at DateTime @default(now())
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [service_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, service_id], name: "tenant_service_unique")
+  @@index([tenant_id])
+  @@index([service_id])
+  @@map("tenant_service")
 }

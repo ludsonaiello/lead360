@@ -57,8 +57,11 @@ export function PaymentTermsBuilder() {
       const data = await tenantApi.getPaymentTerms();
       setPaymentTerms(data);
 
-      if (data.terms && data.terms.length > 0) {
-        reset({ terms: data.terms });
+      // API returns terms_json, not terms
+      if (data.terms_json && data.terms_json.length > 0) {
+        reset({ terms: data.terms_json });
+      } else {
+        console.log('No terms found in response, data.terms_json:', data.terms_json);
       }
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Failed to load payment terms');
@@ -79,7 +82,21 @@ export function PaymentTermsBuilder() {
   const onSubmit = async (data: PaymentTermsFormData) => {
     try {
       setIsSubmitting(true);
+      console.log('Submitting payment terms:', data);
+
+      // Calculate total percentage for percentage-based terms
+      const percentageTerms = data.terms.filter(term => term.type === 'percentage');
+      const totalPercentage = percentageTerms.reduce((sum, term) => sum + (term.amount || 0), 0);
+
+      // Block if total percentage exceeds 100%
+      if (totalPercentage > 100) {
+        toast.error(`Total percentage cannot exceed 100%. Current total: ${totalPercentage}%`);
+        setIsSubmitting(false);
+        return;
+      }
+
       const response = await tenantApi.updatePaymentTerms(data);
+      console.log('Update response:', response);
 
       if (response.validation?.percentage_warning) {
         toast.success(`Payment terms updated. ${response.validation.percentage_warning}`, {
@@ -91,6 +108,7 @@ export function PaymentTermsBuilder() {
 
       loadPaymentTerms();
     } catch (error: any) {
+      console.error('Failed to update payment terms:', error);
       toast.error(error?.response?.data?.message || 'Failed to update payment terms');
     } finally {
       setIsSubmitting(false);
@@ -133,6 +151,7 @@ export function PaymentTermsBuilder() {
 
   const percentageSum = calculatePercentageSum();
   const hasPercentageWarning = percentageSum !== 100;
+  const hasPercentageError = percentageSum > 100;
 
   const typeOptions: SelectOption[] = [
     { value: 'percentage', label: 'Percentage' },
@@ -162,8 +181,11 @@ export function PaymentTermsBuilder() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div>
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Payment Terms</h2>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          Configure default payment terms that will be applied to all quotes unless customized on individual quotes.
+        </p>
       </div>
 
       {/* Templates */}
@@ -266,12 +288,16 @@ export function PaymentTermsBuilder() {
             <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
               <div
                 className={`flex items-center gap-2 p-4 rounded-lg ${
-                  hasPercentageWarning
+                  hasPercentageError
+                    ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                    : hasPercentageWarning
                     ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800'
                     : 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
                 }`}
               >
-                {hasPercentageWarning ? (
+                {hasPercentageError ? (
+                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+                ) : hasPercentageWarning ? (
                   <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
                 ) : (
                   <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
@@ -279,18 +305,24 @@ export function PaymentTermsBuilder() {
                 <div className="flex-1">
                   <p
                     className={`text-sm font-semibold ${
-                      hasPercentageWarning
+                      hasPercentageError
+                        ? 'text-red-800 dark:text-red-300'
+                        : hasPercentageWarning
                         ? 'text-yellow-800 dark:text-yellow-300'
                         : 'text-green-800 dark:text-green-300'
                     }`}
                   >
                     Total Percentage: {percentageSum}%
                   </p>
-                  {hasPercentageWarning && (
+                  {hasPercentageError ? (
+                    <p className="text-xs text-red-700 dark:text-red-400 mt-1">
+                      Error: Total percentage cannot exceed 100%. Please adjust your payment terms.
+                    </p>
+                  ) : hasPercentageWarning ? (
                     <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-1">
                       Warning: Percentage terms should sum to 100%. Current sum is {percentageSum}%.
                     </p>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -308,7 +340,13 @@ export function PaymentTermsBuilder() {
 
         {/* Submit Button */}
         <div className="flex justify-end">
-          <Button type="submit" variant="primary" size="lg" loading={isSubmitting}>
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            loading={isSubmitting}
+            disabled={isSubmitting || hasPercentageError}
+          >
             {isSubmitting ? 'Saving...' : 'Save Payment Terms'}
           </Button>
         </div>

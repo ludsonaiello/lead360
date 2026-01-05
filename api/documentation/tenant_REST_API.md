@@ -11,7 +11,7 @@
 The Tenant Module provides comprehensive multi-tenant management capabilities for the Lead360 platform. This API allows tenants to manage their business profile, addresses, licenses, insurance, payment terms, business hours, and service areas.
 
 **Key Features**:
-- Complete tenant profile management (~50 business fields)
+- Complete tenant profile management (~55 business fields)
 - Multiple business addresses with type categorization
 - Professional license tracking with expiry monitoring
 - General Liability and Workers Compensation insurance management
@@ -19,6 +19,8 @@ The Tenant Module provides comprehensive multi-tenant management capabilities fo
 - Business hours with lunch break support
 - Holiday/special date custom hours
 - Service area coverage with radius calculations
+- Service management with relational master list
+- Business settings (sales tax, default quote percentages)
 - Subscription plan management with feature flags
 
 ---
@@ -85,8 +87,9 @@ https://{subdomain}.lead360.app
 6. [Business Hours](#business-hours)
 7. [Custom Hours (Holidays)](#custom-hours)
 8. [Service Areas](#service-areas)
-9. [Admin Endpoints (Platform Admin Only)](#admin-endpoints)
-10. [Error Responses](#error-responses)
+9. [Services](#services)
+10. [Admin Endpoints (Platform Admin Only)](#admin-endpoints)
+11. [Error Responses](#error-responses)
 
 ---
 
@@ -169,6 +172,12 @@ Retrieve complete tenant profile including all relations.
   "default_invoice_footer": "Payment is due within 30 days of invoice date.",
   "default_payment_instructions": "Please make checks payable to ACME Roofing Inc.",
 
+  // BUSINESS SETTINGS
+  "sales_tax_rate": 6.25,
+  "default_profit_margin": 15.0,
+  "default_overhead_rate": 12.5,
+  "default_contingency_rate": 5.0,
+
   // OPERATIONAL
   "timezone": "America/Los_Angeles",
 
@@ -226,14 +235,17 @@ Update tenant profile fields (protected fields excluded).
 
 **Authorization**: Required (Owner, Admin only)
 
-**Request Body**:
+**Request Body** (all fields optional):
 ```json
 {
   "company_name": "ACME Roofing Inc",
   "primary_contact_phone": "(555) 123-4567",
   "primary_contact_email": "info@acmeroofing.com",
-  "office_phone": "(555) 123-4568",
-  "tax_rate": 7.25
+  "sales_tax_rate": 6.25,
+  "services_offered": ["Roofing", "Gutter", "Siding"],
+  "default_profit_margin": 15.0,
+  "default_overhead_rate": 12.5,
+  "default_contingency_rate": 5.0
 }
 ```
 
@@ -299,6 +311,77 @@ Update visual branding settings.
   "tagline": "Quality roofing since 1995"
 }
 ```
+
+---
+
+### Update Business Settings
+
+Update business configuration settings including sales tax and default quote calculations.
+
+**Endpoint**: `PATCH /api/v1/tenants/current`
+
+**Authorization**: Required (Owner, Admin only)
+
+**Request Body** (all fields optional):
+```json
+{
+  "sales_tax_rate": 6.25,
+  "default_profit_margin": 15.0,
+  "default_overhead_rate": 12.5,
+  "default_contingency_rate": 5.0
+}
+```
+
+**Field Descriptions**:
+- `sales_tax_rate`: Sales tax percentage (0-99.999%)
+  - Applied to invoices and quotes
+  - Example: 6.25 = 6.25% sales tax
+
+- `default_profit_margin`: Default profit margin percentage for quotes (0-999.99%)
+  - Applied as default when creating new quotes
+  - Example: 15.0 = 15% profit margin
+
+- `default_overhead_rate`: Default overhead rate percentage for quotes (0-999.99%)
+  - Covers business operating costs
+  - Example: 12.5 = 12.5% overhead
+
+- `default_contingency_rate`: Default contingency rate percentage for quotes (0-999.99%)
+  - Buffer for unexpected costs
+  - Example: 5.0 = 5% contingency
+
+**Validations**:
+- `sales_tax_rate`: Must be between 0 and 99.999
+- `default_profit_margin`: Must be between 0 and 999.99
+- `default_overhead_rate`: Must be between 0 and 999.99
+- `default_contingency_rate`: Must be between 0 and 999.99
+
+**Response** (200 OK):
+```json
+{
+  "id": "uuid",
+  "sales_tax_rate": 6.25,
+  "default_profit_margin": 15.0,
+  "default_overhead_rate": 12.5,
+  "default_contingency_rate": 5.0,
+  ...
+}
+```
+
+**Use Cases**:
+- **Sales Tax**: Automatically calculate tax on invoices based on local regulations
+- **Default Quote Percentages**: Streamline quote creation with pre-configured profit, overhead, and contingency rates
+
+**Error Responses**:
+- `400 Bad Request` - Invalid percentage values
+  ```json
+  {
+    "statusCode": 400,
+    "message": [
+      "sales_tax_rate must not be greater than 99.999"
+    ],
+    "error": "Bad Request"
+  }
+  ```
 
 ---
 
@@ -1508,12 +1591,12 @@ Retrieve all custom hours (holidays, special dates) for the tenant.
     "id": "uuid",
     "tenant_id": "uuid",
     "date": "2024-12-25",
-    "label": "Christmas Day",
-    "is_closed": true,
-    "open1": null,
-    "close1": null,
-    "open2": null,
-    "close2": null,
+    "reason": "Christmas Day",
+    "closed": true,
+    "open_time1": null,
+    "close_time1": null,
+    "open_time2": null,
+    "close_time2": null,
     "created_at": "2024-01-01T00:00:00Z",
     "updated_at": "2024-01-01T00:00:00Z"
   },
@@ -1521,12 +1604,12 @@ Retrieve all custom hours (holidays, special dates) for the tenant.
     "id": "uuid",
     "tenant_id": "uuid",
     "date": "2024-12-24",
-    "label": "Christmas Eve",
-    "is_closed": false,
-    "open1": "09:00",
-    "close1": "14:00",
-    "open2": null,
-    "close2": null,
+    "reason": "Christmas Eve",
+    "closed": false,
+    "open_time1": "09:00",
+    "close_time1": "14:00",
+    "open_time2": null,
+    "close_time2": null,
     "created_at": "2024-01-01T00:00:00Z",
     "updated_at": "2024-01-01T00:00:00Z"
   }
@@ -1543,47 +1626,86 @@ Create custom hours for a special date (holiday, etc.).
 
 **Authorization**: Required (Owner, Admin only)
 
-**Request Body**:
+**Request Body** (Closed day):
 ```json
 {
   "date": "2024-12-25",
-  "label": "Christmas Day",
-  "is_closed": true,
-  "open1": null,
-  "close1": null,
-  "open2": null,
-  "close2": null
+  "reason": "Christmas Day",
+  "closed": true,
+  "open_time1": null,
+  "close_time1": null,
+  "open_time2": null,
+  "close_time2": null
 }
 ```
 
-OR (if not closed):
+**Request Body** (Half day - single shift):
 ```json
 {
   "date": "2024-12-24",
-  "label": "Christmas Eve",
-  "is_closed": false,
-  "open1": "09:00",
-  "close1": "14:00"
+  "reason": "Christmas Eve - Half Day",
+  "closed": false,
+  "open_time1": "09:00",
+  "close_time1": "14:00",
+  "open_time2": null,
+  "close_time2": null
+}
+```
+
+**Request Body** (With lunch break - two shifts):
+```json
+{
+  "date": "2024-07-04",
+  "reason": "Independence Day - Modified Hours",
+  "closed": false,
+  "open_time1": "09:00",
+  "close_time1": "12:00",
+  "open_time2": "13:00",
+  "close_time2": "17:00"
 }
 ```
 
 **Field Validations**:
-- `date`: ISO 8601 date string
-- `label`: String, max 100 chars
-- If `is_closed: false`, `open1` and `close1` are required
-- Same time logic validation as business hours
+- `date`: ISO 8601 date string (required) - Automatically sanitized to DateTime with 12:00 PM UTC
+- `reason`: String, 1-255 chars (required) - NOT "label"
+- `closed`: Boolean (required) - NOT "is_closed"
+- `open_time1`: HH:MM format (optional) - First shift opening
+- `close_time1`: HH:MM format (optional) - First shift closing
+- `open_time2`: HH:MM format (optional) - Second shift opening (after lunch)
+- `close_time2`: HH:MM format (optional) - Second shift closing
+- Times use 24-hour format
+- Supports lunch breaks just like regular business hours
+
+**Important Notes**:
+- Date strings are automatically sanitized using `@SanitizeDate()` decorator
+- Input "2024-12-25" is converted to "2024-12-25T12:00:00.000Z" (noon UTC) for saving
+- Database stores dates as DATE type (no time component)
+- API responses return dates as `YYYY-MM-DD` format (e.g., "2024-12-25")
+- Same sanitization pattern used in licenses and insurance dates
 
 **Response** (201 Created):
 ```json
 {
   "id": "uuid",
   "tenant_id": "uuid",
-  ...
+  "date": "2024-12-25",
+  "reason": "Christmas Day",
+  "closed": true,
+  "open_time1": null,
+  "close_time1": null,
+  "open_time2": null,
+  "close_time2": null,
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z"
 }
 ```
 
 **Error Responses**:
-- `400 Bad Request` - Custom hours already exist for this date (use update instead)
+- `400 Bad Request` - Invalid field values or validation errors
+  - First shift opening and closing times are required when not closed
+  - Opening time must be before closing time
+  - First shift closing time must be before second shift opening time
+- `409 Conflict` - Custom hours already exist for this date (use update instead)
 
 ---
 
@@ -1601,20 +1723,48 @@ Update existing custom hours.
 **Request Body** (all fields optional):
 ```json
 {
-  "label": "Christmas Eve (Half Day)",
-  "open1": "09:00",
-  "close1": "12:00"
+  "date": "2024-12-24",
+  "reason": "Christmas Eve (Half Day)",
+  "closed": false,
+  "open_time1": "09:00",
+  "close_time1": "12:00",
+  "open_time2": null,
+  "close_time2": null
 }
 ```
+
+**Field Validations** (same as create):
+- `date`: ISO 8601 date string - Automatically sanitized to DateTime with 12:00 PM UTC
+- `reason`: String, 1-255 chars - NOT "label"
+- `closed`: Boolean - NOT "is_closed"
+- `open_time1`, `close_time1`, `open_time2`, `close_time2`: HH:MM format (24-hour)
 
 **Response** (200 OK):
 ```json
 {
   "id": "uuid",
   "tenant_id": "uuid",
-  ...
+  "date": "2024-12-24",
+  "reason": "Christmas Eve (Half Day)",
+  "closed": false,
+  "open_time1": "09:00",
+  "close_time1": "12:00",
+  "open_time2": null,
+  "close_time2": null,
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-15T10:30:00Z"
 }
 ```
+
+**Note**: The `date` field is returned as `YYYY-MM-DD` (date only, no time component).
+
+**Error Responses**:
+- `400 Bad Request` - Invalid field values or validation errors
+  - First shift opening and closing times are required when not closed
+  - Opening time must be before closing time
+  - First shift closing time must be before second shift opening time
+- `404 Not Found` - Custom hours not found
+- `409 Conflict` - Custom hours already exist for the new date (if date was changed)
 
 ---
 
@@ -1635,6 +1785,30 @@ Delete custom hours.
 
 ## Service Areas
 
+**Field Name Mapping**: The API uses different field names for requests vs responses:
+
+| Request (DTO) | Response (Database) | Description |
+|---------------|---------------------|-------------|
+| `area_type` | `type` | Service area type (`city`, `zipcode`, `radius`, `state`) |
+| `center_lat` | `latitude` | Geographic latitude |
+| `center_long` | `longitude` | Geographic longitude |
+| `city` | `city_name` | City name (optional) |
+| `zipcode` | `zipcode` | ZIP code (optional) |
+| N/A | `value` | Human-readable identifier (auto-generated) |
+| N/A | `entire_state` | Boolean - true if covering entire state (default: false) |
+
+**The `value` field** (auto-generated):
+- **City type**: Stores city name (e.g., "Los Angeles")
+- **Zipcode type**: Stores ZIP code (e.g., "90210")
+- **Radius type**: Stores full description (e.g., "Los Angeles, CA (25 mile radius)")
+- **State type**: Stores state code (e.g., "CA")
+
+**The `entire_state` field**:
+- Automatically set to `true` when `type = "state"`
+- Set to `false` for all other types
+
+---
+
 ### Get All Service Areas
 
 Retrieve all service areas for the tenant.
@@ -1649,31 +1823,73 @@ Retrieve all service areas for the tenant.
   {
     "id": "uuid",
     "tenant_id": "uuid",
-    "area_type": "radius",
-    "city": null,
-    "state": null,
-    "zipcode": null,
-    "center_lat": 34.0522,
-    "center_long": -118.2437,
+    "type": "radius",
+    "value": "Los Angeles, CA (25 mile radius)",
+    "latitude": 34.0522,
+    "longitude": -118.2437,
     "radius_miles": 25,
+    "state": "CA",
     "created_at": "2024-01-01T00:00:00Z",
     "updated_at": "2024-01-01T00:00:00Z"
   },
   {
     "id": "uuid",
     "tenant_id": "uuid",
-    "area_type": "city",
-    "city": "Los Angeles",
-    "state": "CA",
-    "zipcode": null,
-    "center_lat": null,
-    "center_long": null,
+    "type": "city",
+    "value": "Los Angeles",
+    "latitude": 34.0522,
+    "longitude": -118.2437,
     "radius_miles": null,
+    "state": "CA",
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "uuid",
+    "tenant_id": "uuid",
+    "type": "zipcode",
+    "value": "90210",
+    "latitude": 34.0901,
+    "longitude": -118.4065,
+    "radius_miles": null,
+    "state": null,
+    "city_name": null,
+    "zipcode": "90210",
+    "entire_state": false,
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "uuid",
+    "tenant_id": "uuid",
+    "type": "state",
+    "value": "CA",
+    "latitude": 36.7783,
+    "longitude": -119.4179,
+    "radius_miles": null,
+    "state": "CA",
+    "city_name": null,
+    "zipcode": null,
+    "entire_state": true,
     "created_at": "2024-01-01T00:00:00Z",
     "updated_at": "2024-01-01T00:00:00Z"
   }
 ]
 ```
+
+**Response Field Mapping** (database → API response):
+- `type`: Service area type (`city`, `zipcode`, `radius`, `state`)
+- `value`: Human-readable identifier (auto-generated)
+  - For `city`: City name (e.g., "Los Angeles")
+  - For `zipcode`: ZIP code (e.g., "90210")
+  - For `radius`: Full description (e.g., "Los Angeles, CA (25 mile radius)")
+  - For `state`: State code (e.g., "CA")
+- `latitude`, `longitude`: Geographic coordinates (always populated)
+- `radius_miles`: Radius in miles (only for `radius` type, null otherwise)
+- `state`: State code (2 letters, optional)
+- `city_name`: City name (optional, stored separately)
+- `zipcode`: ZIP code (optional, stored separately)
+- `entire_state`: Boolean - true for state-wide coverage
 
 ---
 
@@ -1712,28 +1928,88 @@ OR (type: zipcode):
 }
 ```
 
+OR (type: state):
+```json
+{
+  "area_type": "state",
+  "state": "CA"
+}
+```
+
 **Field Validations**:
-- `area_type`: Enum (`city`, `zipcode`, `radius`)
+- `area_type`: Enum (`city`, `zipcode`, `radius`, `state`)
 - **If `radius`**: `center_lat`, `center_long`, `radius_miles` required
 - **If `city`**: `city`, `state` required
 - **If `zipcode`**: `zipcode` required
+- **If `state`**: `state` required (entire state coverage)
 - `state`: 2-letter uppercase code
 - `zipcode`: 5 digits or ZIP+4 format
 - `center_lat`: -90 to 90
 - `center_long`: -180 to 180
 - `radius_miles`: 1 to 500
 
+**Duplicate Validation Rules**:
+
+The API prevents duplicate service areas per tenant based on type-specific criteria:
+
+1. **CITY type**: Cannot have duplicate city + state combination
+   - ❌ Cannot create two "Los Angeles, CA" (type: city)
+   - ✅ Can have "Los Angeles, CA" (type: city) AND "90210" (type: zipcode) with city "Los Angeles"
+
+2. **ZIPCODE type**: Cannot have duplicate ZIP codes
+   - ❌ Cannot create two "90210" (type: zipcode)
+   - ✅ Can have "90210" (type: zipcode) AND "Los Angeles, CA" (type: city) with zipcode "90210"
+
+3. **STATE type**: Cannot have duplicate entire state coverage
+   - ❌ Cannot create two "CA" (type: state, entire_state: true)
+   - ✅ Can have "CA" (type: state) AND "Los Angeles, CA" (type: city)
+
+4. **RADIUS type**: Cannot have duplicate radius with same center and radius
+   - ❌ Cannot create two radius areas with lat: 34.0522, long: -118.2437, radius: 25 miles
+   - ✅ Can have same coordinates with different radius (25 miles vs 30 miles)
+
+**Key Rule**: Different types with the same identifying values are allowed. Duplicates are only prevented within the same type for the same tenant.
+
 **Response** (201 Created):
 ```json
 {
   "id": "uuid",
   "tenant_id": "uuid",
-  ...
+  "type": "radius",
+  "value": "Los Angeles, CA (25 mile radius)",
+  "latitude": 34.0522,
+  "longitude": -118.2437,
+  "radius_miles": 25,
+  "state": "CA",
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z"
 }
 ```
 
+**Important**: Request uses DTO field names (`area_type`, `center_lat`, `center_long`, `city`, `zipcode`), but response uses database field names (`type`, `latitude`, `longitude`, `value`).
+
 **Error Responses**:
 - `400 Bad Request` - Missing required fields for area type
+  ```json
+  {
+    "statusCode": 400,
+    "message": "City and state are required for city-based service areas",
+    "error": "Bad Request"
+  }
+  ```
+- `409 Conflict` - Duplicate service area detected
+  ```json
+  {
+    "statusCode": 409,
+    "message": "Service area already exists for city \"Los Angeles, CA\"",
+    "error": "Conflict"
+  }
+  ```
+
+  Other duplicate error messages:
+  - `"Service area already exists for ZIP code \"90210\""`
+  - `"Service area already exists for entire state \"CA\""`
+  - `"Service area already exists for this location and radius"`
 
 ---
 
@@ -1753,7 +2029,14 @@ Retrieve a specific service area.
 {
   "id": "uuid",
   "tenant_id": "uuid",
-  ...
+  "type": "city",
+  "value": "Los Angeles",
+  "latitude": 34.0522,
+  "longitude": -118.2437,
+  "radius_miles": null,
+  "state": "CA",
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z"
 }
 ```
 
@@ -1773,7 +2056,13 @@ Update an existing service area.
 **Request Body** (all fields optional):
 ```json
 {
-  "radius_miles": 30
+  "area_type": "radius",
+  "center_lat": 34.0522,
+  "center_long": -118.2437,
+  "radius_miles": 30,
+  "city": "Los Angeles",
+  "state": "CA",
+  "zipcode": null
 }
 ```
 
@@ -1782,9 +2071,37 @@ Update an existing service area.
 {
   "id": "uuid",
   "tenant_id": "uuid",
-  ...
+  "type": "radius",
+  "value": "Los Angeles, CA (30 mile radius)",
+  "latitude": 34.0522,
+  "longitude": -118.2437,
+  "radius_miles": 30,
+  "state": "CA",
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T10:30:00Z"
 }
 ```
+
+**Note**: The `value` field is automatically updated based on changes to `area_type`, `city`, `state`, `zipcode`, or `radius_miles`.
+
+**Error Responses**:
+- `400 Bad Request` - Missing required fields for area type
+- `404 Not Found` - Service area not found
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Service area not found",
+    "error": "Not Found"
+  }
+  ```
+- `409 Conflict` - Duplicate service area detected (same validation as create)
+  ```json
+  {
+    "statusCode": 409,
+    "message": "Service area already exists for city \"Los Angeles, CA\"",
+    "error": "Conflict"
+  }
+  ```
 
 ---
 
@@ -1824,9 +2141,10 @@ Check if a location (lat, long) is covered by tenant's service areas.
   "covering_areas": [
     {
       "id": "uuid",
-      "area_type": "radius",
-      "center_lat": 34.0522,
-      "center_long": -118.2437,
+      "type": "radius",
+      "value": "Los Angeles, CA (25 mile radius)",
+      "latitude": 34.0522,
+      "longitude": -118.2437,
       "radius_miles": 25,
       "distance_miles": 12.3
     }
@@ -1835,6 +2153,131 @@ Check if a location (lat, long) is covered by tenant's service areas.
 ```
 
 **Note**: Distance calculation uses Haversine formula for radius-based areas.
+
+---
+
+## Services
+
+Services represent the types of work a tenant business offers (e.g., "Roofing", "Gutter", "Plumbing"). Services are managed centrally by platform admins and assigned to tenants.
+
+**Architecture**:
+- **Service** table: Master list of available services (managed by platform admin)
+- **TenantService** table: Junction table linking tenants to services
+- Tenants can only assign services from the approved master list
+
+---
+
+### Get All Available Services
+
+Get all active services that can be assigned to tenants.
+
+**Endpoint**: `GET /api/v1/tenants/current/services`
+
+**Authorization**: Required (All roles)
+
+**Response** (200 OK):
+```json
+[
+  {
+    "id": "uuid",
+    "name": "Roofing",
+    "slug": "roofing",
+    "description": "Residential and commercial roofing services",
+    "is_active": true,
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "uuid",
+    "name": "Gutter",
+    "slug": "gutter",
+    "description": "Gutter installation and repair",
+    "is_active": true,
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  }
+]
+```
+
+---
+
+### Get Tenant's Assigned Services
+
+Get the services currently assigned to the tenant.
+
+**Endpoint**: `GET /api/v1/tenants/current/assigned-services`
+
+**Authorization**: Required (All roles)
+
+**Response** (200 OK):
+```json
+[
+  {
+    "id": "uuid",
+    "name": "Roofing",
+    "slug": "roofing",
+    "description": "Residential and commercial roofing services",
+    "is_active": true,
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  }
+]
+```
+
+---
+
+### Assign Services to Tenant
+
+Assign services to the tenant (replaces all existing assignments).
+
+**Endpoint**: `POST /api/v1/tenants/current/assign-services`
+
+**Authorization**: Required (Owner, Admin only)
+
+**Request Body**:
+```json
+{
+  "service_ids": ["uuid-1", "uuid-2", "uuid-3"]
+}
+```
+
+**Field Validations**:
+- `service_ids`: Array of service UUIDs (0-50 items)
+- All service IDs must exist and be active
+
+**Response** (200 OK):
+```json
+[
+  {
+    "id": "uuid-1",
+    "name": "Roofing",
+    "slug": "roofing",
+    "description": "Residential and commercial roofing services",
+    "is_active": true,
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "uuid-2",
+    "name": "Gutter",
+    "slug": "gutter",
+    "description": "Gutter installation and repair",
+    "is_active": true,
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  }
+]
+```
+
+**Error Responses**:
+- `400 Bad Request` - Invalid service IDs or inactive services
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Some service IDs are invalid or inactive: uuid-999",
+    "error": "Bad Request"
+  }
+  ```
 
 ---
 
@@ -2394,6 +2837,134 @@ Get high-level statistics for the entire platform.
 
 ---
 
+### Service Management (Admin)
+
+Manage the master list of services that can be assigned to tenants.
+
+---
+
+#### Get All Services (Admin)
+
+List all services (including inactive).
+
+**Endpoint**: `GET /api/v1/admin/services`
+
+**Query Parameters**:
+- `include_inactive` (optional): Include inactive services (default: false)
+
+**Example**: `GET /api/v1/admin/services?include_inactive=true`
+
+**Response** (200 OK):
+```json
+[
+  {
+    "id": "uuid",
+    "name": "Roofing",
+    "slug": "roofing",
+    "description": "Residential and commercial roofing services",
+    "is_active": true,
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  }
+]
+```
+
+---
+
+#### Create Service (Admin)
+
+Create a new service in the master list.
+
+**Endpoint**: `POST /api/v1/admin/services`
+
+**Request Body**:
+```json
+{
+  "name": "HVAC",
+  "description": "Heating, ventilation, and air conditioning services",
+  "slug": "hvac"
+}
+```
+
+**Field Validations**:
+- `name` (required): Service name (1-100 chars, must be unique)
+- `description` (optional): Service description (1-500 chars)
+- `slug` (optional): URL-friendly slug (auto-generated if not provided)
+
+**Response** (201 Created):
+```json
+{
+  "id": "uuid",
+  "name": "HVAC",
+  "slug": "hvac",
+  "description": "Heating, ventilation, and air conditioning services",
+  "is_active": true,
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z"
+}
+```
+
+**Error Responses**:
+- `409 Conflict` - Service name or slug already exists
+
+---
+
+#### Update Service (Admin)
+
+Update an existing service.
+
+**Endpoint**: `PATCH /api/v1/admin/services/:id`
+
+**Request Body** (all fields optional):
+```json
+{
+  "name": "HVAC Systems",
+  "description": "Complete HVAC installation and repair",
+  "is_active": false
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "id": "uuid",
+  "name": "HVAC Systems",
+  "slug": "hvac-systems",
+  "description": "Complete HVAC installation and repair",
+  "is_active": false,
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-02T10:00:00Z"
+}
+```
+
+---
+
+#### Delete Service (Admin)
+
+Delete a service (only if not assigned to any tenants).
+
+**Endpoint**: `POST /api/v1/admin/services/:id/delete`
+
+**Response** (200 OK):
+```json
+{
+  "message": "Service deleted successfully"
+}
+```
+
+**Error Responses**:
+- `400 Bad Request` - Service is assigned to tenants (deactivate instead)
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Cannot delete service. It is currently assigned to 5 tenant(s). Please deactivate instead.",
+    "error": "Bad Request"
+  }
+  ```
+- `404 Not Found` - Service not found
+
+---
+
 ## Error Responses
 
 All endpoints may return the following error responses:
@@ -2471,8 +3042,9 @@ OR
 
 ### 409 Conflict
 
-Unique constraint violation (e.g., subdomain/EIN already exists).
+Unique constraint violation or duplicate resource (e.g., subdomain/EIN already exists, duplicate service area, duplicate custom hours).
 
+**Tenant Registration**:
 ```json
 {
   "statusCode": 409,
@@ -2487,6 +3059,29 @@ OR
 {
   "statusCode": 409,
   "message": "EIN 12-3456789 is already registered to another tenant",
+  "error": "Conflict"
+}
+```
+
+**Service Areas**:
+```json
+{
+  "statusCode": 409,
+  "message": "Service area already exists for city \"Los Angeles, CA\"",
+  "error": "Conflict"
+}
+```
+
+Other service area duplicate messages:
+- `"Service area already exists for ZIP code \"90210\""`
+- `"Service area already exists for entire state \"CA\""`
+- `"Service area already exists for this location and radius"`
+
+**Custom Hours**:
+```json
+{
+  "statusCode": 409,
+  "message": "Custom hours already exist for this date. Please use update instead.",
   "error": "Conflict"
 }
 ```

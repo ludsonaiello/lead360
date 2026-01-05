@@ -7,12 +7,14 @@ import {
   Length,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { SanitizeDate } from '../../../common/validators/formatted-inputs';
 
 export class CreateCustomHoursDto {
   @ApiProperty({
     description: 'Date for custom hours (holidays, special dates)',
     example: '2024-12-25',
   })
+  @SanitizeDate()
   @IsDateString()
   date: string;
 
@@ -32,42 +34,46 @@ export class CreateCustomHoursDto {
   closed: boolean;
 
   @ApiPropertyOptional({
-    description: 'Opening time 1 (if not closed)',
-    example: '10:00',
+    description: 'First shift opening time (if not closed)',
+    example: '09:00',
   })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
     message: 'Time must be in HH:MM format (24-hour)',
   })
-  open1?: string;
+  open_time1?: string;
 
   @ApiPropertyOptional({
-    description: 'Closing time 1 (if not closed)',
-    example: '14:00',
+    description: 'First shift closing time (if not closed)',
+    example: '12:00',
   })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
     message: 'Time must be in HH:MM format (24-hour)',
   })
-  close1?: string;
+  close_time1?: string;
 
   @ApiPropertyOptional({
-    description: 'Opening time 2 (after lunch break)',
-    example: null,
+    description: 'Second shift opening time (after lunch break)',
+    example: '13:00',
   })
   @IsString()
   @IsOptional()
-  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
-  open2?: string;
+  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+    message: 'Time must be in HH:MM format (24-hour)',
+  })
+  open_time2?: string;
 
   @ApiPropertyOptional({
-    description: 'Closing time 2',
-    example: null,
+    description: 'Second shift closing time',
+    example: '17:00',
   })
   @IsString()
   @IsOptional()
-  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
-  close2?: string;
+  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+    message: 'Time must be in HH:MM format (24-hour)',
+  })
+  close_time2?: string;
 }

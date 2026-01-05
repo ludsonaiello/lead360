@@ -284,6 +284,7 @@ export const businessLegalSchema = z.object({
   ein: einSchema,
   state_tax_id: z.string().max(50).optional().or(z.literal('')),
   sales_tax_permit: z.string().max(50).optional().or(z.literal('')),
+  services_offered: z.array(z.string().uuid()).min(1, 'At least one service is required').max(50, 'Maximum 50 services allowed'),
 });
 
 export type BusinessLegalFormData = z.infer<typeof businessLegalSchema>;
@@ -332,6 +333,10 @@ export const businessInvoiceSchema = z.object({
   default_quote_footer: z.string().max(500).optional().or(z.literal('')),
   default_invoice_footer: z.string().max(500).optional().or(z.literal('')),
   default_payment_instructions: z.string().max(500).optional().or(z.literal('')),
+  sales_tax_rate: z.number().min(0, 'Sales tax rate must be at least 0%').max(99.999, 'Sales tax rate cannot exceed 99.999%').optional().nullable(),
+  default_profit_margin: z.number().min(0, 'Profit margin must be at least 0%').max(999.99, 'Profit margin cannot exceed 999.99%').optional().nullable(),
+  default_overhead_rate: z.number().min(0, 'Overhead rate must be at least 0%').max(999.99, 'Overhead rate cannot exceed 999.99%').optional().nullable(),
+  default_contingency_rate: z.number().min(0, 'Contingency rate must be at least 0%').max(999.99, 'Contingency rate cannot exceed 999.99%').optional().nullable(),
 });
 
 export type BusinessInvoiceFormData = z.infer<typeof businessInvoiceSchema>;
@@ -445,43 +450,75 @@ const dayHoursSchema = z.object({
  */
 export const customHoursSchema = z.object({
   date: z.string().min(1, 'Date is required'),
-  label: z.string().min(1, 'Label is required').max(100),
-  is_closed: z.boolean(),
-  open1: timeSchema,
-  close1: timeSchema,
-  open2: timeSchema,
-  close2: timeSchema,
-}).refine(
-  (data) => {
-    if (!data.is_closed) {
-      return data.open1 && data.close1;
-    }
-    return true;
-  },
-  { message: 'Opening and closing times are required when not closed', path: ['open1'] }
-);
+  reason: z.string().min(1, 'Reason is required').max(255),
+  closed: z.boolean(),
+  open_time1: timeSchema,
+  close_time1: timeSchema,
+  open_time2: timeSchema,
+  close_time2: timeSchema,
+})
+  .refine(
+    (data) => {
+      // Only validate times if not closed
+      if (!data.closed) {
+        // Check if open_time1 and close_time1 are provided (not null, not empty)
+        return !!(data.open_time1 && data.close_time1);
+      }
+      // If closed, no time validation needed
+      return true;
+    },
+    { message: 'Opening and closing times are required when not closed', path: ['open_time1'] }
+  )
+  .refine(
+    (data) => {
+      // Validate date is today or in the future
+      if (!data.date) return true; // Already handled by min(1) check
+
+      // Parse the date string (YYYY-MM-DD format)
+      const selectedDate = new Date(data.date + 'T00:00:00');
+
+      // Get today's date at midnight (local time)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Date must be >= today
+      return selectedDate >= today;
+    },
+    { message: 'Date cannot be in the past', path: ['date'] }
+  );
 
 export type CustomHoursFormData = z.infer<typeof customHoursSchema>;
 
 /**
  * Service area schema
+ * Frontend form only sends: area_type, city, state, zipcode, center_lat, center_long, radius_miles
+ * Backend automatically calculates: city_name, entire_state, zipcode (as database fields)
  */
 export const serviceAreaSchema = z.object({
-  area_type: z.enum(['city', 'zipcode', 'radius']),
+  area_type: z.enum(['city', 'zipcode', 'radius', 'state']),
   city: z.string().max(100).optional().or(z.literal('')),
-  state: stateCodeSchema.optional().or(z.literal('')),
-  zipcode: zipCodeSchema.optional().or(z.literal('')),
-  center_lat: z.number().min(-90).max(90).optional().nullable(),
-  center_long: z.number().min(-180).max(180).optional().nullable(),
-  radius_miles: z.number().min(1).max(500).optional().nullable(),
+  state: stateCodeSchema,
+  zipcode: z.string().optional().or(z.literal('')),
+  center_lat: z.number().min(-90).max(90),
+  center_long: z.number().min(-180).max(180),
+  radius_miles: z.number().min(1).max(500),
 }).refine(
   (data) => {
-    if (data.area_type === 'city') return data.city && data.state;
-    if (data.area_type === 'zipcode') return data.zipcode;
-    if (data.area_type === 'radius') return data.center_lat && data.center_long && data.radius_miles;
-    return false;
+    // For non-state types, city and zipcode are required
+    if (data.area_type !== 'state') {
+      if (!data.city || data.city.trim() === '') {
+        return false;
+      }
+      if (!data.zipcode || data.zipcode.trim() === '') {
+        return false;
+      }
+    }
+    return true;
   },
-  { message: 'Missing required fields for selected area type', path: ['area_type'] }
+  {
+    message: 'City and ZIP code are required for this service area type',
+    path: ['city'],
+  }
 );
 
 export type ServiceAreaFormData = z.infer<typeof serviceAreaSchema>;

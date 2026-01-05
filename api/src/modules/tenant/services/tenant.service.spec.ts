@@ -192,13 +192,17 @@ describe('TenantService', () => {
         business_hours: {},
         custom_hours: [],
         service_areas: [],
+        tenant_services: [],
       };
 
       mockPrismaService.tenant.findUnique.mockResolvedValue(mockTenant);
 
       const result = await service.findById('tenant-123');
 
-      expect(result).toEqual(mockTenant);
+      expect(result).toEqual({
+        ...mockTenant,
+        services_offered: [],
+      });
       expect(mockPrismaService.tenant.findUnique).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'tenant-123' },

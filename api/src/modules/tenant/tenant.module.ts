@@ -15,6 +15,7 @@ import { TenantBusinessHoursService } from './services/tenant-business-hours.ser
 import { TenantServiceAreaService } from './services/tenant-service-area.service';
 import { SubscriptionService } from './services/subscription.service';
 import { LicenseTypeService } from './services/license-type.service';
+import { ServiceService } from './services/service.service';
 
 // Middleware
 import { TenantResolutionMiddleware } from './middleware/tenant-resolution.middleware';
@@ -40,6 +41,7 @@ import { InsuranceExpiryCheckJob } from './jobs/insurance-expiry-check.job';
     TenantServiceAreaService,
     SubscriptionService,
     LicenseTypeService,
+    ServiceService,
 
     // Middleware
     TenantResolutionMiddleware,

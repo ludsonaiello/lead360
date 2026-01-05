@@ -17,6 +17,13 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import CustomHoursFormModal from './CustomHoursFormModal';
 import Modal, { ModalContent, ModalActions } from '@/components/ui/Modal';
 
+// Helper to parse date string without timezone conversion
+const parseDate = (dateStr: string): Date => {
+  // For YYYY-MM-DD format, parse as local date to avoid timezone shifts
+  const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
 export function CustomHoursList() {
   const [customHours, setCustomHours] = useState<CustomHours[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,8 +41,9 @@ export function CustomHoursList() {
       setIsLoading(true);
       const data = await tenantApi.getAllCustomHours();
       // Sort by date (upcoming first)
-      const sorted = data.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const sorted = data.sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
       setCustomHours(sorted);
+      console.log(sorted);
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Failed to load custom hours');
     } finally {
@@ -84,16 +92,16 @@ export function CustomHoursList() {
   };
 
   const formatTimeSlot = (hours: CustomHours) => {
-    if (hours.is_closed) {
+    if (hours.closed) {
       return 'Closed';
     }
 
     const slots = [];
-    if (hours.open1 && hours.close1) {
-      slots.push(`${hours.open1} - ${hours.close1}`);
+    if (hours.open_time1 && hours.close_time1) {
+      slots.push(`${hours.open_time1} - ${hours.close_time1}`);
     }
-    if (hours.open2 && hours.close2) {
-      slots.push(`${hours.open2} - ${hours.close2}`);
+    if (hours.open_time2 && hours.close_time2) {
+      slots.push(`${hours.open_time2} - ${hours.close_time2}`);
     }
 
     return slots.length > 0 ? slots.join(', ') : 'Not set';
@@ -159,7 +167,7 @@ export function CustomHoursList() {
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {customHours.map((hours) => {
-                  const isPast = new Date(hours.date) < new Date();
+                  const isPast = parseDate(hours.date) < new Date();
 
                   return (
                     <tr
@@ -172,7 +180,7 @@ export function CustomHoursList() {
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4 text-gray-400" />
                           <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {format(new Date(hours.date), 'MMM dd, yyyy')}
+                            {format(parseDate(hours.date), 'MMM dd, yyyy')}
                           </span>
                         </div>
                         {isPast && (
@@ -181,11 +189,11 @@ export function CustomHoursList() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {hours.label}
+                          {hours.reason}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {hours.is_closed ? (
+                        {hours.closed ? (
                           <Badge variant="danger" label="Closed" />
                         ) : (
                           <Badge variant="success" label="Open" />
@@ -247,10 +255,10 @@ export function CustomHoursList() {
             </p>
             <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-2">
               <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                {deletingHours.label}
+                {deletingHours.reason}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Date: {format(new Date(deletingHours.date), 'MMM dd, yyyy')}
+                Date: {format(parseDate(deletingHours.date), 'MMM dd, yyyy')}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Hours: {formatTimeSlot(deletingHours)}

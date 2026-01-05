@@ -34,6 +34,8 @@ import {
   CreateServiceAreaData,
   UpdateServiceAreaData,
   ServiceCoverageCheck,
+  Service,
+  AssignServicesData,
   TenantStatistics,
   SubdomainAvailability,
   UpdateBrandingData,
@@ -592,6 +594,37 @@ export async function getLicenseTypes(): Promise<LicenseType[]> {
 }
 
 // ==========================================
+// SERVICES ENDPOINTS (3 endpoints)
+// ==========================================
+
+/**
+ * GET /api/v1/tenants/current/services
+ * Get all available services that can be assigned to tenants
+ */
+export async function getAllServices(): Promise<Service[]> {
+  const response = await apiClient.get<Service[]>('/tenants/current/services');
+  return response.data;
+}
+
+/**
+ * GET /api/v1/tenants/current/assigned-services
+ * Get the services currently assigned to the tenant
+ */
+export async function getAssignedServices(): Promise<Service[]> {
+  const response = await apiClient.get<Service[]>('/tenants/current/assigned-services');
+  return response.data;
+}
+
+/**
+ * POST /api/v1/tenants/current/assign-services
+ * Assign services to the tenant (replaces all existing assignments)
+ */
+export async function assignServices(data: AssignServicesData): Promise<Service[]> {
+  const response = await apiClient.post<Service[]>('/tenants/current/assign-services', data);
+  return response.data;
+}
+
+// ==========================================
 // EXPORT AS OBJECT (alternative style)
 // ==========================================
 
@@ -656,6 +689,11 @@ export const tenantApi = {
   updateServiceArea,
   deleteServiceArea,
   checkServiceCoverage,
+
+  // Services
+  getAllServices,
+  getAssignedServices,
+  assignServices,
 };
 
 export default tenantApi;

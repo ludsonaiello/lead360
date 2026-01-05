@@ -22,13 +22,13 @@ export class TenantPaymentTermsService {
       paymentTerms = await this.prisma.tenantPaymentTerms.create({
         data: {
           tenant_id: tenantId,
-          terms: [
+          terms_json: [
             {
               sequence: 1,
               type: PaymentTermType.PERCENTAGE,
               amount: 100,
               description: 'Full payment upfront',
-            } as any,
+            },
           ],
         } as any,
       });
@@ -68,7 +68,7 @@ export class TenantPaymentTermsService {
       const updated = await tx.tenantPaymentTerms.update({
         where: { tenant_id: tenantId } as any,
         data: {
-          terms: updatePaymentTermsDto.terms,
+          terms_json: updatePaymentTermsDto.terms,
         } as any,
       });
 

@@ -9,7 +9,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'react-hot-toast';
-import { Plus, X, Clock } from 'lucide-react';
+import { Plus, X, Clock, AlertCircle } from 'lucide-react';
 import { customHoursSchema, type CustomHoursFormData } from '@/lib/utils/validation';
 import { tenantApi } from '@/lib/api/tenant';
 import { CustomHours, CreateCustomHoursData, UpdateCustomHoursData } from '@/lib/types/tenant';
@@ -19,6 +19,12 @@ import { Input } from '@/components/ui/Input';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { TimePicker } from '@/components/ui/TimePicker';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
+
+// Helper to extract date from datetime string
+const extractDate = (datetime: string | null | undefined): string => {
+  if (!datetime) return '';
+  return datetime.split('T')[0];
+};
 
 interface CustomHoursFormModalProps {
   isOpen: boolean;
@@ -35,6 +41,7 @@ export function CustomHoursFormModal({
 }: CustomHoursFormModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasBreak, setHasBreak] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const {
     register,
@@ -46,38 +53,41 @@ export function CustomHoursFormModal({
   } = useForm<CustomHoursFormData>({
     resolver: zodResolver(customHoursSchema),
     defaultValues: {
-      date: customHours?.date || '',
-      label: customHours?.label || '',
-      is_closed: customHours?.is_closed || false,
-      open1: customHours?.open1 || null,
-      close1: customHours?.close1 || null,
-      open2: customHours?.open2 || null,
-      close2: customHours?.close2 || null,
+      date: extractDate(customHours?.date),
+      reason: customHours?.reason || '',
+      closed: customHours?.closed || false,
+      open_time1: customHours?.open_time1 || null,
+      close_time1: customHours?.close_time1 || null,
+      open_time2: customHours?.open_time2 || null,
+      close_time2: customHours?.close_time2 || null,
     },
   });
 
   // Reset form when customHours changes
   useEffect(() => {
+    // Clear API error when modal opens/closes or customHours changes
+    setApiError(null);
+
     if (customHours) {
       reset({
-        date: customHours.date,
-        label: customHours.label,
-        is_closed: customHours.is_closed,
-        open1: customHours.open1,
-        close1: customHours.close1,
-        open2: customHours.open2,
-        close2: customHours.close2,
+        date: extractDate(customHours.date),
+        reason: customHours.reason,
+        closed: customHours.closed,
+        open_time1: customHours.open_time1,
+        close_time1: customHours.close_time1,
+        open_time2: customHours.open_time2,
+        close_time2: customHours.close_time2,
       });
-      setHasBreak(!!(customHours.open2 && customHours.close2));
+      setHasBreak(!!(customHours.open_time2 && customHours.close_time2));
     } else {
       reset({
         date: '',
-        label: '',
-        is_closed: false,
-        open1: null,
-        close1: null,
-        open2: null,
-        close2: null,
+        reason: '',
+        closed: false,
+        open_time1: null,
+        close_time1: null,
+        open_time2: null,
+        close_time2: null,
       });
       setHasBreak(false);
     }
@@ -86,17 +96,18 @@ export function CustomHoursFormModal({
   const onSubmit = async (data: CustomHoursFormData) => {
     try {
       setIsSubmitting(true);
+      setApiError(null); // Clear any previous errors
 
       if (customHours) {
         // Update existing custom hours
         const updateData: UpdateCustomHoursData = {
           date: data.date,
-          label: data.label,
-          is_closed: data.is_closed,
-          open1: data.is_closed ? null : data.open1 || null,
-          close1: data.is_closed ? null : data.close1 || null,
-          open2: data.is_closed || !hasBreak ? null : data.open2 || null,
-          close2: data.is_closed || !hasBreak ? null : data.close2 || null,
+          reason: data.reason,
+          closed: data.closed,
+          open_time1: data.closed ? null : data.open_time1 || null,
+          close_time1: data.closed ? null : data.close_time1 || null,
+          open_time2: data.closed || !hasBreak ? null : data.open_time2 || null,
+          close_time2: data.closed || !hasBreak ? null : data.close_time2 || null,
         };
         await tenantApi.updateCustomHours(customHours.id, updateData);
         toast.success('Custom hours updated successfully');
@@ -104,12 +115,12 @@ export function CustomHoursFormModal({
         // Create new custom hours
         const createData: CreateCustomHoursData = {
           date: data.date,
-          label: data.label,
-          is_closed: data.is_closed,
-          open1: data.is_closed ? undefined : data.open1 || undefined,
-          close1: data.is_closed ? undefined : data.close1 || undefined,
-          open2: data.is_closed || !hasBreak ? undefined : data.open2 || undefined,
-          close2: data.is_closed || !hasBreak ? undefined : data.close2 || undefined,
+          reason: data.reason,
+          closed: data.closed,
+          open_time1: data.closed ? undefined : data.open_time1 || undefined,
+          close_time1: data.closed ? undefined : data.close_time1 || undefined,
+          open_time2: data.closed || !hasBreak ? undefined : data.open_time2 || undefined,
+          close_time2: data.closed || !hasBreak ? undefined : data.close_time2 || undefined,
         };
         await tenantApi.createCustomHours(createData);
         toast.success('Custom hours created successfully');
@@ -117,21 +128,23 @@ export function CustomHoursFormModal({
 
       onSuccess();
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to save custom hours');
+      console.error('Custom hours save error:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to save custom hours';
+      setApiError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const isClosed = watch('is_closed');
+  const isClosed = watch('closed');
 
   const handleAddBreak = () => {
     setHasBreak(true);
   };
 
   const handleRemoveBreak = () => {
-    setValue('open2', null);
-    setValue('close2', null);
+    setValue('open_time2', null);
+    setValue('close_time2', null);
     setHasBreak(false);
   };
 
@@ -155,9 +168,9 @@ export function CustomHoursFormModal({
               />
 
               <Input
-                {...register('label')}
-                label="Label"
-                error={errors.label?.message}
+                {...register('reason')}
+                label="Reason"
+                error={errors.reason?.message}
                 placeholder="e.g., Christmas, Thanksgiving"
                 required
               />
@@ -166,9 +179,9 @@ export function CustomHoursFormModal({
             {/* Closed Toggle */}
             <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
               <ToggleSwitch
-                label="Closed all day"
+                label="Closed"
                 enabled={isClosed}
-                onChange={(checked) => setValue('is_closed', checked)}
+                onChange={(checked) => setValue('closed', checked)}
               />
             </div>
 
@@ -184,16 +197,16 @@ export function CustomHoursFormModal({
                   <Clock className="w-5 h-5 text-gray-400 flex-shrink-0" />
                   <div className="flex items-center gap-3 flex-1">
                     <TimePicker
-                      {...register('open1')}
+                      {...register('open_time1')}
                       label="Open"
-                      error={errors.open1?.message}
+                      error={errors.open_time1?.message}
                       className="flex-1"
                     />
                     <span className="text-gray-500 dark:text-gray-400 mt-6">to</span>
                     <TimePicker
-                      {...register('close1')}
+                      {...register('close_time1')}
                       label="Close"
-                      error={errors.close1?.message}
+                      error={errors.close_time1?.message}
                       className="flex-1"
                     />
                   </div>
@@ -205,16 +218,16 @@ export function CustomHoursFormModal({
                     <Clock className="w-5 h-5 text-gray-400 flex-shrink-0" />
                     <div className="flex items-center gap-3 flex-1">
                       <TimePicker
-                        {...register('open2')}
+                        {...register('open_time2')}
                         label="Reopen"
-                        error={errors.open2?.message}
+                        error={errors.open_time2?.message}
                         className="flex-1"
                       />
                       <span className="text-gray-500 dark:text-gray-400 mt-6">to</span>
                       <TimePicker
-                        {...register('close2')}
+                        {...register('close_time2')}
                         label="Close"
-                        error={errors.close2?.message}
+                        error={errors.close_time2?.message}
                         className="flex-1"
                       />
                       <button
@@ -241,6 +254,26 @@ export function CustomHoursFormModal({
             )}
           </div>
         </ModalContent>
+
+        {/* API Error Display */}
+        {apiError && (
+          <div className="mx-6 mt-6 mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-red-800 dark:text-red-300 mb-1">Error</p>
+                <p className="text-sm text-red-700 dark:text-red-400">{apiError}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setApiError(null)}
+                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
         <ModalActions>
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>

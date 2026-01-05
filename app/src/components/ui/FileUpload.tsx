@@ -9,6 +9,7 @@
 import React, { useState, useRef, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { Upload, X, File, Image as ImageIcon, FileText, CheckCircle, AlertCircle, Download, Eye, Trash2 } from 'lucide-react';
 import { LoadingSpinner } from './LoadingSpinner';
+import { Modal, ModalContent, ModalActions } from './Modal';
 
 interface FileUploadProps {
   label?: string;
@@ -59,6 +60,7 @@ export const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(
     const [isUploading, setIsUploading] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Update when currentFileUrl changes
@@ -135,21 +137,11 @@ export const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(
         clearInterval(progressInterval);
         setUploadProgress(100);
 
-        // Set uploaded file info
+        // Set uploaded file info - parent will provide the URL via props
         setUploadedFileName(file.name);
         setUploadedFileMimeType(file.type);
-
-        // For images, create preview
-        if (file.type.startsWith('image/')) {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            setUploadedFileUrl(reader.result as string);
-          };
-          reader.readAsDataURL(file);
-        } else {
-          // For non-images, we'll show it when props update with the URL
-          setUploadedFileUrl(null);
-        }
+        // Don't set URL here - wait for parent to provide it via currentFileUrl prop
+        // This ensures we use the server URL, not a local base64 preview
       } catch (err: any) {
         setUploadError(err.message || 'Upload failed');
       } finally {
@@ -160,11 +152,16 @@ export const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(
       }
     };
 
-    const handleDelete = async () => {
+    const handleDeleteClick = () => {
+      setShowDeleteConfirm(true);
+    };
+
+    const handleDeleteConfirm = async () => {
       if (!onDelete) return;
 
       try {
         setIsDeleting(true);
+        setShowDeleteConfirm(false);
         await onDelete();
         setUploadedFileUrl(null);
         setUploadedFileName(null);
@@ -178,6 +175,10 @@ export const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(
       } finally {
         setIsDeleting(false);
       }
+    };
+
+    const handleDeleteCancel = () => {
+      setShowDeleteConfirm(false);
     };
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -311,7 +312,7 @@ export const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(
               {onDelete && (
                 <button
                   type="button"
-                  onClick={handleDelete}
+                  onClick={handleDeleteClick}
                   disabled={isDeleting}
                   className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -398,6 +399,49 @@ export const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(
         {helperText && !error && !uploadError && (
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{helperText}</p>
         )}
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          isOpen={showDeleteConfirm}
+          onClose={handleDeleteCancel}
+          title="Delete File"
+          size="sm"
+        >
+          <ModalContent>
+            <p className="text-gray-700 dark:text-gray-300">
+              Are you sure you want to delete this file? This action cannot be undone.
+            </p>
+            {uploadedFileName && (
+              <p className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                {uploadedFileName}
+              </p>
+            )}
+          </ModalContent>
+          <ModalActions>
+            <button
+              type="button"
+              onClick={handleDeleteCancel}
+              className="px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isDeleting ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </button>
+          </ModalActions>
+        </Modal>
       </div>
     );
   }

@@ -6,7 +6,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'react-hot-toast';
@@ -27,6 +27,7 @@ import {
   DollarSign,
   Clock,
   Music2,
+  Percent,
 } from 'lucide-react';
 import {
   businessLegalSchema,
@@ -47,6 +48,7 @@ import { Select, SelectOption } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { MaskedInput } from '@/components/ui/MaskedInput';
+import ServicesSelector from '@/components/tenant/ServicesSelector';
 
 interface BusinessInfoWizardProps {
   tenant: TenantProfile | null;
@@ -157,6 +159,27 @@ const extractDate = (datetime: string | null | undefined): string => {
 export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [assignedServiceIds, setAssignedServiceIds] = useState<string[]>([]);
+
+  // Load assigned services on mount
+  useEffect(() => {
+    const loadAssignedServices = async () => {
+      try {
+        const services = await tenantApi.getAssignedServices();
+        const serviceIds = services.map((s) => s.id);
+        setAssignedServiceIds(serviceIds);
+        // Update form with loaded service IDs (trigger validation)
+        step1Form.setValue('services_offered', serviceIds, { shouldValidate: true });
+      } catch (error) {
+        console.error('Failed to load assigned services:', error);
+        // If it fails, set empty array
+        setAssignedServiceIds([]);
+      }
+    };
+
+    loadAssignedServices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
 
   // Step 1: Legal & Tax
   const step1Form = useForm<BusinessLegalFormData>({
@@ -171,7 +194,16 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
       ein: tenant?.ein || '',
       state_tax_id: tenant?.state_tax_id || '',
       sales_tax_permit: tenant?.sales_tax_permit || '',
+      services_offered: [], // Will be populated by useEffect after fetching from API
     },
+  });
+
+  console.log('Tenant data:', tenant);
+  console.log('Assigned service IDs:', assignedServiceIds);
+  console.log('Step 1 form state:', {
+    isValid: step1Form.formState.isValid,
+    errors: step1Form.formState.errors,
+    values: step1Form.getValues(),
   });
 
   // Step 2: Contact
@@ -219,6 +251,10 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
       default_quote_footer: tenant?.default_quote_footer || '',
       default_invoice_footer: tenant?.default_invoice_footer || '',
       default_payment_instructions: tenant?.default_payment_instructions || '',
+      sales_tax_rate: tenant?.sales_tax_rate ?? null,
+      default_profit_margin: tenant?.default_profit_margin ?? null,
+      default_overhead_rate: tenant?.default_overhead_rate ?? null,
+      default_contingency_rate: tenant?.default_contingency_rate ?? null,
     },
   });
 
@@ -250,6 +286,11 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
     setCurrentStep((prev) => Math.max(prev - 1, 0));
   };
 
+  const handleStepClick = (stepIndex: number) => {
+    // Allow jumping to any step without validation
+    setCurrentStep(stepIndex);
+  };
+
   const handleFinish = async () => {
     // Validate all forms
     const validations = await Promise.all([
@@ -264,11 +305,15 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
         setIsSubmitting(true);
 
         // Combine all form data with URL prefixes applied
+        const step1Data = step1Form.getValues();
         const step2Data = step2Form.getValues();
         const step3Data = step3Form.getValues();
 
+        // Extract services_offered to handle separately
+        const { services_offered, ...step1DataWithoutServices } = step1Data;
+
         const allData = {
-          ...step1Form.getValues(),
+          ...step1DataWithoutServices,
           // Apply https:// prefix to URLs
           ...step2Data,
           website_url: step2Data.website_url ? ensureHttpsPrefix(step2Data.website_url) : undefined,
@@ -283,8 +328,13 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
         };
 
         console.log('📤 Business Settings - Request Data:', allData);
+        console.log('📤 Services to assign:', services_offered);
 
-        const response = await tenantApi.updateTenantProfile(allData);
+        // Update profile and assign services in parallel
+        const [response] = await Promise.all([
+          tenantApi.updateTenantProfile(allData),
+          tenantApi.assignServices({ service_ids: services_offered }),
+        ]);
 
         console.log('📥 Business Settings - API Response:', response);
 
@@ -310,6 +360,7 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
         onNext={handleNext}
         onPrevious={handlePrevious}
         onFinish={handleFinish}
+        onStepClick={handleStepClick}
         canGoNext={currentForm.formState.isValid}
         isLoading={isSubmitting}
       >
@@ -381,15 +432,21 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
                 )}
               />
 
-              <MaskedInput
-                {...step1Form.register('ein')}
-                label="EIN (Employer Identification Number)"
-                mask="99-9999999"
-                maskChar={null}
-                placeholder="XX-XXXXXXX"
-                error={step1Form.formState.errors.ein?.message}
-                helperText="Your federal tax ID number (Format: XX-XXXXXXX)"
-                leftIcon={<Hash className="w-5 h-5" />}
+              <Controller
+                name="ein"
+                control={step1Form.control}
+                render={({ field }) => (
+                  <MaskedInput
+                    {...field}
+                    label="EIN (Employer Identification Number)"
+                    mask="99-9999999"
+                    maskChar={null}
+                    placeholder="XX-XXXXXXX"
+                    error={step1Form.formState.errors.ein?.message}
+                    helperText="Your federal tax ID number (Format: XX-XXXXXXX)"
+                    leftIcon={<Hash className="w-5 h-5" />}
+                  />
+                )}
               />
 
               <Input
@@ -406,6 +463,25 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
                 error={step1Form.formState.errors.sales_tax_permit?.message}
                 helperText="Sales tax permit or resale certificate number"
                 leftIcon={<FileText className="w-5 h-5" />}
+              />
+            </div>
+
+            <div className="mt-6">
+              <Controller
+                name="services_offered"
+                control={step1Form.control}
+                render={({ field }) => (
+                  <ServicesSelector
+                    value={field.value || []}
+                    onChange={(value) => {
+                      field.onChange(value);
+                      // Trigger full form validation after change
+                      setTimeout(() => step1Form.trigger(), 0);
+                    }}
+                    error={step1Form.formState.errors.services_offered?.message}
+                    required
+                  />
+                )}
               />
             </div>
           </div>
@@ -589,15 +665,21 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
                 leftIcon={<Landmark className="w-5 h-5" />}
               />
 
-              <MaskedInput
-                {...step3Form.register('routing_number')}
-                label="Routing Number"
-                mask="999999999"
-                maskChar={null}
-                placeholder="XXXXXXXXX"
-                error={step3Form.formState.errors.routing_number?.message}
-                helperText="9-digit bank routing number for ACH transfers"
-                leftIcon={<Hash className="w-5 h-5" />}
+              <Controller
+                name="routing_number"
+                control={step3Form.control}
+                render={({ field }) => (
+                  <MaskedInput
+                    {...field}
+                    label="Routing Number"
+                    mask="999999999"
+                    maskChar={null}
+                    placeholder="XXXXXXXXX"
+                    error={step3Form.formState.errors.routing_number?.message}
+                    helperText="9-digit bank routing number for ACH transfers"
+                    leftIcon={<Hash className="w-5 h-5" />}
+                  />
+                )}
               />
 
               <Input
@@ -714,6 +796,70 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
                 leftIcon={<Clock className="w-5 h-5" />}
                 required
               />
+
+              <Input
+                {...step4Form.register('sales_tax_rate', {
+                  valueAsNumber: true,
+                  setValueAs: (v) => v === '' ? null : parseFloat(v)
+                })}
+                type="number"
+                label="Sales Tax Rate (%)"
+                error={step4Form.formState.errors.sales_tax_rate?.message}
+                min={0}
+                max={99.999}
+                step={0.001}
+                placeholder="0.000"
+                helperText="Sales tax percentage applied to invoices and quotes (0-99.999%)"
+                leftIcon={<Percent className="w-5 h-5" />}
+              />
+
+              <Input
+                {...step4Form.register('default_profit_margin', {
+                  valueAsNumber: true,
+                  setValueAs: (v) => v === '' ? null : parseFloat(v)
+                })}
+                type="number"
+                label="Default Profit Margin (%)"
+                error={step4Form.formState.errors.default_profit_margin?.message}
+                min={0}
+                max={999.99}
+                step={0.01}
+                placeholder="0.00"
+                helperText="Default profit margin percentage for quotes (0-999.99%)"
+                leftIcon={<Percent className="w-5 h-5" />}
+              />
+
+              <Input
+                {...step4Form.register('default_overhead_rate', {
+                  valueAsNumber: true,
+                  setValueAs: (v) => v === '' ? null : parseFloat(v)
+                })}
+                type="number"
+                label="Default Overhead Rate (%)"
+                error={step4Form.formState.errors.default_overhead_rate?.message}
+                min={0}
+                max={999.99}
+                step={0.01}
+                placeholder="0.00"
+                helperText="Default overhead rate percentage for quotes (0-999.99%)"
+                leftIcon={<Percent className="w-5 h-5" />}
+              />
+
+              <Input
+                {...step4Form.register('default_contingency_rate', {
+                  valueAsNumber: true,
+                  setValueAs: (v) => v === '' ? null : parseFloat(v)
+                })}
+                type="number"
+                label="Default Contingency Rate (%)"
+                error={step4Form.formState.errors.default_contingency_rate?.message}
+                min={0}
+                max={999.99}
+                step={0.01}
+                placeholder="0.00"
+                helperText="Default contingency rate percentage for quotes (0-999.99%)"
+                leftIcon={<Percent className="w-5 h-5" />}
+              />
             </div>
 
             <div className="space-y-6 mt-6">
@@ -780,7 +926,7 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
                     rows={3}
                     maxLength={500}
                     showCharacterCount
-                    helperText="Instructions for customers on how to pay invoices"
+                    helperText="Global setting applied to all quotes and invoices unless customized individually. Instructions for customers on how to pay."
                   />
                 )}
               />
