@@ -92,7 +92,7 @@ model Tenant {
   logo_file           File?               @relation("TenantLogo", fields: [logo_file_id], references: [file_id])
   venmo_qr_code_file  File?               @relation("TenantVenmoQR", fields: [venmo_qr_code_file_id], references: [file_id])
   users               User[]
-  roles               Role[]
+  user_roles          UserRole[]
   audit_logs          AuditLog[]
   addresses           TenantAddress[]
   licenses            TenantLicense[]
@@ -143,12 +143,13 @@ model User {
   deleted_at               DateTime?
 
   // Relations
-  tenant         Tenant?        @relation(fields: [tenant_id], references: [id])
-  refresh_tokens RefreshToken[]
-  user_roles     UserRole[]
-  audit_logs     AuditLog[]
-  signature      UserSignature?
-  uploaded_files File[]
+  tenant               Tenant?          @relation(fields: [tenant_id], references: [id])
+  refresh_tokens       RefreshToken[]
+  user_roles           UserRole[]
+  roles_assigned       UserRole[]       @relation("AssignedBy")
+  audit_logs           AuditLog[]
+  signature            UserSignature?
+  uploaded_files       File[]
 
   @@unique([email, tenant_id], name: "email_tenant_unique")
   @@index([tenant_id, is_active])
@@ -184,45 +185,54 @@ model RefreshToken {
 }
 
 // ============================================
-// ROLE - RBAC roles
+// ROLE - RBAC roles (UPDATED for dynamic RBAC)
 // ============================================
 
 model Role {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  tenant_id   String?  @db.VarChar(36)
-  name        String   @db.VarChar(50)
-  description String?  @db.VarChar(255)
-  is_system   Boolean  @default(false)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  id                  String    @id @default(uuid()) @db.VarChar(36)
+  name                String    @unique @db.VarChar(50) // Globally unique role names
+  description         String?   @db.VarChar(255)
+  is_system           Boolean   @default(false) // System roles vs custom roles
+  is_active           Boolean   @default(true)
+  created_by_user_id  String?   @db.VarChar(36)
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+  deleted_at          DateTime?
 
   // Relations
-  tenant     Tenant?    @relation(fields: [tenant_id], references: [id])
-  user_roles UserRole[]
+  user_roles       UserRole[]
+  role_permissions RolePermission[]
 
-  @@unique([tenant_id, name], name: "tenant_role_unique")
-  @@index([tenant_id])
   @@index([name])
+  @@index([is_system])
+  @@index([is_active])
   @@map("role")
 }
 
 // ============================================
-// USER ROLE - Junction table for RBAC
+// USER ROLE - Junction table for RBAC (UPDATED for multi-tenant)
 // ============================================
 
 model UserRole {
-  id         String   @id @default(uuid()) @db.VarChar(36)
-  user_id    String   @db.VarChar(36)
-  role_id    String   @db.VarChar(36)
-  created_at DateTime @default(now())
+  id                   String    @id @default(uuid()) @db.VarChar(36)
+  user_id              String    @db.VarChar(36)
+  role_id              String    @db.VarChar(36)
+  tenant_id            String    @db.VarChar(36) // CRITICAL: Roles are tenant-specific
+  assigned_by_user_id  String?   @db.VarChar(36)
+  assigned_at          DateTime  @default(now())
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
 
   // Relations
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  role Role @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  user          User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  role          Role    @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  tenant        Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assigned_by   User?   @relation("AssignedBy", fields: [assigned_by_user_id], references: [id])
 
-  @@unique([user_id, role_id], name: "user_role_unique")
-  @@index([user_id])
+  @@unique([user_id, role_id, tenant_id], name: "user_role_tenant_unique")
+  @@index([user_id, tenant_id])
   @@index([role_id])
+  @@index([tenant_id])
   @@map("user_role")
 }
 
@@ -606,4 +616,118 @@ model TenantService {
   @@index([tenant_id])
   @@index([service_id])
   @@map("tenant_service")
+}
+
+// ============================================
+// MODULE - Platform modules/features
+// ============================================
+
+model Module {
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  name         String   @unique @db.VarChar(50) // e.g., "leads", "quotes", "projects"
+  display_name String   @db.VarChar(100) // e.g., "Lead Management"
+  description  String?  @db.VarChar(500)
+  is_active    Boolean  @default(true)
+  sort_order   Int      @default(0)
+  icon         String?  @db.VarChar(50) // Icon name for UI
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  // Relations
+  permissions Permission[]
+
+  @@index([is_active])
+  @@index([name])
+  @@index([sort_order])
+  @@map("module")
+}
+
+// ============================================
+// PERMISSION - Actions per module
+// ============================================
+
+model Permission {
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  module_id    String   @db.VarChar(36)
+  action       String   @db.VarChar(50) // e.g., "view", "create", "edit", "delete"
+  display_name String   @db.VarChar(100) // e.g., "View Leads", "Create Quotes"
+  description  String?  @db.VarChar(500)
+  is_active    Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  // Relations
+  module                     Module                   @relation(fields: [module_id], references: [id], onDelete: Cascade)
+  role_permissions           RolePermission[]
+  role_template_permissions  RoleTemplatePermission[]
+
+  @@unique([module_id, action], name: "module_action_unique")
+  @@index([module_id])
+  @@index([is_active])
+  @@map("permission")
+}
+
+// ============================================
+// ROLE PERMISSION - Junction table for role permissions
+// ============================================
+
+model RolePermission {
+  id                  String    @id @default(uuid()) @db.VarChar(36)
+  role_id             String    @db.VarChar(36)
+  permission_id       String    @db.VarChar(36)
+  granted_at          DateTime  @default(now())
+  granted_by_user_id  String?   @db.VarChar(36)
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  // Relations
+  role       Role       @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+
+  @@unique([role_id, permission_id], name: "role_permission_unique")
+  @@index([role_id])
+  @@index([permission_id])
+  @@map("role_permission")
+}
+
+// ============================================
+// ROLE TEMPLATE - Pre-configured role sets
+// ============================================
+
+model RoleTemplate {
+  id                  String    @id @default(uuid()) @db.VarChar(36)
+  name                String    @unique @db.VarChar(100)
+  description         String?   @db.Text
+  is_system_template  Boolean   @default(false) // True for 7 default templates
+  is_active           Boolean   @default(true)
+  created_by_user_id  String?   @db.VarChar(36)
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  // Relations
+  template_permissions RoleTemplatePermission[]
+
+  @@index([is_system_template])
+  @@index([is_active])
+  @@map("role_template")
+}
+
+// ============================================
+// ROLE TEMPLATE PERMISSION - Junction table for template permissions
+// ============================================
+
+model RoleTemplatePermission {
+  id               String    @id @default(uuid()) @db.VarChar(36)
+  role_template_id String    @db.VarChar(36)
+  permission_id    String    @db.VarChar(36)
+  created_at       DateTime  @default(now())
+
+  // Relations
+  role_template RoleTemplate @relation(fields: [role_template_id], references: [id], onDelete: Cascade)
+  permission    Permission   @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+
+  @@unique([role_template_id, permission_id], name: "role_template_permission_unique")
+  @@index([role_template_id])
+  @@index([permission_id])
+  @@map("role_template_permission")
 }

@@ -1,7 +1,9 @@
 import { Injectable, NestMiddleware, NotFoundException } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { TenantService } from '../services/tenant.service';
-import { AuthenticatedUser } from '../../auth/entities/jwt-payload.entity';
+import { AuthenticatedUser, JwtPayload } from '../../auth/entities/jwt-payload.entity';
 
 // Extend Express Request to include tenant_id and tenant
 // Note: 'user' is defined by Passport.js and set by JwtStrategy
@@ -39,7 +41,11 @@ export class TenantResolutionMiddleware implements NestMiddleware {
     'support',
   ];
 
-  constructor(private readonly tenantService: TenantService) {}
+  constructor(
+    private readonly tenantService: TenantService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
     // Skip tenant resolution for certain paths
@@ -54,14 +60,16 @@ export class TenantResolutionMiddleware implements NestMiddleware {
 
       // If no subdomain or special subdomain, try to get tenant_id from JWT
       if (!subdomain || this.SPECIAL_SUBDOMAINS.includes(subdomain)) {
-        // For localhost/IP access (e.g., tests), extract tenant_id from JWT token
-        if (req.user && req.user.tenant_id) {
-          req.tenant_id = req.user.tenant_id;
+        // For localhost/IP access (e.g., tests, development), extract tenant_id from JWT token
+        const tenantIdFromJwt = this.extractTenantIdFromJwt(req);
+
+        if (tenantIdFromJwt) {
+          req.tenant_id = tenantIdFromJwt;
           // Optionally load full tenant object
-          const tenant = await this.tenantService.findById(req.user.tenant_id);
+          const tenant = await this.tenantService.findById(tenantIdFromJwt);
           req.tenant = tenant;
         }
-        // Allow request to continue
+        // Allow request to continue (even if no tenant_id - might be Platform Admin)
         return next();
       }
 
@@ -122,6 +130,32 @@ export class TenantResolutionMiddleware implements NestMiddleware {
 
     // First part is the subdomain
     return parts[0];
+  }
+
+  /**
+   * Extract tenant_id from JWT token in Authorization header
+   * Returns tenant_id or null if token is invalid/missing
+   */
+  private extractTenantIdFromJwt(req: Request): string | null {
+    try {
+      // Extract Bearer token from Authorization header
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return null;
+      }
+
+      const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+
+      // Decode JWT token
+      const secret = this.configService.get<string>('JWT_SECRET');
+      const payload = this.jwtService.verify<JwtPayload>(token, { secret });
+
+      // Return tenant_id from payload (can be null for Platform Admins)
+      return payload.tenant_id || null;
+    } catch (error) {
+      // Token invalid, expired, or malformed - return null
+      return null;
+    }
   }
 
   /**

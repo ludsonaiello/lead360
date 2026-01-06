@@ -148,7 +148,7 @@
 
 ### 0.4 Multi-Tenant Resolution
 
-**Status**: `Started`
+**Status**: `Complete`
 
 #### Documentation
 
@@ -170,33 +170,33 @@
 
 #### Frontend Development
 
-- [ ] Create subdomain detection middleware (Next.js)
-- [ ] Handle tenant subdomain routing
-- [ ] Create tenant context (if needed)
-- [ ] Test subdomain resolution (local dev setup)
+- [X] Create subdomain detection middleware (Next.js)
+- [X] Handle tenant subdomain routing
+- [X] Create tenant context (if needed)
+- [X] Test subdomain resolution (local dev setup)
 
 ---
 
 ### 0.5 RBAC System
 
-**Status**: `Not Started`
+**Status**: `Started`
 
 #### Documentation
 
-- [ ] contracts/rbac-contract.md
-- [ ] backend/module-rbac.md
-- [ ] frontend/module-rbac.md
+- [X] contracts/rbac-contract.md
+- [X] backend/module-rbac.md
+- [X] frontend/module-rbac.md
 
 #### Backend Development
 
-- [ ] Define role enum (Owner, Admin, Estimator, PM, Bookkeeper, Employee, ReadOnly)
-- [ ] Create RolesGuard
-- [ ] Create @Roles() decorator
-- [ ] Seed default roles in database
-- [ ] Implement role assignment (user has many roles)
-- [ ] Write RBAC tests (MANDATORY - test role enforcement)
+- [X] Define role enum (Owner, Admin, Estimator, PM, Bookkeeper, Employee, ReadOnly)
+- [X] Create RolesGuard
+- [X] Create @Roles() decorator
+- [X] Seed default roles in database
+- [X] Implement role assignment (user has many roles)
+- [X] Write RBAC tests (MANDATORY - test role enforcement)
 - [ ] Write unit tests
-- [ ] Generate API documentation
+- [X] Generate API documentation
 
 #### Frontend Development
 

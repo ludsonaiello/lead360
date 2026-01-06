@@ -1,4 +1,6 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../../core/database/prisma.module';
 
 // Controllers
@@ -28,7 +30,11 @@ import { LicenseExpiryCheckJob } from './jobs/license-expiry-check.job';
 import { InsuranceExpiryCheckJob } from './jobs/insurance-expiry-check.job';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [
+    PrismaModule,
+    JwtModule.register({}), // Register JwtModule for middleware to use
+    ConfigModule, // ConfigModule is global, but explicitly import for clarity
+  ],
   controllers: [TenantController, AdminController],
   providers: [
     // Services

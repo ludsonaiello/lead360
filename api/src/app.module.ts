@@ -9,6 +9,7 @@ import { FileStorageModule } from './core/file-storage';
 import { AuthModule, JwtAuthGuard } from './modules/auth';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { FilesModule } from './modules/files/files.module';
+import { RBACModule } from './modules/rbac/rbac.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { FilesModule } from './modules/files/files.module';
     AuthModule,
     TenantModule, // Tenant management with multi-tenant isolation
     FilesModule, // General file management with orphan tracking
+    RBACModule, // Role-Based Access Control (RBAC) management
   ],
   controllers: [HealthController],
   providers: [

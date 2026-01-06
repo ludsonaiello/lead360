@@ -82,6 +82,7 @@ describe('AuthService', () => {
         updateMany: jest.fn(),
       },
       role: {
+        findUnique: jest.fn(),
         create: jest.fn(),
       },
       userRole: {
@@ -102,6 +103,9 @@ describe('AuthService', () => {
           tenant: { create: jest.fn().mockResolvedValue(mockTenant) },
           user: { create: jest.fn().mockResolvedValue(mockUser) },
           role: {
+            findUnique: jest
+              .fn()
+              .mockResolvedValue({ id: 'role-uuid', name: 'Owner' }),
             create: jest
               .fn()
               .mockResolvedValue({ id: 'role-uuid', name: 'Owner' }),
@@ -200,6 +204,9 @@ describe('AuthService', () => {
             tenant: { create: jest.fn().mockResolvedValue(newTenant) },
             user: { create: jest.fn().mockResolvedValue(newUser) },
             role: {
+              findUnique: jest
+                .fn()
+                .mockResolvedValue({ id: 'role-uuid', name: 'Owner' }),
               create: jest
                 .fn()
                 .mockResolvedValue({ id: 'role-uuid', name: 'Owner' }),

@@ -5,6 +5,7 @@ import {
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -89,15 +90,16 @@ export class AuthService {
         },
       });
 
-      // Create Owner role for this tenant
-      const ownerRole = await tx.role.create({
-        data: {
-          tenant_id: tenant.id,
-          name: 'Owner',
-          description: 'Tenant owner with full access',
-          is_system: true,
-        },
+      // Find the Owner role (global role, no tenant_id)
+      const ownerRole = await tx.role.findUnique({
+        where: { name: 'Owner' },
       });
+
+      if (!ownerRole) {
+        throw new InternalServerErrorException(
+          'Owner role not found. Please run database seeding first.',
+        );
+      }
 
       // Create business hours (use provided or default to Mon-Fri 9-5)
       const businessHoursData = registerDto.business_hours || {
@@ -148,6 +150,8 @@ export class AuthService {
         data: {
           user_id: user.id,
           role_id: ownerRole.id,
+          tenant_id: tenant.id,
+          assigned_by_user_id: user.id, // Self-assigned during registration
         },
       });
 
