@@ -153,7 +153,8 @@ export default function PermissionBuilder({
   const togglePermission = (permissionId: string) => {
     if (disabled) return;
 
-    const newSelection = isPermissionSelected(permissionId)
+    const wasSelected = isPermissionSelected(permissionId);
+    const newSelection = wasSelected
       ? selectedPermissionIds.filter((id) => id !== permissionId)
       : [...selectedPermissionIds, permissionId];
 

@@ -675,9 +675,11 @@ export class RoleTemplateService {
         data: {
           tenant_id: tenantId,
           actor_user_id: actorUserId,
+          actor_type: 'user',
           entity_type: entityType,
           entity_id: entityId,
-          action,
+          action_type: action,
+          description: `Role template ${action}`,
           before_json: beforeJson,
           after_json: afterJson,
         },

@@ -8,6 +8,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 
 /**
  * Role Service - Role Management (CRUD + Clone)
@@ -24,7 +25,10 @@ import { PrismaService } from '../../../core/database/prisma.service';
 export class RoleService {
   private readonly logger = new Logger(RoleService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogger: AuditLoggerService,
+  ) {}
 
   /**
    * Get all roles (system + custom)
@@ -175,18 +179,19 @@ export class RoleService {
     }
 
     // Audit log
-    await this.createAuditLog(
-      null, // No specific tenant
-      createdByUserId,
-      'role',
-      role.id,
-      'role_created',
-      null,
-      {
+    await this.auditLogger.logRBACChange({
+      action: 'created',
+      entityType: 'role',
+      entityId: role.id,
+      tenantId: undefined,
+      actorUserId: createdByUserId,
+      metadata: {
         name: role.name,
         permission_count: permissionIds.length,
+        is_system: false,
       },
-    );
+      description: `Role "${role.name}" created`,
+    });
 
     this.logger.log(
       `Custom role "${name}" created by Platform Admin ${createdByUserId} with ${permissionIds.length} permissions`,
@@ -313,24 +318,27 @@ export class RoleService {
     });
 
     // Audit log
-    await this.createAuditLog(
-      null,
-      updatedByUserId,
-      'role',
-      roleId,
-      'role_updated',
-      {
-        name: role.name,
-        is_active: role.is_active,
-        permission_count: role.role_permissions.length,
+    await this.auditLogger.logRBACChange({
+      action: 'updated',
+      entityType: 'role',
+      entityId: roleId,
+      tenantId: undefined,
+      actorUserId: updatedByUserId,
+      metadata: {
+        before: {
+          name: role.name,
+          is_active: role.is_active,
+          permission_count: role.role_permissions.length,
+        },
+        after: {
+          name: updates.name ?? role.name,
+          is_active: updates.is_active ?? role.is_active,
+          permission_count:
+            updates.permissionIds?.length ?? role.role_permissions.length,
+        },
       },
-      {
-        name: updates.name ?? role.name,
-        is_active: updates.is_active ?? role.is_active,
-        permission_count:
-          updates.permissionIds?.length ?? role.role_permissions.length,
-      },
-    );
+      description: `Role "${role.name}" updated`,
+    });
 
     this.logger.log(`Role ${roleId} updated by ${updatedByUserId}`);
 
@@ -392,15 +400,18 @@ export class RoleService {
     });
 
     // Audit log
-    await this.createAuditLog(
-      null,
-      deletedByUserId,
-      'role',
-      roleId,
-      'role_deleted',
-      { name: role.name },
-      null,
-    );
+    await this.auditLogger.logRBACChange({
+      action: 'deleted',
+      entityType: 'role',
+      entityId: roleId,
+      tenantId: undefined,
+      actorUserId: deletedByUserId,
+      metadata: {
+        name: role.name,
+        is_system: role.is_system,
+      },
+      description: `Role "${role.name}" deleted`,
+    });
 
     this.logger.log(
       `Role ${role.name} (${roleId}) soft deleted by ${deletedByUserId}`,
@@ -500,20 +511,21 @@ export class RoleService {
     }
 
     // Audit log
-    await this.createAuditLog(
-      null,
-      clonedByUserId,
-      'role',
-      clonedRole.id,
-      'role_cloned',
-      null,
-      {
+    await this.auditLogger.logRBACChange({
+      action: 'created',
+      entityType: 'role',
+      entityId: clonedRole.id,
+      tenantId: undefined,
+      actorUserId: clonedByUserId,
+      metadata: {
         source_role_id: sourceRoleId,
         source_role_name: sourceRole.name,
         new_role_name: newName,
         permission_count: sourceRole.role_permissions.length,
+        operation: 'clone',
       },
-    );
+      description: `Role "${newName}" cloned from "${sourceRole.name}"`,
+    });
 
     this.logger.log(
       `Role "${sourceRole.name}" cloned to "${newName}" by ${clonedByUserId} with ${sourceRole.role_permissions.length} permissions`,
@@ -549,35 +561,5 @@ export class RoleService {
     }
 
     return role;
-  }
-
-  /**
-   * Create audit log entry
-   */
-  private async createAuditLog(
-    tenantId: string | null,
-    actorUserId: string,
-    entityType: string,
-    entityId: string,
-    action: string,
-    beforeJson: any,
-    afterJson: any,
-  ) {
-    try {
-      await this.prisma.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: actorUserId,
-          entity_type: entityType,
-          entity_id: entityId,
-          action,
-          before_json: beforeJson,
-          after_json: afterJson,
-        },
-      });
-    } catch (error) {
-      this.logger.error(`Failed to create audit log: ${error.message}`);
-      // Don't throw - audit log failure shouldn't break the operation
-    }
   }
 }

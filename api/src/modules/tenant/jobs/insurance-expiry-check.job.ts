@@ -175,9 +175,11 @@ export class InsuranceExpiryCheckJob {
         data: {
           tenant_id: tenantId,
           actor_user_id: null, // System action
-          action: 'ALERT',
+          actor_type: 'cron_job',
+          action_type: 'ALERT',
           entity_type: 'TenantInsurance',
           entity_id: insurance.id,
+          description: `Insurance expiry alert: ${daysUntilExpiry} days until expiry`,
           metadata_json: {
             type: 'insurance_expiry_alert',
             days_until_expiry: daysUntilExpiry,

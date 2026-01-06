@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { FileStorageService } from '../../core/file-storage/file-storage.service';
+import { AuditLoggerService } from '../audit/services/audit-logger.service';
 import { UploadFileDto, FileCategory } from './dto/upload-file.dto';
 import { FileQueryDto } from './dto/file-query.dto';
 
@@ -9,6 +10,7 @@ export class FilesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly fileStorage: FileStorageService,
+    private readonly auditLogger: AuditLoggerService,
   ) {}
 
   /**
@@ -94,21 +96,26 @@ export class FilesService {
     });
 
     // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: tenantId,
-        actor_user_id: userId,
-        action: 'file_uploaded',
-        entity_type: 'file',
-        entity_id: fileRecord.id,
-        metadata_json: {
-          file_id,
-          category: uploadDto.category,
-          original_filename: metadata.original_filename,
-          size_bytes: metadata.size_bytes,
-          entity_type: uploadDto.entity_type,
-          entity_id: uploadDto.entity_id,
-        },
+    await this.auditLogger.logTenantChange({
+      action: 'created',
+      entityType: 'file',
+      entityId: fileRecord.id,
+      tenantId: tenantId,
+      actorUserId: userId,
+      after: {
+        id: fileRecord.id,
+        file_id: fileRecord.file_id,
+        original_filename: fileRecord.original_filename,
+        mime_type: fileRecord.mime_type,
+        size_bytes: fileRecord.size_bytes,
+        category: fileRecord.category,
+        storage_path: fileRecord.storage_path,
+      },
+      description: `File "${fileRecord.original_filename}" uploaded`,
+      metadata: {
+        category: uploadDto.category,
+        entity_type: uploadDto.entity_type,
+        entity_id: uploadDto.entity_id,
       },
     });
 
@@ -261,18 +268,26 @@ export class FilesService {
     });
 
     // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: tenantId,
-        actor_user_id: userId,
-        action: 'file_deleted',
-        entity_type: 'file',
-        entity_id: file.id,
-        metadata_json: {
-          file_id: fileId,
-          original_filename: file.original_filename,
-          category: file.category,
-        },
+    await this.auditLogger.logTenantChange({
+      action: 'deleted',
+      entityType: 'file',
+      entityId: file.id,
+      tenantId: tenantId,
+      actorUserId: userId,
+      before: {
+        id: file.id,
+        file_id: file.file_id,
+        original_filename: file.original_filename,
+        mime_type: file.mime_type,
+        size_bytes: file.size_bytes,
+        category: file.category,
+        storage_path: file.storage_path,
+      },
+      description: `File "${file.original_filename}" deleted`,
+      metadata: {
+        category: file.category,
+        entity_type: file.entity_type,
+        entity_id: file.entity_id,
       },
     });
 
@@ -381,17 +396,21 @@ export class FilesService {
     });
 
     // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: tenantId,
-        actor_user_id: userId,
-        action: 'orphan_files_trashed',
-        entity_type: 'file',
-        entity_id: tenantId,
-        metadata_json: {
-          count: orphansToTrash.length,
-          file_ids: orphansToTrash.map((f) => f.file_id),
-        },
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'file',
+      entityId: tenantId, // Using tenant ID for bulk operation
+      tenantId: tenantId,
+      actorUserId: userId,
+      after: {
+        is_trashed: true,
+        count: orphansToTrash.length,
+      },
+      description: `${orphansToTrash.length} orphan files moved to trash`,
+      metadata: {
+        operation: 'bulk_trash',
+        file_ids: orphansToTrash.map((f) => f.file_id),
+        file_count: orphansToTrash.length,
       },
     });
 
@@ -439,17 +458,25 @@ export class FilesService {
     });
 
     // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: tenantId,
-        actor_user_id: userId,
-        action: 'trashed_files_deleted',
-        entity_type: 'file',
-        entity_id: tenantId,
-        metadata_json: {
-          count: trashedFiles.length,
-          file_ids: trashedFiles.map((f) => f.file_id),
-        },
+    await this.auditLogger.logTenantChange({
+      action: 'deleted',
+      entityType: 'file',
+      entityId: tenantId, // Using tenant ID for bulk operation
+      tenantId: tenantId,
+      actorUserId: userId,
+      before: {
+        count: trashedFiles.length,
+        files: trashedFiles.map((f) => ({
+          id: f.id,
+          file_id: f.file_id,
+          original_filename: f.original_filename,
+        })),
+      },
+      description: `${trashedFiles.length} trashed files permanently deleted`,
+      metadata: {
+        operation: 'bulk_delete',
+        file_ids: trashedFiles.map((f) => f.file_id),
+        file_count: trashedFiles.length,
       },
     });
 

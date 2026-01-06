@@ -5,13 +5,17 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { CreateAddressDto } from '../dto/create-address.dto';
 import { UpdateAddressDto } from '../dto/update-address.dto';
 import { AddressType } from '../dto/create-address.dto';
 
 @Injectable()
 export class TenantAddressService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogger: AuditLoggerService,
+  ) {}
 
   /**
    * Get all addresses for a tenant
@@ -110,19 +114,18 @@ export class TenantAddressService {
         } as any,
       });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          action: 'CREATE',
-          entity_type: 'TenantAddress',
-          entity_id: newAddress.id,
-          metadata_json: {  created: createAddressDto } as any,
-        } as any,
-      });
-
       return newAddress;
+    });
+
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'created',
+      entityType: 'tenant_address',
+      entityId: address.id,
+      tenantId: tenantId,
+      actorUserId: userId,
+      after: address,
+      description: 'Tenant address created',
     });
 
     return address;
@@ -167,22 +170,19 @@ export class TenantAddressService {
         data: updateAddressDto,
       });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          action: 'UPDATE',
-          entity_type: 'TenantAddress',
-          entity_id: addressId,
-          metadata_json: { 
-            old: existingAddress,
-            new: updateAddressDto,
-          } as any,
-        } as any,
-      });
-
       return updated;
+    });
+
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'tenant_address',
+      entityId: addressId,
+      tenantId: tenantId,
+      actorUserId: userId,
+      before: existingAddress,
+      after: address,
+      description: 'Tenant address updated',
     });
 
     return address;
@@ -233,18 +233,17 @@ export class TenantAddressService {
       await tx.tenantAddress.delete({
         where: { id: addressId } as any,
       });
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          action: 'DELETE',
-          entity_type: 'TenantAddress',
-          entity_id: addressId,
-          metadata_json: {  deleted: existingAddress } as any,
-        } as any,
-      });
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'deleted',
+      entityType: 'tenant_address',
+      entityId: addressId,
+      tenantId: tenantId,
+      actorUserId: userId,
+      before: existingAddress,
+      description: 'Tenant address deleted',
     });
 
     return { message: 'Address deleted successfully' };
@@ -273,18 +272,18 @@ export class TenantAddressService {
         where: { id: addressId } as any,
         data: { is_default: true } as any,
       });
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          action: 'UPDATE',
-          entity_type: 'TenantAddress',
-          entity_id: addressId,
-          metadata_json: {  is_default: { old: false, new: true } } as any,
-        } as any,
-      });
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'tenant_address',
+      entityId: addressId,
+      tenantId: tenantId,
+      actorUserId: userId,
+      before: { is_default: false },
+      after: { is_default: true },
+      description: 'Tenant address set as default',
     });
 
     return { message: 'Address set as default successfully' };

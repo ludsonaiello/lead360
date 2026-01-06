@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { UserRoleService } from './user-role.service';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 
 describe('UserRoleService', () => {
   let service: UserRoleService;
@@ -70,12 +71,24 @@ describe('UserRoleService', () => {
       $transaction: jest.fn((callback) => callback(mockPrismaService)),
     };
 
+    const mockAuditLogger = {
+      log: jest.fn(),
+      logAuth: jest.fn(),
+      logTenantChange: jest.fn(),
+      logRBACChange: jest.fn(),
+      logFailedAction: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UserRoleService,
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: AuditLoggerService,
+          useValue: mockAuditLogger,
         },
       ],
     }).compile();

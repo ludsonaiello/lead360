@@ -228,7 +228,13 @@ export const getRoleById = async (roleId: string): Promise<RoleWithPermissions> 
 export const createRole = async (
   formData: RoleFormData
 ): Promise<RoleWithPermissions> => {
-  const { data } = await apiClient.post('/admin/rbac/roles', formData);
+  // Transform snake_case to camelCase for backend
+  const backendPayload = {
+    name: formData.name,
+    permissionIds: formData.permission_ids,
+  };
+
+  const { data } = await apiClient.post('/admin/rbac/roles', backendPayload);
   return data;
 };
 
@@ -249,7 +255,12 @@ export const updateRole = async (
   roleId: string,
   formData: Partial<RoleFormData>
 ): Promise<RoleWithPermissions> => {
-  const { data } = await apiClient.patch(`/admin/rbac/roles/${roleId}`, formData);
+  // Transform snake_case to camelCase for backend
+  const backendPayload: any = {};
+  if (formData.name !== undefined) backendPayload.name = formData.name;
+  if (formData.permission_ids !== undefined) backendPayload.permissionIds = formData.permission_ids;
+
+  const { data } = await apiClient.patch(`/admin/rbac/roles/${roleId}`, backendPayload);
   return data;
 };
 
@@ -341,7 +352,14 @@ export const getPermissionById = async (
 export const createPermission = async (
   formData: PermissionFormData
 ): Promise<Permission> => {
-  const { data } = await apiClient.post('/admin/rbac/permissions', formData);
+  // Transform snake_case to camelCase for backend
+  const backendPayload = {
+    moduleId: formData.module_id,
+    action: formData.action,
+    displayName: formData.display_name,
+    description: formData.description || null,
+  };
+  const { data } = await apiClient.post('/admin/rbac/permissions', backendPayload);
   return data;
 };
 
@@ -362,9 +380,14 @@ export const updatePermission = async (
   permissionId: string,
   formData: Partial<PermissionFormData>
 ): Promise<Permission> => {
+  // Transform snake_case to camelCase for backend
+  const backendPayload: any = {};
+  if (formData.display_name !== undefined) backendPayload.displayName = formData.display_name;
+  if (formData.description !== undefined) backendPayload.description = formData.description;
+
   const { data } = await apiClient.patch(
     `/admin/rbac/permissions/${permissionId}`,
-    formData
+    backendPayload
   );
   return data;
 };
@@ -437,7 +460,16 @@ export const getModuleById = async (moduleId: string): Promise<Module> => {
  * });
  */
 export const createModule = async (formData: ModuleFormData): Promise<Module> => {
-  const { data } = await apiClient.post('/admin/rbac/modules', formData);
+  // Transform snake_case to camelCase for backend
+  const backendPayload = {
+    name: formData.name,
+    displayName: formData.display_name,
+    description: formData.description || null,
+    icon: formData.icon || null,
+    sortOrder: formData.sort_order,
+    isActive: formData.is_active ?? true,
+  };
+  const { data } = await apiClient.post('/admin/rbac/modules', backendPayload);
   return data;
 };
 
@@ -460,7 +492,15 @@ export const updateModule = async (
   moduleId: string,
   formData: Partial<ModuleFormData>
 ): Promise<Module> => {
-  const { data } = await apiClient.patch(`/admin/rbac/modules/${moduleId}`, formData);
+  // Transform snake_case to camelCase for backend
+  const backendPayload: any = {};
+  if (formData.display_name !== undefined) backendPayload.displayName = formData.display_name;
+  if (formData.description !== undefined) backendPayload.description = formData.description;
+  if (formData.icon !== undefined) backendPayload.icon = formData.icon;
+  if (formData.sort_order !== undefined) backendPayload.sortOrder = formData.sort_order;
+  if (formData.is_active !== undefined) backendPayload.isActive = formData.is_active;
+
+  const { data } = await apiClient.patch(`/admin/rbac/modules/${moduleId}`, backendPayload);
   return data;
 };
 
@@ -535,7 +575,13 @@ export const getTemplateById = async (
 export const createTemplate = async (
   formData: RoleTemplateFormData
 ): Promise<RoleTemplate> => {
-  const { data } = await apiClient.post('/admin/rbac/templates', formData);
+  // Transform snake_case to camelCase for backend
+  const backendPayload = {
+    name: formData.name,
+    description: formData.description || null,
+    permissionIds: formData.permission_ids,
+  };
+  const { data } = await apiClient.post('/admin/rbac/templates', backendPayload);
   return data;
 };
 

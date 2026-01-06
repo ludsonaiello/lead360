@@ -4,6 +4,7 @@ import { FilesService } from './files.service';
 import { PrismaService } from '../../core/database/prisma.service';
 import { FileStorageService } from '../../core/file-storage/file-storage.service';
 import { FileCategory } from './dto/upload-file.dto';
+import { AuditLoggerService } from '../audit/services/audit-logger.service';
 
 describe('FilesService', () => {
   let service: FilesService;
@@ -34,6 +35,14 @@ describe('FilesService', () => {
     deleteFileByPath: jest.fn(),
   };
 
+  const mockAuditLogger = {
+    log: jest.fn(),
+    logAuth: jest.fn(),
+    logTenantChange: jest.fn(),
+    logRBACChange: jest.fn(),
+    logFailedAction: jest.fn(),
+  };
+
   const mockTenantId = 'tenant-123';
   const mockUserId = 'user-123';
   const mockFileId = 'file-123';
@@ -49,6 +58,10 @@ describe('FilesService', () => {
         {
           provide: FileStorageService,
           useValue: mockFileStorageService,
+        },
+        {
+          provide: AuditLoggerService,
+          useValue: mockAuditLogger,
         },
       ],
     }).compile();

@@ -156,9 +156,11 @@ export class LicenseExpiryCheckJob {
         data: {
           tenant_id: tenantId,
           actor_user_id: null, // System action
-          action: 'ALERT',
+          actor_type: 'cron_job',
+          action_type: 'ALERT',
           entity_type: 'TenantLicense',
           entity_id: '',
+          description: `License expiry alert: ${licenses.length} license(s) expiring in ${daysUntilExpiry} days`,
           metadata_json: {
             type: 'license_expiry_alert',
             days_until_expiry: daysUntilExpiry,

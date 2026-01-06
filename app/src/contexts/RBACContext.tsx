@@ -34,15 +34,18 @@ interface RBACProviderProps {
 }
 
 export function RBACProvider({ children }: RBACProviderProps) {
-  const { user } = useAuth(); // Get current user from AuthContext
+  const { user, isLoading: authLoading } = useAuth(); // Get current user and loading state from AuthContext
 
   // State
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [roleNames, setRoleNames] = useState<Set<string>>(new Set());
   const [permissionCodes, setPermissionCodes] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  const [rbacLoading, setRbacLoading] = useState(true); // Start as true to prevent race condition
   const [error, setError] = useState<Error | null>(null);
+
+  // Combined loading state: loading if auth is loading OR if we're fetching RBAC data
+  const loading = authLoading || rbacLoading;
 
   /**
    * Fetch current user's roles and permissions from API
@@ -50,7 +53,7 @@ export function RBACProvider({ children }: RBACProviderProps) {
   const fetchUserPermissions = useCallback(async () => {
     if (!user?.id) {
       // No user logged in
-      setLoading(false);
+      setRbacLoading(false); // No user means no RBAC to load
       setRoles([]);
       setPermissions([]);
       setRoleNames(new Set());
@@ -61,8 +64,7 @@ export function RBACProvider({ children }: RBACProviderProps) {
     // Platform admins don't have tenant-scoped roles/permissions
     // They bypass RBAC entirely (full access)
     if (user.is_platform_admin) {
-      console.log('[RBACContext] User is platform admin - skipping RBAC loading');
-      setLoading(false);
+      setRbacLoading(false);
       setRoles([]);
       setPermissions([]);
       setRoleNames(new Set(['PlatformAdmin']));
@@ -73,12 +75,12 @@ export function RBACProvider({ children }: RBACProviderProps) {
     // Regular tenant users - must have tenant_id
     if (!user.tenant_id) {
       console.error('[RBACContext] User is not platform admin but has no tenant_id');
-      setLoading(false);
+      setRbacLoading(false);
       setError(new Error('User has no tenant_id'));
       return;
     }
 
-    setLoading(true);
+    setRbacLoading(true);
     setError(null);
 
     try {
@@ -87,9 +89,6 @@ export function RBACProvider({ children }: RBACProviderProps) {
         rbacApi.getUserRoles(user.id),
         rbacApi.getUserPermissions(user.id),
       ]);
-
-      console.log('[RBACContext] Roles response:', rolesResponse);
-      console.log('[RBACContext] Permissions response:', permissionsResponse);
 
       // API returns array of UserRole objects directly (not wrapped)
       // Extract role objects from UserRole array
@@ -130,9 +129,9 @@ export function RBACProvider({ children }: RBACProviderProps) {
       setRoleNames(new Set());
       setPermissionCodes(new Set());
     } finally {
-      setLoading(false);
+      setRbacLoading(false);
     }
-  }, [user?.id]);
+  }, [user]); // Only depend on user - authLoading/rbacLoading handled in useEffect
 
   /**
    * Check if user has specific role(s)
@@ -157,12 +156,13 @@ export function RBACProvider({ children }: RBACProviderProps) {
    */
   const hasPermission = useCallback(
     (moduleAction: string | string[]): boolean => {
+      const codes = Array.isArray(moduleAction) ? moduleAction : [moduleAction];
+
       if (loading) return false; // Don't grant permissions while loading
 
       // Platform admins have wildcard permission (*:*)
       if (permissionCodes.has('*:*')) return true;
 
-      const codes = Array.isArray(moduleAction) ? moduleAction : [moduleAction];
       return codes.some((code) => permissionCodes.has(code));
     },
     [permissionCodes, loading]
@@ -201,8 +201,34 @@ export function RBACProvider({ children }: RBACProviderProps) {
 
   // Load permissions on mount and when user changes
   useEffect(() => {
+    // Don't process if auth is still loading
+    if (authLoading) {
+      return;
+    }
+
+    // Process user synchronously in useEffect to avoid race conditions
+    if (!user?.id) {
+      setRbacLoading(false);
+      setRoles([]);
+      setPermissions([]);
+      setRoleNames(new Set());
+      setPermissionCodes(new Set());
+      return;
+    }
+
+    // Platform admin - grant immediately
+    if (user.is_platform_admin) {
+      setRoles([]);
+      setPermissions([]);
+      setRoleNames(new Set(['PlatformAdmin']));
+      setPermissionCodes(new Set(['*:*']));
+      setRbacLoading(false);
+      return;
+    }
+
+    // Regular user - fetch permissions
     fetchUserPermissions();
-  }, [fetchUserPermissions]);
+  }, [user, authLoading, fetchUserPermissions]);
 
   // Context value
   const value: RBACContextState = {

@@ -20,6 +20,7 @@ import {
   Layers,
   LayoutTemplate,
   X,
+  ScrollText,
 } from 'lucide-react';
 import ProtectedMenuItem from '@/components/rbac/shared/ProtectedMenuItem';
 
@@ -41,6 +42,7 @@ const navigation: NavItem[] = [
   { name: 'Documents', href: '/documents', icon: FileText, permission: 'documents:view' },
   { name: 'Business Settings', href: '/settings/business', icon: Building2, permission: 'settings:edit' },
   { name: 'Profile Settings', href: '/settings/profile', icon: Settings },
+  { name: 'Audit Log', href: '/settings/audit-log', icon: ScrollText, permission: 'audit:view' },
   { name: 'Help', href: '/help', icon: HelpCircle },
 ];
 
@@ -50,6 +52,7 @@ const adminNavigation: NavItem[] = [
   { name: 'Permissions', href: '/admin/rbac/permissions', icon: Key, permission: 'rbac:view' },
   { name: 'Modules', href: '/admin/rbac/modules', icon: Layers, permission: 'rbac:view' },
   { name: 'Templates', href: '/admin/rbac/templates', icon: LayoutTemplate, permission: 'rbac:view' },
+  { name: 'System Audit Log', href: '/admin/audit-logs', icon: ScrollText, permission: 'platform_admin:view_all_tenants' },
 ];
 
 export function DashboardSidebar({ isOpen, onClose }: SidebarProps) {

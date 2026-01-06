@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { FilesController } from './files.controller';
 import { FilesService } from './files.service';
 import { FileCategory } from './dto/upload-file.dto';
+import { AuditLoggerService } from '../audit/services/audit-logger.service';
 
 describe('FilesController', () => {
   let controller: FilesController;
@@ -31,6 +32,14 @@ describe('FilesController', () => {
     buffer: Buffer.from('test'),
   } as Express.Multer.File;
 
+  const mockAuditLogger = {
+    log: jest.fn(),
+    logAuth: jest.fn(),
+    logTenantChange: jest.fn(),
+    logRBACChange: jest.fn(),
+    logFailedAction: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [FilesController],
@@ -38,6 +47,10 @@ describe('FilesController', () => {
         {
           provide: FilesService,
           useValue: mockFilesService,
+        },
+        {
+          provide: AuditLoggerService,
+          useValue: mockAuditLogger,
         },
       ],
     }).compile();

@@ -39,7 +39,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
    */
   const fetchUser = useCallback(async () => {
     try {
-      if (!isAuthenticated()) {
+      const authenticated = isAuthenticated();
+
+      if (!authenticated) {
         setUser(null);
         setIsLoading(false);
         return;
@@ -48,7 +50,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const userData = await authApi.getProfile();
       setUser(userData);
     } catch (error) {
-      console.error('Failed to fetch user:', error);
+      console.error('[AuthContext] Failed to fetch user:', error);
       setUser(null);
       clearTokens();
     } finally {

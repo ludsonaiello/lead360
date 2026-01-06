@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { FileStorageService } from '../../../core/file-storage';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { CreateTenantDto } from '../dto/create-tenant.dto';
 import { UpdateTenantDto } from '../dto/update-tenant.dto';
 import { UpdateBrandingDto } from '../dto/update-branding.dto';
@@ -47,6 +48,7 @@ export class TenantService {
     private readonly prisma: PrismaService,
     private readonly fileStorage: FileStorageService,
     private readonly configService: ConfigService,
+    private readonly auditLogger: AuditLoggerService,
   ) {
     const uploadsPath = this.configService.get<string>('UPLOADS_PATH') || '/var/www/lead360.app/app/uploads/public';
     this.uploadBasePath = uploadsPath;
@@ -240,7 +242,7 @@ export class TenantService {
   /**
    * Create new tenant (admin-only function, called during registration)
    */
-  async create(createTenantDto: CreateTenantDto) {
+  async create(createTenantDto: CreateTenantDto, userId?: string) {
     // Check subdomain availability
     const subdomainCheck = await this.checkSubdomainAvailability(
       createTenantDto.subdomain,
@@ -308,6 +310,17 @@ export class TenantService {
       return newTenant;
     });
 
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'created',
+      entityType: 'tenant',
+      entityId: tenant.id,
+      tenantId: tenant.id,
+      actorUserId: userId || 'system',
+      after: tenant,
+      description: 'Tenant created',
+    });
+
     return tenant;
   }
 
@@ -326,16 +339,6 @@ export class TenantService {
 
     // Extract services_offered if present (handle separately)
     const { services_offered, ...tenantData } = updateTenantDto as any;
-
-    // Track changes for audit log
-    const changes: Record<string, { old: any; new: any }> = {};
-    Object.keys(tenantData).forEach((key) => {
-      const oldValue = existingTenant[key];
-      const newValue = tenantData[key];
-      if (oldValue !== newValue) {
-        changes[key] = { old: oldValue, new: newValue };
-      }
-    });
 
     // Update tenant
     const updatedTenant = await this.prisma.$transaction(async (tx) => {
@@ -363,29 +366,21 @@ export class TenantService {
             })) as any,
           });
         }
-
-        // Add to audit log
-        changes['services_offered'] = {
-          old: 'previous_services',
-          new: services_offered,
-        };
-      }
-
-      // Create audit log entry for changes
-      if (Object.keys(changes).length > 0) {
-        await tx.auditLog.create({
-          data: {
-            tenant_id: tenantId,
-            actor_user_id: userId,
-            action: 'UPDATE',
-            entity_type: 'Tenant',
-            entity_id: tenantId,
-            metadata_json: changes,
-          } as any,
-        });
       }
 
       return updated;
+    });
+
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'tenant',
+      entityId: tenantId,
+      tenantId: tenantId,
+      actorUserId: userId,
+      before: existingTenant,
+      after: updatedTenant,
+      description: 'Tenant updated',
     });
 
     return updatedTenant;
@@ -395,6 +390,15 @@ export class TenantService {
    * Update branding settings
    */
   async updateBranding(tenantId: string, brandingDto: UpdateBrandingDto, userId: string) {
+    // Get existing tenant data before update
+    const existingTenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId } as any,
+    });
+
+    if (!existingTenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
     const tenant = await this.prisma.tenant.update({
       where: { id: tenantId } as any,
       data: {
@@ -408,15 +412,15 @@ export class TenantService {
     });
 
     // Audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: tenantId,
-        actor_user_id: userId,
-        action: 'UPDATE',
-        entity_type: 'Tenant',
-        entity_id: tenantId,
-        metadata_json: {  branding: brandingDto } as any,
-      } as any,
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'tenant',
+      entityId: tenantId,
+      tenantId: tenantId,
+      actorUserId: userId,
+      before: existingTenant,
+      after: tenant,
+      description: 'Tenant branding updated',
     });
 
     return tenant;
@@ -426,24 +430,22 @@ export class TenantService {
    * Suspend tenant (admin-only)
    */
   async suspend(tenantId: string, reason: string, adminUserId: string) {
-    const tenant = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.tenant.update({
-        where: { id: tenantId } as any,
-        data: { is_active: false } as any,
-      });
+    const tenant = await this.prisma.tenant.update({
+      where: { id: tenantId } as any,
+      data: { is_active: false } as any,
+    });
 
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: adminUserId,
-          action: 'SUSPEND',
-          entity_type: 'Tenant',
-          entity_id: tenantId,
-          metadata_json: {  is_active: { old: true, new: false }, reason } as any,
-        } as any,
-      });
-
-      return updated;
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'tenant',
+      entityId: tenantId,
+      tenantId: tenantId,
+      actorUserId: adminUserId,
+      before: { is_active: true },
+      after: { is_active: false },
+      metadata: { reason },
+      description: `Tenant suspended: ${reason}`,
     });
 
     return tenant;
@@ -453,24 +455,21 @@ export class TenantService {
    * Reactivate tenant (admin-only)
    */
   async reactivate(tenantId: string, adminUserId: string) {
-    const tenant = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.tenant.update({
-        where: { id: tenantId } as any,
-        data: { is_active: true } as any,
-      });
+    const tenant = await this.prisma.tenant.update({
+      where: { id: tenantId } as any,
+      data: { is_active: true } as any,
+    });
 
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: adminUserId,
-          action: 'REACTIVATE',
-          entity_type: 'Tenant',
-          entity_id: tenantId,
-          metadata_json: {  is_active: { old: false, new: true } } as any,
-        } as any,
-      });
-
-      return updated;
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'tenant',
+      entityId: tenantId,
+      tenantId: tenantId,
+      actorUserId: adminUserId,
+      before: { is_active: false },
+      after: { is_active: true },
+      description: 'Tenant reactivated',
     });
 
     return tenant;
@@ -584,20 +583,19 @@ export class TenantService {
       data: { logo_file_id: file_id } as any,
     });
 
-    // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: tenantId,
-        actor_user_id: userId,
-        action: 'tenant_logo_uploaded',
-        entity_type: 'tenant',
-        entity_id: tenantId,
-        metadata_json: {
-          file_id,
-          original_filename: file.originalname,
-          size_bytes: file.size,
-        },
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'tenant',
+      entityId: tenantId,
+      tenantId: tenantId,
+      actorUserId: userId,
+      after: { logo_file_id: file_id },
+      metadata: {
+        original_filename: file.originalname,
+        size_bytes: file.size,
       },
+      description: 'Tenant logo uploaded',
     });
 
     // Return file metadata
@@ -646,18 +644,16 @@ export class TenantService {
       data: { logo_file_id: null } as any,
     });
 
-    // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: tenantId,
-        actor_user_id: userId,
-        action: 'tenant_logo_deleted',
-        entity_type: 'tenant',
-        entity_id: tenantId,
-        metadata_json: {
-          file_id: logoFileId,
-        },
-      },
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'tenant',
+      entityId: tenantId,
+      tenantId: tenantId,
+      actorUserId: userId,
+      before: { logo_file_id: logoFileId },
+      after: { logo_file_id: null },
+      description: 'Tenant logo deleted',
     });
 
     return { message: 'Logo deleted successfully' };

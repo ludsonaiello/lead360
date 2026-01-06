@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { FileStorageService } from '../../../core/file-storage/file-storage.service';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { CreateLicenseDto } from '../dto/create-license.dto';
 import { UpdateLicenseDto } from '../dto/update-license.dto';
 
@@ -13,6 +14,7 @@ export class TenantLicenseService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly fileStorage: FileStorageService,
+    private readonly auditLogger: AuditLoggerService,
   ) {}
 
   /**
@@ -156,28 +158,23 @@ export class TenantLicenseService {
       }
     }
 
-    const license = await this.prisma.$transaction(async (tx) => {
-      const newLicense = await tx.tenantLicense.create({
-        data: {
-          tenant_id: tenantId,
-          ...createLicenseDto,
-        } as any,
-        include: { license_type: true } as any,
-      });
+    const license = await this.prisma.tenantLicense.create({
+      data: {
+        tenant_id: tenantId,
+        ...createLicenseDto,
+      } as any,
+      include: { license_type: true } as any,
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          action: 'CREATE',
-          entity_type: 'TenantLicense',
-          entity_id: newLicense.id,
-          metadata_json: {  created: createLicenseDto } as any,
-        } as any,
-      });
-
-      return newLicense;
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'created',
+      entityType: 'tenant_license',
+      entityId: license.id,
+      tenantId: tenantId,
+      actorUserId: userId,
+      after: license,
+      description: 'Tenant license created',
     });
 
     return license;
@@ -206,29 +203,22 @@ export class TenantLicenseService {
       }
     }
 
-    const license = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.tenantLicense.update({
-        where: { id: licenseId } as any,
-        data: updateLicenseDto,
-        include: { license_type: true } as any,
-      });
+    const license = await this.prisma.tenantLicense.update({
+      where: { id: licenseId } as any,
+      data: updateLicenseDto,
+      include: { license_type: true } as any,
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          action: 'UPDATE',
-          entity_type: 'TenantLicense',
-          entity_id: licenseId,
-          metadata_json: { 
-            old: existingLicense,
-            new: updateLicenseDto,
-          } as any,
-        } as any,
-      });
-
-      return updated;
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'tenant_license',
+      entityId: licenseId,
+      tenantId: tenantId,
+      actorUserId: userId,
+      before: existingLicense,
+      after: license,
+      description: 'Tenant license updated',
     });
 
     return license;
@@ -256,25 +246,22 @@ export class TenantLicenseService {
       }
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.tenantLicense.delete({
-        where: { id: licenseId } as any,
-      });
+    await this.prisma.tenantLicense.delete({
+      where: { id: licenseId } as any,
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          action: 'DELETE',
-          entity_type: 'TenantLicense',
-          entity_id: licenseId,
-          metadata_json: {
-            deleted: existingLicense,
-            deleted_file_id: existingLicense.document_file_id || null,
-          } as any,
-        } as any,
-      });
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'deleted',
+      entityType: 'tenant_license',
+      entityId: licenseId,
+      tenantId: tenantId,
+      actorUserId: userId,
+      before: existingLicense,
+      metadata: {
+        deleted_file_id: existingLicense.document_file_id || null,
+      },
+      description: 'Tenant license deleted',
     });
 
     return { message: 'License deleted successfully' };
@@ -363,20 +350,19 @@ export class TenantLicenseService {
       data: { document_file_id: file_id },
     });
 
-    // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: tenantId,
-        actor_user_id: userId,
-        action: 'license_document_uploaded',
-        entity_type: 'license',
-        entity_id: licenseId,
-        metadata_json: {
-          file_id,
-          original_filename: metadata.original_filename,
-          size_bytes: metadata.size_bytes,
-        },
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'tenant_license',
+      entityId: licenseId,
+      tenantId: tenantId,
+      actorUserId: userId,
+      after: { document_file_id: file_id },
+      metadata: {
+        original_filename: metadata.original_filename,
+        size_bytes: metadata.size_bytes,
       },
+      description: 'License document uploaded',
     });
 
     return {
@@ -416,18 +402,16 @@ export class TenantLicenseService {
       data: { document_file_id: null },
     });
 
-    // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: tenantId,
-        actor_user_id: userId,
-        action: 'license_document_deleted',
-        entity_type: 'license',
-        entity_id: licenseId,
-        metadata_json: {
-          file_id: license.document_file_id,
-        },
-      },
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'tenant_license',
+      entityId: licenseId,
+      tenantId: tenantId,
+      actorUserId: userId,
+      before: { document_file_id: license.document_file_id },
+      after: { document_file_id: null },
+      description: 'License document deleted',
     });
 
     return { message: 'Document deleted successfully' };

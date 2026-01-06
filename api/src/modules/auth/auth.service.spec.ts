@@ -11,6 +11,7 @@ import {
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../core/database/prisma.service';
+import { AuditLoggerService } from '../audit/services/audit-logger.service';
 
 // Mock bcrypt
 jest.mock('bcrypt', () => ({
@@ -141,12 +142,21 @@ describe('AuthService', () => {
       }),
     };
 
+    const mockAuditLogger = {
+      log: jest.fn(),
+      logAuth: jest.fn(),
+      logTenantChange: jest.fn(),
+      logRBACChange: jest.fn(),
+      logFailedAction: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: AuditLoggerService, useValue: mockAuditLogger },
       ],
     }).compile();
 

@@ -3,6 +3,7 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { TenantLicenseService } from './tenant-license.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { FileStorageService } from '../../../core/file-storage/file-storage.service';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 
 describe('TenantLicenseService', () => {
   let service: TenantLicenseService;
@@ -37,6 +38,14 @@ describe('TenantLicenseService', () => {
     deleteFileByPath: jest.fn(),
   };
 
+  const mockAuditLogger = {
+    log: jest.fn(),
+    logAuth: jest.fn(),
+    logTenantChange: jest.fn(),
+    logRBACChange: jest.fn(),
+    logFailedAction: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -48,6 +57,10 @@ describe('TenantLicenseService', () => {
         {
           provide: FileStorageService,
           useValue: mockFileStorageService,
+        },
+        {
+          provide: AuditLoggerService,
+          useValue: mockAuditLogger,
         },
       ],
     }).compile();

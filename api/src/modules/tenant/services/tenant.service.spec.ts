@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { TenantService } from './tenant.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { FileStorageService } from '../../../core/file-storage/file-storage.service';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 
 describe('TenantService', () => {
   let service: TenantService;
@@ -60,6 +61,14 @@ describe('TenantService', () => {
     }),
   };
 
+  const mockAuditLogger = {
+    log: jest.fn(),
+    logAuth: jest.fn(),
+    logTenantChange: jest.fn(),
+    logRBACChange: jest.fn(),
+    logFailedAction: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -75,6 +84,10 @@ describe('TenantService', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: AuditLoggerService,
+          useValue: mockAuditLogger,
         },
       ],
     }).compile();

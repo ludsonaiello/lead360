@@ -160,6 +160,18 @@ apiClient.interceptors.response.use(
           url: originalRequest?.url,
           data,
         });
+
+        // Special logging for 403 errors
+        if (status === 403) {
+          console.error('[Axios] 403 Forbidden Error Details:', {
+            url: originalRequest?.url,
+            method: originalRequest?.method,
+            headers: originalRequest?.headers,
+            errorMessage: data?.message,
+            errorDetails: data,
+            currentTime: new Date().toISOString()
+          });
+        }
       }
 
       // Return structured error

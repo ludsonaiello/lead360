@@ -179,7 +179,7 @@
 
 ### 0.5 RBAC System
 
-**Status**: `Started`
+**Status**: `Completed`
 
 #### Documentation
 
@@ -195,15 +195,15 @@
 - [X] Seed default roles in database
 - [X] Implement role assignment (user has many roles)
 - [X] Write RBAC tests (MANDATORY - test role enforcement)
-- [ ] Write unit tests
+- [X] Write unit tests
 - [X] Generate API documentation
 
 #### Frontend Development
 
-- [ ] Create useRole() hook
-- [ ] Implement role-based UI hiding (buttons, menus)
-- [ ] Create role-based routing guards
-- [ ] Write component tests (role visibility)
+- [X] Create useRole() hook
+- [X] Implement role-based UI hiding (buttons, menus)
+- [X] Create role-based routing guards
+- [X] Write component tests (role visibility)
 
 ---
 
@@ -251,25 +251,25 @@
 
 ### 0.7 Audit Logging
 
-**Status**: `Not Started`
+**Status**: `Completed`
 
 #### Documentation
 
-- [ ] contracts/audit-logging-contract.md
-- [ ] backend/module-audit-logging.md
+- [X] contracts/audit-logging-contract.md
+- [X] backend/module-audit-logging.md
 
 #### Backend Development
 
-- [ ] Create AuditLog module
-- [ ] Create audit_log table (if not in 0.2)
-- [ ] Create audit service (log changes)
-- [ ] Implement before/after JSON capture
-- [ ] Implement IP address + user agent tracking
-- [ ] Create GET /audit-logs endpoint (per tenant)
-- [ ] Integrate audit logging into critical endpoints (quotes, invoices, etc.)
-- [ ] Write unit tests
-- [ ] Write integration tests
-- [ ] Generate API documentation
+- [X] Create AuditLog module
+- [X] Create audit_log table (if not in 0.2)
+- [X] Create audit service (log changes)
+- [X] Implement before/after JSON capture
+- [X] Implement IP address + user agent tracking
+- [X] Create GET /audit-logs endpoint (per tenant)
+- [X] Integrate audit logging into critical endpoints (quotes, invoices, etc.)
+- [X] Write unit tests
+- [X] Write integration tests
+- [X] Generate API documentation
 
 ---
 

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { TenantAddressService } from './tenant-address.service';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 
 describe('TenantAddressService', () => {
   let service: TenantAddressService;
@@ -23,6 +24,14 @@ describe('TenantAddressService', () => {
     $transaction: jest.fn((callback) => callback(mockPrismaService)),
   };
 
+  const mockAuditLogger = {
+    log: jest.fn(),
+    logAuth: jest.fn(),
+    logTenantChange: jest.fn(),
+    logRBACChange: jest.fn(),
+    logFailedAction: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -30,6 +39,10 @@ describe('TenantAddressService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: AuditLoggerService,
+          useValue: mockAuditLogger,
         },
       ],
     }).compile();

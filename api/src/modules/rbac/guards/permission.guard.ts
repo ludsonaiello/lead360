@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RBACService } from '../services/rbac.service';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { REQUIRE_PERMISSION_KEY } from '../decorators/require-permission.decorator';
 
 /**
@@ -26,9 +27,14 @@ import { REQUIRE_PERMISSION_KEY } from '../decorators/require-permission.decorat
  */
 @Injectable()
 export class PermissionGuard implements CanActivate {
+  // Rate limiting cache: prevents flooding audit log with repeated failed checks
+  // Key format: "userId:module:action" → timestamp of last log
+  private failedCheckCache = new Map<string, number>();
+
   constructor(
     private reflector: Reflector,
     private rbacService: RBACService,
+    private auditLogger: AuditLoggerService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -52,8 +58,11 @@ export class PermissionGuard implements CanActivate {
       throw new ForbiddenException('User not authenticated');
     }
 
-    // Tenant must be resolved
-    if (!tenantId) {
+    // Platform Admins can bypass tenant context requirement
+    const isPlatformAdmin = user.is_platform_admin || false;
+
+    // Tenant must be resolved (unless Platform Admin)
+    if (!tenantId && !isPlatformAdmin) {
       throw new ForbiddenException('Tenant context not found');
     }
 
@@ -66,6 +75,33 @@ export class PermissionGuard implements CanActivate {
     );
 
     if (!hasPermission) {
+      // Rate limit audit logging: only log same user+module+action failure once per 30 seconds
+      // This prevents audit log flooding from repeated failed permission checks
+      const cacheKey = `${user.id}:${requiredPermission.module}:${requiredPermission.action}`;
+      const now = Date.now();
+      const lastLogged = this.failedCheckCache.get(cacheKey) || 0;
+
+      if (now - lastLogged > 30000) { // 30 seconds
+        this.failedCheckCache.set(cacheKey, now);
+
+        // Log failed permission check
+        await this.auditLogger.logFailedAction({
+          entityType: requiredPermission.module,
+          actorUserId: user.id,
+          tenantId,
+          errorMessage: `Permission denied: ${requiredPermission.module}.${requiredPermission.action}`,
+          description: `Failed permission check for ${requiredPermission.module}.${requiredPermission.action}`,
+          metadata: {
+            endpoint: request.url,
+            method: request.method,
+            required_permission: `${requiredPermission.module}:${requiredPermission.action}`,
+            user_roles: user.roles || [],
+          },
+          ipAddress: request.ip || request.headers['x-forwarded-for'] || request.connection?.remoteAddress,
+          userAgent: request.headers['user-agent'],
+        });
+      }
+
       throw new ForbiddenException(
         `Access denied. Required permission: ${requiredPermission.module}:${requiredPermission.action}`,
       );

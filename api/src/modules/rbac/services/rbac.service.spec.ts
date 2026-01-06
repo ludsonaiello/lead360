@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RBACService } from './rbac.service';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 
 describe('RBACService', () => {
   let service: RBACService;
@@ -90,12 +91,24 @@ describe('RBACService', () => {
       },
     };
 
+    const mockAuditLogger = {
+      log: jest.fn(),
+      logAuth: jest.fn(),
+      logTenantChange: jest.fn(),
+      logRBACChange: jest.fn(),
+      logFailedAction: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RBACService,
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: AuditLoggerService,
+          useValue: mockAuditLogger,
         },
       ],
     }).compile();

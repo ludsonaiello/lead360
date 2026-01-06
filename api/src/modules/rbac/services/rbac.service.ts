@@ -53,7 +53,7 @@ export class RBACService {
         return true;
       }
 
-      // Get user's roles in this tenant
+      // Get user's roles WITH their permissions in a SINGLE query (fixes N+1 problem)
       const userRoles = await this.prisma.userRole.findMany({
         where: {
           user_id: userId,
@@ -61,10 +61,16 @@ export class RBACService {
         },
         include: {
           role: {
-            select: {
-              id: true,
-              name: true,
-              is_active: true,
+            include: {
+              role_permissions: {
+                include: {
+                  permission: {
+                    include: {
+                      module: true,
+                    },
+                  },
+                },
+              },
             },
           },
         },
@@ -78,29 +84,15 @@ export class RBACService {
         return false;
       }
 
-      // Check each role's permissions
+      // Check each role's permissions (in-memory, no additional queries)
       for (const userRole of userRoles) {
         // Skip inactive roles
         if (!userRole.role.is_active) {
           continue;
         }
 
-        // Get role's permissions
-        const rolePermissions = await this.prisma.rolePermission.findMany({
-          where: {
-            role_id: userRole.role.id,
-          },
-          include: {
-            permission: {
-              include: {
-                module: true,
-              },
-            },
-          },
-        });
-
         // Check if any permission matches
-        for (const rp of rolePermissions) {
+        for (const rp of userRole.role.role_permissions) {
           const permission = rp.permission;
           const module = permission.module;
 

@@ -2,3 +2,4 @@
 2026/01/02 04:33:33 [error] 887530#887530: *17346 access forbidden by rule, client: 54.236.84.252, server: lead360.app, request: "GET /.git/config HTTP/1.1", host: "lead360.app"
 2026/01/04 23:16:36 [error] 1261801#1261801: *163729 access forbidden by rule, client: 45.130.203.202, server: lead360.app, request: "GET /.git/HEAD HTTP/1.1", host: "lead360.app"
 2026/01/05 13:26:30 [error] 1280349#1280349: *244720 access forbidden by rule, client: 91.202.5.142, server: lead360.app, request: "GET /.git/config HTTP/2.0", host: "lead360.app"
+2026/01/06 05:32:12 [error] 1488741#1488741: *330774 access forbidden by rule, client: 45.148.10.250, server: lead360.app, request: "GET /.git/config HTTP/1.1", host: "www.lead360.app"

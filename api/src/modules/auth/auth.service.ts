@@ -23,6 +23,7 @@ import {
   UpdateProfileDto,
 } from './dto';
 import { JwtPayload } from './entities/jwt-payload.entity';
+import { AuditLoggerService } from '../audit/services/audit-logger.service';
 
 @Injectable()
 export class AuthService {
@@ -37,6 +38,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly auditLogger: AuditLoggerService,
   ) {}
 
   /**
@@ -160,14 +162,17 @@ export class AuthService {
         data: {
           tenant_id: tenant.id,
           actor_user_id: user.id,
-          entity_type: 'user',
+          actor_type: 'user',
+          entity_type: 'auth_session',
           entity_id: user.id,
-          action: 'register',
+          description: 'User registered successfully',
+          action_type: 'created',
           after_json: {
             email: user.email,
             first_name: user.first_name,
             last_name: user.last_name,
           },
+          status: 'success',
         },
       });
 
@@ -238,21 +243,14 @@ export class AuthService {
 
     if (!isPasswordValid) {
       // Create audit log for failed login
-      await this.prisma.auditLog.create({
-        data: {
-          tenant_id: user.tenant_id,
-          actor_user_id: user.id,
-          entity_type: 'user',
-          entity_id: user.id,
-          action: 'login_failed',
-          metadata_json: {
-            reason: 'invalid_password',
-            ip_address: ipAddress,
-            user_agent: userAgent,
-          },
-          ip_address: ipAddress,
-          user_agent: userAgent,
-        },
+      await this.auditLogger.logAuth({
+        event: 'login',
+        userId: user.id,
+        tenantId: user.tenant_id,
+        status: 'failure',
+        errorMessage: 'Invalid password',
+        ipAddress,
+        userAgent,
       });
 
       throw new UnauthorizedException('Invalid email or password');
@@ -303,20 +301,13 @@ export class AuthService {
     });
 
     // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: user.tenant_id,
-        actor_user_id: user.id,
-        entity_type: 'user',
-        entity_id: user.id,
-        action: 'login',
-        metadata_json: {
-          ip_address: ipAddress,
-          user_agent: userAgent,
-        },
-        ip_address: ipAddress,
-        user_agent: userAgent,
-      },
+    await this.auditLogger.logAuth({
+      event: 'login',
+      userId: user.id,
+      tenantId: user.tenant_id,
+      status: 'success',
+      ipAddress,
+      userAgent,
     });
 
     return {
@@ -408,14 +399,11 @@ export class AuthService {
     });
 
     if (user) {
-      await this.prisma.auditLog.create({
-        data: {
-          tenant_id: user.tenant_id,
-          actor_user_id: userId,
-          entity_type: 'user',
-          entity_id: userId,
-          action: 'logout',
-        },
+      await this.auditLogger.logAuth({
+        event: 'logout',
+        userId,
+        tenantId: user.tenant_id,
+        status: 'success',
       });
     }
 
@@ -442,17 +430,12 @@ export class AuthService {
     });
 
     if (user) {
-      await this.prisma.auditLog.create({
-        data: {
-          tenant_id: user.tenant_id,
-          actor_user_id: userId,
-          entity_type: 'user',
-          entity_id: userId,
-          action: 'logout_all',
-          metadata_json: {
-            sessions_revoked: result.count,
-          },
-        },
+      await this.auditLogger.logAuth({
+        event: 'logout_all',
+        userId,
+        tenantId: user.tenant_id,
+        status: 'success',
+        metadata: { sessions_revoked: result.count },
       });
     }
 
@@ -495,14 +478,11 @@ export class AuthService {
     });
 
     // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: user.tenant_id,
-        actor_user_id: user.id,
-        entity_type: 'user',
-        entity_id: user.id,
-        action: 'password_reset_requested',
-      },
+    await this.auditLogger.logAuth({
+      event: 'password_reset_requested',
+      userId: user.id,
+      tenantId: user.tenant_id,
+      status: 'success',
     });
 
     // TODO: Queue password reset email via BullMQ
@@ -564,14 +544,11 @@ export class AuthService {
     });
 
     // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: user.tenant_id,
-        actor_user_id: user.id,
-        entity_type: 'user',
-        entity_id: user.id,
-        action: 'password_reset',
-      },
+    await this.auditLogger.logAuth({
+      event: 'password_reset',
+      userId: user.id,
+      tenantId: user.tenant_id,
+      status: 'success',
     });
 
     // TODO: Send password changed notification email
@@ -617,14 +594,11 @@ export class AuthService {
     });
 
     // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: user.tenant_id,
-        actor_user_id: user.id,
-        entity_type: 'user',
-        entity_id: user.id,
-        action: 'account_activated',
-      },
+    await this.auditLogger.logAuth({
+      event: 'account_activated',
+      userId: user.id,
+      tenantId: user.tenant_id,
+      status: 'success',
     });
 
     // TODO: Send welcome email
@@ -668,14 +642,11 @@ export class AuthService {
     });
 
     // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: user.tenant_id,
-        actor_user_id: user.id,
-        entity_type: 'user',
-        entity_id: user.id,
-        action: 'activation_resent',
-      },
+    await this.auditLogger.logAuth({
+      event: 'activation_resent',
+      userId: user.id,
+      tenantId: user.tenant_id,
+      status: 'success',
     });
 
     // TODO: Queue activation email via BullMQ
@@ -759,20 +730,19 @@ export class AuthService {
     });
 
     // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: user.tenant_id,
-        actor_user_id: userId,
-        entity_type: 'user',
-        entity_id: userId,
-        action: 'profile_updated',
-        before_json: {
-          first_name: user.first_name,
-          last_name: user.last_name,
-          phone: user.phone,
-        },
-        after_json: updateData,
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'user',
+      entityId: userId,
+      tenantId: user.tenant_id,
+      actorUserId: userId,
+      before: {
+        first_name: user.first_name,
+        last_name: user.last_name,
+        phone: user.phone,
       },
+      after: updateData,
+      description: 'User profile updated',
     });
 
     return {
@@ -864,14 +834,11 @@ export class AuthService {
     }
 
     // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: user.tenant_id,
-        actor_user_id: userId,
-        entity_type: 'user',
-        entity_id: userId,
-        action: 'password_changed',
-      },
+    await this.auditLogger.logAuth({
+      event: 'password_changed',
+      userId,
+      tenantId: user.tenant_id,
+      status: 'success',
     });
 
     // TODO: Send password changed notification email
@@ -937,14 +904,12 @@ export class AuthService {
     });
 
     if (user) {
-      await this.prisma.auditLog.create({
-        data: {
-          tenant_id: user.tenant_id,
-          actor_user_id: userId,
-          entity_type: 'refresh_token',
-          entity_id: sessionId,
-          action: 'session_revoked',
-        },
+      await this.auditLogger.logAuth({
+        event: 'logout',
+        userId,
+        tenantId: user.tenant_id,
+        status: 'success',
+        metadata: { session_id: sessionId, reason: 'manually_revoked' },
       });
     }
 

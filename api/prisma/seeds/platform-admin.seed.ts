@@ -76,9 +76,11 @@ async function seedPlatformAdmin() {
       data: {
         tenant_id: null,
         actor_user_id: user.id,
+        actor_type: 'system',
         entity_type: 'user',
         entity_id: user.id,
-        action: 'platform_admin_created',
+        action_type: 'platform_admin_created',
+        description: `Platform Admin user created: ${user.email}`,
         before_json: Prisma.JsonNull,
         after_json: {
           email: user.email,

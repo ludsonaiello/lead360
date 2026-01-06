@@ -6,6 +6,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 
 /**
  * User Role Service - User-Role Assignment Logic
@@ -21,7 +22,10 @@ import { PrismaService } from '../../../core/database/prisma.service';
 export class UserRoleService {
   private readonly logger = new Logger(UserRoleService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogger: AuditLoggerService,
+  ) {}
 
   /**
    * Get user's roles in specific tenant
@@ -119,19 +123,19 @@ export class UserRoleService {
     });
 
     // Audit log
-    await this.createAuditLog(
-      tenantId,
-      assignedByUserId,
-      'user_role',
-      userRole.id,
-      'role_assigned',
-      null,
-      {
-        user_id: userId,
-        role_id: roleId,
-        role_name: role.name,
+    await this.auditLogger.logRBACChange({
+      action: 'created',
+      entityType: 'user_role',
+      entityId: userRole.id,
+      tenantId: tenantId,
+      actorUserId: assignedByUserId,
+      metadata: {
+        userId: userId,
+        roleId: roleId,
+        roleName: role.name,
       },
-    );
+      description: `Role "${role.name}" assigned to user`,
+    });
 
     this.logger.log(
       `Role ${role.name} assigned to user ${userId} in tenant ${tenantId} by ${assignedByUserId}`,
@@ -192,19 +196,19 @@ export class UserRoleService {
     });
 
     // Audit log
-    await this.createAuditLog(
-      tenantId,
-      removedByUserId,
-      'user_role',
-      userRole.id,
-      'role_removed',
-      {
-        user_id: userId,
-        role_id: roleId,
-        role_name: userRole.role.name,
+    await this.auditLogger.logRBACChange({
+      action: 'deleted',
+      entityType: 'user_role',
+      entityId: userRole.id,
+      tenantId: tenantId,
+      actorUserId: removedByUserId,
+      metadata: {
+        userId: userId,
+        roleId: roleId,
+        roleName: userRole.role.name,
       },
-      null,
-    );
+      description: `Role "${userRole.role.name}" removed from user`,
+    });
 
     this.logger.log(
       `Role ${userRole.role.name} removed from user ${userId} in tenant ${tenantId} by ${removedByUserId}`,
@@ -314,15 +318,20 @@ export class UserRoleService {
       });
 
       // Audit log
-      await this.createAuditLog(
-        tenantId,
-        updatedByUserId,
-        'user',
-        userId,
-        'roles_updated',
-        { role_ids: currentRoleIds },
-        { role_ids: roleIds },
-      );
+      await this.auditLogger.logRBACChange({
+        action: 'updated',
+        entityType: 'user_role',
+        entityId: userId,
+        tenantId: tenantId,
+        actorUserId: updatedByUserId,
+        metadata: {
+          before: { role_ids: currentRoleIds },
+          after: { role_ids: roleIds },
+          roles_added: rolesAdded,
+          roles_removed: rolesRemoved,
+        },
+        description: `User roles updated: +${rolesAdded}, -${rolesRemoved}`,
+      });
 
       this.logger.log(
         `User ${userId} roles updated in tenant ${tenantId}: +${rolesAdded}, -${rolesRemoved}`,
@@ -442,35 +451,5 @@ export class UserRoleService {
         },
       },
     });
-  }
-
-  /**
-   * Create audit log entry
-   */
-  private async createAuditLog(
-    tenantId: string,
-    actorUserId: string,
-    entityType: string,
-    entityId: string,
-    action: string,
-    beforeJson: any,
-    afterJson: any,
-  ) {
-    try {
-      await this.prisma.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: actorUserId,
-          entity_type: entityType,
-          entity_id: entityId,
-          action,
-          before_json: beforeJson,
-          after_json: afterJson,
-        },
-      });
-    } catch (error) {
-      this.logger.error(`Failed to create audit log: ${error.message}`);
-      // Don't throw - audit log failure shouldn't break the operation
-    }
   }
 }

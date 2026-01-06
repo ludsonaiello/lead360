@@ -135,9 +135,11 @@ async function assignOwnerRole() {
       data: {
         tenant_id: tenant.id,
         actor_user_id: user.id,
+        actor_type: 'system',
         entity_type: 'user_role',
         entity_id: userRole.id,
-        action: 'owner_role_assigned',
+        action_type: 'owner_role_assigned',
+        description: `Owner role assigned to ${user.email} for tenant ${tenant.company_name}`,
         before_json: Prisma.JsonNull,
         after_json: {
           user_id: user.id,

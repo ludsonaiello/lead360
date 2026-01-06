@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { FileStorageService } from '../../../core/file-storage/file-storage.service';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { UpdateInsuranceDto } from '../dto/update-insurance.dto';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class TenantInsuranceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly fileStorage: FileStorageService,
+    private readonly auditLogger: AuditLoggerService,
   ) {}
 
   /**
@@ -77,47 +79,43 @@ export class TenantInsuranceService {
    */
   async update(tenantId: string, updateInsuranceDto: UpdateInsuranceDto, userId: string) {
     // Ensure insurance record exists
-    await this.findOrCreate(tenantId);
+    const existingInsurance = await this.findOrCreate(tenantId);
 
-    const insurance = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.tenantInsurance.update({
-        where: { tenant_id: tenantId } as any,
-        data: updateInsuranceDto,
-        include: {
-          gl_document_file: {
-            select: {
-              file_id: true,
-              original_filename: true,
-              mime_type: true,
-              size_bytes: true,
-              created_at: true,
-            },
+    const insurance = await this.prisma.tenantInsurance.update({
+      where: { tenant_id: tenantId } as any,
+      data: updateInsuranceDto,
+      include: {
+        gl_document_file: {
+          select: {
+            file_id: true,
+            original_filename: true,
+            mime_type: true,
+            size_bytes: true,
+            created_at: true,
           },
-          wc_document_file: {
-            select: {
-              file_id: true,
-              original_filename: true,
-              mime_type: true,
-              size_bytes: true,
-              created_at: true,
-            },
+        },
+        wc_document_file: {
+          select: {
+            file_id: true,
+            original_filename: true,
+            mime_type: true,
+            size_bytes: true,
+            created_at: true,
           },
-        } as any,
-      });
+        },
+      } as any,
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          action: 'UPDATE',
-          entity_type: 'TenantInsurance',
-          entity_id: updated.id,
-          metadata_json: {  updated: updateInsuranceDto } as any,
-        } as any,
-      });
-
-      return updated;
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'tenant_insurance',
+      entityId: insurance.id,
+      tenantId: tenantId,
+      actorUserId: userId,
+      before: existingInsurance,
+      after: insurance,
+      description: 'Tenant insurance updated',
     });
 
     return insurance;
@@ -277,20 +275,19 @@ export class TenantInsuranceService {
       data: { gl_document_file_id: file_id },
     });
 
-    // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: tenantId,
-        actor_user_id: userId,
-        action: 'insurance_gl_document_uploaded',
-        entity_type: 'insurance',
-        entity_id: insurance.id,
-        metadata_json: {
-          file_id,
-          original_filename: metadata.original_filename,
-          size_bytes: metadata.size_bytes,
-        },
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'tenant_insurance',
+      entityId: insurance.id,
+      tenantId: tenantId,
+      actorUserId: userId,
+      after: { gl_document_file_id: file_id },
+      metadata: {
+        original_filename: metadata.original_filename,
+        size_bytes: metadata.size_bytes,
       },
+      description: 'General Liability insurance document uploaded',
     });
 
     return {
@@ -351,20 +348,19 @@ export class TenantInsuranceService {
       data: { wc_document_file_id: file_id },
     });
 
-    // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: tenantId,
-        actor_user_id: userId,
-        action: 'insurance_wc_document_uploaded',
-        entity_type: 'insurance',
-        entity_id: insurance.id,
-        metadata_json: {
-          file_id,
-          original_filename: metadata.original_filename,
-          size_bytes: metadata.size_bytes,
-        },
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'tenant_insurance',
+      entityId: insurance.id,
+      tenantId: tenantId,
+      actorUserId: userId,
+      after: { wc_document_file_id: file_id },
+      metadata: {
+        original_filename: metadata.original_filename,
+        size_bytes: metadata.size_bytes,
       },
+      description: 'Workers Compensation insurance document uploaded',
     });
 
     return {
@@ -403,18 +399,16 @@ export class TenantInsuranceService {
       data: { gl_document_file_id: null },
     });
 
-    // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: tenantId,
-        actor_user_id: userId,
-        action: 'insurance_gl_document_deleted',
-        entity_type: 'insurance',
-        entity_id: insurance.id,
-        metadata_json: {
-          file_id: insurance.gl_document_file_id,
-        },
-      },
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'tenant_insurance',
+      entityId: insurance.id,
+      tenantId: tenantId,
+      actorUserId: userId,
+      before: { gl_document_file_id: insurance.gl_document_file_id },
+      after: { gl_document_file_id: null },
+      description: 'General Liability insurance document deleted',
     });
 
     return { message: 'GL document deleted successfully' };
@@ -449,18 +443,16 @@ export class TenantInsuranceService {
       data: { wc_document_file_id: null },
     });
 
-    // Create audit log
-    await this.prisma.auditLog.create({
-      data: {
-        tenant_id: tenantId,
-        actor_user_id: userId,
-        action: 'insurance_wc_document_deleted',
-        entity_type: 'insurance',
-        entity_id: insurance.id,
-        metadata_json: {
-          file_id: insurance.wc_document_file_id,
-        },
-      },
+    // Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'tenant_insurance',
+      entityId: insurance.id,
+      tenantId: tenantId,
+      actorUserId: userId,
+      before: { wc_document_file_id: insurance.wc_document_file_id },
+      after: { wc_document_file_id: null },
+      description: 'Workers Compensation insurance document deleted',
     });
 
     return { message: 'WC document deleted successfully' };

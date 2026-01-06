@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { PrismaModule } from '../../core/database/prisma.module';
+import { AuditModule } from '../audit/audit.module';
 
 // Services
 import { RBACService } from './services/rbac.service';
@@ -19,7 +20,7 @@ import { PermissionGuard } from './guards/permission.guard';
 import { PlatformAdminGuard } from './guards/platform-admin.guard';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, forwardRef(() => AuditModule)],
   controllers: [UserRolesController, AdminController],
   providers: [
     // Services

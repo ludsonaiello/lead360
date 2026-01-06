@@ -10,6 +10,7 @@ import { AuthModule, JwtAuthGuard } from './modules/auth';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { FilesModule } from './modules/files/files.module';
 import { RBACModule } from './modules/rbac/rbac.module';
+import { AuditModule } from './modules/audit/audit.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { RBACModule } from './modules/rbac/rbac.module';
     TenantModule, // Tenant management with multi-tenant isolation
     FilesModule, // General file management with orphan tracking
     RBACModule, // Role-Based Access Control (RBAC) management
+    AuditModule, // Audit logging with async queue and export functionality
   ],
   controllers: [HealthController],
   providers: [
