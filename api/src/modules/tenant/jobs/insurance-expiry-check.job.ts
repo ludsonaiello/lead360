@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { TenantInsuranceService } from '../services/tenant-insurance.service';
@@ -114,13 +115,9 @@ export class InsuranceExpiryCheckJob {
           tenant_id: tenantId,
           is_active: true,
         },
-        select: {
-          id: true,
-          email: true,
-          first_name: true,
-          last_name: true,
-          user_roles: {
-            select: {
+        include: {
+          user_role_user_role_user_idTouser: {
+            include: {
               role: {
                 select: {
                   name: true,
@@ -133,7 +130,7 @@ export class InsuranceExpiryCheckJob {
 
       // Filter by role (check if user has Owner or Admin role)
       const recipients = allUsers.filter(user =>
-        user.user_roles.some(ur => ['Owner', 'Admin'].includes(ur.role.name))
+        user.user_role_user_role_user_idTouser.some(ur => ['Owner', 'Admin'].includes(ur.role.name))
       );
 
       if (recipients.length === 0) {
@@ -171,20 +168,20 @@ export class InsuranceExpiryCheckJob {
       // });
 
       // Create audit log entry
-      await this.prisma.auditLog.create({
+      await this.prisma.audit_log.create({
         data: {
-          tenant_id: tenantId,
+        id: randomBytes(16).toString('hex'),tenant_id: tenantId,
           actor_user_id: null, // System action
           actor_type: 'cron_job',
           action_type: 'ALERT',
           entity_type: 'TenantInsurance',
           entity_id: insurance.id,
           description: `Insurance expiry alert: ${daysUntilExpiry} days until expiry`,
-          metadata_json: {
+          metadata_json: JSON.stringify({
             type: 'insurance_expiry_alert',
             days_until_expiry: daysUntilExpiry,
             expiring_policies: expiringPolicies,
-          },
+          }),
         },
       });
     } catch (error) {

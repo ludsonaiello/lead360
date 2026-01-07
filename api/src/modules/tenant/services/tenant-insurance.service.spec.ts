@@ -80,11 +80,11 @@ describe('TenantInsuranceService', () => {
         wc_document_file: null,
       };
 
-      mockPrismaService.tenantInsurance.findUnique.mockResolvedValue(mockInsurance);
+      mockPrismaService.tenant_insurance.findUnique.mockResolvedValue(mockInsurance);
 
       const result = await service.findOrCreate('tenant-123');
 
-      expect(mockPrismaService.tenantInsurance.findUnique).toHaveBeenCalledWith(
+      expect(mockPrismaService.tenant_insurance.findUnique).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { tenant_id: 'tenant-123' },
         }),
@@ -100,12 +100,12 @@ describe('TenantInsuranceService', () => {
         wc_document_file: null,
       };
 
-      mockPrismaService.tenantInsurance.findUnique.mockResolvedValue(null);
-      mockPrismaService.tenantInsurance.create.mockResolvedValue(mockCreatedInsurance);
+      mockPrismaService.tenant_insurance.findUnique.mockResolvedValue(null);
+      mockPrismaService.tenant_insurance.create.mockResolvedValue(mockCreatedInsurance);
 
       const result = await service.findOrCreate('tenant-123');
 
-      expect(mockPrismaService.tenantInsurance.create).toHaveBeenCalledWith(
+      expect(mockPrismaService.tenant_insurance.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: { tenant_id: 'tenant-123' },
         }),
@@ -143,10 +143,10 @@ describe('TenantInsuranceService', () => {
         },
       };
 
-      mockPrismaService.tenantInsurance.findUnique.mockResolvedValue(mockInsurance);
+      mockPrismaService.tenant_insurance.findUnique.mockResolvedValue(mockInsurance);
       mockFileStorageService.uploadFile.mockResolvedValue(mockUploadResult);
       mockPrismaService.file.create.mockResolvedValue({ id: 1, file_id: 'file-123' });
-      mockPrismaService.tenantInsurance.update.mockResolvedValue({
+      mockPrismaService.tenant_insurance.update.mockResolvedValue({
         ...mockInsurance,
         gl_document_file_id: 'file-123',
       });
@@ -198,13 +198,13 @@ describe('TenantInsuranceService', () => {
         },
       };
 
-      mockPrismaService.tenantInsurance.findUnique.mockResolvedValue(mockInsurance);
+      mockPrismaService.tenant_insurance.findUnique.mockResolvedValue(mockInsurance);
       mockPrismaService.file.findUnique.mockResolvedValue(mockOldFile);
       mockFileStorageService.deleteFileByPath.mockResolvedValue(undefined);
       mockPrismaService.file.delete.mockResolvedValue(mockOldFile);
       mockFileStorageService.uploadFile.mockResolvedValue(mockUploadResult);
       mockPrismaService.file.create.mockResolvedValue({ id: 2, file_id: 'new-file-123' });
-      mockPrismaService.tenantInsurance.update.mockResolvedValue({
+      mockPrismaService.tenant_insurance.update.mockResolvedValue({
         ...mockInsurance,
         gl_document_file_id: 'new-file-123',
       });
@@ -239,11 +239,11 @@ describe('TenantInsuranceService', () => {
         },
       };
 
-      mockPrismaService.tenantInsurance.findUnique.mockResolvedValue(null);
-      mockPrismaService.tenantInsurance.create.mockResolvedValue(mockCreatedInsurance);
+      mockPrismaService.tenant_insurance.findUnique.mockResolvedValue(null);
+      mockPrismaService.tenant_insurance.create.mockResolvedValue(mockCreatedInsurance);
       mockFileStorageService.uploadFile.mockResolvedValue(mockUploadResult);
       mockPrismaService.file.create.mockResolvedValue({ id: 1, file_id: 'file-123' });
-      mockPrismaService.tenantInsurance.update.mockResolvedValue({
+      mockPrismaService.tenant_insurance.update.mockResolvedValue({
         ...mockCreatedInsurance,
         gl_document_file_id: 'file-123',
       });
@@ -251,7 +251,7 @@ describe('TenantInsuranceService', () => {
 
       const result = await service.uploadGLDocument(tenantId, mockFile, userId);
 
-      expect(mockPrismaService.tenantInsurance.create).toHaveBeenCalled();
+      expect(mockPrismaService.tenant_insurance.create).toHaveBeenCalled();
       expect(result.file_id).toBe('file-123');
     });
   });
@@ -285,10 +285,10 @@ describe('TenantInsuranceService', () => {
         },
       };
 
-      mockPrismaService.tenantInsurance.findUnique.mockResolvedValue(mockInsurance);
+      mockPrismaService.tenant_insurance.findUnique.mockResolvedValue(mockInsurance);
       mockFileStorageService.uploadFile.mockResolvedValue(mockUploadResult);
       mockPrismaService.file.create.mockResolvedValue({ id: 1, file_id: 'file-123' });
-      mockPrismaService.tenantInsurance.update.mockResolvedValue({
+      mockPrismaService.tenant_insurance.update.mockResolvedValue({
         ...mockInsurance,
         wc_document_file_id: 'file-123',
       });
@@ -330,13 +330,13 @@ describe('TenantInsuranceService', () => {
         },
       };
 
-      mockPrismaService.tenantInsurance.findUnique.mockResolvedValue(mockInsurance);
+      mockPrismaService.tenant_insurance.findUnique.mockResolvedValue(mockInsurance);
       mockPrismaService.file.findUnique.mockResolvedValue(mockOldFile);
       mockFileStorageService.deleteFileByPath.mockResolvedValue(undefined);
       mockPrismaService.file.delete.mockResolvedValue(mockOldFile);
       mockFileStorageService.uploadFile.mockResolvedValue(mockUploadResult);
       mockPrismaService.file.create.mockResolvedValue({ id: 2, file_id: 'new-file-123' });
-      mockPrismaService.tenantInsurance.update.mockResolvedValue({
+      mockPrismaService.tenant_insurance.update.mockResolvedValue({
         ...mockInsurance,
         wc_document_file_id: 'new-file-123',
       });
@@ -369,11 +369,11 @@ describe('TenantInsuranceService', () => {
         storage_path: '/uploads/public/tenant-123/files/file-123.pdf',
       };
 
-      mockPrismaService.tenantInsurance.findUnique.mockResolvedValue(mockInsurance);
+      mockPrismaService.tenant_insurance.findUnique.mockResolvedValue(mockInsurance);
       mockPrismaService.file.findUnique.mockResolvedValue(mockFile);
       mockFileStorageService.deleteFileByPath.mockResolvedValue(undefined);
       mockPrismaService.file.delete.mockResolvedValue(mockFile);
-      mockPrismaService.tenantInsurance.update.mockResolvedValue({
+      mockPrismaService.tenant_insurance.update.mockResolvedValue({
         ...mockInsurance,
         gl_document_file_id: null,
       });
@@ -395,7 +395,7 @@ describe('TenantInsuranceService', () => {
         gl_document_file_id: null,
       };
 
-      mockPrismaService.tenantInsurance.findUnique.mockResolvedValue(mockInsurance);
+      mockPrismaService.tenant_insurance.findUnique.mockResolvedValue(mockInsurance);
 
       await expect(service.deleteGLDocument('tenant-123', 'user-123')).rejects.toThrow(
         BadRequestException,
@@ -421,11 +421,11 @@ describe('TenantInsuranceService', () => {
         storage_path: '/uploads/public/tenant-123/files/file-123.pdf',
       };
 
-      mockPrismaService.tenantInsurance.findUnique.mockResolvedValue(mockInsurance);
+      mockPrismaService.tenant_insurance.findUnique.mockResolvedValue(mockInsurance);
       mockPrismaService.file.findUnique.mockResolvedValue(mockFile);
       mockFileStorageService.deleteFileByPath.mockResolvedValue(undefined);
       mockPrismaService.file.delete.mockResolvedValue(mockFile);
-      mockPrismaService.tenantInsurance.update.mockResolvedValue({
+      mockPrismaService.tenant_insurance.update.mockResolvedValue({
         ...mockInsurance,
         wc_document_file_id: null,
       });
@@ -447,7 +447,7 @@ describe('TenantInsuranceService', () => {
         wc_document_file_id: null,
       };
 
-      mockPrismaService.tenantInsurance.findUnique.mockResolvedValue(mockInsurance);
+      mockPrismaService.tenant_insurance.findUnique.mockResolvedValue(mockInsurance);
 
       await expect(service.deleteWCDocument('tenant-123', 'user-123')).rejects.toThrow(
         BadRequestException,

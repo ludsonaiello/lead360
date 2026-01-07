@@ -1,40 +1,50 @@
+import { randomBytes } from 'crypto';
 import {
   Injectable,
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { UpdatePaymentTermsDto, PaymentTermType } from '../dto/update-payment-terms.dto';
 
 @Injectable()
 export class TenantPaymentTermsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogger: AuditLoggerService,
+  ) {}
 
   /**
    * Get payment terms for a tenant (creates default if not exists)
    */
   async findOrCreate(tenantId: string) {
-    let paymentTerms = await this.prisma.tenantPaymentTerms.findUnique({
+    let paymentTerms = await this.prisma.tenant_payment_terms.findUnique({
       where: { tenant_id: tenantId } as any,
     });
 
     // If no payment terms exist, create default (100% upfront)
     if (!paymentTerms) {
-      paymentTerms = await this.prisma.tenantPaymentTerms.create({
+      paymentTerms = await this.prisma.tenant_payment_terms.create({
         data: {
+          id: randomBytes(16).toString('hex'),
           tenant_id: tenantId,
-          terms_json: [
+          terms_json: JSON.stringify([
             {
               sequence: 1,
               type: PaymentTermType.PERCENTAGE,
               amount: 100,
               description: 'Full payment upfront',
             },
-          ],
+          ]),
         } as any,
       });
     }
 
-    return paymentTerms;
+    // Parse the JSON string to array for the response
+    return {
+      ...paymentTerms,
+      terms_json: JSON.parse(paymentTerms.terms_json),
+    };
   }
 
   /**
@@ -64,36 +74,32 @@ export class TenantPaymentTermsService {
     // Ensure payment terms record exists
     await this.findOrCreate(tenantId);
 
-    const paymentTerms = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.tenantPaymentTerms.update({
-        where: { tenant_id: tenantId } as any,
-        data: {
-          terms_json: updatePaymentTermsDto.terms,
-        } as any,
-      });
+    const paymentTerms = await this.prisma.tenant_payment_terms.update({
+      where: { tenant_id: tenantId } as any,
+      data: {
+        terms_json: JSON.stringify(updatePaymentTermsDto.terms),
+      } as any,
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          action: 'UPDATE',
-          entity_type: 'TenantPaymentTerms',
-          entity_id: updated.id,
-          metadata_json: { 
-            updated: updatePaymentTermsDto,
-            percentage_warning: hasPercentageWarning
-              ? `Percentage terms sum to ${percentageSum}%, not 100%`
-              : null,
-          } as any,
-        } as any,
-      });
-
-      return updated;
+    // Audit log (after successful update)
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'TenantPaymentTerms',
+      entityId: paymentTerms.id,
+      tenantId: tenantId,
+      actorUserId: userId,
+      metadata: {
+        updated: updatePaymentTermsDto,
+        percentage_warning: hasPercentageWarning
+          ? `Percentage terms sum to ${percentageSum}%, not 100%`
+          : null,
+      },
+      description: 'Updated payment terms',
     });
 
     return {
       ...paymentTerms,
+      terms_json: JSON.parse(paymentTerms.terms_json),
       validation: {
         percentage_sum: percentageSum,
         percentage_warning: hasPercentageWarning

@@ -279,31 +279,31 @@
 
 #### Documentation
 
-- [ ] contracts/file-storage-contract.md
-- [ ] backend/module-file-storage.md
-- [ ] frontend/module-file-storage.md
+- [X] contracts/file-storage-contract.md
+- [X] backend/module-file-storage.md
+- [X] frontend/module-file-storage.md
 
 #### Backend Development
 
-- [ ] Create FileStorage module
-- [ ] Implement S3-compatible storage abstraction
-- [ ] Create file metadata table
-- [ ] Create POST /files/upload endpoint
-- [ ] Create GET /files/:id endpoint (download)
-- [ ] Create DELETE /files/:id endpoint
-- [ ] Implement access control (tenant-scoped)
-- [ ] Implement virus scanning (optional - ClamAV)
-- [ ] Write unit tests
-- [ ] Write integration tests
-- [ ] Generate API documentation
+- [X] Create FileStorage module
+- [X] Implement S3-compatible storage abstraction
+- [X] Create file metadata table
+- [X] Create POST /files/upload endpoint
+- [X] Create GET /files/:id endpoint (download)
+- [X] Create DELETE /files/:id endpoint
+- [X] Implement access control (tenant-scoped)
+- [X] Implement virus scanning (optional - ClamAV)
+- [X] Write unit tests
+- [X] Write integration tests
+- [X] Generate API documentation
 
 #### Frontend Development
 
-- [ ] Create file upload component
-- [ ] Create file preview component
-- [ ] Implement drag-and-drop upload
-- [ ] Implement progress indicators
-- [ ] Write component tests
+- [X] Create file upload component
+- [X] Create file preview component
+- [X] Implement drag-and-drop upload
+- [X] Implement progress indicators
+- [X] Write component tests
 
 ---
 

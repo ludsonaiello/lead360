@@ -31,6 +31,11 @@ export default function RolesPage() {
     setLoading(true);
     try {
       const rolesData = await rbacApi.getAllRoles();
+      console.log('[RolesPage] Loaded roles from API:', rolesData);
+      console.log('[RolesPage] Sample role structure:', rolesData[0]);
+      console.log('[RolesPage] Role keys:', Object.keys(rolesData[0]));
+      console.log('[RolesPage] _count field:', rolesData[0]._count);
+      console.log('[RolesPage] user_roles count:', rolesData[0]._count?.user_roles);
       setRoles(rolesData);
     } catch (err) {
       console.error('[RolesPage] Failed to load roles:', err);

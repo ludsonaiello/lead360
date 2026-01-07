@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
@@ -244,8 +245,15 @@ export class AuditLoggerService {
    * Write directly to database (fallback when queue unavailable)
    */
   private async writeDirectly(logData: CreateAuditLogDto): Promise<void> {
-    await this.prisma.auditLog.create({
-      data: logData,
+    await this.prisma.audit_log.create({
+      data: {
+        id: randomBytes(16).toString('hex'),
+        ...logData,
+        // Convert JSON objects to strings for Prisma
+        before_json: logData.before_json ? JSON.stringify(logData.before_json) : null,
+        after_json: logData.after_json ? JSON.stringify(logData.after_json) : null,
+        metadata_json: logData.metadata_json ? JSON.stringify(logData.metadata_json) : null,
+      } as any,
     });
   }
 

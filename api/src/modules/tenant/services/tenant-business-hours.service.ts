@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import {
   Injectable,
   BadRequestException,
@@ -5,6 +6,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { Prisma } from '@prisma/client';
 import { UpdateBusinessHoursDto } from '../dto/update-business-hours.dto';
 import { CreateCustomHoursDto } from '../dto/create-custom-hours.dto';
@@ -12,20 +14,24 @@ import { UpdateCustomHoursDto } from '../dto/update-custom-hours.dto';
 
 @Injectable()
 export class TenantBusinessHoursService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogger: AuditLoggerService,
+  ) {}
 
   /**
    * Get business hours for a tenant (creates default if not exists)
    */
   async findOrCreate(tenantId: string) {
-    let businessHours = await this.prisma.tenantBusinessHours.findUnique({
+    let businessHours = await this.prisma.tenant_business_hours.findUnique({
       where: { tenant_id: tenantId } as any,
     });
 
     // If no business hours exist, create default (Mon-Fri 9-5)
     if (!businessHours) {
-      businessHours = await this.prisma.tenantBusinessHours.create({
+      businessHours = await this.prisma.tenant_business_hours.create({
         data: {
+          id: randomBytes(16).toString('hex'),
           tenant_id: tenantId,
           monday_closed: false,
           monday_open1: '09:00',
@@ -133,25 +139,20 @@ export class TenantBusinessHoursService {
     // Ensure business hours record exists
     await this.findOrCreate(tenantId);
 
-    const businessHours = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.tenantBusinessHours.update({
-        where: { tenant_id: tenantId } as any,
-        data: updateDto,
-      });
+    const businessHours = await this.prisma.tenant_business_hours.update({
+      where: { tenant_id: tenantId } as any,
+      data: updateDto,
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          action: 'UPDATE',
-          entity_type: 'TenantBusinessHours',
-          entity_id: updated.id,
-          metadata_json: {  updated: updateDto } as any,
-        } as any,
-      });
-
-      return updated;
+    // Audit log (after successful update)
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'TenantBusinessHours',
+      entityId: businessHours.id,
+      tenantId: tenantId,
+      actorUserId: userId,
+      metadata: { updated: updateDto },
+      description: 'Updated business hours',
     });
 
     return businessHours;
@@ -161,7 +162,7 @@ export class TenantBusinessHoursService {
    * Get all custom hours (holidays, special dates) for a tenant
    */
   async findAllCustomHours(tenantId: string) {
-    const customHours = await this.prisma.tenantCustomHours.findMany({
+    const customHours = await this.prisma.tenant_custom_hours.findMany({
       where: { tenant_id: tenantId } as any,
       orderBy: { date: 'asc' } as any,
     });
@@ -183,7 +184,7 @@ export class TenantBusinessHoursService {
       dateObj.setUTCHours(12, 0, 0, 0);
     }
 
-    return this.prisma.tenantCustomHours.findFirst({
+    return this.prisma.tenant_custom_hours.findFirst({
       where: {
         tenant_id: tenantId,
         date: dateObj,
@@ -233,28 +234,24 @@ export class TenantBusinessHoursService {
     }
 
     try {
-      const customHours = await this.prisma.$transaction(async (tx) => {
-        const newCustomHours = await tx.tenantCustomHours.create({
-          data: {
-            tenant_id: tenantId,
-            ...createDto,
-            // date is already a Date object at noon UTC from DTO transformation
-          } as any,
-        });
+      const customHours = await this.prisma.tenant_custom_hours.create({
+        data: {
+          id: randomBytes(16).toString('hex'),
+          tenant_id: tenantId,
+          ...createDto,
+          // date is already a Date object at noon UTC from DTO transformation
+        } as any,
+      });
 
-        // Audit log
-        await tx.auditLog.create({
-          data: {
-            tenant_id: tenantId,
-            actor_user_id: userId,
-            action: 'CREATE',
-            entity_type: 'TenantCustomHours',
-            entity_id: newCustomHours.id,
-            metadata_json: {  created: createDto } as any,
-          } as any,
-        });
-
-        return newCustomHours;
+      // Audit log (after successful creation)
+      await this.auditLogger.logTenantChange({
+        action: 'created',
+        entityType: 'TenantCustomHours',
+        entityId: customHours.id,
+        tenantId: tenantId,
+        actorUserId: userId,
+        metadata: { created: createDto },
+        description: 'Created custom hours',
       });
 
       // Format date to YYYY-MM-DD (strip time component since DB stores DATE only)
@@ -284,7 +281,7 @@ export class TenantBusinessHoursService {
     userId: string,
   ) {
     // Verify custom hours exist and belong to tenant
-    const existing = await this.prisma.tenantCustomHours.findFirst({
+    const existing = await this.prisma.tenant_custom_hours.findFirst({
       where: {
         id: customHoursId,
         tenant_id: tenantId,
@@ -331,28 +328,21 @@ export class TenantBusinessHoursService {
     }
 
     try {
-      const customHours = await this.prisma.$transaction(async (tx) => {
-        const updated = await tx.tenantCustomHours.update({
-          where: { id: customHoursId } as any,
-          data: updateDto,
-        });
+      const customHours = await this.prisma.tenant_custom_hours.update({
+        where: { id: customHoursId } as any,
+        data: updateDto,
+      });
 
-        // Audit log
-        await tx.auditLog.create({
-          data: {
-            tenant_id: tenantId,
-            actor_user_id: userId,
-            action: 'UPDATE',
-            entity_type: 'TenantCustomHours',
-            entity_id: customHoursId,
-            metadata_json: {
-              old: existing,
-              new: updateDto,
-            } as any,
-          } as any,
-        });
-
-        return updated;
+      // Audit log (after successful update)
+      await this.auditLogger.logTenantChange({
+        action: 'updated',
+        entityType: 'TenantCustomHours',
+        entityId: customHoursId,
+        tenantId: tenantId,
+        actorUserId: userId,
+        before: existing,
+        after: updateDto,
+        description: 'Updated custom hours',
       });
 
       // Format date to YYYY-MM-DD (strip time component since DB stores DATE only)
@@ -377,7 +367,7 @@ export class TenantBusinessHoursService {
    */
   async deleteCustomHours(tenantId: string, customHoursId: string, userId: string) {
     // Verify custom hours exist and belong to tenant
-    const existing = await this.prisma.tenantCustomHours.findFirst({
+    const existing = await this.prisma.tenant_custom_hours.findFirst({
       where: {
         id: customHoursId,
         tenant_id: tenantId,
@@ -388,22 +378,19 @@ export class TenantBusinessHoursService {
       throw new NotFoundException('Custom hours not found');
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.tenantCustomHours.delete({
-        where: { id: customHoursId } as any,
-      });
+    await this.prisma.tenant_custom_hours.delete({
+      where: { id: customHoursId } as any,
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          action: 'DELETE',
-          entity_type: 'TenantCustomHours',
-          entity_id: customHoursId,
-          metadata_json: {  deleted: existing } as any,
-        } as any,
-      });
+    // Audit log (after successful deletion)
+    await this.auditLogger.logTenantChange({
+      action: 'deleted',
+      entityType: 'TenantCustomHours',
+      entityId: customHoursId,
+      tenantId: tenantId,
+      actorUserId: userId,
+      before: existing,
+      description: 'Deleted custom hours',
     });
 
     return { message: 'Custom hours deleted successfully' };

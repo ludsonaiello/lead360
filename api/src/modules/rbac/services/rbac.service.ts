@@ -54,7 +54,7 @@ export class RBACService {
       }
 
       // Get user's roles WITH their permissions in a SINGLE query (fixes N+1 problem)
-      const userRoles = await this.prisma.userRole.findMany({
+      const userRoles = await this.prisma.user_role.findMany({
         where: {
           user_id: userId,
           tenant_id: tenantId,
@@ -62,7 +62,7 @@ export class RBACService {
         include: {
           role: {
             include: {
-              role_permissions: {
+              role_permission: {
                 include: {
                   permission: {
                     include: {
@@ -92,7 +92,7 @@ export class RBACService {
         }
 
         // Check if any permission matches
-        for (const rp of userRole.role.role_permissions) {
+        for (const rp of userRole.role.role_permission) {
           const permission = rp.permission;
           const module = permission.module;
 
@@ -150,7 +150,7 @@ export class RBACService {
       }
 
       // Get user's roles
-      const userRoles = await this.prisma.userRole.findMany({
+      const userRoles = await this.prisma.user_role.findMany({
         where: {
           user_id: userId,
           tenant_id: tenantId,
@@ -173,7 +173,7 @@ export class RBACService {
       // Get all permissions from all active roles
       const roleIds = activeRoles.map((ur) => ur.role.id);
 
-      const rolePermissions = await this.prisma.rolePermission.findMany({
+      const rolePermissions = await this.prisma.role_permission.findMany({
         where: {
           role_id: { in: roleIds },
         },
@@ -226,7 +226,7 @@ export class RBACService {
           deleted_at: null,
         },
         include: {
-          role_permissions: {
+          role_permission: {
             include: {
               permission: {
                 include: {
@@ -244,7 +244,7 @@ export class RBACService {
       for (const role of roles) {
         matrix[role.name] = {};
 
-        for (const rp of role.role_permissions) {
+        for (const rp of role.role_permission) {
           // Only include active permissions from active modules
           if (
             rp.permission &&
@@ -286,7 +286,7 @@ export class RBACService {
     return this.prisma.module.findMany({
       where: { is_active: true },
       include: {
-        permissions: {
+        permission: {
           where: { is_active: true },
           select: {
             id: true,
@@ -323,7 +323,7 @@ export class RBACService {
         return true;
       }
 
-      const count = await this.prisma.userRole.count({
+      const count = await this.prisma.user_role.count({
         where: {
           user_id: userId,
           tenant_id: tenantId,

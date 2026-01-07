@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { FileStorageService } from '../../../core/file-storage/file-storage.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
@@ -20,10 +21,10 @@ export class TenantInsuranceService {
    * Get insurance for a tenant (creates default record if not exists)
    */
   async findOrCreate(tenantId: string) {
-    let insurance = await this.prisma.tenantInsurance.findUnique({
+    let insurance = await this.prisma.tenant_insurance.findUnique({
       where: { tenant_id: tenantId } as any,
       include: {
-        gl_document_file: {
+        file_tenant_insurance_gl_document_file_idTofile: {
           select: {
             file_id: true,
             original_filename: true,
@@ -32,7 +33,7 @@ export class TenantInsuranceService {
             created_at: true,
           },
         },
-        wc_document_file: {
+        file_tenant_insurance_wc_document_file_idTofile: {
           select: {
             file_id: true,
             original_filename: true,
@@ -46,10 +47,10 @@ export class TenantInsuranceService {
 
     // If no insurance record exists, create empty one
     if (!insurance) {
-      insurance = await this.prisma.tenantInsurance.create({
+      insurance = await this.prisma.tenant_insurance.create({
         data: { tenant_id: tenantId } as any,
         include: {
-          gl_document_file: {
+          file_tenant_insurance_gl_document_file_idTofile: {
             select: {
               file_id: true,
               original_filename: true,
@@ -58,7 +59,7 @@ export class TenantInsuranceService {
               created_at: true,
             },
           },
-          wc_document_file: {
+          file_tenant_insurance_wc_document_file_idTofile: {
             select: {
               file_id: true,
               original_filename: true,
@@ -71,7 +72,7 @@ export class TenantInsuranceService {
       });
     }
 
-    return insurance;
+    return this.transformInsuranceResponse(insurance);
   }
 
   /**
@@ -81,11 +82,11 @@ export class TenantInsuranceService {
     // Ensure insurance record exists
     const existingInsurance = await this.findOrCreate(tenantId);
 
-    const insurance = await this.prisma.tenantInsurance.update({
+    const insurance = await this.prisma.tenant_insurance.update({
       where: { tenant_id: tenantId } as any,
       data: updateInsuranceDto,
       include: {
-        gl_document_file: {
+        file_tenant_insurance_gl_document_file_idTofile: {
           select: {
             file_id: true,
             original_filename: true,
@@ -94,7 +95,7 @@ export class TenantInsuranceService {
             created_at: true,
           },
         },
-        wc_document_file: {
+        file_tenant_insurance_wc_document_file_idTofile: {
           select: {
             file_id: true,
             original_filename: true,
@@ -118,7 +119,7 @@ export class TenantInsuranceService {
       description: 'Tenant insurance updated',
     });
 
-    return insurance;
+    return this.transformInsuranceResponse(insurance);
   }
 
   /**
@@ -134,7 +135,7 @@ export class TenantInsuranceService {
     endOfDay.setHours(23, 59, 59, 999);
 
     // Find tenants with GL or WC insurance expiring on this date
-    const expiringInsurance = await this.prisma.tenantInsurance.findMany({
+    const expiringInsurance = await this.prisma.tenant_insurance.findMany({
       where: {
         OR: [
           {
@@ -193,7 +194,7 @@ export class TenantInsuranceService {
     };
 
     return {
-      insurance,
+      insurance: this.transformInsuranceResponse(insurance),
       gl_status: calculateStatus(insurance.gl_expiry_date),
       wc_status: calculateStatus(insurance.wc_expiry_date),
     };
@@ -256,6 +257,7 @@ export class TenantInsuranceService {
     // Create File record in database
     await this.prisma.file.create({
       data: {
+        id: randomBytes(16).toString('hex'),
         file_id,
         tenant_id: tenantId,
         original_filename: metadata.original_filename,
@@ -270,7 +272,7 @@ export class TenantInsuranceService {
     });
 
     // Update insurance with gl_document_file_id
-    await this.prisma.tenantInsurance.update({
+    await this.prisma.tenant_insurance.update({
       where: { id: insurance.id },
       data: { gl_document_file_id: file_id },
     });
@@ -329,6 +331,7 @@ export class TenantInsuranceService {
     // Create File record in database
     await this.prisma.file.create({
       data: {
+        id: randomBytes(16).toString('hex'),
         file_id,
         tenant_id: tenantId,
         original_filename: metadata.original_filename,
@@ -343,7 +346,7 @@ export class TenantInsuranceService {
     });
 
     // Update insurance with wc_document_file_id
-    await this.prisma.tenantInsurance.update({
+    await this.prisma.tenant_insurance.update({
       where: { id: insurance.id },
       data: { wc_document_file_id: file_id },
     });
@@ -394,7 +397,7 @@ export class TenantInsuranceService {
     }
 
     // Update insurance to remove gl_document_file_id
-    await this.prisma.tenantInsurance.update({
+    await this.prisma.tenant_insurance.update({
       where: { id: insurance.id },
       data: { gl_document_file_id: null },
     });
@@ -438,7 +441,7 @@ export class TenantInsuranceService {
     }
 
     // Update insurance to remove wc_document_file_id
-    await this.prisma.tenantInsurance.update({
+    await this.prisma.tenant_insurance.update({
       where: { id: insurance.id },
       data: { wc_document_file_id: null },
     });
@@ -456,5 +459,23 @@ export class TenantInsuranceService {
     });
 
     return { message: 'WC document deleted successfully' };
+  }
+
+  /**
+   * Transform Prisma response to use clean field names for API
+   * Maps ugly Prisma-generated relation names to developer-friendly aliases
+   */
+  private transformInsuranceResponse(insurance: any) {
+    if (!insurance) return insurance;
+
+    return {
+      ...insurance,
+      // Create clean aliases for frontend
+      gl_document_file: insurance.file_tenant_insurance_gl_document_file_idTofile || null,
+      wc_document_file: insurance.file_tenant_insurance_wc_document_file_idTofile || null,
+      // Remove ugly Prisma relation names from response
+      file_tenant_insurance_gl_document_file_idTofile: undefined,
+      file_tenant_insurance_wc_document_file_idTofile: undefined,
+    };
   }
 }

@@ -43,6 +43,7 @@ export default function ProfileSettingsPage() {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -166,6 +167,7 @@ export default function ProfileSettingsPage() {
               <PhoneInput
                 label="Phone (Optional)"
                 {...register('phone')}
+                value={watch('phone')}
                 error={errors.phone?.message}
                 disabled={isLoading}
                 placeholder="+1 (555) 123-4567"

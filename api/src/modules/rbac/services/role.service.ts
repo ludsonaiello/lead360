@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import {
   Injectable,
   Logger,
@@ -39,7 +40,7 @@ export class RoleService {
     return this.prisma.role.findMany({
       where: includeDeleted ? {} : { deleted_at: null },
       include: {
-        role_permissions: {
+        role_permission: {
           include: {
             permission: {
               include: {
@@ -50,7 +51,7 @@ export class RoleService {
         },
         _count: {
           select: {
-            user_roles: true,
+            user_role: true,
           },
         },
       },
@@ -68,7 +69,7 @@ export class RoleService {
         deleted_at: null,
       },
       include: {
-        role_permissions: {
+        role_permission: {
           include: {
             permission: {
               include: {
@@ -79,7 +80,7 @@ export class RoleService {
         },
         _count: {
           select: {
-            user_roles: true,
+            user_role: true,
           },
         },
       },
@@ -141,6 +142,8 @@ export class RoleService {
       // Create role
       const newRole = await tx.role.create({
         data: {
+          id: randomBytes(16).toString('hex'),
+          updated_at: new Date(),
           name,
           is_system: false,
           is_active: true,
@@ -149,9 +152,9 @@ export class RoleService {
       });
 
       // Assign permissions
-      await tx.rolePermission.createMany({
+      await tx.role_permission.createMany({
         data: permissionIds.map((permissionId) => ({
-          role_id: newRole.id,
+        id: randomBytes(16).toString('hex'),role_id: newRole.id,
           permission_id: permissionId,
           granted_by_user_id: createdByUserId,
         })),
@@ -161,7 +164,7 @@ export class RoleService {
       return tx.role.findUnique({
         where: { id: newRole.id },
         include: {
-          role_permissions: {
+          role_permission: {
             include: {
               permission: {
                 include: {
@@ -224,7 +227,7 @@ export class RoleService {
         deleted_at: null,
       },
       include: {
-        role_permissions: true,
+        role_permission: true,
       },
     });
 
@@ -286,13 +289,14 @@ export class RoleService {
       // Update permissions if provided
       if (updates.permissionIds) {
         // Delete existing permissions
-        await tx.rolePermission.deleteMany({
+        await tx.role_permission.deleteMany({
           where: { role_id: roleId },
         });
 
         // Add new permissions
-        await tx.rolePermission.createMany({
+        await tx.role_permission.createMany({
           data: updates.permissionIds.map((permissionId) => ({
+            id: randomBytes(16).toString('hex'),
             role_id: roleId,
             permission_id: permissionId,
             granted_by_user_id: updatedByUserId,
@@ -304,7 +308,7 @@ export class RoleService {
       return tx.role.findUnique({
         where: { id: roleId },
         include: {
-          role_permissions: {
+          role_permission: {
             include: {
               permission: {
                 include: {
@@ -328,13 +332,13 @@ export class RoleService {
         before: {
           name: role.name,
           is_active: role.is_active,
-          permission_count: role.role_permissions.length,
+          permission_count: role.role_permission.length,
         },
         after: {
           name: updates.name ?? role.name,
           is_active: updates.is_active ?? role.is_active,
           permission_count:
-            updates.permissionIds?.length ?? role.role_permissions.length,
+            updates.permissionIds?.length ?? role.role_permission.length,
         },
       },
       description: `Role "${role.name}" updated`,
@@ -360,7 +364,7 @@ export class RoleService {
       include: {
         _count: {
           select: {
-            user_roles: true,
+            user_role: true,
           },
         },
       },
@@ -371,9 +375,9 @@ export class RoleService {
     }
 
     // Check if role is assigned to any users
-    if (role._count.user_roles > 0) {
+    if (role._count.user_role > 0) {
       throw new BadRequestException(
-        `Cannot delete role "${role.name}" - assigned to ${role._count.user_roles} user(s). Remove all assignments first.`,
+        `Cannot delete role "${role.name}" - assigned to ${role._count.user_role} user(s). Remove all assignments first.`,
       );
     }
 
@@ -437,7 +441,7 @@ export class RoleService {
         deleted_at: null,
       },
       include: {
-        role_permissions: true,
+        role_permission: true,
       },
     });
 
@@ -471,6 +475,8 @@ export class RoleService {
       // Create new role
       const newRole = await tx.role.create({
         data: {
+          id: randomBytes(16).toString('hex'),
+          updated_at: new Date(),
           name: newName,
           is_system: false, // Cloned roles are never system roles
           is_active: true,
@@ -479,9 +485,10 @@ export class RoleService {
       });
 
       // Copy permissions
-      if (sourceRole.role_permissions.length > 0) {
-        await tx.rolePermission.createMany({
-          data: sourceRole.role_permissions.map((rp) => ({
+      if (sourceRole.role_permission.length > 0) {
+        await tx.role_permission.createMany({
+          data: sourceRole.role_permission.map((rp) => ({
+            id: randomBytes(16).toString('hex'),
             role_id: newRole.id,
             permission_id: rp.permission_id,
             granted_by_user_id: clonedByUserId,
@@ -493,7 +500,7 @@ export class RoleService {
       return tx.role.findUnique({
         where: { id: newRole.id },
         include: {
-          role_permissions: {
+          role_permission: {
             include: {
               permission: {
                 include: {
@@ -521,14 +528,14 @@ export class RoleService {
         source_role_id: sourceRoleId,
         source_role_name: sourceRole.name,
         new_role_name: newName,
-        permission_count: sourceRole.role_permissions.length,
+        permission_count: sourceRole.role_permission.length,
         operation: 'clone',
       },
       description: `Role "${newName}" cloned from "${sourceRole.name}"`,
     });
 
     this.logger.log(
-      `Role "${sourceRole.name}" cloned to "${newName}" by ${clonedByUserId} with ${sourceRole.role_permissions.length} permissions`,
+      `Role "${sourceRole.name}" cloned to "${newName}" by ${clonedByUserId} with ${sourceRole.role_permission.length} permissions`,
     );
 
     return clonedRole;
@@ -544,7 +551,7 @@ export class RoleService {
         deleted_at: null,
       },
       include: {
-        role_permissions: {
+        role_permission: {
           include: {
             permission: {
               include: {

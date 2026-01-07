@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -225,7 +226,10 @@ async function seedModules() {
         sort_order: module.sort_order,
         icon: module.icon,
       },
-      create: module,
+      create: {
+        id: randomBytes(16).toString('hex'),
+        ...module,
+      },
     });
   }
 
@@ -250,7 +254,7 @@ async function seedPermissions() {
     for (const permission of permissions) {
       await prisma.permission.upsert({
         where: {
-          module_action_unique: {
+          module_id_action: {
             module_id: module.id,
             action: permission.action,
           },
@@ -260,6 +264,7 @@ async function seedPermissions() {
           description: permission.description,
         },
         create: {
+          id: randomBytes(16).toString('hex'),
           module_id: module.id,
           action: permission.action,
           display_name: permission.display_name,
@@ -283,13 +288,14 @@ async function seedRoleTemplates() {
 
   for (const template of roleTemplates) {
     // Create or update template
-    const roleTemplate = await prisma.roleTemplate.upsert({
+    const roleTemplate = await prisma.role_template.upsert({
       where: { name: template.name },
       update: {
         description: template.description,
         is_system_template: template.is_system_template,
       },
       create: {
+        id: randomBytes(16).toString('hex'),
         name: template.name,
         description: template.description,
         is_system_template: template.is_system_template,
@@ -324,14 +330,15 @@ async function seedRoleTemplates() {
     }
 
     // Delete existing template permissions
-    await prisma.roleTemplatePermission.deleteMany({
+    await prisma.role_template_permission.deleteMany({
       where: { role_template_id: roleTemplate.id },
     });
 
     // Create new template permissions
     for (const permissionId of templatePermissionIds) {
-      await prisma.roleTemplatePermission.create({
+      await prisma.role_template_permission.create({
         data: {
+          id: randomBytes(16).toString('hex'),
           role_template_id: roleTemplate.id,
           permission_id: permissionId,
         },
@@ -351,9 +358,9 @@ async function seedDefaultRoles() {
   // These are actual roles that can be assigned to users
 
   for (const template of roleTemplates) {
-    const roleTemplate = await prisma.roleTemplate.findUnique({
+    const roleTemplate = await prisma.role_template.findUnique({
       where: { name: template.name },
-      include: { template_permissions: true },
+      include: { role_template_permission: true },
     });
 
     if (!roleTemplate) {
@@ -370,6 +377,8 @@ async function seedDefaultRoles() {
         is_active: true,
       },
       create: {
+        id: randomBytes(16).toString('hex'),
+        updated_at: new Date(),
         name: template.name,
         description: template.description,
         is_system: true,
@@ -378,21 +387,22 @@ async function seedDefaultRoles() {
     });
 
     // Delete existing role permissions
-    await prisma.rolePermission.deleteMany({
+    await prisma.role_permission.deleteMany({
       where: { role_id: role.id },
     });
 
     // Create role permissions from template
-    for (const templatePerm of roleTemplate.template_permissions) {
-      await prisma.rolePermission.create({
+    for (const templatePerm of roleTemplate.role_template_permission) {
+      await prisma.role_permission.create({
         data: {
+          id: randomBytes(16).toString('hex'),
           role_id: role.id,
           permission_id: templatePerm.permission_id,
         },
       });
     }
 
-    console.log(`  ✓ ${role.name} role created with ${roleTemplate.template_permissions.length} permissions`);
+    console.log(`  ✓ ${role.name} role created with ${roleTemplate.role_template_permission.length} permissions`);
   }
 
   console.log(`✅ Seeded ${roleTemplates.length} default roles`);

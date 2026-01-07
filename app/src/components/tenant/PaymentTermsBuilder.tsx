@@ -30,7 +30,6 @@ export function PaymentTermsBuilder() {
     formState: { errors },
     control,
     watch,
-    reset,
     setValue,
   } = useForm<PaymentTermsFormData>({
     resolver: zodResolver(paymentTermsSchema),
@@ -41,7 +40,7 @@ export function PaymentTermsBuilder() {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control,
     name: 'terms',
   });
@@ -56,10 +55,20 @@ export function PaymentTermsBuilder() {
       setIsLoading(true);
       const data = await tenantApi.getPaymentTerms();
       setPaymentTerms(data);
+      console.log("Data: ", data.terms_json);
 
       // API returns terms_json, not terms
+      console.log('typeof data.terms_json:', typeof data.terms_json);
+      console.log('isArray:', Array.isArray(data.terms_json));
+
       if (data.terms_json && data.terms_json.length > 0) {
-        reset({ terms: data.terms_json });
+        // Parse if it's a JSON string, otherwise use as-is
+        const termsArray = typeof data.terms_json === 'string'
+          ? JSON.parse(data.terms_json)
+          : data.terms_json;
+
+        console.log('Replacing fields with:', termsArray);
+        replace(termsArray);
       } else {
         console.log('No terms found in response, data.terms_json:', data.terms_json);
       }
@@ -138,12 +147,16 @@ export function PaymentTermsBuilder() {
     if (!templates || !templates[templateKey]) return;
 
     const templateTerms = templates[templateKey];
-    reset({ terms: templateTerms });
+    replace(templateTerms);
     toast.success('Template applied');
   };
 
+  // Calculate percentage sum on each render
   const calculatePercentageSum = () => {
     const terms = watch('terms');
+    // During form reset, watch might return non-array temporarily
+    if (!Array.isArray(terms)) return 0;
+
     return terms
       .filter((term) => term.type === 'percentage')
       .reduce((sum, term) => sum + (term.amount || 0), 0);
@@ -153,7 +166,7 @@ export function PaymentTermsBuilder() {
   const hasPercentageWarning = percentageSum !== 100;
   const hasPercentageError = percentageSum > 100;
 
-  const typeOptions: SelectOption[] = [
+    const typeOptions: SelectOption[] = [
     { value: 'percentage', label: 'Percentage' },
     { value: 'fixed', label: 'Fixed Amount' },
   ];

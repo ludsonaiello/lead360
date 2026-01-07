@@ -81,14 +81,14 @@ export function formatActorName(log: AuditLog): string {
 
   // Platform admin
   if (log.actor_type === 'platform_admin') {
-    return log.actor
-      ? `${log.actor.first_name} ${log.actor.last_name} (Admin)`
+    return log.user
+      ? `${log.user.first_name} ${log.user.last_name} (Admin)`
       : 'Platform Admin';
   }
 
   // Regular user
-  if (log.actor) {
-    return `${log.actor.first_name} ${log.actor.last_name}`;
+  if (log.user) {
+    return `${log.user.first_name} ${log.user.last_name}`;
   }
 
   return 'Unknown User';
@@ -105,9 +105,9 @@ export function getActorInitials(log: AuditLog): string {
     return 'SYS';
   }
 
-  if (log.actor) {
-    const first = log.actor.first_name?.[0] || '';
-    const last = log.actor.last_name?.[0] || '';
+  if (log.user) {
+    const first = log.user.first_name?.[0] || '';
+    const last = log.user.last_name?.[0] || '';
     return (first + last).toUpperCase() || '?';
   }
 

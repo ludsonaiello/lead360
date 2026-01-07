@@ -66,7 +66,7 @@ describe('AuditLoggerService', () => {
           backoff: expect.any(Object),
         }),
       );
-      expect(prismaService.auditLog.create).not.toHaveBeenCalled();
+      expect(prismaService.audit_log.create).not.toHaveBeenCalled();
     });
 
     it('should fall back to direct DB write if queue fails', async () => {
@@ -75,14 +75,14 @@ describe('AuditLoggerService', () => {
       await service.log(mockLogData);
 
       expect(mockQueue.add).toHaveBeenCalled();
-      expect(prismaService.auditLog.create).toHaveBeenCalledWith({
+      expect(prismaService.audit_log.create).toHaveBeenCalledWith({
         data: mockLogData,
       });
     });
 
     it('should not throw error even if direct write fails', async () => {
       mockQueue.add.mockRejectedValueOnce(new Error('Queue unavailable'));
-      prismaService.auditLog.create.mockRejectedValueOnce(new Error('DB error'));
+      prismaService.audit_log.create.mockRejectedValueOnce(new Error('DB error'));
 
       await expect(service.log(mockLogData)).resolves.not.toThrow();
     });

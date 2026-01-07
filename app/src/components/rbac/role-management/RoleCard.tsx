@@ -49,8 +49,11 @@ export default function RoleCard({
   };
 
   const badge = getRoleBadge();
-  const permissionCount = role.role_permissions?.length || 0;
-  const userCount = role._count?.user_roles || 0;
+  // Handle both role_permissions (plural) and role_permission (singular) from backend
+  const rolePerms = role.role_permissions || (role as any).role_permission;
+  const permissionCount = rolePerms?.length || 0;
+  // Backend returns user_role (singular) not user_roles (plural)
+  const userCount = role._count?.user_role || role._count?.user_roles || 0;
 
   return (
     <Card className="p-6 hover:shadow-lg transition-shadow">

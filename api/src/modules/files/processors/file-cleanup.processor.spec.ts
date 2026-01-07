@@ -237,7 +237,7 @@ describe('FileCleanupProcessor', () => {
       expect(mockPrismaService.user.findFirst).toHaveBeenCalledWith({
         where: {
           tenant_id: 'tenant-1',
-          user_roles: {
+          user_role_user_role_user_idTouser: {
             some: {
               role: {
                 name: 'Owner',

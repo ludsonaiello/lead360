@@ -66,11 +66,41 @@ export default function PermissionBuilder({
       setError(null);
 
       try {
-        const modulesData = await rbacApi.getAllModules();
+        // Fetch modules and permissions separately (backend doesn't include permissions in modules endpoint)
+        const [modulesData, permissionsData] = await Promise.all([
+          rbacApi.getAllModules(),
+          rbacApi.getAllPermissions()
+        ]);
+
+        console.log('[PermissionBuilder] Raw modules from API:', modulesData);
+        console.log('[PermissionBuilder] Raw permissions from API:', permissionsData.length);
+
+        // Group permissions by module_id
+        const permissionsByModule = permissionsData.reduce((acc, perm) => {
+          if (!acc[perm.module_id]) {
+            acc[perm.module_id] = [];
+          }
+          acc[perm.module_id].push(perm);
+          return acc;
+        }, {} as Record<string, typeof permissionsData>);
+
+        // Merge permissions into modules
+        const modulesWithPermissions = modulesData.map(module => ({
+          ...module,
+          permissions: permissionsByModule[module.id] || []
+        }));
+
         // Filter active modules only
-        const activeModules = modulesData.filter((m) => m.is_active);
+        const activeModules = modulesWithPermissions.filter((m) => m.is_active);
         // Sort by sort_order
         activeModules.sort((a, b) => a.sort_order - b.sort_order);
+
+        console.log('[PermissionBuilder] Active modules:', activeModules.length);
+        console.log('[PermissionBuilder] Modules with permissions:', activeModules.map(m => ({
+          name: m.display_name,
+          permissionCount: m.permissions?.length || 0,
+          permissions: m.permissions?.map(p => ({ id: p.id, name: p.display_name }))
+        })));
 
         setModules(activeModules);
 
@@ -92,13 +122,16 @@ export default function PermissionBuilder({
    * Filter modules/permissions by search query
    */
   const filteredModules = useMemo(() => {
+    // Filter out modules without permissions first
+    const validModules = modules.filter((m) => m.permissions && m.permissions.length > 0);
+
     if (!searchQuery.trim()) {
-      return modules;
+      return validModules;
     }
 
     const query = searchQuery.toLowerCase();
 
-    return modules
+    return validModules
       .map((module) => {
         // Filter permissions within module
         const matchingPermissions = module.permissions.filter((perm) => {
@@ -144,7 +177,18 @@ export default function PermissionBuilder({
    * Check if permission is selected
    */
   const isPermissionSelected = (permissionId: string): boolean => {
-    return selectedPermissionIds.includes(permissionId);
+    const isSelected = selectedPermissionIds.includes(permissionId);
+    if (selectedPermissionIds.length > 0 && !isSelected) {
+      // Debug: Show first few comparisons
+      const firstSelectedId = selectedPermissionIds[0];
+      if (permissionId === modules[0]?.permissions?.[0]?.id) {
+        console.log('[PermissionBuilder] Checking permission:', permissionId);
+        console.log('[PermissionBuilder] Against selected IDs sample:', firstSelectedId);
+        console.log('[PermissionBuilder] Are they equal?', permissionId === firstSelectedId);
+        console.log('[PermissionBuilder] Total selected IDs:', selectedPermissionIds.length);
+      }
+    }
+    return isSelected;
   };
 
   /**
@@ -165,6 +209,7 @@ export default function PermissionBuilder({
    * Check if all permissions in module are selected
    */
   const isModuleFullySelected = (module: ModuleWithPermissions): boolean => {
+    if (!module.permissions || module.permissions.length === 0) return false;
     return module.permissions.every((perm) => isPermissionSelected(perm.id));
   };
 
@@ -172,6 +217,7 @@ export default function PermissionBuilder({
    * Check if some (but not all) permissions in module are selected
    */
   const isModulePartiallySelected = (module: ModuleWithPermissions): boolean => {
+    if (!module.permissions || module.permissions.length === 0) return false;
     const selectedCount = module.permissions.filter((perm) =>
       isPermissionSelected(perm.id)
     ).length;
@@ -182,7 +228,7 @@ export default function PermissionBuilder({
    * Select all permissions in module
    */
   const selectAllInModule = (module: ModuleWithPermissions) => {
-    if (disabled) return;
+    if (disabled || !module.permissions) return;
 
     const modulePermissionIds = module.permissions.map((p) => p.id);
     const newSelection = [
@@ -197,7 +243,7 @@ export default function PermissionBuilder({
    * Deselect all permissions in module
    */
   const deselectAllInModule = (module: ModuleWithPermissions) => {
-    if (disabled) return;
+    if (disabled || !module.permissions) return;
 
     const modulePermissionIds = module.permissions.map((p) => p.id);
     const newSelection = selectedPermissionIds.filter(
@@ -213,7 +259,9 @@ export default function PermissionBuilder({
   const selectAll = () => {
     if (disabled) return;
 
-    const allPermissionIds = filteredModules.flatMap((m) => m.permissions.map((p) => p.id));
+    const allPermissionIds = filteredModules
+      .filter((m) => m.permissions && m.permissions.length > 0)
+      .flatMap((m) => m.permissions.map((p) => p.id));
     onChange(allPermissionIds);
   };
 
@@ -289,6 +337,7 @@ export default function PermissionBuilder({
           {/* Bulk actions */}
           <div className="flex items-center gap-2">
             <Button
+              type="button"
               onClick={selectAll}
               variant="ghost"
               size="sm"
@@ -297,6 +346,7 @@ export default function PermissionBuilder({
               Select All
             </Button>
             <Button
+              type="button"
               onClick={deselectAll}
               variant="ghost"
               size="sm"
@@ -365,6 +415,7 @@ export default function PermissionBuilder({
                     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       {isFullySelected ? (
                         <Button
+                          type="button"
                           onClick={() => deselectAllInModule(module)}
                           variant="ghost"
                           size="sm"
@@ -376,6 +427,7 @@ export default function PermissionBuilder({
                         </Button>
                       ) : (
                         <Button
+                          type="button"
                           onClick={() => selectAllInModule(module)}
                           variant="ghost"
                           size="sm"

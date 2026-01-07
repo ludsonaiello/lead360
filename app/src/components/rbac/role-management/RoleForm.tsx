@@ -94,8 +94,20 @@ export default function RoleForm({ role, onSuccess, onCancel }: RoleFormProps) {
    */
   useEffect(() => {
     if (role) {
-      const permissionIds = role.role_permissions.map((rp) => rp.permission_id);
-      setSelectedPermissionIds(permissionIds);
+      // Handle both role_permissions (plural) and role_permission (singular)
+      const rolePerms = role.role_permissions || (role as any).role_permission;
+
+      if (rolePerms && Array.isArray(rolePerms)) {
+        console.log('[RoleForm] Loading permissions from role:', rolePerms.length);
+
+        // Extract permission_id from each item (handles nested structure)
+        const permissionIds = rolePerms
+          .map((rp: any) => rp.permission_id || rp.permission?.id)
+          .filter(Boolean); // Remove any undefined values
+
+        console.log('[RoleForm] Extracted permission IDs:', permissionIds);
+        setSelectedPermissionIds(permissionIds);
+      }
     }
   }, [role]);
 

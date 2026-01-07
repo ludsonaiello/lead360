@@ -67,8 +67,8 @@ describe('TenantAddressService', () => {
         zip_code: '90001',
       };
 
-      mockPrismaService.tenantAddress.count.mockResolvedValue(0); // No existing addresses
-      mockPrismaService.tenantAddress.updateMany.mockResolvedValue({ count: 0 });
+      mockPrismaService.tenant_address.count.mockResolvedValue(0); // No existing addresses
+      mockPrismaService.tenant_address.updateMany.mockResolvedValue({ count: 0 });
 
       const createdAddress = {
         id: 'addr-123',
@@ -77,7 +77,7 @@ describe('TenantAddressService', () => {
         ...createDto,
       };
 
-      mockPrismaService.tenantAddress.create.mockResolvedValue(createdAddress);
+      mockPrismaService.tenant_address.create.mockResolvedValue(createdAddress);
 
       const result = await service.create('tenant-123', createDto as any, 'user-123');
 
@@ -95,7 +95,7 @@ describe('TenantAddressService', () => {
         is_default: false,
       };
 
-      mockPrismaService.tenantAddress.count.mockResolvedValue(2); // 2 existing addresses
+      mockPrismaService.tenant_address.count.mockResolvedValue(2); // 2 existing addresses
 
       const createdAddress = {
         id: 'addr-456',
@@ -103,7 +103,7 @@ describe('TenantAddressService', () => {
         ...createDto,
       };
 
-      mockPrismaService.tenantAddress.create.mockResolvedValue(createdAddress);
+      mockPrismaService.tenant_address.create.mockResolvedValue(createdAddress);
 
       const result = await service.create('tenant-123', createDto as any, 'user-123');
 
@@ -138,9 +138,9 @@ describe('TenantAddressService', () => {
         is_default: false,
       };
 
-      mockPrismaService.tenantAddress.findFirst.mockResolvedValue(address);
-      mockPrismaService.tenantAddress.updateMany.mockResolvedValue({ count: 1 });
-      mockPrismaService.tenantAddress.update.mockResolvedValue({
+      mockPrismaService.tenant_address.findFirst.mockResolvedValue(address);
+      mockPrismaService.tenant_address.updateMany.mockResolvedValue({ count: 1 });
+      mockPrismaService.tenant_address.update.mockResolvedValue({
         ...address,
         is_default: true,
       });
@@ -148,12 +148,12 @@ describe('TenantAddressService', () => {
       const result = await service.setAsDefault(tenantId, addressId, 'user-123');
 
       expect(result).toEqual({ message: 'Address set as default successfully' });
-      expect(mockPrismaService.tenantAddress.updateMany).toHaveBeenCalled();
-      expect(mockPrismaService.tenantAddress.update).toHaveBeenCalled();
+      expect(mockPrismaService.tenant_address.updateMany).toHaveBeenCalled();
+      expect(mockPrismaService.tenant_address.update).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if address not found', async () => {
-      mockPrismaService.tenantAddress.findFirst.mockResolvedValue(null);
+      mockPrismaService.tenant_address.findFirst.mockResolvedValue(null);
 
       await expect(
         service.setAsDefault('tenant-123', 'nonexistent', 'user-123')
@@ -170,13 +170,13 @@ describe('TenantAddressService', () => {
         is_default: false,
       };
 
-      mockPrismaService.tenantAddress.findFirst.mockResolvedValue(address);
-      mockPrismaService.tenantAddress.delete.mockResolvedValue(address);
+      mockPrismaService.tenant_address.findFirst.mockResolvedValue(address);
+      mockPrismaService.tenant_address.delete.mockResolvedValue(address);
 
       const result = await service.delete('tenant-123', 'addr-123', 'user-123');
 
       expect(result).toEqual({ message: 'Address deleted successfully' });
-      expect(mockPrismaService.tenantAddress.delete).toHaveBeenCalled();
+      expect(mockPrismaService.tenant_address.delete).toHaveBeenCalled();
     });
 
     it('should throw error when deleting last legal address', async () => {
@@ -187,8 +187,8 @@ describe('TenantAddressService', () => {
         is_default: true,
       };
 
-      mockPrismaService.tenantAddress.findFirst.mockResolvedValue(address);
-      mockPrismaService.tenantAddress.count.mockResolvedValue(1); // Only 1 legal address
+      mockPrismaService.tenant_address.findFirst.mockResolvedValue(address);
+      mockPrismaService.tenant_address.count.mockResolvedValue(1); // Only 1 legal address
 
       await expect(
         service.delete('tenant-123', 'addr-123', 'user-123')
@@ -210,25 +210,25 @@ describe('TenantAddressService', () => {
         is_default: false,
       };
 
-      mockPrismaService.tenantAddress.findFirst
+      mockPrismaService.tenant_address.findFirst
         .mockResolvedValueOnce(address) // First call: findOne
         .mockResolvedValueOnce(nextAddress); // Second call: find next address
-      mockPrismaService.tenantAddress.count.mockResolvedValue(2); // 2 legal addresses
-      mockPrismaService.tenantAddress.update.mockResolvedValue({
+      mockPrismaService.tenant_address.count.mockResolvedValue(2); // 2 legal addresses
+      mockPrismaService.tenant_address.update.mockResolvedValue({
         ...nextAddress,
         is_default: true,
       });
-      mockPrismaService.tenantAddress.delete.mockResolvedValue(address);
+      mockPrismaService.tenant_address.delete.mockResolvedValue(address);
 
       const result = await service.delete('tenant-123', 'addr-123', 'user-123');
 
       expect(result).toEqual({ message: 'Address deleted successfully' });
-      expect(mockPrismaService.tenantAddress.update).toHaveBeenCalled();
-      expect(mockPrismaService.tenantAddress.delete).toHaveBeenCalled();
+      expect(mockPrismaService.tenant_address.update).toHaveBeenCalled();
+      expect(mockPrismaService.tenant_address.delete).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if address not found', async () => {
-      mockPrismaService.tenantAddress.findFirst.mockResolvedValue(null);
+      mockPrismaService.tenant_address.findFirst.mockResolvedValue(null);
 
       await expect(
         service.delete('tenant-123', 'nonexistent', 'user-123')
@@ -253,7 +253,7 @@ describe('TenantAddressService', () => {
         },
       ];
 
-      mockPrismaService.tenantAddress.findMany.mockResolvedValue(addresses);
+      mockPrismaService.tenant_address.findMany.mockResolvedValue(addresses);
 
       const result = await service.findAll('tenant-123');
 

@@ -93,6 +93,7 @@ export interface AuditLog {
 
   // Relationships (populated in responses)
   actor?: AuditLogActor | null;
+  user?: AuditLogActor | null;
   tenant?: AuditLogTenant | null;
 }
 

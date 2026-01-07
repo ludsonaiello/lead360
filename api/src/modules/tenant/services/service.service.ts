@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import {
   Injectable,
   NotFoundException,
@@ -5,13 +6,17 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { CreateServiceDto } from '../dto/create-service.dto';
 import { UpdateServiceDto } from '../dto/update-service.dto';
 import { AssignServicesDto } from '../dto/assign-services.dto';
 
 @Injectable()
 export class ServiceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogger: AuditLoggerService,
+  ) {}
 
   /**
    * Get all services (admin endpoint - platform-wide)
@@ -65,6 +70,7 @@ export class ServiceService {
 
     const service = await this.prisma.service.create({
       data: {
+        id: randomBytes(16).toString('hex'),
         name: createDto.name,
         slug,
         description: createDto.description,
@@ -130,7 +136,7 @@ export class ServiceService {
     await this.findOne(serviceId);
 
     // Check if service is assigned to any tenants
-    const assignedCount = await this.prisma.tenantService.count({
+    const assignedCount = await this.prisma.tenant_service.count({
       where: { service_id: serviceId } as any,
     });
 
@@ -151,7 +157,7 @@ export class ServiceService {
    * Get tenant's assigned services
    */
   async getTenantServices(tenantId: string) {
-    const tenantServices = await this.prisma.tenantService.findMany({
+    const tenantServices = await this.prisma.tenant_service.findMany({
       where: { tenant_id: tenantId } as any,
       include: {
         service: true,
@@ -184,33 +190,33 @@ export class ServiceService {
     // Use transaction to replace all assignments
     await this.prisma.$transaction(async (tx) => {
       // Delete existing assignments
-      await tx.tenantService.deleteMany({
+      await tx.tenant_service.deleteMany({
         where: { tenant_id: tenantId } as any,
       });
 
       // Create new assignments
       if (assignDto.service_ids.length > 0) {
-        await tx.tenantService.createMany({
+        await tx.tenant_service.createMany({
           data: assignDto.service_ids.map((service_id) => ({
+            id: randomBytes(16).toString('hex'),
             tenant_id: tenantId,
             service_id,
           })) as any,
         });
       }
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          action: 'UPDATE',
-          entity_type: 'TenantService',
-          entity_id: tenantId,
-          metadata_json: {
-            service_ids: assignDto.service_ids,
-          } as any,
-        } as any,
-      });
+    // Audit log (after successful transaction)
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'TenantService',
+      entityId: tenantId,
+      tenantId: tenantId,
+      actorUserId: userId,
+      metadata: {
+        service_ids: assignDto.service_ids,
+      },
+      description: 'Updated tenant services',
     });
 
     // Return updated services

@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import {
   Injectable,
   Logger,
@@ -31,7 +32,7 @@ export class UserRoleService {
    * Get user's roles in specific tenant
    */
   async getUserRoles(userId: string, tenantId: string) {
-    return this.prisma.userRole.findMany({
+    return this.prisma.user_role.findMany({
       where: {
         user_id: userId,
         tenant_id: tenantId,
@@ -94,7 +95,7 @@ export class UserRoleService {
     }
 
     // Check if already assigned (skip duplicate)
-    const existing = await this.prisma.userRole.findFirst({
+    const existing = await this.prisma.user_role.findFirst({
       where: {
         user_id: userId,
         role_id: roleId,
@@ -110,8 +111,9 @@ export class UserRoleService {
     }
 
     // Create user_role record
-    const userRole = await this.prisma.userRole.create({
+    const userRole = await this.prisma.user_role.create({
       data: {
+        id: randomBytes(16).toString('hex'),
         user_id: userId,
         role_id: roleId,
         tenant_id: tenantId,
@@ -156,7 +158,7 @@ export class UserRoleService {
     removedByUserId: string,
   ) {
     // Find the user_role record
-    const userRole = await this.prisma.userRole.findFirst({
+    const userRole = await this.prisma.user_role.findFirst({
       where: {
         user_id: userId,
         role_id: roleId,
@@ -176,7 +178,7 @@ export class UserRoleService {
       const ownerRoleId = userRole.role_id;
 
       // Count total Owners in tenant
-      const ownerCount = await this.prisma.userRole.count({
+      const ownerCount = await this.prisma.user_role.count({
         where: {
           tenant_id: tenantId,
           role_id: ownerRoleId,
@@ -191,7 +193,7 @@ export class UserRoleService {
     }
 
     // Delete user_role record
-    await this.prisma.userRole.delete({
+    await this.prisma.user_role.delete({
       where: { id: userRole.id },
     });
 
@@ -229,7 +231,7 @@ export class UserRoleService {
     updatedByUserId: string,
   ) {
     // Get current roles
-    const currentUserRoles = await this.prisma.userRole.findMany({
+    const currentUserRoles = await this.prisma.user_role.findMany({
       where: {
         user_id: userId,
         tenant_id: tenantId,
@@ -252,7 +254,7 @@ export class UserRoleService {
 
     if (ownerRole && rolesToRemove.includes(ownerRole.id)) {
       // Count Owners in tenant (excluding this user)
-      const otherOwnerCount = await this.prisma.userRole.count({
+      const otherOwnerCount = await this.prisma.user_role.count({
         where: {
           tenant_id: tenantId,
           role_id: ownerRole.id,
@@ -277,7 +279,7 @@ export class UserRoleService {
 
       // Remove roles
       for (const roleId of rolesToRemove) {
-        await tx.userRole.deleteMany({
+        await tx.user_role.deleteMany({
           where: {
             user_id: userId,
             role_id: roleId,
@@ -289,8 +291,9 @@ export class UserRoleService {
 
       // Add roles
       for (const roleId of rolesToAdd) {
-        await tx.userRole.create({
+        await tx.user_role.create({
           data: {
+            id: randomBytes(16).toString('hex'),
             user_id: userId,
             role_id: roleId,
             tenant_id: tenantId,
@@ -301,7 +304,7 @@ export class UserRoleService {
       }
 
       // Get updated roles
-      const updatedRoles = await tx.userRole.findMany({
+      const updatedRoles = await tx.user_role.findMany({
         where: {
           user_id: userId,
           tenant_id: tenantId,
@@ -389,7 +392,7 @@ export class UserRoleService {
 
         for (const roleId of roleIds) {
           // Check if already assigned
-          const existing = await tx.userRole.findFirst({
+          const existing = await tx.user_role.findFirst({
             where: {
               user_id: userId,
               role_id: roleId,
@@ -398,8 +401,9 @@ export class UserRoleService {
           });
 
           if (!existing) {
-            await tx.userRole.create({
+            await tx.user_role.create({
               data: {
+                id: randomBytes(16).toString('hex'),
                 user_id: userId,
                 role_id: roleId,
                 tenant_id: tenantId,
@@ -430,13 +434,13 @@ export class UserRoleService {
    * Get all users with specific role in tenant
    */
   async getUsersWithRole(tenantId: string, roleId: string) {
-    return this.prisma.userRole.findMany({
+    return this.prisma.user_role.findMany({
       where: {
         tenant_id: tenantId,
         role_id: roleId,
       },
       include: {
-        user: {
+        user_user_role_user_idTouser: {
           select: {
             id: true,
             email: true,

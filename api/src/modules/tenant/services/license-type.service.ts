@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import {
   Injectable,
   NotFoundException,
@@ -5,6 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { CreateLicenseTypeDto } from '../dto/create-license-type.dto';
 import { UpdateLicenseTypeDto } from '../dto/update-license-type.dto';
 
@@ -16,13 +18,16 @@ import { UpdateLicenseTypeDto } from '../dto/update-license-type.dto';
  */
 @Injectable()
 export class LicenseTypeService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogger: AuditLoggerService,
+  ) {}
 
   /**
    * Get all license types (including inactive if specified)
    */
   async findAll(includeInactive = false) {
-    return this.prisma.licenseType.findMany({
+    return this.prisma.license_type.findMany({
       where: includeInactive ? {} : { is_active: true } as any,
       orderBy: { name: 'asc' } as any,
     });
@@ -32,7 +37,7 @@ export class LicenseTypeService {
    * Get a specific license type by ID
    */
   async findById(licenseTypeId: string) {
-    const licenseType = await this.prisma.licenseType.findUnique({
+    const licenseType = await this.prisma.license_type.findUnique({
       where: { id: licenseTypeId } as any,
     });
 
@@ -48,7 +53,7 @@ export class LicenseTypeService {
    */
   async create(createDto: CreateLicenseTypeDto, adminUserId: string) {
     // Check if license type name already exists
-    const existing = await this.prisma.licenseType.findUnique({
+    const existing = await this.prisma.license_type.findUnique({
       where: { name: createDto.name } as any,
     });
 
@@ -58,24 +63,23 @@ export class LicenseTypeService {
       );
     }
 
-    const licenseType = await this.prisma.$transaction(async (tx) => {
-      const newLicenseType = await tx.licenseType.create({
-        data: createDto,
-      });
+    const licenseType = await this.prisma.license_type.create({
+      data: {
+        id: randomBytes(16).toString('hex'),
+        updated_at: new Date(),
+        ...createDto,
+      },
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: null, // System-level action
-          actor_user_id: adminUserId,
-          action: 'CREATE',
-          entity_type: 'LicenseType',
-          entity_id: newLicenseType.id,
-          metadata_json: {  created: createDto } as any,
-        } as any,
-      });
-
-      return newLicenseType;
+    // Audit log (after successful creation)
+    await this.auditLogger.logTenantChange({
+      action: 'created',
+      entityType: 'LicenseType',
+      entityId: licenseType.id,
+      tenantId: null, // System-level action
+      actorUserId: adminUserId,
+      metadata: { created: createDto },
+      description: 'Created license type',
     });
 
     return licenseType;
@@ -90,7 +94,7 @@ export class LicenseTypeService {
 
     // If changing name, check uniqueness
     if (updateDto.name && updateDto.name !== existing.name) {
-      const nameConflict = await this.prisma.licenseType.findUnique({
+      const nameConflict = await this.prisma.license_type.findUnique({
         where: { name: updateDto.name } as any,
       });
 
@@ -101,28 +105,21 @@ export class LicenseTypeService {
       }
     }
 
-    const licenseType = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.licenseType.update({
-        where: { id: licenseTypeId } as any,
-        data: updateDto,
-      });
+    const licenseType = await this.prisma.license_type.update({
+      where: { id: licenseTypeId } as any,
+      data: updateDto,
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: null, // System-level action
-          actor_user_id: adminUserId,
-          action: 'UPDATE',
-          entity_type: 'LicenseType',
-          entity_id: licenseTypeId,
-          metadata_json: { 
-            old: existing,
-            new: updateDto,
-          } as any,
-        } as any,
-      });
-
-      return updated;
+    // Audit log (after successful update)
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'LicenseType',
+      entityId: licenseTypeId,
+      tenantId: null, // System-level action
+      actorUserId: adminUserId,
+      before: existing,
+      after: updateDto,
+      description: 'Updated license type',
     });
 
     return licenseType;
@@ -139,25 +136,20 @@ export class LicenseTypeService {
       throw new BadRequestException('License type is already inactive');
     }
 
-    const licenseType = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.licenseType.update({
-        where: { id: licenseTypeId } as any,
-        data: { is_active: false } as any,
-      });
+    const licenseType = await this.prisma.license_type.update({
+      where: { id: licenseTypeId } as any,
+      data: { is_active: false } as any,
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: null,
-          actor_user_id: adminUserId,
-          action: 'DEACTIVATE',
-          entity_type: 'LicenseType',
-          entity_id: licenseTypeId,
-          metadata_json: {  is_active: { old: true, new: false } } as any,
-        } as any,
-      });
-
-      return updated;
+    // Audit log (after successful deactivation)
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'LicenseType',
+      entityId: licenseTypeId,
+      tenantId: null,
+      actorUserId: adminUserId,
+      metadata: { is_active: { old: true, new: false } },
+      description: 'Deactivated license type',
     });
 
     return licenseType;
@@ -173,25 +165,20 @@ export class LicenseTypeService {
       throw new BadRequestException('License type is already active');
     }
 
-    const licenseType = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.licenseType.update({
-        where: { id: licenseTypeId } as any,
-        data: { is_active: true } as any,
-      });
+    const licenseType = await this.prisma.license_type.update({
+      where: { id: licenseTypeId } as any,
+      data: { is_active: true } as any,
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: null,
-          actor_user_id: adminUserId,
-          action: 'REACTIVATE',
-          entity_type: 'LicenseType',
-          entity_id: licenseTypeId,
-          metadata_json: {  is_active: { old: false, new: true } } as any,
-        } as any,
-      });
-
-      return updated;
+    // Audit log (after successful reactivation)
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'LicenseType',
+      entityId: licenseTypeId,
+      tenantId: null,
+      actorUserId: adminUserId,
+      metadata: { is_active: { old: false, new: true } },
+      description: 'Reactivated license type',
     });
 
     return licenseType;
@@ -203,7 +190,7 @@ export class LicenseTypeService {
   async getUsageStats(licenseTypeId: string) {
     const licenseType = await this.findById(licenseTypeId);
 
-    const usageCount = await this.prisma.tenantLicense.count({
+    const usageCount = await this.prisma.tenant_license.count({
       where: { license_type_id: licenseTypeId } as any,
     });
 

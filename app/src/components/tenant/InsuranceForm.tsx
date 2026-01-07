@@ -12,7 +12,7 @@ import { toast } from 'react-hot-toast';
 import { format, differenceInDays } from 'date-fns';
 import { AlertCircle, Shield, CheckCircle, Building2, FileText, DollarSign, Calendar, Upload } from 'lucide-react';
 import { insuranceSchema, type InsuranceFormData } from '@/lib/utils/validation';
-import { tenantApi } from '@/lib/api/tenant';
+import { getInsurance, tenantApi } from '@/lib/api/tenant';
 import { Insurance, InsuranceStatus } from '@/lib/types/tenant';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';

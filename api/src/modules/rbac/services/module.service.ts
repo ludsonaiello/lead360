@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import {
   Injectable,
   Logger,
@@ -31,7 +32,7 @@ export class ModuleService {
     return this.prisma.module.findMany({
       where: includeInactive ? {} : { is_active: true },
       include: {
-        permissions: {
+        permission: {
           where: includeInactive ? {} : { is_active: true },
           select: {
             id: true,
@@ -41,7 +42,7 @@ export class ModuleService {
             is_active: true,
             _count: {
               select: {
-                role_permissions: true,
+                role_permission: true,
               },
             },
           },
@@ -49,7 +50,7 @@ export class ModuleService {
         },
         _count: {
           select: {
-            permissions: true,
+            permission: true,
           },
         },
       },
@@ -64,7 +65,7 @@ export class ModuleService {
     const module = await this.prisma.module.findUnique({
       where: { id: moduleId },
       include: {
-        permissions: {
+        permission: {
           select: {
             id: true,
             action: true,
@@ -73,7 +74,7 @@ export class ModuleService {
             is_active: true,
             _count: {
               select: {
-                role_permissions: true,
+                role_permission: true,
               },
             },
           },
@@ -81,7 +82,7 @@ export class ModuleService {
         },
         _count: {
           select: {
-            permissions: true,
+            permission: true,
           },
         },
       },
@@ -101,7 +102,7 @@ export class ModuleService {
     const module = await this.prisma.module.findUnique({
       where: { name },
       include: {
-        permissions: {
+        permission: {
           where: { is_active: true },
           select: {
             id: true,
@@ -171,6 +172,7 @@ export class ModuleService {
     // Create module
     const module = await this.prisma.module.create({
       data: {
+        id: randomBytes(16).toString('hex'),
         name,
         display_name: displayName,
         description,
@@ -251,7 +253,7 @@ export class ModuleService {
         is_active: updates.is_active,
       },
       include: {
-        permissions: {
+        permission: {
           select: {
             id: true,
             action: true,
@@ -313,11 +315,11 @@ export class ModuleService {
     const module = await this.prisma.module.findUnique({
       where: { id: moduleId },
       include: {
-        permissions: {
+        permission: {
           include: {
             _count: {
               select: {
-                role_permissions: true,
+                role_permission: true,
               },
             },
           },
@@ -330,15 +332,15 @@ export class ModuleService {
     }
 
     // Count total role assignments affected
-    const totalRolePermissions = module.permissions.reduce(
-      (sum, p) => sum + p._count.role_permissions,
+    const totalRolePermissions = module.permission.reduce(
+      (sum, p) => sum + p._count.role_permission,
       0,
     );
 
     // Warn about cascading deletes
-    if (module.permissions.length > 0) {
+    if (module.permission.length > 0) {
       this.logger.warn(
-        `Deleting module "${module.name}" which has ${module.permissions.length} permission(s) assigned to ${totalRolePermissions} role(s). This will cascade delete all permissions and role assignments.`,
+        `Deleting module "${module.name}" which has ${module.permission.length} permission(s) assigned to ${totalRolePermissions} role(s). This will cascade delete all permissions and role assignments.`,
       );
     }
 
@@ -357,19 +359,19 @@ export class ModuleService {
       {
         name: module.name,
         display_name: module.display_name,
-        permissions_deleted: module.permissions.length,
+        permissions_deleted: module.permission.length,
         role_permissions_deleted: totalRolePermissions,
       },
       null,
     );
 
     this.logger.log(
-      `Module "${module.name}" deleted by ${deletedByUserId} (${module.permissions.length} permissions, ${totalRolePermissions} role assignments removed)`,
+      `Module "${module.name}" deleted by ${deletedByUserId} (${module.permission.length} permissions, ${totalRolePermissions} role assignments removed)`,
     );
 
     return {
       message: 'Module deleted successfully',
-      permissions_deleted: module.permissions.length,
+      permissions_deleted: module.permission.length,
       role_permissions_deleted: totalRolePermissions,
     };
   }
@@ -426,8 +428,9 @@ export class ModuleService {
     afterJson: any,
   ) {
     try {
-      await this.prisma.auditLog.create({
+      await this.prisma.audit_log.create({
         data: {
+          id: randomBytes(16).toString('hex'),
           tenant_id: tenantId,
           actor_user_id: actorUserId,
           actor_type: 'user',
@@ -435,8 +438,8 @@ export class ModuleService {
           entity_id: entityId,
           action_type: action,
           description: `Module ${action}`,
-          before_json: beforeJson,
-          after_json: afterJson,
+          before_json: beforeJson ? JSON.stringify(beforeJson) : null,
+          after_json: afterJson ? JSON.stringify(afterJson) : null,
         },
       });
     } catch (error) {

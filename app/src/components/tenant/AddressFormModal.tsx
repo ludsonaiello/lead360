@@ -18,7 +18,6 @@ import Modal, { ModalContent, ModalActions } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Select, SelectOption } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
-import { MaskedInput } from '@/components/ui/MaskedInput';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import AddressAutocomplete from '@/components/ui/AddressAutocomplete';
 
@@ -152,12 +151,23 @@ export function AddressFormModal({ isOpen, onClose, onSuccess, address }: Addres
   }, [address, reset]);
 
   const handleAddressSelect = (addressData: any) => {
-    setValue('line1', addressData.line1);
-    setValue('city', addressData.city);
-    setValue('state', addressData.state);
-    setValue('zip_code', addressData.zip_code);
-    if (addressData.lat) setValue('lat', addressData.lat);
-    if (addressData.long) setValue('long', addressData.long);
+    console.log('Address selected:', addressData);
+
+    // Set all fields with validation trigger
+    setValue('line1', addressData.line1, { shouldValidate: true });
+    setValue('city', addressData.city, { shouldValidate: true });
+    setValue('state', addressData.state, { shouldValidate: true });
+    setValue('zip_code', addressData.zip_code, { shouldValidate: true });
+
+    // Convert lat/long to numbers for proper validation
+    if (addressData.lat !== null && addressData.lat !== undefined) {
+      const latNum = typeof addressData.lat === 'string' ? parseFloat(addressData.lat) : addressData.lat;
+      setValue('lat', latNum, { shouldValidate: true });
+    }
+    if (addressData.long !== null && addressData.long !== undefined) {
+      const longNum = typeof addressData.long === 'string' ? parseFloat(addressData.long) : addressData.long;
+      setValue('long', longNum, { shouldValidate: true });
+    }
   };
 
   const onSubmit = async (data: AddressFormData) => {
@@ -302,13 +312,12 @@ export function AddressFormModal({ isOpen, onClose, onSuccess, address }: Addres
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <MaskedInput
+                  <Input
                     {...register('zip_code')}
                     label="ZIP Code"
-                    mask="99999-9999"
-                    maskChar={null}
                     placeholder="XXXXX or XXXXX-XXXX"
                     error={errors.zip_code?.message}
+                    maxLength={10}
                     required
                   />
 

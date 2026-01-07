@@ -63,16 +63,16 @@ describe('TenantBusinessHoursService', () => {
         monday_close1: '17:00',
       };
 
-      mockPrismaService.tenantBusinessHours.findUnique.mockResolvedValue(mockHours);
+      mockPrismaService.tenant_business_hours.findUnique.mockResolvedValue(mockHours);
 
       const result = await service.findOrCreate('tenant-123');
 
       expect(result).toEqual(mockHours);
-      expect(mockPrismaService.tenantBusinessHours.create).not.toHaveBeenCalled();
+      expect(mockPrismaService.tenant_business_hours.create).not.toHaveBeenCalled();
     });
 
     it('should create default business hours if not found', async () => {
-      mockPrismaService.tenantBusinessHours.findUnique.mockResolvedValue(null);
+      mockPrismaService.tenant_business_hours.findUnique.mockResolvedValue(null);
 
       const defaultHours = {
         id: 'hours-123',
@@ -96,19 +96,19 @@ describe('TenantBusinessHoursService', () => {
         sunday_closed: true,
       };
 
-      mockPrismaService.tenantBusinessHours.create.mockResolvedValue(defaultHours);
+      mockPrismaService.tenant_business_hours.create.mockResolvedValue(defaultHours);
 
       const result = await service.findOrCreate('tenant-123');
 
       expect(result).toEqual(defaultHours);
-      expect(mockPrismaService.tenantBusinessHours.create).toHaveBeenCalled();
+      expect(mockPrismaService.tenant_business_hours.create).toHaveBeenCalled();
     });
   });
 
   describe('update - Time Validation', () => {
     beforeEach(() => {
       // Mock existing business hours
-      mockPrismaService.tenantBusinessHours.findUnique.mockResolvedValue({
+      mockPrismaService.tenant_business_hours.findUnique.mockResolvedValue({
         id: 'hours-123',
         tenant_id: 'tenant-123',
       });
@@ -126,7 +126,7 @@ describe('TenantBusinessHoursService', () => {
         ...validUpdate,
       };
 
-      mockPrismaService.tenantBusinessHours.update.mockResolvedValue(updatedHours);
+      mockPrismaService.tenant_business_hours.update.mockResolvedValue(updatedHours);
 
       const result = await service.update('tenant-123', validUpdate, 'user-123');
 
@@ -180,7 +180,7 @@ describe('TenantBusinessHoursService', () => {
         ...validUpdate,
       };
 
-      mockPrismaService.tenantBusinessHours.update.mockResolvedValue(updatedHours);
+      mockPrismaService.tenant_business_hours.update.mockResolvedValue(updatedHours);
 
       const result = await service.update('tenant-123', validUpdate, 'user-123');
 
@@ -201,7 +201,7 @@ describe('TenantBusinessHoursService', () => {
         ...validUpdate,
       };
 
-      mockPrismaService.tenantBusinessHours.update.mockResolvedValue(updatedHours);
+      mockPrismaService.tenant_business_hours.update.mockResolvedValue(updatedHours);
 
       const result = await service.update('tenant-123', validUpdate, 'user-123');
 
@@ -239,7 +239,7 @@ describe('TenantBusinessHoursService', () => {
 
   describe('validateTimeLogic (edge cases)', () => {
     beforeEach(() => {
-      mockPrismaService.tenantBusinessHours.findUnique.mockResolvedValue({
+      mockPrismaService.tenant_business_hours.findUnique.mockResolvedValue({
         id: 'hours-123',
       });
     });
@@ -267,7 +267,7 @@ describe('TenantBusinessHoursService', () => {
         sunday_closed: true,
       };
 
-      mockPrismaService.tenantBusinessHours.update.mockResolvedValue(updateAllDays);
+      mockPrismaService.tenant_business_hours.update.mockResolvedValue(updateAllDays);
 
       const result = await service.update('tenant-123', updateAllDays, 'user-123');
 

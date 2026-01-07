@@ -91,12 +91,12 @@ describe('AuditReaderService', () => {
 
   describe('findAll', () => {
     it('should enforce tenant isolation for non-platform admin', async () => {
-      prismaService.auditLog.findMany.mockResolvedValue(mockAuditLogs);
-      prismaService.auditLog.count.mockResolvedValue(2);
+      prismaService.audit_log.findMany.mockResolvedValue(mockAuditLogs);
+      prismaService.audit_log.count.mockResolvedValue(2);
 
       await service.findAll({}, false, mockTenantId);
 
-      expect(prismaService.auditLog.findMany).toHaveBeenCalledWith(
+      expect(prismaService.audit_log.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             tenant_id: mockTenantId,
@@ -112,12 +112,12 @@ describe('AuditReaderService', () => {
     });
 
     it('should allow cross-tenant access for platform admin', async () => {
-      prismaService.auditLog.findMany.mockResolvedValue(mockAuditLogs);
-      prismaService.auditLog.count.mockResolvedValue(2);
+      prismaService.audit_log.findMany.mockResolvedValue(mockAuditLogs);
+      prismaService.audit_log.count.mockResolvedValue(2);
 
       await service.findAll({}, true, undefined);
 
-      expect(prismaService.auditLog.findMany).toHaveBeenCalledWith(
+      expect(prismaService.audit_log.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.not.objectContaining({
             tenant_id: expect.anything(),
@@ -127,8 +127,8 @@ describe('AuditReaderService', () => {
     });
 
     it('should apply pagination correctly', async () => {
-      prismaService.auditLog.findMany.mockResolvedValue([mockAuditLogs[0]]);
-      prismaService.auditLog.count.mockResolvedValue(2);
+      prismaService.audit_log.findMany.mockResolvedValue([mockAuditLogs[0]]);
+      prismaService.audit_log.count.mockResolvedValue(2);
 
       const result = await service.findAll(
         { page: 2, limit: 1 },
@@ -136,7 +136,7 @@ describe('AuditReaderService', () => {
         mockTenantId,
       );
 
-      expect(prismaService.auditLog.findMany).toHaveBeenCalledWith(
+      expect(prismaService.audit_log.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           skip: 1,
           take: 1,
@@ -151,8 +151,8 @@ describe('AuditReaderService', () => {
     });
 
     it('should apply date range filters', async () => {
-      prismaService.auditLog.findMany.mockResolvedValue(mockAuditLogs);
-      prismaService.auditLog.count.mockResolvedValue(2);
+      prismaService.audit_log.findMany.mockResolvedValue(mockAuditLogs);
+      prismaService.audit_log.count.mockResolvedValue(2);
 
       await service.findAll(
         {
@@ -163,7 +163,7 @@ describe('AuditReaderService', () => {
         mockTenantId,
       );
 
-      expect(prismaService.auditLog.findMany).toHaveBeenCalledWith(
+      expect(prismaService.audit_log.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             created_at: {
@@ -176,8 +176,8 @@ describe('AuditReaderService', () => {
     });
 
     it('should apply actor filters', async () => {
-      prismaService.auditLog.findMany.mockResolvedValue([mockAuditLogs[0]]);
-      prismaService.auditLog.count.mockResolvedValue(1);
+      prismaService.audit_log.findMany.mockResolvedValue([mockAuditLogs[0]]);
+      prismaService.audit_log.count.mockResolvedValue(1);
 
       await service.findAll(
         {
@@ -188,7 +188,7 @@ describe('AuditReaderService', () => {
         mockTenantId,
       );
 
-      expect(prismaService.auditLog.findMany).toHaveBeenCalledWith(
+      expect(prismaService.audit_log.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             actor_user_id: 'user-1',
@@ -199,8 +199,8 @@ describe('AuditReaderService', () => {
     });
 
     it('should apply action and status filters', async () => {
-      prismaService.auditLog.findMany.mockResolvedValue([mockAuditLogs[0]]);
-      prismaService.auditLog.count.mockResolvedValue(1);
+      prismaService.audit_log.findMany.mockResolvedValue([mockAuditLogs[0]]);
+      prismaService.audit_log.count.mockResolvedValue(1);
 
       await service.findAll(
         {
@@ -211,7 +211,7 @@ describe('AuditReaderService', () => {
         mockTenantId,
       );
 
-      expect(prismaService.auditLog.findMany).toHaveBeenCalledWith(
+      expect(prismaService.audit_log.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             action_type: 'created',
@@ -222,8 +222,8 @@ describe('AuditReaderService', () => {
     });
 
     it('should apply search filter', async () => {
-      prismaService.auditLog.findMany.mockResolvedValue([mockAuditLogs[0]]);
-      prismaService.auditLog.count.mockResolvedValue(1);
+      prismaService.audit_log.findMany.mockResolvedValue([mockAuditLogs[0]]);
+      prismaService.audit_log.count.mockResolvedValue(1);
 
       await service.findAll(
         {
@@ -233,7 +233,7 @@ describe('AuditReaderService', () => {
         mockTenantId,
       );
 
-      expect(prismaService.auditLog.findMany).toHaveBeenCalledWith(
+      expect(prismaService.audit_log.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             description: { contains: 'Lead created' },
@@ -243,8 +243,8 @@ describe('AuditReaderService', () => {
     });
 
     it('should return paginated results', async () => {
-      prismaService.auditLog.findMany.mockResolvedValue(mockAuditLogs);
-      prismaService.auditLog.count.mockResolvedValue(2);
+      prismaService.audit_log.findMany.mockResolvedValue(mockAuditLogs);
+      prismaService.audit_log.count.mockResolvedValue(2);
 
       const result = await service.findAll({}, false, mockTenantId);
 
@@ -262,19 +262,19 @@ describe('AuditReaderService', () => {
 
   describe('findOne', () => {
     it('should find log by id', async () => {
-      prismaService.auditLog.findUnique.mockResolvedValue(mockAuditLogs[0]);
+      prismaService.audit_log.findUnique.mockResolvedValue(mockAuditLogs[0]);
 
       const result = await service.findOne('log-1', false, mockTenantId);
 
       expect(result).toEqual(mockAuditLogs[0]);
-      expect(prismaService.auditLog.findUnique).toHaveBeenCalledWith({
+      expect(prismaService.audit_log.findUnique).toHaveBeenCalledWith({
         where: { id: 'log-1' },
         include: expect.any(Object),
       });
     });
 
     it('should throw NotFoundException if log not found', async () => {
-      prismaService.auditLog.findUnique.mockResolvedValue(null);
+      prismaService.audit_log.findUnique.mockResolvedValue(null);
 
       await expect(
         service.findOne('nonexistent', false, mockTenantId),
@@ -283,7 +283,7 @@ describe('AuditReaderService', () => {
 
     it('should enforce tenant isolation for non-platform admin', async () => {
       const otherTenantLog = { ...mockAuditLogs[0], tenant_id: mockOtherTenantId };
-      prismaService.auditLog.findUnique.mockResolvedValue(otherTenantLog);
+      prismaService.audit_log.findUnique.mockResolvedValue(otherTenantLog);
 
       await expect(
         service.findOne('log-1', false, mockTenantId),
@@ -292,7 +292,7 @@ describe('AuditReaderService', () => {
 
     it('should allow cross-tenant access for platform admin', async () => {
       const otherTenantLog = { ...mockAuditLogs[0], tenant_id: mockOtherTenantId };
-      prismaService.auditLog.findUnique.mockResolvedValue(otherTenantLog);
+      prismaService.audit_log.findUnique.mockResolvedValue(otherTenantLog);
 
       const result = await service.findOne('log-1', true, mockTenantId);
 
@@ -306,8 +306,8 @@ describe('AuditReaderService', () => {
         id: 'user-1',
         tenant_id: mockTenantId,
       });
-      prismaService.auditLog.findMany.mockResolvedValue([mockAuditLogs[0]]);
-      prismaService.auditLog.count.mockResolvedValue(1);
+      prismaService.audit_log.findMany.mockResolvedValue([mockAuditLogs[0]]);
+      prismaService.audit_log.count.mockResolvedValue(1);
 
       await service.findByUser('user-1', {}, false, mockTenantId);
 
@@ -325,8 +325,8 @@ describe('AuditReaderService', () => {
     });
 
     it('should skip user verification for platform admin', async () => {
-      prismaService.auditLog.findMany.mockResolvedValue(mockAuditLogs);
-      prismaService.auditLog.count.mockResolvedValue(2);
+      prismaService.audit_log.findMany.mockResolvedValue(mockAuditLogs);
+      prismaService.audit_log.count.mockResolvedValue(2);
 
       await service.findByUser('user-1', {}, true, undefined);
 
@@ -338,12 +338,12 @@ describe('AuditReaderService', () => {
         id: 'user-1',
         tenant_id: mockTenantId,
       });
-      prismaService.auditLog.findMany.mockResolvedValue([mockAuditLogs[0]]);
-      prismaService.auditLog.count.mockResolvedValue(1);
+      prismaService.audit_log.findMany.mockResolvedValue([mockAuditLogs[0]]);
+      prismaService.audit_log.count.mockResolvedValue(1);
 
       await service.findByUser('user-1', {}, false, mockTenantId);
 
-      expect(prismaService.auditLog.findMany).toHaveBeenCalledWith(
+      expect(prismaService.audit_log.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             actor_user_id: 'user-1',
@@ -355,7 +355,7 @@ describe('AuditReaderService', () => {
 
   describe('count', () => {
     it('should count logs with filters', async () => {
-      prismaService.auditLog.count.mockResolvedValue(5);
+      prismaService.audit_log.count.mockResolvedValue(5);
 
       const result = await service.count(
         {
@@ -366,7 +366,7 @@ describe('AuditReaderService', () => {
       );
 
       expect(result).toBe(5);
-      expect(prismaService.auditLog.count).toHaveBeenCalledWith({
+      expect(prismaService.audit_log.count).toHaveBeenCalledWith({
         where: expect.objectContaining({
           tenant_id: mockTenantId,
           action_type: 'created',

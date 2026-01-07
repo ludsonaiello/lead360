@@ -21,7 +21,7 @@ export class TenantAddressService {
    * Get all addresses for a tenant
    */
   async findAll(tenantId: string) {
-    return this.prisma.tenantAddress.findMany({
+    return this.prisma.tenant_address.findMany({
       where: { tenant_id: tenantId } as any,
       orderBy: [{ is_default: 'desc' }, { address_type: 'asc' }],
     });
@@ -31,7 +31,7 @@ export class TenantAddressService {
    * Get a specific address by ID
    */
   async findOne(tenantId: string, addressId: string) {
-    const address = await this.prisma.tenantAddress.findFirst({
+    const address = await this.prisma.tenant_address.findFirst({
       where: {
         id: addressId,
         tenant_id: tenantId, // CRITICAL: Tenant isolation
@@ -49,7 +49,7 @@ export class TenantAddressService {
    * Get default address for a specific type
    */
   async findDefaultByType(tenantId: string, addressType: AddressType) {
-    const address = await this.prisma.tenantAddress.findFirst({
+    const address = await this.prisma.tenant_address.findFirst({
       where: {
         tenant_id: tenantId,
         address_type: addressType,
@@ -59,7 +59,7 @@ export class TenantAddressService {
 
     if (!address) {
       // Return first address of this type if no default is set
-      return this.prisma.tenantAddress.findFirst({
+      return this.prisma.tenant_address.findFirst({
         where: {
           tenant_id: tenantId,
           address_type: addressType,
@@ -83,7 +83,7 @@ export class TenantAddressService {
     }
 
     // Check if this is the first address of this type
-    const existingCount = await this.prisma.tenantAddress.count({
+    const existingCount = await this.prisma.tenant_address.count({
       where: {
         tenant_id: tenantId,
         address_type: createAddressDto.address_type,
@@ -96,7 +96,7 @@ export class TenantAddressService {
     const address = await this.prisma.$transaction(async (tx) => {
       // If setting as default, un-set other defaults of same type
       if (shouldBeDefault) {
-        await tx.tenantAddress.updateMany({
+        await tx.tenant_address.updateMany({
           where: {
             tenant_id: tenantId,
             address_type: createAddressDto.address_type,
@@ -106,7 +106,7 @@ export class TenantAddressService {
         });
       }
 
-      const newAddress = await tx.tenantAddress.create({
+      const newAddress = await tx.tenant_address.create({
         data: {
           tenant_id: tenantId,
           ...createAddressDto,
@@ -154,7 +154,7 @@ export class TenantAddressService {
     const address = await this.prisma.$transaction(async (tx) => {
       // If setting as default, un-set other defaults of same type
       if (updateAddressDto.is_default === true) {
-        await tx.tenantAddress.updateMany({
+        await tx.tenant_address.updateMany({
           where: {
             tenant_id: tenantId,
             address_type: existingAddress.address_type,
@@ -165,7 +165,7 @@ export class TenantAddressService {
         });
       }
 
-      const updated = await tx.tenantAddress.update({
+      const updated = await tx.tenant_address.update({
         where: { id: addressId } as any,
         data: updateAddressDto,
       });
@@ -197,7 +197,7 @@ export class TenantAddressService {
 
     // Business rule: Cannot delete last legal address
     if (existingAddress.address_type === AddressType.LEGAL) {
-      const legalAddressCount = await this.prisma.tenantAddress.count({
+      const legalAddressCount = await this.prisma.tenant_address.count({
         where: {
           tenant_id: tenantId,
           address_type: AddressType.LEGAL,
@@ -214,7 +214,7 @@ export class TenantAddressService {
     await this.prisma.$transaction(async (tx) => {
       // If deleting default address, set another one as default
       if (existingAddress.is_default) {
-        const nextAddress = await tx.tenantAddress.findFirst({
+        const nextAddress = await tx.tenant_address.findFirst({
           where: {
             tenant_id: tenantId,
             address_type: existingAddress.address_type,
@@ -223,14 +223,14 @@ export class TenantAddressService {
         });
 
         if (nextAddress) {
-          await tx.tenantAddress.update({
+          await tx.tenant_address.update({
             where: { id: nextAddress.id } as any,
             data: { is_default: true } as any,
           });
         }
       }
 
-      await tx.tenantAddress.delete({
+      await tx.tenant_address.delete({
         where: { id: addressId } as any,
       });
     });
@@ -257,7 +257,7 @@ export class TenantAddressService {
 
     await this.prisma.$transaction(async (tx) => {
       // Un-set other defaults of same type
-      await tx.tenantAddress.updateMany({
+      await tx.tenant_address.updateMany({
         where: {
           tenant_id: tenantId,
           address_type: address.address_type,
@@ -268,7 +268,7 @@ export class TenantAddressService {
       });
 
       // Set this one as default
-      await tx.tenantAddress.update({
+      await tx.tenant_address.update({
         where: { id: addressId } as any,
         data: { is_default: true } as any,
       });

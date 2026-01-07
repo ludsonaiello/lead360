@@ -137,16 +137,16 @@ export function LicenseFormModal({ isOpen, onClose, onSuccess, license }: Licens
         issuing_state: license.issuing_state,
         issue_date: extractDate(license.issue_date),
         expiry_date: extractDate(license.expiry_date),
-        document_file_id: license.document_file_id || undefined,
+        document_file_id: license.file?.file_id || undefined,
       });
       setShowCustomType(!!license.custom_license_type);
 
       // Set file info from license
-      if (license.document_file) {
+      if (license.file) {
         const uploadBaseUrl = process.env.NEXT_PUBLIC_UPLOAD_DIR || 'https://app.lead360.app/uploads/public';
-        setCurrentFileUrl(`${uploadBaseUrl}/${license.tenant_id}/files/${license.document_file.file_id}${getFileExtension(license.document_file.original_filename)}`);
-        setCurrentFileName(license.document_file.original_filename);
-        setCurrentFileMimeType(license.document_file.mime_type);
+        setCurrentFileUrl(`${uploadBaseUrl}/${license.tenant_id}/files/${license?.file?.file_id}${getFileExtension(license?.file?.original_filename)}`);
+        setCurrentFileName(license.file.original_filename);
+        setCurrentFileMimeType(license.file.mime_type);
       } else {
         setCurrentFileUrl(undefined);
         setCurrentFileName(undefined);

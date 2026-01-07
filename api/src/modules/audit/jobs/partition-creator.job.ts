@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../../core/database/prisma.service';
@@ -129,17 +130,17 @@ export class PartitionCreatorJob {
    */
   private async logPartitionCreation(partitionName: string): Promise<void> {
     try {
-      await this.prisma.auditLog.create({
+      await this.prisma.audit_log.create({
         data: {
-          actor_type: 'cron_job',
+        id: randomBytes(16).toString('hex'),actor_type: 'cron_job',
           entity_type: 'audit_log_partition',
           entity_id: partitionName,
           description: `Monthly partition created: ${partitionName}`,
           action_type: 'created',
-          metadata_json: {
+          metadata_json: JSON.stringify({
             partition_name: partitionName,
             created_by: 'PartitionCreatorJob',
-          },
+          }),
           status: 'success',
         },
       });

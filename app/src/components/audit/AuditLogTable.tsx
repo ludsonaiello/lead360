@@ -165,9 +165,9 @@ export function AuditLogTable({
                         <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           {actorName}
                         </span>
-                        {log.actor?.email && (
+                        {log.user?.email && (
                           <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {log.actor.email}
+                            {log.user.email}
                           </span>
                         )}
                       </div>

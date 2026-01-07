@@ -61,7 +61,7 @@ export class AuditExportService {
     }
 
     // Check count first
-    const count = await this.prisma.auditLog.count({ where });
+    const count = await this.prisma.audit_log.count({ where });
 
     if (count > this.MAX_EXPORT_ROWS) {
       throw new BadRequestException(
@@ -74,11 +74,11 @@ export class AuditExportService {
     }
 
     // Fetch all logs
-    const logs = await this.prisma.auditLog.findMany({
+    const logs = await this.prisma.audit_log.findMany({
       where,
       orderBy: { created_at: 'desc' },
       include: {
-        actor: {
+        user: {
           select: {
             first_name: true,
             last_name: true,
@@ -114,11 +114,11 @@ export class AuditExportService {
     // Flatten data for CSV
     const flattenedLogs = logs.map((log) => ({
       Timestamp: log.created_at.toISOString(),
-      Actor: log.actor
-        ? `${log.actor.first_name} ${log.actor.last_name} (${log.actor.email})`
+      Actor: log.user
+        ? `${log.user.first_name} ${log.user.last_name} (${log.user.email})`
         : log.actor_type,
       'Actor Type': log.actor_type,
-      Tenant: log.tenant?.legal_name || 'N/A',
+      Tenant: log.tenant?.company_name || 'N/A',
       Action: log.action_type,
       'Entity Type': log.entity_type,
       'Entity ID': log.entity_id,
@@ -161,15 +161,15 @@ export class AuditExportService {
     const formattedLogs = logs.map((log) => ({
       id: log.id,
       timestamp: log.created_at.toISOString(),
-      actor: {
+      user: {
         id: log.actor_user_id,
-        name: log.actor ? `${log.actor.first_name} ${log.actor.last_name}` : null,
-        email: log.actor?.email,
+        name: log.user ? `${log.user.first_name} ${log.user.last_name}` : null,
+        email: log.user?.email,
         type: log.actor_type,
       },
       tenant: {
         id: log.tenant_id,
-        name: log.tenant?.legal_name,
+        name: log.tenant?.company_name,
         subdomain: log.tenant?.subdomain,
       },
       action: {

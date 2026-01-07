@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import {
   Injectable,
   NotFoundException,
@@ -5,18 +6,22 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { CreateSubscriptionPlanDto } from '../dto/create-subscription-plan.dto';
 import { UpdateSubscriptionPlanDto } from '../dto/update-subscription-plan.dto';
 
 @Injectable()
 export class SubscriptionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogger: AuditLoggerService,
+  ) {}
 
   /**
    * Get all subscription plans
    */
   async findAllPlans(includeInactive = false) {
-    return this.prisma.subscriptionPlan.findMany({
+    return this.prisma.subscription_plan.findMany({
       where: includeInactive ? {} : { is_active: true } as any,
       orderBy: { monthly_price: 'asc' } as any,
     });
@@ -26,7 +31,7 @@ export class SubscriptionService {
    * Get a specific subscription plan by ID
    */
   async findPlanById(planId: string) {
-    const plan = await this.prisma.subscriptionPlan.findUnique({
+    const plan = await this.prisma.subscription_plan.findUnique({
       where: { id: planId } as any,
     });
 
@@ -41,7 +46,7 @@ export class SubscriptionService {
    * Get default subscription plan
    */
   async getDefaultPlan() {
-    const defaultPlan = await this.prisma.subscriptionPlan.findFirst({
+    const defaultPlan = await this.prisma.subscription_plan.findFirst({
       where: {
         is_default: true,
         is_active: true,
@@ -60,7 +65,7 @@ export class SubscriptionService {
    */
   async createPlan(createDto: CreateSubscriptionPlanDto, adminUserId: string) {
     // Check if plan name already exists
-    const existing = await this.prisma.subscriptionPlan.findUnique({
+    const existing = await this.prisma.subscription_plan.findUnique({
       where: { name: createDto.name } as any,
     });
 
@@ -73,29 +78,31 @@ export class SubscriptionService {
     const plan = await this.prisma.$transaction(async (tx) => {
       // If marking as default, un-mark other defaults
       if (createDto.is_default === true) {
-        await tx.subscriptionPlan.updateMany({
+        await tx.subscription_plan.updateMany({
           where: { is_default: true } as any,
           data: { is_default: false } as any,
         });
       }
 
-      const newPlan = await tx.subscriptionPlan.create({
-        data: createDto,
-      });
-
-      // Audit log
-      await tx.auditLog.create({
+      return await tx.subscription_plan.create({
         data: {
-          tenant_id: null, // System-level action
-          actor_user_id: adminUserId,
-          action: 'CREATE',
-          entity_type: 'SubscriptionPlan',
-          entity_id: newPlan.id,
-          metadata_json: {  created: createDto } as any,
-        } as any,
+          id: randomBytes(16).toString('hex'),
+          updated_at: new Date(),
+          ...createDto,
+          feature_flags: JSON.stringify(createDto.feature_flags),
+        },
       });
+    });
 
-      return newPlan;
+    // Audit log (after successful transaction)
+    await this.auditLogger.logTenantChange({
+      action: 'created',
+      entityType: 'SubscriptionPlan',
+      entityId: plan.id,
+      tenantId: null, // System-level action
+      actorUserId: adminUserId,
+      metadata: { created: createDto },
+      description: 'Created subscription plan',
     });
 
     return plan;
@@ -110,7 +117,7 @@ export class SubscriptionService {
 
     // If changing name, check uniqueness
     if (updateDto.name && updateDto.name !== existing.name) {
-      const nameConflict = await this.prisma.subscriptionPlan.findUnique({
+      const nameConflict = await this.prisma.subscription_plan.findUnique({
         where: { name: updateDto.name } as any,
       });
 
@@ -124,7 +131,7 @@ export class SubscriptionService {
     const plan = await this.prisma.$transaction(async (tx) => {
       // If marking as default, un-mark other defaults
       if (updateDto.is_default === true) {
-        await tx.subscriptionPlan.updateMany({
+        await tx.subscription_plan.updateMany({
           where: {
             is_default: true,
             NOT: { id: planId } as any,
@@ -133,27 +140,22 @@ export class SubscriptionService {
         });
       }
 
-      const updated = await tx.subscriptionPlan.update({
+      return await tx.subscription_plan.update({
         where: { id: planId } as any,
         data: updateDto,
       });
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: null, // System-level action
-          actor_user_id: adminUserId,
-          action: 'UPDATE',
-          entity_type: 'SubscriptionPlan',
-          entity_id: planId,
-          metadata_json: { 
-            old: existing,
-            new: updateDto,
-          } as any,
-        } as any,
-      });
-
-      return updated;
+    // Audit log (after successful transaction)
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'SubscriptionPlan',
+      entityId: planId,
+      tenantId: null, // System-level action
+      actorUserId: adminUserId,
+      before: existing,
+      after: updateDto,
+      description: 'Updated subscription plan',
     });
 
     return plan;
@@ -176,22 +178,19 @@ export class SubscriptionService {
       );
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.subscriptionPlan.delete({
-        where: { id: planId } as any,
-      });
+    await this.prisma.subscription_plan.delete({
+      where: { id: planId } as any,
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: null,
-          actor_user_id: adminUserId,
-          action: 'DELETE',
-          entity_type: 'SubscriptionPlan',
-          entity_id: planId,
-          metadata_json: {  deleted: existing } as any,
-        } as any,
-      });
+    // Audit log (after successful deletion)
+    await this.auditLogger.logTenantChange({
+      action: 'deleted',
+      entityType: 'SubscriptionPlan',
+      entityId: planId,
+      tenantId: null,
+      actorUserId: adminUserId,
+      before: existing,
+      description: 'Deleted subscription plan',
     });
 
     return { message: 'Subscription plan deleted successfully' };
@@ -221,33 +220,28 @@ export class SubscriptionService {
       throw new BadRequestException('Cannot assign inactive subscription plan');
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const updatedTenant = await tx.tenant.update({
-        where: { id: tenantId } as any,
-        data: {
-          subscription_plan_id: newPlanId,
-        } as any,
-        include: { subscription_plan: true } as any,
-      });
+    const updated = await this.prisma.tenant.update({
+      where: { id: tenantId } as any,
+      data: {
+        subscription_plan_id: newPlanId,
+      } as any,
+      include: { subscription_plan: true } as any,
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: adminUserId,
-          action: 'UPDATE',
-          entity_type: 'Tenant',
-          entity_id: tenantId,
-          metadata_json: { 
-            subscription_plan: {
-              old: tenant.subscription_plan,
-              new: newPlan,
-            } as any,
-          } as any,
-        } as any,
-      });
-
-      return updatedTenant;
+    // Audit log (after successful update)
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'Tenant',
+      entityId: tenantId,
+      tenantId: tenantId,
+      actorUserId: adminUserId,
+      metadata: {
+        subscription_plan: {
+          old: tenant.subscription_plan,
+          new: newPlan,
+        },
+      },
+      description: 'Updated billing cycle',
     });
 
     return updated;

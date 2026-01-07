@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -60,6 +61,8 @@ async function seedPlatformAdmin() {
     // Create platform admin user (no tenant_id = platform-wide access)
     const user = await prisma.user.create({
       data: {
+        id: randomBytes(16).toString('hex'),
+        updated_at: new Date(),
         email: PLATFORM_ADMIN_USER.email,
         password_hash: passwordHash,
         first_name: PLATFORM_ADMIN_USER.first_name,
@@ -72,8 +75,9 @@ async function seedPlatformAdmin() {
     });
 
     // Create audit log
-    await prisma.auditLog.create({
+    await prisma.audit_log.create({
       data: {
+        id: randomBytes(16).toString('hex'),
         tenant_id: null,
         actor_user_id: user.id,
         actor_type: 'system',
@@ -81,13 +85,13 @@ async function seedPlatformAdmin() {
         entity_id: user.id,
         action_type: 'platform_admin_created',
         description: `Platform Admin user created: ${user.email}`,
-        before_json: Prisma.JsonNull,
-        after_json: {
+        before_json: null,
+        after_json: JSON.stringify({
           email: user.email,
           first_name: user.first_name,
           last_name: user.last_name,
           is_platform_admin: true,
-        },
+        }),
       },
     });
 

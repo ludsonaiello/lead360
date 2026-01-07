@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import {
   Injectable,
   NotFoundException,
@@ -5,18 +6,22 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { CreateServiceAreaDto, ServiceAreaType } from '../dto/create-service-area.dto';
 import { UpdateServiceAreaDto } from '../dto/update-service-area.dto';
 
 @Injectable()
 export class TenantServiceAreaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogger: AuditLoggerService,
+  ) {}
 
   /**
    * Get all service areas for a tenant
    */
   async findAll(tenantId: string) {
-    return this.prisma.tenantServiceArea.findMany({
+    return this.prisma.tenant_service_area.findMany({
       where: { tenant_id: tenantId } as any,
       orderBy: { type: 'asc' } as any,
     });
@@ -26,7 +31,7 @@ export class TenantServiceAreaService {
    * Get a specific service area by ID
    */
   async findOne(tenantId: string, serviceAreaId: string) {
-    const serviceArea = await this.prisma.tenantServiceArea.findFirst({
+    const serviceArea = await this.prisma.tenant_service_area.findFirst({
       where: {
         id: serviceAreaId,
         tenant_id: tenantId, // CRITICAL: Tenant isolation
@@ -52,7 +57,7 @@ export class TenantServiceAreaService {
 
     if (dto.area_type === ServiceAreaType.CITY) {
       // Check for duplicate city + state combination
-      existing = await this.prisma.tenantServiceArea.findFirst({
+      existing = await this.prisma.tenant_service_area.findFirst({
         where: {
           tenant_id: tenantId,
           type: ServiceAreaType.CITY,
@@ -68,7 +73,7 @@ export class TenantServiceAreaService {
       }
     } else if (dto.area_type === ServiceAreaType.ZIPCODE) {
       // Check for duplicate zipcode
-      existing = await this.prisma.tenantServiceArea.findFirst({
+      existing = await this.prisma.tenant_service_area.findFirst({
         where: {
           tenant_id: tenantId,
           type: ServiceAreaType.ZIPCODE,
@@ -83,7 +88,7 @@ export class TenantServiceAreaService {
       }
     } else if (dto.area_type === ServiceAreaType.STATE) {
       // Check for duplicate state
-      existing = await this.prisma.tenantServiceArea.findFirst({
+      existing = await this.prisma.tenant_service_area.findFirst({
         where: {
           tenant_id: tenantId,
           type: ServiceAreaType.STATE,
@@ -99,7 +104,7 @@ export class TenantServiceAreaService {
       }
     } else if (dto.area_type === ServiceAreaType.RADIUS) {
       // Check for duplicate radius with same center and radius
-      existing = await this.prisma.tenantServiceArea.findFirst({
+      existing = await this.prisma.tenant_service_area.findFirst({
         where: {
           tenant_id: tenantId,
           type: ServiceAreaType.RADIUS,
@@ -179,35 +184,31 @@ export class TenantServiceAreaService {
       value = `${createDto.city || 'Area'}, ${createDto.state || ''} (${createDto.radius_miles} mile radius)`;
     }
 
-    const serviceArea = await this.prisma.$transaction(async (tx) => {
-      const newServiceArea = await tx.tenantServiceArea.create({
-        data: {
-          tenant_id: tenantId,
-          type: createDto.area_type,
-          value: value,
-          latitude: createDto.center_lat || 0,
-          longitude: createDto.center_long || 0,
-          radius_miles: createDto.radius_miles,
-          state: createDto.state,
-          city_name: createDto.city,
-          zipcode: createDto.zipcode,
-          entire_state: entire_state,
-        } as any,
-      });
+    const serviceArea = await this.prisma.tenant_service_area.create({
+      data: {
+        id: randomBytes(16).toString('hex'),
+        tenant_id: tenantId,
+        type: createDto.area_type,
+        value: value,
+        latitude: createDto.center_lat || 0,
+        longitude: createDto.center_long || 0,
+        radius_miles: createDto.radius_miles,
+        state: createDto.state,
+        city_name: createDto.city,
+        zipcode: createDto.zipcode,
+        entire_state: entire_state,
+      } as any,
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          action: 'CREATE',
-          entity_type: 'TenantServiceArea',
-          entity_id: newServiceArea.id,
-          metadata_json: {  created: createDto } as any,
-        } as any,
-      });
-
-      return newServiceArea;
+    // Audit log (after successful creation)
+    await this.auditLogger.logTenantChange({
+      action: 'created',
+      entityType: 'TenantServiceArea',
+      entityId: serviceArea.id,
+      tenantId: tenantId,
+      actorUserId: userId,
+      metadata: { created: createDto },
+      description: 'Created service area',
     });
 
     return serviceArea;
@@ -272,38 +273,31 @@ export class TenantServiceAreaService {
       }
     }
 
-    const serviceArea = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.tenantServiceArea.update({
-        where: { id: serviceAreaId } as any,
-        data: {
-          type: updateDto.area_type,
-          value: value,
-          latitude: updateDto.center_lat,
-          longitude: updateDto.center_long,
-          radius_miles: updateDto.radius_miles,
-          state: updateDto.state,
-          city_name: updateDto.city,
-          zipcode: updateDto.zipcode,
-          entire_state: entire_state,
-        } as any,
-      });
+    const serviceArea = await this.prisma.tenant_service_area.update({
+      where: { id: serviceAreaId } as any,
+      data: {
+        type: updateDto.area_type,
+        value: value,
+        latitude: updateDto.center_lat,
+        longitude: updateDto.center_long,
+        radius_miles: updateDto.radius_miles,
+        state: updateDto.state,
+        city_name: updateDto.city,
+        zipcode: updateDto.zipcode,
+        entire_state: entire_state,
+      } as any,
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          action: 'UPDATE',
-          entity_type: 'TenantServiceArea',
-          entity_id: serviceAreaId,
-          metadata_json: { 
-            old: existing,
-            new: updateDto,
-          } as any,
-        } as any,
-      });
-
-      return updated;
+    // Audit log (after successful update)
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'TenantServiceArea',
+      entityId: serviceAreaId,
+      tenantId: tenantId,
+      actorUserId: userId,
+      before: existing,
+      after: updateDto,
+      description: 'Updated service area',
     });
 
     return serviceArea;
@@ -316,22 +310,19 @@ export class TenantServiceAreaService {
     // Verify service area exists and belongs to tenant
     const existing = await this.findOne(tenantId, serviceAreaId);
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.tenantServiceArea.delete({
-        where: { id: serviceAreaId } as any,
-      });
+    await this.prisma.tenant_service_area.delete({
+      where: { id: serviceAreaId } as any,
+    });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          action: 'DELETE',
-          entity_type: 'TenantServiceArea',
-          entity_id: serviceAreaId,
-          metadata_json: {  deleted: existing } as any,
-        } as any,
-      });
+    // Audit log (after successful deletion)
+    await this.auditLogger.logTenantChange({
+      action: 'deleted',
+      entityType: 'TenantServiceArea',
+      entityId: serviceAreaId,
+      tenantId: tenantId,
+      actorUserId: userId,
+      before: existing,
+      description: 'Deleted service area',
     });
 
     return { message: 'Service area deleted successfully' };

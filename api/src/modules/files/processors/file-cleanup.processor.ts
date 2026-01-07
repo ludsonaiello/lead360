@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Processor, Process } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bull';
@@ -58,7 +59,7 @@ export class FileCleanupProcessor {
           const tenantOwner = await this.prisma.user.findFirst({
             where: {
               tenant_id: tenant.id,
-              user_roles: {
+              user_role_user_role_user_idTouser: {
                 some: {
                   role: {
                     name: 'Owner',

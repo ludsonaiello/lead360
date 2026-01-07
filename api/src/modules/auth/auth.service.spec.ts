@@ -49,7 +49,7 @@ describe('AuthService', () => {
     created_at: new Date(),
     updated_at: new Date(),
     deleted_at: null,
-    user_roles: [
+    user_role: [
       {
         id: 'user-role-uuid',
         user_id: 'user-uuid',
@@ -282,9 +282,9 @@ describe('AuthService', () => {
     it('should successfully login with valid credentials', async () => {
       (prismaService.user.findFirst as jest.Mock).mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      (prismaService.refreshToken.create as jest.Mock).mockResolvedValue({});
+      (prismaService.refresh_token.create as jest.Mock).mockResolvedValue({});
       (prismaService.user.update as jest.Mock).mockResolvedValue(mockUser);
-      (prismaService.auditLog.create as jest.Mock).mockResolvedValue({});
+      (prismaService.audit_log.create as jest.Mock).mockResolvedValue({});
 
       const result = await service.login(loginDto, '127.0.0.1', 'TestAgent');
 
@@ -297,7 +297,7 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException for invalid password', async () => {
       (prismaService.user.findFirst as jest.Mock).mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
-      (prismaService.auditLog.create as jest.Mock).mockResolvedValue({});
+      (prismaService.audit_log.create as jest.Mock).mockResolvedValue({});
 
       await expect(
         service.login(loginDto, '127.0.0.1', 'TestAgent'),
@@ -339,9 +339,9 @@ describe('AuthService', () => {
     it('should update last_login_at on successful login', async () => {
       (prismaService.user.findFirst as jest.Mock).mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      (prismaService.refreshToken.create as jest.Mock).mockResolvedValue({});
+      (prismaService.refresh_token.create as jest.Mock).mockResolvedValue({});
       (prismaService.user.update as jest.Mock).mockResolvedValue(mockUser);
-      (prismaService.auditLog.create as jest.Mock).mockResolvedValue({});
+      (prismaService.audit_log.create as jest.Mock).mockResolvedValue({});
 
       await service.login(loginDto, '127.0.0.1', 'TestAgent');
 
@@ -356,13 +356,13 @@ describe('AuthService', () => {
     it('should create refresh token record', async () => {
       (prismaService.user.findFirst as jest.Mock).mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      (prismaService.refreshToken.create as jest.Mock).mockResolvedValue({});
+      (prismaService.refresh_token.create as jest.Mock).mockResolvedValue({});
       (prismaService.user.update as jest.Mock).mockResolvedValue(mockUser);
-      (prismaService.auditLog.create as jest.Mock).mockResolvedValue({});
+      (prismaService.audit_log.create as jest.Mock).mockResolvedValue({});
 
       await service.login(loginDto, '127.0.0.1', 'TestAgent');
 
-      expect(prismaService.refreshToken.create).toHaveBeenCalled();
+      expect(prismaService.refresh_token.create).toHaveBeenCalled();
     });
   });
 
@@ -388,16 +388,16 @@ describe('AuthService', () => {
 
   describe('logout', () => {
     it('should revoke refresh token', async () => {
-      (prismaService.refreshToken.updateMany as jest.Mock).mockResolvedValue({
+      (prismaService.refresh_token.updateMany as jest.Mock).mockResolvedValue({
         count: 1,
       });
       (prismaService.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
-      (prismaService.auditLog.create as jest.Mock).mockResolvedValue({});
+      (prismaService.audit_log.create as jest.Mock).mockResolvedValue({});
 
       const result = await service.logout(mockUser.id, 'token-hash');
 
       expect(result.message).toBe('Logged out successfully');
-      expect(prismaService.refreshToken.updateMany).toHaveBeenCalledWith(
+      expect(prismaService.refresh_token.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             user_id: mockUser.id,
@@ -410,11 +410,11 @@ describe('AuthService', () => {
 
   describe('logoutAll', () => {
     it('should revoke all refresh tokens', async () => {
-      (prismaService.refreshToken.updateMany as jest.Mock).mockResolvedValue({
+      (prismaService.refresh_token.updateMany as jest.Mock).mockResolvedValue({
         count: 3,
       });
       (prismaService.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
-      (prismaService.auditLog.create as jest.Mock).mockResolvedValue({});
+      (prismaService.audit_log.create as jest.Mock).mockResolvedValue({});
 
       const result = await service.logoutAll(mockUser.id);
 
@@ -436,7 +436,7 @@ describe('AuthService', () => {
     it('should generate reset token for existing user', async () => {
       (prismaService.user.findFirst as jest.Mock).mockResolvedValue(mockUser);
       (prismaService.user.update as jest.Mock).mockResolvedValue(mockUser);
-      (prismaService.auditLog.create as jest.Mock).mockResolvedValue({});
+      (prismaService.audit_log.create as jest.Mock).mockResolvedValue({});
 
       await service.forgotPassword({ email: mockUser.email });
 
@@ -463,10 +463,10 @@ describe('AuthService', () => {
       );
       (bcrypt.hash as jest.Mock).mockResolvedValue('new_hashed_password');
       (prismaService.user.update as jest.Mock).mockResolvedValue(mockUser);
-      (prismaService.refreshToken.updateMany as jest.Mock).mockResolvedValue({
+      (prismaService.refresh_token.updateMany as jest.Mock).mockResolvedValue({
         count: 1,
       });
-      (prismaService.auditLog.create as jest.Mock).mockResolvedValue({});
+      (prismaService.audit_log.create as jest.Mock).mockResolvedValue({});
 
       const result = await service.resetPassword({
         token: 'valid-token',
@@ -498,17 +498,17 @@ describe('AuthService', () => {
       );
       (bcrypt.hash as jest.Mock).mockResolvedValue('new_hashed_password');
       (prismaService.user.update as jest.Mock).mockResolvedValue(mockUser);
-      (prismaService.refreshToken.updateMany as jest.Mock).mockResolvedValue({
+      (prismaService.refresh_token.updateMany as jest.Mock).mockResolvedValue({
         count: 2,
       });
-      (prismaService.auditLog.create as jest.Mock).mockResolvedValue({});
+      (prismaService.audit_log.create as jest.Mock).mockResolvedValue({});
 
       await service.resetPassword({
         token: 'valid-token',
         password: 'NewSecure@Pass456',
       });
 
-      expect(prismaService.refreshToken.updateMany).toHaveBeenCalled();
+      expect(prismaService.refresh_token.updateMany).toHaveBeenCalled();
     });
   });
 
@@ -525,7 +525,7 @@ describe('AuthService', () => {
         inactiveUser,
       );
       (prismaService.user.update as jest.Mock).mockResolvedValue(mockUser);
-      (prismaService.auditLog.create as jest.Mock).mockResolvedValue({});
+      (prismaService.audit_log.create as jest.Mock).mockResolvedValue({});
 
       const result = await service.activateAccount({ token: 'valid-token' });
 
@@ -557,10 +557,10 @@ describe('AuthService', () => {
         .mockResolvedValueOnce(false); // new password different
       (bcrypt.hash as jest.Mock).mockResolvedValue('new_hashed_password');
       (prismaService.user.update as jest.Mock).mockResolvedValue(mockUser);
-      (prismaService.refreshToken.updateMany as jest.Mock).mockResolvedValue({
+      (prismaService.refresh_token.updateMany as jest.Mock).mockResolvedValue({
         count: 1,
       });
-      (prismaService.auditLog.create as jest.Mock).mockResolvedValue({});
+      (prismaService.audit_log.create as jest.Mock).mockResolvedValue({});
 
       const result = await service.changePassword(mockUser.id, {
         current_password: 'OldPass@123',
@@ -603,10 +603,10 @@ describe('AuthService', () => {
         .mockResolvedValueOnce(false);
       (bcrypt.hash as jest.Mock).mockResolvedValue('new_hashed_password');
       (prismaService.user.update as jest.Mock).mockResolvedValue(mockUser);
-      (prismaService.refreshToken.updateMany as jest.Mock).mockResolvedValue({
+      (prismaService.refresh_token.updateMany as jest.Mock).mockResolvedValue({
         count: 1,
       });
-      (prismaService.auditLog.create as jest.Mock).mockResolvedValue({});
+      (prismaService.audit_log.create as jest.Mock).mockResolvedValue({});
 
       await service.changePassword(
         mockUser.id,
@@ -617,7 +617,7 @@ describe('AuthService', () => {
         'current-token-hash',
       );
 
-      expect(prismaService.refreshToken.updateMany).toHaveBeenCalledWith(
+      expect(prismaService.refresh_token.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             token_hash: { not: 'current-token-hash' },
@@ -654,7 +654,7 @@ describe('AuthService', () => {
         ...mockUser,
         first_name: 'Updated',
       });
-      (prismaService.auditLog.create as jest.Mock).mockResolvedValue({});
+      (prismaService.audit_log.create as jest.Mock).mockResolvedValue({});
 
       const result = await service.updateProfile(mockUser.id, {
         first_name: 'Updated',
@@ -684,7 +684,7 @@ describe('AuthService', () => {
           expires_at: new Date(Date.now() + 86400000),
         },
       ];
-      (prismaService.refreshToken.findMany as jest.Mock).mockResolvedValue(
+      (prismaService.refresh_token.findMany as jest.Mock).mockResolvedValue(
         mockSessions,
       );
 
@@ -702,12 +702,12 @@ describe('AuthService', () => {
         user_id: mockUser.id,
         revoked_at: null,
       };
-      (prismaService.refreshToken.findFirst as jest.Mock).mockResolvedValue(
+      (prismaService.refresh_token.findFirst as jest.Mock).mockResolvedValue(
         mockSession,
       );
-      (prismaService.refreshToken.update as jest.Mock).mockResolvedValue({});
+      (prismaService.refresh_token.update as jest.Mock).mockResolvedValue({});
       (prismaService.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
-      (prismaService.auditLog.create as jest.Mock).mockResolvedValue({});
+      (prismaService.audit_log.create as jest.Mock).mockResolvedValue({});
 
       const result = await service.revokeSession(mockUser.id, 'session-1');
 
@@ -715,7 +715,7 @@ describe('AuthService', () => {
     });
 
     it('should throw NotFoundException if session not found', async () => {
-      (prismaService.refreshToken.findFirst as jest.Mock).mockResolvedValue(
+      (prismaService.refresh_token.findFirst as jest.Mock).mockResolvedValue(
         null,
       );
 

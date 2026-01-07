@@ -18,6 +18,7 @@ interface PhoneInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElemen
 export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
   ({ label, error, helperText, leftIcon, rightIcon, className = '', onChange, value, ...props }, ref) => {
     const [displayValue, setDisplayValue] = useState('');
+    const [isInitialized, setIsInitialized] = useState(false);
 
     const formatPhoneNumber = (input: string): string => {
       // Remove all non-digits
@@ -58,16 +59,21 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
       }
     };
 
-    // Initialize display value from prop value (E.164 format like +15551234567)
+    // Initialize display value from prop value ONLY on mount or when value changes from external source
     useEffect(() => {
-      if (value && typeof value === 'string') {
-        // Remove +1 prefix before formatting for display
-        const withoutPrefix = value.replace(/^\+1/, '');
-        setDisplayValue(formatPhoneNumber(withoutPrefix));
-      } else if (!value) {
-        setDisplayValue('');
+      // Only update if we haven't initialized yet OR if the value changed externally (not from user typing)
+      if (!isInitialized) {
+        if (value && typeof value === 'string') {
+          // Remove the +1 prefix specifically (US numbers only)
+          const digitsOnly = value.replace(/^\+1/, '');
+          // For US numbers, we expect exactly 10 digits after removing +1
+          if (digitsOnly.length === 10 && /^\d{10}$/.test(digitsOnly)) {
+            setDisplayValue(formatPhoneNumber(digitsOnly));
+          }
+        }
+        setIsInitialized(true);
       }
-    }, [value]);
+    }, [value, isInitialized]);
 
     return (
       <div className="w-full">

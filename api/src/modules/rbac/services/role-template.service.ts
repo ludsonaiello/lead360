@@ -8,6 +8,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { randomBytes } from 'crypto';
 
 /**
  * Role Template Service - Role Template Management
@@ -40,10 +41,10 @@ export class RoleTemplateService {
    * @param includeInactive - Whether to include inactive templates
    */
   async getAllTemplates(includeInactive = false) {
-    return this.prisma.roleTemplate.findMany({
+    return this.prisma.role_template.findMany({
       where: includeInactive ? {} : { is_active: true },
       include: {
-        template_permissions: {
+        role_template_permission: {
           include: {
             permission: {
               include: {
@@ -59,7 +60,7 @@ export class RoleTemplateService {
         },
         _count: {
           select: {
-            template_permissions: true,
+            role_template_permission: true,
           },
         },
       },
@@ -71,10 +72,10 @@ export class RoleTemplateService {
    * Get single template by ID
    */
   async getTemplate(templateId: string) {
-    const template = await this.prisma.roleTemplate.findUnique({
+    const template = await this.prisma.role_template.findUnique({
       where: { id: templateId },
       include: {
-        template_permissions: {
+        role_template_permission: {
           include: {
             permission: {
               include: {
@@ -90,7 +91,7 @@ export class RoleTemplateService {
         },
         _count: {
           select: {
-            template_permissions: true,
+            role_template_permission: true,
           },
         },
       },
@@ -107,10 +108,10 @@ export class RoleTemplateService {
    * Get template by name
    */
   async getTemplateByName(name: string) {
-    const template = await this.prisma.roleTemplate.findUnique({
+    const template = await this.prisma.role_template.findUnique({
       where: { name },
       include: {
-        template_permissions: {
+        role_template_permission: {
           include: {
             permission: {
               include: {
@@ -156,7 +157,7 @@ export class RoleTemplateService {
     }
 
     // Check if name already exists
-    const existing = await this.prisma.roleTemplate.findUnique({
+    const existing = await this.prisma.role_template.findUnique({
       where: { name },
     });
 
@@ -178,8 +179,9 @@ export class RoleTemplateService {
     // Create template + assign permissions (atomic transaction)
     const template = await this.prisma.$transaction(async (tx) => {
       // Create template
-      const newTemplate = await tx.roleTemplate.create({
+      const newTemplate = await tx.role_template.create({
         data: {
+          id: randomBytes(16).toString('hex'),
           name,
           description,
           is_system_template: false,
@@ -189,18 +191,18 @@ export class RoleTemplateService {
       });
 
       // Assign permissions
-      await tx.roleTemplatePermission.createMany({
+      await tx.role_template_permission.createMany({
         data: permissionIds.map((permissionId) => ({
-          role_template_id: newTemplate.id,
+        id: randomBytes(16).toString('hex'),role_template_id: newTemplate.id,
           permission_id: permissionId,
         })),
       });
 
       // Return template with permissions
-      return tx.roleTemplate.findUnique({
+      return tx.role_template.findUnique({
         where: { id: newTemplate.id },
         include: {
-          template_permissions: {
+          role_template_permission: {
             include: {
               permission: {
                 include: {
@@ -256,10 +258,10 @@ export class RoleTemplateService {
     updatedByUserId: string,
   ) {
     // Get existing template
-    const template = await this.prisma.roleTemplate.findUnique({
+    const template = await this.prisma.role_template.findUnique({
       where: { id: templateId },
       include: {
-        template_permissions: true,
+        role_template_permission: true,
       },
     });
 
@@ -286,7 +288,7 @@ export class RoleTemplateService {
 
     // If changing name, verify uniqueness
     if (updates.name && updates.name !== template.name) {
-      const existing = await this.prisma.roleTemplate.findUnique({
+      const existing = await this.prisma.role_template.findUnique({
         where: { name: updates.name },
       });
 
@@ -311,7 +313,7 @@ export class RoleTemplateService {
     // Update template + permissions (atomic transaction)
     const updatedTemplate = await this.prisma.$transaction(async (tx) => {
       // Update template metadata
-      const updated = await tx.roleTemplate.update({
+      const updated = await tx.role_template.update({
         where: { id: templateId },
         data: {
           name: updates.name,
@@ -323,13 +325,14 @@ export class RoleTemplateService {
       // Update permissions if provided
       if (updates.permissionIds) {
         // Delete existing permissions
-        await tx.roleTemplatePermission.deleteMany({
+        await tx.role_template_permission.deleteMany({
           where: { role_template_id: templateId },
         });
 
-        // Add new permissions
-        await tx.roleTemplatePermission.createMany({
+        // Add new permissions with IDs
+        await tx.role_template_permission.createMany({
           data: updates.permissionIds.map((permissionId) => ({
+            id: randomBytes(16).toString('hex'),
             role_template_id: templateId,
             permission_id: permissionId,
           })),
@@ -337,10 +340,10 @@ export class RoleTemplateService {
       }
 
       // Return updated template with permissions
-      return tx.roleTemplate.findUnique({
+      return tx.role_template.findUnique({
         where: { id: templateId },
         include: {
-          template_permissions: {
+          role_template_permission: {
             include: {
               permission: {
                 include: {
@@ -364,7 +367,7 @@ export class RoleTemplateService {
         name: template.name,
         description: template.description,
         is_active: template.is_active,
-        permission_count: template.template_permissions.length,
+        permission_count: template.role_template_permission.length,
       },
       {
         name: updates.name ?? template.name,
@@ -372,7 +375,7 @@ export class RoleTemplateService {
         is_active: updates.is_active ?? template.is_active,
         permission_count:
           updates.permissionIds?.length ??
-          template.template_permissions.length,
+          template.role_template_permission.length,
       },
     );
 
@@ -388,7 +391,7 @@ export class RoleTemplateService {
    */
   async deleteTemplate(templateId: string, deletedByUserId: string) {
     // Get template
-    const template = await this.prisma.roleTemplate.findUnique({
+    const template = await this.prisma.role_template.findUnique({
       where: { id: templateId },
     });
 
@@ -413,8 +416,8 @@ export class RoleTemplateService {
       );
     }
 
-    // Delete template (CASCADE will delete template_permissions)
-    await this.prisma.roleTemplate.delete({
+    // Delete template (CASCADE will delete role_template_permission)
+    await this.prisma.role_template.delete({
       where: { id: templateId },
     });
 
@@ -447,10 +450,10 @@ export class RoleTemplateService {
     appliedByUserId: string,
   ) {
     // Get template
-    const template = await this.prisma.roleTemplate.findUnique({
+    const template = await this.prisma.role_template.findUnique({
       where: { id: templateId },
       include: {
-        template_permissions: true,
+        role_template_permission: true,
       },
     });
 
@@ -488,6 +491,8 @@ export class RoleTemplateService {
       // Create role
       const newRole = await tx.role.create({
         data: {
+          id: randomBytes(16).toString('hex'),
+          updated_at: new Date(),
           name: newRoleName,
           is_system: false,
           is_active: true,
@@ -496,9 +501,10 @@ export class RoleTemplateService {
       });
 
       // Copy permissions from template
-      if (template.template_permissions.length > 0) {
-        await tx.rolePermission.createMany({
-          data: template.template_permissions.map((rtp) => ({
+      if (template.role_template_permission.length > 0) {
+        await tx.role_permission.createMany({
+          data: template.role_template_permission.map((rtp) => ({
+            id: randomBytes(16).toString('hex'),
             role_id: newRole.id,
             permission_id: rtp.permission_id,
             granted_by_user_id: appliedByUserId,
@@ -510,7 +516,7 @@ export class RoleTemplateService {
       return tx.role.findUnique({
         where: { id: newRole.id },
         include: {
-          role_permissions: {
+          role_permission: {
             include: {
               permission: {
                 include: {
@@ -539,12 +545,12 @@ export class RoleTemplateService {
         template_id: templateId,
         template_name: template.name,
         role_name: newRoleName,
-        permission_count: template.template_permissions.length,
+        permission_count: template.role_template_permission.length,
       },
     );
 
     this.logger.log(
-      `Role "${newRoleName}" created from template "${template.name}" by ${appliedByUserId} with ${template.template_permissions.length} permissions`,
+      `Role "${newRoleName}" created from template "${template.name}" by ${appliedByUserId} with ${template.role_template_permission.length} permissions`,
     );
 
     return role;
@@ -559,10 +565,10 @@ export class RoleTemplateService {
     clonedByUserId: string,
   ) {
     // Get source template
-    const sourceTemplate = await this.prisma.roleTemplate.findUnique({
+    const sourceTemplate = await this.prisma.role_template.findUnique({
       where: { id: sourceTemplateId },
       include: {
-        template_permissions: true,
+        role_template_permission: true,
       },
     });
 
@@ -571,7 +577,7 @@ export class RoleTemplateService {
     }
 
     // Check if new name already exists
-    const existing = await this.prisma.roleTemplate.findUnique({
+    const existing = await this.prisma.role_template.findUnique({
       where: { name: newName },
     });
 
@@ -594,8 +600,9 @@ export class RoleTemplateService {
     // Clone template + permissions (atomic transaction)
     const clonedTemplate = await this.prisma.$transaction(async (tx) => {
       // Create new template
-      const newTemplate = await tx.roleTemplate.create({
+      const newTemplate = await tx.role_template.create({
         data: {
+        id: randomBytes(16).toString('hex'),
           name: newName,
           description: sourceTemplate.description,
           is_system_template: false, // Cloned templates are never system templates
@@ -605,9 +612,10 @@ export class RoleTemplateService {
       });
 
       // Copy permissions
-      if (sourceTemplate.template_permissions.length > 0) {
-        await tx.roleTemplatePermission.createMany({
-          data: sourceTemplate.template_permissions.map((rtp) => ({
+      if (sourceTemplate.role_template_permission.length > 0) {
+        await tx.role_template_permission.createMany({
+          data: sourceTemplate.role_template_permission.map((rtp) => ({
+            id: randomBytes(16).toString('hex'),
             role_template_id: newTemplate.id,
             permission_id: rtp.permission_id,
           })),
@@ -615,10 +623,10 @@ export class RoleTemplateService {
       }
 
       // Return cloned template with permissions
-      return tx.roleTemplate.findUnique({
+      return tx.role_template.findUnique({
         where: { id: newTemplate.id },
         include: {
-          template_permissions: {
+          role_template_permission: {
             include: {
               permission: {
                 include: {
@@ -647,12 +655,12 @@ export class RoleTemplateService {
         source_template_id: sourceTemplateId,
         source_template_name: sourceTemplate.name,
         new_template_name: newName,
-        permission_count: sourceTemplate.template_permissions.length,
+        permission_count: sourceTemplate.role_template_permission.length,
       },
     );
 
     this.logger.log(
-      `Template "${sourceTemplate.name}" cloned to "${newName}" by ${clonedByUserId} with ${sourceTemplate.template_permissions.length} permissions`,
+      `Template "${sourceTemplate.name}" cloned to "${newName}" by ${clonedByUserId} with ${sourceTemplate.role_template_permission.length} permissions`,
     );
 
     return clonedTemplate;
@@ -671,8 +679,9 @@ export class RoleTemplateService {
     afterJson: any,
   ) {
     try {
-      await this.prisma.auditLog.create({
+      await this.prisma.audit_log.create({
         data: {
+          id: randomBytes(16).toString('hex'),
           tenant_id: tenantId,
           actor_user_id: actorUserId,
           actor_type: 'user',
@@ -680,8 +689,8 @@ export class RoleTemplateService {
           entity_id: entityId,
           action_type: action,
           description: `Role template ${action}`,
-          before_json: beforeJson,
-          after_json: afterJson,
+          before_json: beforeJson ? JSON.stringify(beforeJson) : null,
+          after_json: afterJson ? JSON.stringify(afterJson) : null,
         },
       });
     } catch (error) {

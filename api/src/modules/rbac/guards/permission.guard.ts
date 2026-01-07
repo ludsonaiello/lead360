@@ -95,7 +95,7 @@ export class PermissionGuard implements CanActivate {
             endpoint: request.url,
             method: request.method,
             required_permission: `${requiredPermission.module}:${requiredPermission.action}`,
-            user_roles: user.roles || [],
+            user_role: user.roles || [],
           },
           ipAddress: request.ip || request.headers['x-forwarded-for'] || request.connection?.remoteAddress,
           userAgent: request.headers['user-agent'],

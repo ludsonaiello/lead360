@@ -93,12 +93,12 @@ describe('TenantLicenseService', () => {
       };
 
       // Mock license type exists
-      mockPrismaService.licenseType.findUnique.mockResolvedValue({
+      mockPrismaService.license_type.findUnique.mockResolvedValue({
         id: 'type-123',
         name: 'Contractor License',
       });
 
-      mockPrismaService.tenantLicense.create.mockResolvedValue(createdLicense);
+      mockPrismaService.tenant_license.create.mockResolvedValue(createdLicense);
 
       const result = await service.create('tenant-123', createDto as any, 'user-123');
 
@@ -121,7 +121,7 @@ describe('TenantLicenseService', () => {
         },
       ];
 
-      mockPrismaService.tenantLicense.findMany.mockResolvedValue(expiringLicenses);
+      mockPrismaService.tenant_license.findMany.mockResolvedValue(expiringLicenses);
 
       const result = await service.findExpiring('tenant-123', 30);
 
@@ -139,8 +139,8 @@ describe('TenantLicenseService', () => {
         document_file_id: null,
       };
 
-      mockPrismaService.tenantLicense.findFirst.mockResolvedValue(license);
-      mockPrismaService.tenantLicense.delete.mockResolvedValue(license);
+      mockPrismaService.tenant_license.findFirst.mockResolvedValue(license);
+      mockPrismaService.tenant_license.delete.mockResolvedValue(license);
       mockPrismaService.auditLog.create.mockResolvedValue({});
 
       const result = await service.delete('tenant-123', 'license-123', 'user-123');
@@ -169,11 +169,11 @@ describe('TenantLicenseService', () => {
         storage_path: '/uploads/public/tenant-123/files/file-123.pdf',
       };
 
-      mockPrismaService.tenantLicense.findFirst.mockResolvedValue(license);
+      mockPrismaService.tenant_license.findFirst.mockResolvedValue(license);
       mockPrismaService.file.findUnique.mockResolvedValue(mockFile);
       mockFileStorageService.deleteFileByPath.mockResolvedValue(undefined);
       mockPrismaService.file.delete.mockResolvedValue(mockFile);
-      mockPrismaService.tenantLicense.delete.mockResolvedValue(license);
+      mockPrismaService.tenant_license.delete.mockResolvedValue(license);
       mockPrismaService.auditLog.create.mockResolvedValue({});
 
       const result = await service.delete(tenantId, licenseId, userId);
@@ -189,7 +189,7 @@ describe('TenantLicenseService', () => {
       });
 
       // Verify license was deleted
-      expect(mockPrismaService.tenantLicense.delete).toHaveBeenCalledWith({
+      expect(mockPrismaService.tenant_license.delete).toHaveBeenCalledWith({
         where: { id: licenseId },
       });
 
@@ -211,7 +211,7 @@ describe('TenantLicenseService', () => {
     });
 
     it('should throw NotFoundException if license not found', async () => {
-      mockPrismaService.tenantLicense.findFirst.mockResolvedValue(null);
+      mockPrismaService.tenant_license.findFirst.mockResolvedValue(null);
 
       await expect(
         service.delete('tenant-123', 'nonexistent', 'user-123')
@@ -250,13 +250,13 @@ describe('TenantLicenseService', () => {
         },
       };
 
-      mockPrismaService.tenantLicense.findFirst.mockResolvedValue(mockLicense);
+      mockPrismaService.tenant_license.findFirst.mockResolvedValue(mockLicense);
       mockFileStorageService.uploadFile.mockResolvedValue(mockUploadResult);
       mockPrismaService.file.create.mockResolvedValue({
         id: 1,
         file_id: 'file-123',
       });
-      mockPrismaService.tenantLicense.update.mockResolvedValue({
+      mockPrismaService.tenant_license.update.mockResolvedValue({
         ...mockLicense,
         document_file_id: 'file-123',
       });
@@ -265,7 +265,7 @@ describe('TenantLicenseService', () => {
       const result = await service.uploadDocument(tenantId, licenseId, mockFile, userId);
 
       // Verify license exists check
-      expect(mockPrismaService.tenantLicense.findFirst).toHaveBeenCalledWith(
+      expect(mockPrismaService.tenant_license.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             id: licenseId,
@@ -286,7 +286,7 @@ describe('TenantLicenseService', () => {
       );
 
       // Verify license record updated with file_id
-      expect(mockPrismaService.tenantLicense.update).toHaveBeenCalledWith({
+      expect(mockPrismaService.tenant_license.update).toHaveBeenCalledWith({
         where: { id: licenseId },
         data: { document_file_id: 'file-123' },
       });
@@ -339,7 +339,7 @@ describe('TenantLicenseService', () => {
         },
       };
 
-      mockPrismaService.tenantLicense.findFirst.mockResolvedValue(mockLicense);
+      mockPrismaService.tenant_license.findFirst.mockResolvedValue(mockLicense);
       mockPrismaService.file.findUnique.mockResolvedValue(mockOldFile);
       mockFileStorageService.deleteFileByPath.mockResolvedValue(undefined);
       mockPrismaService.file.delete.mockResolvedValue(mockOldFile);
@@ -348,7 +348,7 @@ describe('TenantLicenseService', () => {
         id: 2,
         file_id: 'new-file-123',
       });
-      mockPrismaService.tenantLicense.update.mockResolvedValue({
+      mockPrismaService.tenant_license.update.mockResolvedValue({
         ...mockLicense,
         document_file_id: 'new-file-123',
       });
@@ -370,14 +370,14 @@ describe('TenantLicenseService', () => {
       expect(mockFileStorageService.uploadFile).toHaveBeenCalled();
 
       // Verify license updated with new file_id
-      expect(mockPrismaService.tenantLicense.update).toHaveBeenCalledWith({
+      expect(mockPrismaService.tenant_license.update).toHaveBeenCalledWith({
         where: { id: licenseId },
         data: { document_file_id: 'new-file-123' },
       });
     });
 
     it('should throw NotFoundException if license does not exist', async () => {
-      mockPrismaService.tenantLicense.findFirst.mockResolvedValue(null);
+      mockPrismaService.tenant_license.findFirst.mockResolvedValue(null);
 
       await expect(
         service.uploadDocument('tenant-123', 'nonexistent', mockFile, 'user-123'),
@@ -390,13 +390,13 @@ describe('TenantLicenseService', () => {
       const wrongTenantId = 'wrong-tenant';
       const licenseId = 'license-123';
 
-      mockPrismaService.tenantLicense.findFirst.mockResolvedValue(null);
+      mockPrismaService.tenant_license.findFirst.mockResolvedValue(null);
 
       await expect(
         service.uploadDocument(wrongTenantId, licenseId, mockFile, 'user-123'),
       ).rejects.toThrow(NotFoundException);
 
-      expect(mockPrismaService.tenantLicense.findFirst).toHaveBeenCalledWith(
+      expect(mockPrismaService.tenant_license.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             id: licenseId,
@@ -426,11 +426,11 @@ describe('TenantLicenseService', () => {
         storage_path: '/uploads/public/tenant-123/files/file-123.pdf',
       };
 
-      mockPrismaService.tenantLicense.findFirst.mockResolvedValue(mockLicense);
+      mockPrismaService.tenant_license.findFirst.mockResolvedValue(mockLicense);
       mockPrismaService.file.findUnique.mockResolvedValue(mockFile);
       mockFileStorageService.deleteFileByPath.mockResolvedValue(undefined);
       mockPrismaService.file.delete.mockResolvedValue(mockFile);
-      mockPrismaService.tenantLicense.update.mockResolvedValue({
+      mockPrismaService.tenant_license.update.mockResolvedValue({
         ...mockLicense,
         document_file_id: null,
       });
@@ -449,7 +449,7 @@ describe('TenantLicenseService', () => {
       });
 
       // Verify license updated to remove file_id
-      expect(mockPrismaService.tenantLicense.update).toHaveBeenCalledWith({
+      expect(mockPrismaService.tenant_license.update).toHaveBeenCalledWith({
         where: { id: licenseId },
         data: { document_file_id: null },
       });
@@ -463,7 +463,7 @@ describe('TenantLicenseService', () => {
     });
 
     it('should throw NotFoundException if license does not exist', async () => {
-      mockPrismaService.tenantLicense.findFirst.mockResolvedValue(null);
+      mockPrismaService.tenant_license.findFirst.mockResolvedValue(null);
 
       await expect(
         service.deleteDocument('tenant-123', 'nonexistent', 'user-123'),
@@ -477,7 +477,7 @@ describe('TenantLicenseService', () => {
         document_file_id: null, // No document
       };
 
-      mockPrismaService.tenantLicense.findFirst.mockResolvedValue(mockLicense);
+      mockPrismaService.tenant_license.findFirst.mockResolvedValue(mockLicense);
 
       await expect(
         service.deleteDocument('tenant-123', 'license-123', 'user-123'),

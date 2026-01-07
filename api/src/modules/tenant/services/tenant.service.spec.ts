@@ -429,11 +429,11 @@ describe('TenantService', () => {
   describe('getStatistics', () => {
     it('should return tenant statistics', async () => {
       mockPrismaService.user.count.mockResolvedValue(5);
-      mockPrismaService.tenantAddress.count.mockResolvedValue(3);
-      mockPrismaService.tenantLicense.count
+      mockPrismaService.tenant_address.count.mockResolvedValue(3);
+      mockPrismaService.tenant_license.count
         .mockResolvedValueOnce(10) // Total licenses
         .mockResolvedValueOnce(2); // Expiring licenses
-      mockPrismaService.tenantInsurance.findUnique.mockResolvedValue({
+      mockPrismaService.tenant_insurance.findUnique.mockResolvedValue({
         gl_expiry_date: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days away
         wc_expiry_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 15 days away (expiring soon)
       });

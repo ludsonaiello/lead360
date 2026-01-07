@@ -6,6 +6,12 @@ export enum FileCategory {
   INVOICE = 'invoice',
   LICENSE = 'license',
   INSURANCE = 'insurance',
+  LOGO = 'logo',
+  CONTRACT = 'contract',
+  RECEIPT = 'receipt',
+  PHOTO = 'photo',
+  REPORT = 'report',
+  SIGNATURE = 'signature',
   MISC = 'misc',
 }
 

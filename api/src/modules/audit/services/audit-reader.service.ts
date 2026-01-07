@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLogQueryDto } from '../dto';
@@ -70,13 +71,13 @@ export class AuditReaderService {
 
     // Execute queries in parallel
     const [logs, total] = await Promise.all([
-      this.prisma.auditLog.findMany({
+      this.prisma.audit_log.findMany({
         where,
         orderBy: { created_at: 'desc' },
         skip,
         take: limit,
         include: {
-          actor: {
+          user: {
             select: {
               id: true,
               first_name: true,
@@ -93,7 +94,7 @@ export class AuditReaderService {
           },
         },
       }),
-      this.prisma.auditLog.count({ where }),
+      this.prisma.audit_log.count({ where }),
     ]);
 
     return {
@@ -112,10 +113,10 @@ export class AuditReaderService {
    * Enforces tenant isolation
    */
   async findOne(id: string, isPlatformAdmin: boolean, tenantId?: string) {
-    const log = await this.prisma.auditLog.findUnique({
+    const log = await this.prisma.audit_log.findUnique({
       where: { id },
       include: {
-        actor: {
+        user: {
           select: {
             id: true,
             first_name: true,
@@ -233,6 +234,6 @@ export class AuditReaderService {
       where.description = { contains: query.search };
     }
 
-    return this.prisma.auditLog.count({ where });
+    return this.prisma.audit_log.count({ where });
   }
 }

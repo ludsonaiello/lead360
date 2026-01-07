@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../../../core/database/prisma.service';
@@ -182,18 +183,18 @@ export class RetentionEnforcerJob {
    */
   private async logRetentionEnforcement(droppedPartitions: string[]): Promise<void> {
     try {
-      await this.prisma.auditLog.create({
+      await this.prisma.audit_log.create({
         data: {
-          actor_type: 'cron_job',
+        id: randomBytes(16).toString('hex'),actor_type: 'cron_job',
           entity_type: 'audit_log_retention',
           entity_id: 'retention_enforcement',
           description: `Retention policy enforced: ${droppedPartitions.length} old partitions dropped`,
           action_type: 'deleted',
-          metadata_json: {
+          metadata_json: JSON.stringify({
             dropped_partitions: droppedPartitions,
             retention_days: this.DEFAULT_RETENTION_DAYS,
             enforced_by: 'RetentionEnforcerJob',
-          },
+          }),
           status: 'success',
         },
       });

@@ -9,6 +9,7 @@ import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { CreateLicenseDto } from '../dto/create-license.dto';
 import { UpdateLicenseDto } from '../dto/update-license.dto';
 
+import { randomBytes } from 'crypto';
 @Injectable()
 export class TenantLicenseService {
   constructor(
@@ -21,11 +22,11 @@ export class TenantLicenseService {
    * Get all licenses for a tenant
    */
   async findAll(tenantId: string) {
-    return this.prisma.tenantLicense.findMany({
+    return this.prisma.tenant_license.findMany({
       where: { tenant_id: tenantId } as any,
       include: {
         license_type: true,
-        document_file: {
+        file: {
           select: {
             file_id: true,
             original_filename: true,
@@ -43,14 +44,14 @@ export class TenantLicenseService {
    * Get a specific license by ID
    */
   async findOne(tenantId: string, licenseId: string) {
-    const license = await this.prisma.tenantLicense.findFirst({
+    const license = await this.prisma.tenant_license.findFirst({
       where: {
         id: licenseId,
         tenant_id: tenantId, // CRITICAL: Tenant isolation
       } as any,
       include: {
         license_type: true,
-        document_file: {
+        file: {
           select: {
             file_id: true,
             original_filename: true,
@@ -82,7 +83,7 @@ export class TenantLicenseService {
     const endOfDay = new Date(expiryDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    return this.prisma.tenantLicense.findMany({
+    return this.prisma.tenant_license.findMany({
       where: {
         tenant_id: tenantId,
         expiry_date: {
@@ -115,7 +116,7 @@ export class TenantLicenseService {
     const endOfDay = new Date(expiryDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    return this.prisma.tenantLicense.findMany({
+    return this.prisma.tenant_license.findMany({
       where: {
         expiry_date: {
           gte: startOfDay,
@@ -149,7 +150,7 @@ export class TenantLicenseService {
 
     // If license_type_id is provided, verify it exists
     if (createLicenseDto.license_type_id) {
-      const licenseType = await this.prisma.licenseType.findUnique({
+      const licenseType = await this.prisma.license_type.findUnique({
         where: { id: createLicenseDto.license_type_id } as any,
       });
 
@@ -158,7 +159,7 @@ export class TenantLicenseService {
       }
     }
 
-    const license = await this.prisma.tenantLicense.create({
+    const license = await this.prisma.tenant_license.create({
       data: {
         tenant_id: tenantId,
         ...createLicenseDto,
@@ -194,7 +195,7 @@ export class TenantLicenseService {
 
     // If license_type_id is being updated, verify it exists
     if (updateLicenseDto.license_type_id) {
-      const licenseType = await this.prisma.licenseType.findUnique({
+      const licenseType = await this.prisma.license_type.findUnique({
         where: { id: updateLicenseDto.license_type_id } as any,
       });
 
@@ -203,7 +204,7 @@ export class TenantLicenseService {
       }
     }
 
-    const license = await this.prisma.tenantLicense.update({
+    const license = await this.prisma.tenant_license.update({
       where: { id: licenseId } as any,
       data: updateLicenseDto,
       include: { license_type: true } as any,
@@ -246,7 +247,7 @@ export class TenantLicenseService {
       }
     }
 
-    await this.prisma.tenantLicense.delete({
+    await this.prisma.tenant_license.delete({
       where: { id: licenseId } as any,
     });
 
@@ -331,6 +332,7 @@ export class TenantLicenseService {
     // Create File record in database
     const fileRecord = await this.prisma.file.create({
       data: {
+        id: randomBytes(16).toString('hex'),
         file_id,
         tenant_id: tenantId,
         original_filename: metadata.original_filename,
@@ -345,7 +347,7 @@ export class TenantLicenseService {
     });
 
     // Update license with document_file_id
-    await this.prisma.tenantLicense.update({
+    await this.prisma.tenant_license.update({
       where: { id: licenseId },
       data: { document_file_id: file_id },
     });
@@ -397,7 +399,7 @@ export class TenantLicenseService {
     }
 
     // Update license to remove document_file_id
-    await this.prisma.tenantLicense.update({
+    await this.prisma.tenant_license.update({
       where: { id: licenseId },
       data: { document_file_id: null },
     });

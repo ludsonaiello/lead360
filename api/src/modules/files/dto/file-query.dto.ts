@@ -29,6 +29,38 @@ export class FileQueryDto {
   entity_id?: string;
 
   @ApiPropertyOptional({
+    description: 'Filter by file type (image, pdf, document)',
+    example: 'image',
+  })
+  @IsString()
+  @IsOptional()
+  file_type?: string;
+
+  @ApiPropertyOptional({
+    description: 'Start date filter (ISO 8601 format)',
+    example: '2025-01-01',
+  })
+  @IsString()
+  @IsOptional()
+  start_date?: string;
+
+  @ApiPropertyOptional({
+    description: 'End date filter (ISO 8601 format)',
+    example: '2025-12-31',
+  })
+  @IsString()
+  @IsOptional()
+  end_date?: string;
+
+  @ApiPropertyOptional({
+    description: 'Search by filename',
+    example: 'contact@honeydo4you.com',
+  })
+  @IsString()
+  @IsOptional()
+  search?: string;
+
+  @ApiPropertyOptional({
     description: 'Page number',
     example: 1,
     default: 1,

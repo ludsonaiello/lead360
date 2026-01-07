@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import {
   Controller,
   Get,
@@ -99,9 +100,9 @@ export class AdminController {
           subscription_plan: true,
           _count: {
             select: {
-              users: true,
-              addresses: true,
-              licenses: true,
+              user: true,
+              tenant_address: true,
+              tenant_license: true,
             },
           },
         },

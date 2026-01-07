@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import {
   Injectable,
   UnauthorizedException,
@@ -80,6 +81,8 @@ export class AuthService {
       // Create tenant with required fields
       const tenant = await tx.tenant.create({
         data: {
+          id: randomBytes(16).toString('hex'),
+          updated_at: new Date(),
           subdomain: registerDto.tenant_subdomain,
           company_name: registerDto.company_name,
           legal_business_name: registerDto.legal_business_name,
@@ -124,7 +127,7 @@ export class AuthService {
         sunday_closed: true,
       };
 
-      await tx.tenantBusinessHours.create({
+      await tx.tenant_business_hours.create({
         data: {
           tenant_id: tenant.id,
           ...businessHoursData,
@@ -134,6 +137,8 @@ export class AuthService {
       // Create user
       const user = await tx.user.create({
         data: {
+          id: randomBytes(16).toString('hex'),
+          updated_at: new Date(),
           tenant_id: tenant.id,
           email: registerDto.email,
           password_hash: passwordHash,
@@ -148,8 +153,9 @@ export class AuthService {
       });
 
       // Assign Owner role to user
-      await tx.userRole.create({
+      await tx.user_role.create({
         data: {
+          id: randomBytes(16).toString('hex'),
           user_id: user.id,
           role_id: ownerRole.id,
           tenant_id: tenant.id,
@@ -158,8 +164,9 @@ export class AuthService {
       });
 
       // Create audit log
-      await tx.auditLog.create({
+      await tx.audit_log.create({
         data: {
+          id: randomBytes(16).toString('hex'),
           tenant_id: tenant.id,
           actor_user_id: user.id,
           actor_type: 'user',
@@ -167,11 +174,11 @@ export class AuthService {
           entity_id: user.id,
           description: 'User registered successfully',
           action_type: 'created',
-          after_json: {
+          after_json: JSON.stringify({
             email: user.email,
             first_name: user.first_name,
             last_name: user.last_name,
-          },
+          }),
           status: 'success',
         },
       });
@@ -223,7 +230,7 @@ export class AuthService {
         deleted_at: null,
       },
       include: {
-        user_roles: {
+        user_role_user_role_user_idTouser: {
           include: {
             role: true,
           },
@@ -271,7 +278,7 @@ export class AuthService {
     }
 
     // Get user roles
-    const roles = user.user_roles.map((ur) => ur.role.name);
+    const roles = user.user_role_user_role_user_idTouser.map((ur) => ur.role.name);
 
     // Generate tokens
     const { accessToken, refreshToken, expiresIn } =
@@ -283,8 +290,9 @@ export class AuthService {
       ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
       : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-    await this.prisma.refreshToken.create({
+    await this.prisma.refresh_token.create({
       data: {
+        id: randomBytes(16).toString('hex'),
         user_id: user.id,
         token_hash: tokenHash,
         device_name: this.parseDeviceName(userAgent),
@@ -343,7 +351,7 @@ export class AuthService {
         deleted_at: null,
       },
       include: {
-        user_roles: {
+        user_role_user_role_user_idTouser: {
           include: {
             role: true,
           },
@@ -355,7 +363,7 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    const roles = user.user_roles.map((ur) => ur.role.name);
+    const roles = user.user_role_user_role_user_idTouser.map((ur) => ur.role.name);
 
     // Generate new access token only
     const payload: JwtPayload = {
@@ -382,7 +390,7 @@ export class AuthService {
    * Logout current session
    */
   async logout(userId: string, tokenHash: string) {
-    await this.prisma.refreshToken.updateMany({
+    await this.prisma.refresh_token.updateMany({
       where: {
         user_id: userId,
         token_hash: tokenHash,
@@ -414,7 +422,7 @@ export class AuthService {
    * Logout all sessions
    */
   async logoutAll(userId: string) {
-    const result = await this.prisma.refreshToken.updateMany({
+    const result = await this.prisma.refresh_token.updateMany({
       where: {
         user_id: userId,
         revoked_at: null,
@@ -533,7 +541,7 @@ export class AuthService {
     });
 
     // Revoke all refresh tokens (force re-login)
-    await this.prisma.refreshToken.updateMany({
+    await this.prisma.refresh_token.updateMany({
       where: {
         user_id: user.id,
         revoked_at: null,
@@ -664,7 +672,7 @@ export class AuthService {
         deleted_at: null,
       },
       include: {
-        user_roles: {
+        user_role_user_role_user_idTouser: {
           include: {
             role: true,
           },
@@ -676,7 +684,7 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
-    const roles = user.user_roles.map((ur) => ur.role.name);
+    const roles = user.user_role_user_role_user_idTouser.map((ur) => ur.role.name);
 
     return {
       id: user.id,
@@ -810,7 +818,7 @@ export class AuthService {
 
     // Revoke all other refresh tokens (keep current session if provided)
     if (currentTokenHash) {
-      await this.prisma.refreshToken.updateMany({
+      await this.prisma.refresh_token.updateMany({
         where: {
           user_id: userId,
           revoked_at: null,
@@ -822,7 +830,7 @@ export class AuthService {
       });
     } else {
       // Revoke all tokens
-      await this.prisma.refreshToken.updateMany({
+      await this.prisma.refresh_token.updateMany({
         where: {
           user_id: userId,
           revoked_at: null,
@@ -850,7 +858,7 @@ export class AuthService {
    * List active sessions
    */
   async listSessions(userId: string, currentTokenHash?: string) {
-    const sessions = await this.prisma.refreshToken.findMany({
+    const sessions = await this.prisma.refresh_token.findMany({
       where: {
         user_id: userId,
         revoked_at: null,
@@ -881,7 +889,7 @@ export class AuthService {
    * Revoke specific session
    */
   async revokeSession(userId: string, sessionId: string) {
-    const session = await this.prisma.refreshToken.findFirst({
+    const session = await this.prisma.refresh_token.findFirst({
       where: {
         id: sessionId,
         user_id: userId,
@@ -893,7 +901,7 @@ export class AuthService {
       throw new NotFoundException('Session not found');
     }
 
-    await this.prisma.refreshToken.update({
+    await this.prisma.refresh_token.update({
       where: { id: sessionId },
       data: { revoked_at: new Date() },
     });

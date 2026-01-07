@@ -38,26 +38,28 @@ export function TenantProfileHeader({
     },
     {
       label: 'Addresses',
-      value: statistics?.addresses || 0,
+      value: statistics?.tenant_address || 0,
       icon: MapPin,
       color: 'text-green-600 dark:text-green-400',
       bgColor: 'bg-green-100 dark:bg-green-900/30',
     },
     {
       label: 'Active Licenses',
-      value: statistics?.licenses || 0,
+      value: statistics?.tenant_license || 0,
       icon: FileText,
       color: 'text-purple-600 dark:text-purple-400',
       bgColor: 'bg-purple-100 dark:bg-purple-900/30',
     },
     {
       label: 'Expiring Licenses',
-      value: statistics?.expiring_licenses || 0,
+      value: statistics?.expiring_tenant_license || 0,
       icon: AlertCircle,
-      color: statistics?.expiring_licenses ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-600 dark:text-gray-400',
-      bgColor: statistics?.expiring_licenses ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-gray-100 dark:bg-gray-800',
+      color: statistics?.expiring_tenant_license ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-600 dark:text-gray-400',
+      bgColor: statistics?.expiring_tenant_license ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-gray-100 dark:bg-gray-800',
     },
   ];
+
+  console.log("Stats:",statistics);
 
   const hasInsuranceExpiring =
     statistics?.insurance_expiring_soon?.gl || statistics?.insurance_expiring_soon?.wc;
@@ -111,13 +113,13 @@ export function TenantProfileHeader({
       </div>
 
       {/* Warnings */}
-      {(statistics && (statistics.expiring_licenses > 0 || hasInsuranceExpiring)) && (
+      {(statistics && (statistics.expiring_tenant_license > 0 || hasInsuranceExpiring)) && (
         <div className="space-y-3">
-          {statistics.expiring_licenses > 0 && (
+          {statistics.expiring_tenant_license > 0 && (
             <div className="flex items-center gap-2 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
               <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
               <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">
-                {statistics.expiring_licenses} professional license{statistics.expiring_licenses > 1 ? 's' : ''} expiring soon
+                {statistics.expiring_tenant_license} professional license{statistics.expiring_tenant_license > 1 ? 's' : ''} expiring soon
               </p>
             </div>
           )}

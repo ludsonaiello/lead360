@@ -62,7 +62,7 @@ export class TenantService {
       where: { subdomain } as any,
       include: {
         subscription_plan: true,
-        logo_file: {
+        file_tenant_logo_file_idTofile: {
           select: {
             file_id: true,
             original_filename: true,
@@ -71,7 +71,7 @@ export class TenantService {
             created_at: true,
           },
         },
-        venmo_qr_code_file: {
+        file_tenant_venmo_qr_code_file_idTofile: {
           select: {
             file_id: true,
             original_filename: true,
@@ -102,7 +102,7 @@ export class TenantService {
       where: { id: tenantId } as any,
       include: {
         subscription_plan: true,
-        logo_file: {
+        file_tenant_logo_file_idTofile: {
           select: {
             file_id: true,
             original_filename: true,
@@ -111,7 +111,7 @@ export class TenantService {
             created_at: true,
           },
         },
-        venmo_qr_code_file: {
+        file_tenant_venmo_qr_code_file_idTofile: {
           select: {
             file_id: true,
             original_filename: true,
@@ -120,13 +120,13 @@ export class TenantService {
             created_at: true,
           },
         },
-        addresses: {
+        tenant_address: {
           orderBy: { is_default: 'desc' } as any,
         } as any,
-        licenses: {
+        tenant_license: {
           include: {
             license_type: true,
-            document_file: {
+            file: {
               select: {
                 file_id: true,
                 original_filename: true,
@@ -138,9 +138,9 @@ export class TenantService {
           } as any,
           orderBy: { expiry_date: 'asc' } as any,
         } as any,
-        insurance: {
+        tenant_insurance: {
           include: {
-            gl_document_file: {
+            file_tenant_insurance_gl_document_file_idTofile: {
               select: {
                 file_id: true,
                 original_filename: true,
@@ -149,7 +149,7 @@ export class TenantService {
                 created_at: true,
               },
             },
-            wc_document_file: {
+            file_tenant_insurance_wc_document_file_idTofile: {
               select: {
                 file_id: true,
                 original_filename: true,
@@ -160,13 +160,13 @@ export class TenantService {
             },
           },
         },
-        payment_terms: true,
-        business_hours: true,
-        custom_hours: {
+        tenant_payment_terms: true,
+        tenant_business_hours: true,
+        tenant_custom_hours: {
           orderBy: { date: 'asc' } as any,
         } as any,
-        service_areas: true,
-        tenant_services: {
+        tenant_service_area: true,
+        tenant_service: {
           include: {
             service: true,
           },
@@ -261,7 +261,7 @@ export class TenantService {
 
     // Get default subscription plan
     let subscriptionPlanId: string | undefined = undefined;
-    const defaultPlan = await this.prisma.subscriptionPlan.findFirst({
+    const defaultPlan = await this.prisma.subscription_plan.findFirst({
       where: { is_default: true, is_active: true } as any,
     });
     if (defaultPlan) {
@@ -284,7 +284,7 @@ export class TenantService {
       });
 
       // Create default business hours (Mon-Fri 9-5, closed weekends)
-      await tx.tenantBusinessHours.create({
+      await tx.tenant_business_hours.create({
         data: {
           tenant_id: newTenant.id,
           monday_closed: false,
@@ -353,13 +353,13 @@ export class TenantService {
       // Handle services_offered if provided
       if (services_offered !== undefined && Array.isArray(services_offered)) {
         // Delete existing service assignments
-        await tx.tenantService.deleteMany({
+        await tx.tenant_service.deleteMany({
           where: { tenant_id: tenantId } as any,
         });
 
         // Create new service assignments if array is not empty
         if (services_offered.length > 0) {
-          await tx.tenantService.createMany({
+          await tx.tenant_service.createMany({
             data: services_offered.map((service_id: string) => ({
               tenant_id: tenantId,
               service_id,
@@ -487,9 +487,9 @@ export class TenantService {
       insuranceStatus,
     ] = await Promise.all([
       this.prisma.user.count({ where: { tenant_id: tenantId, is_active: true } }),
-      this.prisma.tenantAddress.count({ where: { tenant_id: tenantId } }),
-      this.prisma.tenantLicense.count({ where: { tenant_id: tenantId } }),
-      this.prisma.tenantLicense.count({
+      this.prisma.tenant_address.count({ where: { tenant_id: tenantId } }),
+      this.prisma.tenant_license.count({ where: { tenant_id: tenantId } }),
+      this.prisma.tenant_license.count({
         where: {
           tenant_id: tenantId,
           expiry_date: {
@@ -497,7 +497,7 @@ export class TenantService {
           } as any,
         } as any,
       }),
-      this.prisma.tenantInsurance.findUnique({
+      this.prisma.tenant_insurance.findUnique({
         where: { tenant_id: tenantId } as any,
         select: {
           gl_expiry_date: true,
@@ -520,9 +520,9 @@ export class TenantService {
 
     return {
       users: userCount,
-      addresses: addressCount,
-      licenses: licenseCount,
-      expiring_licenses: expiringLicenses,
+      tenant_address: addressCount,
+      tenant_license: licenseCount,
+      expiring_tenant_license: expiringLicenses,
       insurance_expiring_soon: insuranceExpiringSoon,
     };
   }
@@ -564,6 +564,7 @@ export class TenantService {
     // Create File record in database
     await this.prisma.file.create({
       data: {
+        id: file_id,
         file_id,
         tenant_id: tenantId,
         original_filename: file.originalname,

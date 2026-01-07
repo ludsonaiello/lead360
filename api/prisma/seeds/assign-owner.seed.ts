@@ -1,4 +1,5 @@
 import { PrismaClient, Prisma } from '@prisma/client';
+import { randomBytes } from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -90,7 +91,7 @@ async function assignOwnerRole() {
     }
 
     // Check if assignment already exists
-    const existingAssignment = await prisma.userRole.findFirst({
+    const existingAssignment = await prisma.user_role.findFirst({
       where: {
         user_id: user.id,
         role_id: ownerRole.id,
@@ -121,8 +122,9 @@ async function assignOwnerRole() {
     }
 
     // Create the role assignment
-    const userRole = await prisma.userRole.create({
+    const userRole = await prisma.user_role.create({
       data: {
+        id: randomBytes(16).toString('hex'),
         user_id: user.id,
         role_id: ownerRole.id,
         tenant_id: tenant.id,
@@ -131,8 +133,9 @@ async function assignOwnerRole() {
     });
 
     // Create audit log
-    await prisma.auditLog.create({
+    await prisma.audit_log.create({
       data: {
+        id: randomBytes(16).toString('hex'),
         tenant_id: tenant.id,
         actor_user_id: user.id,
         actor_type: 'system',
@@ -140,15 +143,15 @@ async function assignOwnerRole() {
         entity_id: userRole.id,
         action_type: 'owner_role_assigned',
         description: `Owner role assigned to ${user.email} for tenant ${tenant.company_name}`,
-        before_json: Prisma.JsonNull,
-        after_json: {
+        before_json: null,
+        after_json: JSON.stringify({
           user_id: user.id,
           user_email: user.email,
           role_id: ownerRole.id,
           role_name: ownerRole.name,
           tenant_id: tenant.id,
           tenant_name: tenant.company_name,
-        },
+        }),
       },
     });
 

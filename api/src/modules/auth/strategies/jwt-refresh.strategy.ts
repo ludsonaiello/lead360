@@ -47,7 +47,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
       .digest('hex');
 
     // Verify token exists in database and is not revoked
-    const storedToken = await this.prisma.refreshToken.findFirst({
+    const storedToken = await this.prisma.refresh_token.findFirst({
       where: {
         token_hash: tokenHash,
         user_id: payload.sub,

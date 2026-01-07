@@ -275,7 +275,7 @@ export class TenantController {
   @ApiResponse({ status: 200, description: 'License types retrieved successfully' })
   async getLicenseTypes() {
     // Return all active license types for dropdown selection
-    return this.prisma.licenseType.findMany({
+    return this.prisma.license_type.findMany({
       where: { is_active: true },
       select: {
         id: true,

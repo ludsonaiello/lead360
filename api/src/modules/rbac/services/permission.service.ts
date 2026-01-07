@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import {
   Injectable,
   Logger,
@@ -34,8 +35,8 @@ export class PermissionService {
         module: true,
         _count: {
           select: {
-            role_permissions: true,
-            role_template_permissions: true,
+            role_permission: true,
+            role_template_permission: true,
           },
         },
       },
@@ -51,7 +52,7 @@ export class PermissionService {
       where: { id: permissionId },
       include: {
         module: true,
-        role_permissions: {
+        role_permission: {
           include: {
             role: {
               select: {
@@ -64,8 +65,8 @@ export class PermissionService {
         },
         _count: {
           select: {
-            role_permissions: true,
-            role_template_permissions: true,
+            role_permission: true,
+            role_template_permission: true,
           },
         },
       },
@@ -132,6 +133,7 @@ export class PermissionService {
     // Create permission
     const permission = await this.prisma.permission.create({
       data: {
+        id: randomBytes(16).toString('hex'),
         module_id: moduleId,
         action,
         display_name: displayName,
@@ -268,7 +270,7 @@ export class PermissionService {
         module: true,
         _count: {
           select: {
-            role_permissions: true,
+            role_permission: true,
           },
         },
       },
@@ -279,9 +281,9 @@ export class PermissionService {
     }
 
     // Warn if permission is assigned to roles (deletion will cascade)
-    if (permission._count.role_permissions > 0) {
+    if (permission._count.role_permission > 0) {
       this.logger.warn(
-        `Deleting permission ${permission.module.name}:${permission.action} which is assigned to ${permission._count.role_permissions} role(s). This will remove it from all roles.`,
+        `Deleting permission ${permission.module.name}:${permission.action} which is assigned to ${permission._count.role_permission} role(s). This will remove it from all roles.`,
       );
     }
 
@@ -301,7 +303,7 @@ export class PermissionService {
         module_name: permission.module.name,
         action: permission.action,
         display_name: permission.display_name,
-        roles_affected: permission._count.role_permissions,
+        roles_affected: permission._count.role_permission,
       },
       null,
     );
@@ -312,7 +314,7 @@ export class PermissionService {
 
     return {
       message: 'Permission deleted successfully',
-      roles_affected: permission._count.role_permissions,
+      roles_affected: permission._count.role_permission,
     };
   }
 
@@ -353,8 +355,9 @@ export class PermissionService {
     afterJson: any,
   ) {
     try {
-      await this.prisma.auditLog.create({
+      await this.prisma.audit_log.create({
         data: {
+          id: randomBytes(16).toString('hex'),
           tenant_id: tenantId,
           actor_user_id: actorUserId,
           actor_type: 'user',
@@ -362,8 +365,8 @@ export class PermissionService {
           entity_id: entityId,
           action_type: action,
           description: `Permission ${action}`,
-          before_json: beforeJson,
-          after_json: afterJson,
+          before_json: beforeJson ? JSON.stringify(beforeJson) : null,
+          after_json: afterJson ? JSON.stringify(afterJson) : null,
         },
       });
     } catch (error) {

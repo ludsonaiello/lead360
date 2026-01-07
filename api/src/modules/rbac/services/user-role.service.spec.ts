@@ -157,7 +157,7 @@ describe('UserRoleService', () => {
           role: true,
         },
       });
-      expect(prismaService.auditLog.create).toHaveBeenCalled();
+      expect(prismaService.audit_log.create).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when user not found', async () => {
@@ -268,7 +268,7 @@ describe('UserRoleService', () => {
       expect(prismaService.userRole.delete).toHaveBeenCalledWith({
         where: { id: mockUserRole.id },
       });
-      expect(prismaService.auditLog.create).toHaveBeenCalled();
+      expect(prismaService.audit_log.create).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when user does not have role', async () => {
@@ -388,7 +388,7 @@ describe('UserRoleService', () => {
       expect(result.roles_added).toBe(1); // estimator-role-id
       expect(result.roles_removed).toBe(1); // owner-role-id
       expect(result.current_roles).toEqual(updatedRoles);
-      expect(prismaService.auditLog.create).toHaveBeenCalled();
+      expect(prismaService.audit_log.create).toHaveBeenCalled();
     });
 
     it('CRITICAL: should prevent removing last Owner via replace', async () => {

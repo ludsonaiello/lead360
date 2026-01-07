@@ -16,6 +16,7 @@ import { TenantProfile } from '@/lib/types/tenant';
 import { Button } from '@/components/ui/Button';
 import { ColorPicker } from '@/components/ui/ColorPicker';
 import { FileUpload, FileUploadRef } from '@/components/ui/FileUpload';
+import { buildFileUrl } from '@/lib/api/files';
 
 interface BrandingFormProps {
   tenant: TenantProfile | null;
@@ -30,15 +31,18 @@ const getFileExtension = (filename: string): string => {
 
 export function BrandingForm({ tenant, onUpdate }: BrandingFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const uploadBaseUrl = process.env.NEXT_PUBLIC_UPLOAD_DIR || 'https://app.lead360.app/uploads/public';
-  const [logoUrl, setLogoUrl] = useState<string | undefined>(
-    tenant?.logo_file
-      ? `${uploadBaseUrl}/${tenant.id}/images/${tenant.logo_file.file_id}${getFileExtension(tenant.logo_file.original_filename)}`
-      : undefined
-  );
-  const [logoFileName, setLogoFileName] = useState<string | undefined>(tenant?.logo_file?.original_filename || undefined);
-  const [logoMimeType, setLogoMimeType] = useState<string | undefined>(tenant?.logo_file?.mime_type || undefined);
+
+  // Build logo URL using buildFileUrl from file module (consistent with file storage pattern)
+  const initialLogoUrl = tenant?.file_tenant_logo_file_idTofile?.file_id
+    ? buildFileUrl(`/public/${tenant.id}/images/${tenant?.file_tenant_logo_file_idTofile.file_id}${getFileExtension(tenant?.file_tenant_logo_file_idTofile.original_filename)}`)
+    : undefined;
+
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(initialLogoUrl);
+  const [logoFileName, setLogoFileName] = useState<string | undefined>(tenant?.file_tenant_logo_file_idTofile?.original_filename);
+  const [logoMimeType, setLogoMimeType] = useState<string | undefined>(tenant?.file_tenant_logo_file_idTofile?.mime_type);
   const fileUploadRef = React.useRef<FileUploadRef>(null);
+
+  console.log("URL: ",initialLogoUrl);
 
   const {
     register,
@@ -55,7 +59,6 @@ export function BrandingForm({ tenant, onUpdate }: BrandingFormProps) {
       logo_file_id: tenant?.logo_file_id || undefined,
     },
   });
-
   const primaryColor = watch('primary_brand_color') || '#007BFF';
   const secondaryColor = watch('secondary_brand_color') || '#6C757D';
   const accentColor = watch('accent_color') || '#28A745';
@@ -115,9 +118,8 @@ export function BrandingForm({ tenant, onUpdate }: BrandingFormProps) {
   const onSubmit = async (data: BrandingFormData) => {
     try {
       setIsSubmitting(true);
-      // Remove logo_file_id from submission since upload endpoint already saves it
-      const { logo_file_id, ...brandingData } = data;
-      await tenantApi.updateTenantBranding(brandingData);
+      // Include logo_file_id so it persists to tenant record
+      await tenantApi.updateTenantBranding(data);
       toast.success('Branding updated successfully');
       onUpdate();
     } catch (error: any) {

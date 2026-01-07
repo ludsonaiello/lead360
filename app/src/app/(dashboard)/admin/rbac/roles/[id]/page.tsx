@@ -34,6 +34,8 @@ export default function EditRolePage() {
 
       try {
         const roleData = await rbacApi.getRoleById(roleId);
+        console.log('[EditRolePage] Role data received from backend:', roleData);
+        console.log('[EditRolePage] role_permissions:', roleData?.role_permissions);
         setRole(roleData);
       } catch (err) {
         console.error('[EditRolePage] Failed to load role:', err);
@@ -88,8 +90,12 @@ export default function EditRolePage() {
       <div className="max-w-5xl mx-auto">
         <RoleForm
           role={role}
-          onSuccess={() => router.push('/admin/rbac/roles')}
-          onCancel={() => router.back()}
+          onSuccess={(updatedRole) => {
+            // Update the role in state to reflect changes
+            setRole(updatedRole);
+            // Don't redirect - stay on the edit page
+          }}
+          onCancel={() => router.push('/admin/rbac/roles')}
         />
       </div>
     </ProtectedRoute>

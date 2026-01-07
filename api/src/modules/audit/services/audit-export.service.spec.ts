@@ -94,7 +94,7 @@ describe('AuditExportService', () => {
 
   describe('export', () => {
     it('should enforce 10,000 row limit', async () => {
-      prismaService.auditLog.count.mockResolvedValue(10001);
+      prismaService.audit_log.count.mockResolvedValue(10001);
 
       await expect(
         service.export({}, false, mockTenantId),
@@ -106,7 +106,7 @@ describe('AuditExportService', () => {
     });
 
     it('should throw error if no results found', async () => {
-      prismaService.auditLog.count.mockResolvedValue(0);
+      prismaService.audit_log.count.mockResolvedValue(0);
 
       await expect(
         service.export({}, false, mockTenantId),
@@ -118,12 +118,12 @@ describe('AuditExportService', () => {
     });
 
     it('should enforce tenant isolation for non-platform admin', async () => {
-      prismaService.auditLog.count.mockResolvedValue(2);
-      prismaService.auditLog.findMany.mockResolvedValue(mockAuditLogs);
+      prismaService.audit_log.count.mockResolvedValue(2);
+      prismaService.audit_log.findMany.mockResolvedValue(mockAuditLogs);
 
       await service.export({}, false, mockTenantId);
 
-      expect(prismaService.auditLog.count).toHaveBeenCalledWith({
+      expect(prismaService.audit_log.count).toHaveBeenCalledWith({
         where: expect.objectContaining({
           tenant_id: mockTenantId,
         }),
@@ -137,12 +137,12 @@ describe('AuditExportService', () => {
     });
 
     it('should allow cross-tenant export for platform admin', async () => {
-      prismaService.auditLog.count.mockResolvedValue(2);
-      prismaService.auditLog.findMany.mockResolvedValue(mockAuditLogs);
+      prismaService.audit_log.count.mockResolvedValue(2);
+      prismaService.audit_log.findMany.mockResolvedValue(mockAuditLogs);
 
       await service.export({}, true, undefined);
 
-      expect(prismaService.auditLog.count).toHaveBeenCalledWith({
+      expect(prismaService.audit_log.count).toHaveBeenCalledWith({
         where: expect.not.objectContaining({
           tenant_id: expect.anything(),
         }),
@@ -150,8 +150,8 @@ describe('AuditExportService', () => {
     });
 
     it('should apply date filters', async () => {
-      prismaService.auditLog.count.mockResolvedValue(2);
-      prismaService.auditLog.findMany.mockResolvedValue(mockAuditLogs);
+      prismaService.audit_log.count.mockResolvedValue(2);
+      prismaService.audit_log.findMany.mockResolvedValue(mockAuditLogs);
 
       await service.export(
         {
@@ -162,7 +162,7 @@ describe('AuditExportService', () => {
         mockTenantId,
       );
 
-      expect(prismaService.auditLog.count).toHaveBeenCalledWith({
+      expect(prismaService.audit_log.count).toHaveBeenCalledWith({
         where: expect.objectContaining({
           created_at: {
             gte: new Date('2026-01-01'),
@@ -173,8 +173,8 @@ describe('AuditExportService', () => {
     });
 
     it('should apply all filters', async () => {
-      prismaService.auditLog.count.mockResolvedValue(1);
-      prismaService.auditLog.findMany.mockResolvedValue([mockAuditLogs[0]]);
+      prismaService.audit_log.count.mockResolvedValue(1);
+      prismaService.audit_log.findMany.mockResolvedValue([mockAuditLogs[0]]);
 
       await service.export(
         {
@@ -189,7 +189,7 @@ describe('AuditExportService', () => {
         mockTenantId,
       );
 
-      expect(prismaService.auditLog.count).toHaveBeenCalledWith({
+      expect(prismaService.audit_log.count).toHaveBeenCalledWith({
         where: expect.objectContaining({
           actor_user_id: 'user-1',
           actor_type: 'user',
@@ -204,8 +204,8 @@ describe('AuditExportService', () => {
 
   describe('CSV export', () => {
     it('should export to CSV format', async () => {
-      prismaService.auditLog.count.mockResolvedValue(2);
-      prismaService.auditLog.findMany.mockResolvedValue(mockAuditLogs);
+      prismaService.audit_log.count.mockResolvedValue(2);
+      prismaService.audit_log.findMany.mockResolvedValue(mockAuditLogs);
 
       const result = await service.export(
         { format: 'csv' },
@@ -223,8 +223,8 @@ describe('AuditExportService', () => {
     });
 
     it('should include all required CSV columns', async () => {
-      prismaService.auditLog.count.mockResolvedValue(1);
-      prismaService.auditLog.findMany.mockResolvedValue([mockAuditLogs[0]]);
+      prismaService.audit_log.count.mockResolvedValue(1);
+      prismaService.audit_log.findMany.mockResolvedValue([mockAuditLogs[0]]);
 
       const result = await service.export(
         { format: 'csv' },
@@ -258,8 +258,8 @@ describe('AuditExportService', () => {
         ip_address: null,
         error_message: null,
       };
-      prismaService.auditLog.count.mockResolvedValue(1);
-      prismaService.auditLog.findMany.mockResolvedValue([logWithNulls]);
+      prismaService.audit_log.count.mockResolvedValue(1);
+      prismaService.audit_log.findMany.mockResolvedValue([logWithNulls]);
 
       const result = await service.export(
         { format: 'csv' },
@@ -271,8 +271,8 @@ describe('AuditExportService', () => {
     });
 
     it('should generate filename with date range', async () => {
-      prismaService.auditLog.count.mockResolvedValue(2);
-      prismaService.auditLog.findMany.mockResolvedValue(mockAuditLogs);
+      prismaService.audit_log.count.mockResolvedValue(2);
+      prismaService.audit_log.findMany.mockResolvedValue(mockAuditLogs);
 
       const result = await service.export(
         {
@@ -290,8 +290,8 @@ describe('AuditExportService', () => {
 
   describe('JSON export', () => {
     it('should export to JSON format', async () => {
-      prismaService.auditLog.count.mockResolvedValue(2);
-      prismaService.auditLog.findMany.mockResolvedValue(mockAuditLogs);
+      prismaService.audit_log.count.mockResolvedValue(2);
+      prismaService.audit_log.findMany.mockResolvedValue(mockAuditLogs);
 
       const result = await service.export(
         { format: 'json' },
@@ -316,8 +316,8 @@ describe('AuditExportService', () => {
     });
 
     it('should include all structured data in JSON', async () => {
-      prismaService.auditLog.count.mockResolvedValue(1);
-      prismaService.auditLog.findMany.mockResolvedValue([mockAuditLogs[0]]);
+      prismaService.audit_log.count.mockResolvedValue(1);
+      prismaService.audit_log.findMany.mockResolvedValue([mockAuditLogs[0]]);
 
       const result = await service.export(
         { format: 'json' },
@@ -367,8 +367,8 @@ describe('AuditExportService', () => {
     });
 
     it('should format JSON with proper indentation', async () => {
-      prismaService.auditLog.count.mockResolvedValue(1);
-      prismaService.auditLog.findMany.mockResolvedValue([mockAuditLogs[0]]);
+      prismaService.audit_log.count.mockResolvedValue(1);
+      prismaService.audit_log.findMany.mockResolvedValue([mockAuditLogs[0]]);
 
       const result = await service.export(
         { format: 'json' },
@@ -384,8 +384,8 @@ describe('AuditExportService', () => {
 
   describe('default format', () => {
     it('should default to CSV if format not specified', async () => {
-      prismaService.auditLog.count.mockResolvedValue(2);
-      prismaService.auditLog.findMany.mockResolvedValue(mockAuditLogs);
+      prismaService.audit_log.count.mockResolvedValue(2);
+      prismaService.audit_log.findMany.mockResolvedValue(mockAuditLogs);
 
       const result = await service.export({}, false, mockTenantId);
 

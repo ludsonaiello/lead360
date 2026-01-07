@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,162 +7,134 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// TENANT - Multi-tenant support
-// ============================================
+model audit_log {
+  id            String               @id @db.VarChar(36)
+  tenant_id     String?              @db.VarChar(36)
+  actor_user_id String?              @db.VarChar(36)
+  actor_type    audit_log_actor_type
+  entity_type   String               @db.VarChar(50)
+  entity_id     String               @db.VarChar(36)
+  description   String               @db.Text
+  action_type   String               @db.VarChar(50)
+  before_json   String?              @db.LongText
+  after_json    String?              @db.LongText
+  metadata_json String?              @db.LongText
+  ip_address    String?              @db.VarChar(45)
+  user_agent    String?              @db.VarChar(500)
+  status        audit_log_status     @default(success)
+  error_message String?              @db.Text
+  created_at    DateTime             @default(now())
+  user          user?                @relation(fields: [actor_user_id], references: [id])
+  tenant        tenant?              @relation(fields: [tenant_id], references: [id])
 
-model Tenant {
-  id           String    @id @default(uuid()) @db.VarChar(36)
-  subdomain    String    @unique @db.VarChar(63)
-  company_name String    @db.VarChar(200)
-  is_active    Boolean   @default(true)
+  @@index([action_type], map: "audit_log_action_idx")
+  @@index([actor_type])
+  @@index([actor_user_id])
+  @@index([entity_type, entity_id])
+  @@index([status])
+  @@index([tenant_id, created_at])
+  @@index([tenant_id, status, created_at(sort: Desc)], map: "audit_log_tenant_status_created_idx")
+}
 
-  // LEGAL & TAX INFORMATION
-  legal_business_name      String    @db.VarChar(200)
-  dba_name                 String?   @db.VarChar(200)
-  business_entity_type     String    @db.VarChar(50) // sole_proprietorship, llc, corporation, partnership, dba
-  state_of_registration    String    @db.VarChar(2)
-  date_of_incorporation    DateTime?
-  ein                      String    @unique @db.VarChar(10) // XX-XXXXXXX format
-  state_tax_id             String?   @db.VarChar(50)
-  sales_tax_permit         String?   @db.VarChar(50)
+model file {
+  id                                                          String             @id @db.VarChar(36)
+  tenant_id                                                   String             @db.VarChar(36)
+  file_id                                                     String             @unique @db.VarChar(36)
+  original_filename                                           String             @db.VarChar(255)
+  mime_type                                                   String             @db.VarChar(100)
+  size_bytes                                                  Int
+  original_size_bytes                                         Int?
+  category                                                    String             @db.VarChar(50)
+  storage_path                                                String             @db.VarChar(500)
+  storage_provider                                            String             @default("local") @db.VarChar(20)
+  s3_bucket                                                   String?            @db.VarChar(100)
+  s3_key                                                      String?            @db.VarChar(500)
+  s3_region                                                   String?            @db.VarChar(50)
+  uploaded_by                                                 String             @db.VarChar(36)
+  entity_type                                                 String?            @db.VarChar(50)
+  entity_id                                                   String?            @db.VarChar(36)
+  is_orphan                                                   Boolean            @default(false)
+  orphaned_at                                                 DateTime?
+  is_trashed                                                  Boolean            @default(false)
+  trashed_at                                                  DateTime?
+  has_thumbnail                                               Boolean            @default(false)
+  thumbnail_path                                              String?            @db.VarChar(500)
+  thumbnail_s3_key                                            String?            @db.VarChar(500)
+  is_optimized                                                Boolean            @default(false)
+  optimization_quality                                        Int?               @db.TinyInt
+  width                                                       Int?
+  height                                                      Int?
+  page_count                                                  Int?
+  created_at                                                  DateTime           @default(now())
+  updated_at                                                  DateTime           @updatedAt
+  tenant_file_tenant_idTotenant                               tenant             @relation("file_tenant_idTotenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  user                                                        user               @relation(fields: [uploaded_by], references: [id])
+  tenant_tenant_logo_file_idTofile                            tenant[]           @relation("tenant_logo_file_idTofile")
+  tenant_tenant_venmo_qr_code_file_idTofile                   tenant[]           @relation("tenant_venmo_qr_code_file_idTofile")
+  tenant_insurance_tenant_insurance_gl_document_file_idTofile tenant_insurance[] @relation("tenant_insurance_gl_document_file_idTofile")
+  tenant_insurance_tenant_insurance_wc_document_file_idTofile tenant_insurance[] @relation("tenant_insurance_wc_document_file_idTofile")
+  tenant_license                                              tenant_license[]
+  file_share_links                                            file_share_link[]
 
-  // CONTACT INFORMATION
-  primary_contact_phone    String    @db.VarChar(20)
-  secondary_phone          String?   @db.VarChar(20)
-  primary_contact_email    String    @db.VarChar(255)
-  support_email            String?   @db.VarChar(255)
-  billing_email            String?   @db.VarChar(255)
-  website_url              String?   @db.VarChar(255)
-  instagram_url            String?   @db.VarChar(255)
-  facebook_url             String?   @db.VarChar(255)
-  tiktok_url               String?   @db.VarChar(255)
-  youtube_url              String?   @db.VarChar(255)
+  @@index([file_id])
+  @@index([tenant_id, category])
+  @@index([tenant_id, is_orphan])
+  @@index([tenant_id, is_trashed])
+  @@index([storage_provider], map: "file_storage_provider_idx")
+  @@index([has_thumbnail], map: "file_has_thumbnail_idx")
+  @@index([is_optimized], map: "file_is_optimized_idx")
+  @@index([uploaded_by], map: "file_uploaded_by_fkey")
+}
 
-  // FINANCIAL & PAYMENT INFORMATION
-  bank_name                String?   @db.VarChar(100)
-  routing_number           String?   @db.VarChar(9)
-  account_number           String?   @db.VarChar(50)
-  account_type             String?   @db.VarChar(20) // checking, savings
-  venmo_username           String?   @db.VarChar(50)
-  venmo_qr_code_file_id    String?   @db.VarChar(36)
+model license_type {
+  id             String           @id @db.VarChar(36)
+  name           String           @unique @db.VarChar(100)
+  description    String?          @db.Text
+  is_active      Boolean          @default(true)
+  created_at     DateTime         @default(now())
+  updated_at     DateTime
+  tenant_license tenant_license[]
 
-  // BRANDING
-  logo_file_id             String?   @db.VarChar(36)
-  primary_brand_color      String?   @db.VarChar(7) // #RRGGBB
-  secondary_brand_color    String?   @db.VarChar(7)
-  accent_color             String?   @db.VarChar(7)
-
-  // INVOICE & QUOTE SETTINGS
-  invoice_prefix           String    @default("INV") @db.VarChar(10)
-  next_invoice_number      Int       @default(1)
-  quote_prefix             String    @default("Q-") @db.VarChar(10)
-  next_quote_number        Int       @default(1)
-  default_quote_validity_days Int    @default(30)
-  default_quote_terms      String?   @db.Text
-  default_quote_footer     String?   @db.Text
-  default_invoice_footer   String?   @db.Text
-  default_payment_instructions String? @db.Text
-
-  // BUSINESS SETTINGS
-  sales_tax_rate           Decimal?  @db.Decimal(5, 3) // Percentage (0.000 - 99.999%)
-  default_profit_margin    Decimal?  @db.Decimal(5, 2) // Percentage (0.00 - 999.99%)
-  default_overhead_rate    Decimal?  @db.Decimal(5, 2) // Percentage (0.00 - 999.99%)
-  default_contingency_rate Decimal?  @db.Decimal(5, 2) // Percentage (0.00 - 999.99%)
-
-  // OPERATIONAL
-  timezone                 String    @default("America/New_York") @db.VarChar(50)
-
-  // SUBSCRIPTION MANAGEMENT
-  subscription_plan_id     String?   @db.VarChar(36)
-  subscription_status      String    @default("trial") @db.VarChar(20) // trial, active, suspended, cancelled
-  trial_end_date           DateTime?
-  billing_cycle            String?   @db.VarChar(20) // monthly, annual
-  next_billing_date        DateTime?
-
-  created_at   DateTime  @default(now())
-  updated_at   DateTime  @updatedAt
-  deleted_at   DateTime?
-
-  // Relations
-  subscription_plan   SubscriptionPlan?   @relation(fields: [subscription_plan_id], references: [id])
-  logo_file           File?               @relation("TenantLogo", fields: [logo_file_id], references: [file_id])
-  venmo_qr_code_file  File?               @relation("TenantVenmoQR", fields: [venmo_qr_code_file_id], references: [file_id])
-  users               User[]
-  user_roles          UserRole[]
-  audit_logs          AuditLog[]
-  addresses           TenantAddress[]
-  licenses            TenantLicense[]
-  insurance           TenantInsurance?
-  payment_terms       TenantPaymentTerms?
-  business_hours      TenantBusinessHours?
-  custom_hours        TenantCustomHours[]
-  service_areas       TenantServiceArea[]
-  tenant_services     TenantService[]
-  files               File[]
-
-  @@index([subdomain])
   @@index([is_active])
-  @@index([ein])
-  @@index([subscription_status])
-  @@index([trial_end_date])
-  @@index([subscription_plan_id])
-  @@map("tenant")
 }
 
-// ============================================
-// USER - User accounts
-// ============================================
+model module {
+  id           String       @id @db.VarChar(36)
+  name         String       @unique @db.VarChar(50)
+  display_name String       @db.VarChar(100)
+  description  String?      @db.VarChar(500)
+  is_active    Boolean      @default(true)
+  sort_order   Int          @default(0)
+  icon         String?      @db.VarChar(50)
+  created_at   DateTime     @default(now())
+  updated_at   DateTime     @default(now())
+  permission   permission[]
 
-model User {
-  id                       String    @id @default(uuid()) @db.VarChar(36)
-  tenant_id                String?   @db.VarChar(36)
-  email                    String    @db.VarChar(255)
-  password_hash            String    @db.VarChar(255)
-  first_name               String    @db.VarChar(100)
-  last_name                String    @db.VarChar(100)
-  phone                    String?   @db.VarChar(20)
-  is_active                Boolean   @default(false)
-  is_platform_admin        Boolean   @default(false)
-  email_verified           Boolean   @default(false)
-  email_verified_at        DateTime?
-  activation_token         String?   @db.VarChar(255)
-  activation_token_expires DateTime?
-  password_reset_token     String?   @db.VarChar(255)
-  password_reset_expires   DateTime?
-  last_login_at            DateTime?
-  mfa_enabled              Boolean   @default(false)
-  mfa_secret               String?   @db.VarChar(255)
-  oauth_provider           String?   @db.VarChar(50)
-  oauth_provider_id        String?   @db.VarChar(255)
-  created_at               DateTime  @default(now())
-  updated_at               DateTime  @updatedAt
-  deleted_at               DateTime?
-
-  // Relations
-  tenant               Tenant?          @relation(fields: [tenant_id], references: [id])
-  refresh_tokens       RefreshToken[]
-  user_roles           UserRole[]
-  roles_assigned       UserRole[]       @relation("AssignedBy")
-  audit_logs           AuditLog[]
-  signature            UserSignature?
-  uploaded_files       File[]
-
-  @@unique([email, tenant_id], name: "email_tenant_unique")
-  @@index([tenant_id, is_active])
-  @@index([email])
-  @@index([activation_token])
-  @@index([password_reset_token])
-  @@index([oauth_provider, oauth_provider_id])
-  @@map("user")
+  @@index([is_active])
+  @@index([name])
+  @@index([sort_order])
 }
 
-// ============================================
-// REFRESH TOKEN - Session management
-// ============================================
+model permission {
+  id                       String                     @id @db.VarChar(36)
+  module_id                String                     @db.VarChar(36)
+  action                   String                     @db.VarChar(50)
+  display_name             String                     @db.VarChar(100)
+  description              String?                    @db.VarChar(500)
+  is_active                Boolean                    @default(true)
+  created_at               DateTime                   @default(now())
+  updated_at               DateTime                   @default(now())
+  module                   module                     @relation(fields: [module_id], references: [id], onDelete: Cascade)
+  role_permission          role_permission[]
+  role_template_permission role_template_permission[]
 
-model RefreshToken {
-  id          String    @id @default(uuid()) @db.VarChar(36)
+  @@unique([module_id, action], map: "module_action_unique")
+  @@index([is_active])
+  @@index([module_id])
+}
+
+model refresh_token {
+  id          String    @id @db.VarChar(36)
   user_id     String    @db.VarChar(36)
   token_hash  String    @db.VarChar(255)
   device_name String?   @db.VarChar(255)
@@ -174,264 +143,221 @@ model RefreshToken {
   expires_at  DateTime
   created_at  DateTime  @default(now())
   revoked_at  DateTime?
+  user        user      @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  // Relations
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@index([user_id, expires_at])
   @@index([token_hash])
+  @@index([user_id, expires_at])
   @@index([user_id, revoked_at])
-  @@map("refresh_token")
 }
 
-// ============================================
-// ROLE - RBAC roles (UPDATED for dynamic RBAC)
-// ============================================
+model role {
+  id                 String            @id @db.VarChar(36)
+  name               String            @unique @db.VarChar(50)
+  description        String?           @db.VarChar(255)
+  is_system          Boolean           @default(false)
+  created_at         DateTime          @default(now())
+  updated_at         DateTime
+  is_active          Boolean           @default(true)
+  created_by_user_id String?           @db.VarChar(36)
+  deleted_at         DateTime?
+  role_permission    role_permission[]
+  user_role          user_role[]
 
-model Role {
-  id                  String    @id @default(uuid()) @db.VarChar(36)
-  name                String    @unique @db.VarChar(50) // Globally unique role names
-  description         String?   @db.VarChar(255)
-  is_system           Boolean   @default(false) // System roles vs custom roles
-  is_active           Boolean   @default(true)
-  created_by_user_id  String?   @db.VarChar(36)
-  created_at          DateTime  @default(now())
-  updated_at          DateTime  @updatedAt
-  deleted_at          DateTime?
-
-  // Relations
-  user_roles       UserRole[]
-  role_permissions RolePermission[]
-
-  @@index([name])
-  @@index([is_system])
+  @@index([is_system], map: "is_system")
+  @@index([name], map: "name")
   @@index([is_active])
-  @@map("role")
+  @@index([is_system])
+  @@index([name])
 }
 
-// ============================================
-// USER ROLE - Junction table for RBAC (UPDATED for multi-tenant)
-// ============================================
+model role_permission {
+  id                 String     @id @db.VarChar(36)
+  role_id            String     @db.VarChar(36)
+  permission_id      String     @db.VarChar(36)
+  granted_at         DateTime   @default(now())
+  granted_by_user_id String?    @db.VarChar(36)
+  created_at         DateTime   @default(now())
+  updated_at         DateTime   @default(now())
+  permission         permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+  role               role       @relation(fields: [role_id], references: [id], onDelete: Cascade)
 
-model UserRole {
-  id                   String    @id @default(uuid()) @db.VarChar(36)
-  user_id              String    @db.VarChar(36)
-  role_id              String    @db.VarChar(36)
-  tenant_id            String    @db.VarChar(36) // CRITICAL: Roles are tenant-specific
-  assigned_by_user_id  String?   @db.VarChar(36)
-  assigned_at          DateTime  @default(now())
-  created_at           DateTime  @default(now())
-  updated_at           DateTime  @updatedAt
-
-  // Relations
-  user          User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  role          Role    @relation(fields: [role_id], references: [id], onDelete: Cascade)
-  tenant        Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  assigned_by   User?   @relation("AssignedBy", fields: [assigned_by_user_id], references: [id])
-
-  @@unique([user_id, role_id, tenant_id], name: "user_role_tenant_unique")
-  @@index([user_id, tenant_id])
+  @@unique([role_id, permission_id], map: "role_permission_unique")
+  @@index([permission_id])
   @@index([role_id])
-  @@index([tenant_id])
-  @@map("user_role")
 }
 
-// ============================================
-// AUDIT LOG - Track user actions
-// ============================================
+model role_template {
+  id                       String                     @id @db.VarChar(36)
+  name                     String                     @unique @db.VarChar(100)
+  description              String?                    @db.Text
+  is_system_template       Boolean                    @default(false)
+  is_active                Boolean                    @default(true)
+  created_by_user_id       String?                    @db.VarChar(36)
+  created_at               DateTime                   @default(now())
+  updated_at               DateTime                   @default(now())
+  role_template_permission role_template_permission[]
 
-model AuditLog {
-  id            String   @id @default(uuid()) @db.VarChar(36)
-  tenant_id     String?  @db.VarChar(36)
-  actor_user_id String?  @db.VarChar(36)
-  actor_type    String   @db.VarChar(20) // user, system, platform_admin, cron_job
-  entity_type   String   @db.VarChar(50)
-  entity_id     String   @db.VarChar(36)
-  description   String   @db.Text // Human-readable description
-  action_type   String   @db.VarChar(50) // created, updated, deleted, accessed, failed
-  before_json   Json?
-  after_json    Json?
-  metadata_json Json?
-  ip_address    String?  @db.VarChar(45)
-  user_agent    String?  @db.VarChar(500)
-  status        String   @db.VarChar(20) @default("success") // success, failure
-  error_message String?  @db.Text
+  @@index([is_active])
+  @@index([is_system_template])
+}
+
+model role_template_permission {
+  id               String        @id @db.VarChar(36)
+  role_template_id String        @db.VarChar(36)
+  permission_id    String        @db.VarChar(36)
+  created_at       DateTime      @default(now())
+  permission       permission    @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+  role_template    role_template @relation(fields: [role_template_id], references: [id], onDelete: Cascade)
+
+  @@unique([role_template_id, permission_id], map: "role_template_permission_unique")
+  @@index([permission_id])
+  @@index([role_template_id])
+}
+
+model service {
+  id             String           @id @db.VarChar(36)
+  name           String           @unique @db.VarChar(100)
+  slug           String           @unique @db.VarChar(100)
+  description    String?          @db.VarChar(500)
+  is_active      Boolean          @default(true)
+  created_at     DateTime         @default(now())
+  updated_at     DateTime
+  tenant_service tenant_service[]
+
+  @@index([is_active])
+  @@index([slug])
+}
+
+model subscription_plan {
+  id            String   @id @db.VarChar(36)
+  name          String   @unique @db.VarChar(100)
+  description   String?  @db.Text
+  monthly_price Decimal  @db.Decimal(10, 2)
+  annual_price  Decimal  @db.Decimal(10, 2)
+  max_users     Int
+  feature_flags String   @db.LongText
+  is_active     Boolean  @default(true)
+  is_default    Boolean  @default(false)
   created_at    DateTime @default(now())
-
-  // Relations
-  tenant Tenant? @relation(fields: [tenant_id], references: [id])
-  actor  User?   @relation(fields: [actor_user_id], references: [id])
-
-  @@index([tenant_id, created_at])
-  @@index([tenant_id, status, created_at])
-  @@index([entity_type, entity_id])
-  @@index([actor_user_id])
-  @@index([action_type])
-  @@index([status])
-  @@index([actor_type])
-  @@map("audit_log")
-}
-
-// ============================================
-// SUBSCRIPTION PLAN - Subscription tiers
-// ============================================
-
-model SubscriptionPlan {
-  id             String   @id @default(uuid()) @db.VarChar(36)
-  name           String   @unique @db.VarChar(100) // Free, Basic, Pro, Enterprise
-  description    String?  @db.Text
-  monthly_price  Decimal  @db.Decimal(10, 2)
-  annual_price   Decimal  @db.Decimal(10, 2)
-  max_users      Int
-  feature_flags  Json // JSON object with boolean flags for features
-  is_active      Boolean  @default(true)
-  is_default     Boolean  @default(false)
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
-
-  // Relations
-  tenants Tenant[]
+  updated_at    DateTime
+  tenant        tenant[]
 
   @@index([is_active])
   @@index([is_default])
-  @@map("subscription_plan")
 }
 
-// ============================================
-// LICENSE TYPE - Admin-managed license types
-// ============================================
+model tenant {
+  id                                      String                 @id @db.VarChar(36)
+  subdomain                               String                 @unique @db.VarChar(63)
+  company_name                            String                 @db.VarChar(200)
+  is_active                               Boolean                @default(true)
+  legal_business_name                     String                 @db.VarChar(200)
+  dba_name                                String?                @db.VarChar(200)
+  business_entity_type                    String                 @db.VarChar(50)
+  state_of_registration                   String                 @db.VarChar(2)
+  date_of_incorporation                   DateTime?
+  ein                                     String                 @unique @db.VarChar(10)
+  state_tax_id                            String?                @db.VarChar(50)
+  sales_tax_permit                        String?                @db.VarChar(50)
+  primary_contact_phone                   String                 @db.VarChar(20)
+  secondary_phone                         String?                @db.VarChar(20)
+  primary_contact_email                   String                 @db.VarChar(255)
+  support_email                           String?                @db.VarChar(255)
+  billing_email                           String?                @db.VarChar(255)
+  website_url                             String?                @db.VarChar(255)
+  instagram_url                           String?                @db.VarChar(255)
+  facebook_url                            String?                @db.VarChar(255)
+  tiktok_url                              String?                @db.VarChar(255)
+  youtube_url                             String?                @db.VarChar(255)
+  bank_name                               String?                @db.VarChar(100)
+  routing_number                          String?                @db.VarChar(9)
+  account_number                          String?                @db.VarChar(50)
+  account_type                            String?                @db.VarChar(20)
+  venmo_username                          String?                @db.VarChar(50)
+  venmo_qr_code_file_id                   String?                @db.VarChar(36)
+  logo_file_id                            String?                @db.VarChar(36)
+  primary_brand_color                     String?                @db.VarChar(7)
+  secondary_brand_color                   String?                @db.VarChar(7)
+  accent_color                            String?                @db.VarChar(7)
+  invoice_prefix                          String                 @default("INV") @db.VarChar(10)
+  next_invoice_number                     Int                    @default(1)
+  quote_prefix                            String                 @default("Q-") @db.VarChar(10)
+  next_quote_number                       Int                    @default(1)
+  default_quote_validity_days             Int                    @default(30)
+  default_quote_terms                     String?                @db.Text
+  default_quote_footer                    String?                @db.Text
+  default_invoice_footer                  String?                @db.Text
+  default_payment_instructions            String?                @db.Text
+  timezone                                String                 @default("America/New_York") @db.VarChar(50)
+  subscription_plan_id                    String?                @db.VarChar(36)
+  subscription_status                     String                 @default("trial") @db.VarChar(20)
+  trial_end_date                          DateTime?
+  billing_cycle                           String?                @db.VarChar(20)
+  next_billing_date                       DateTime?
+  created_at                              DateTime               @default(now())
+  updated_at                              DateTime
+  deleted_at                              DateTime?
+  default_contingency_rate                Decimal?               @db.Decimal(5, 2)
+  default_overhead_rate                   Decimal?               @db.Decimal(5, 2)
+  default_profit_margin                   Decimal?               @db.Decimal(5, 2)
+  sales_tax_rate                          Decimal?               @db.Decimal(5, 3)
+  audit_log                               audit_log[]
+  file_file_tenant_idTotenant             file[]                 @relation("file_tenant_idTotenant")
+  file_tenant_logo_file_idTofile          file?                  @relation("tenant_logo_file_idTofile", fields: [logo_file_id], references: [file_id])
+  subscription_plan                       subscription_plan?     @relation(fields: [subscription_plan_id], references: [id])
+  file_tenant_venmo_qr_code_file_idTofile file?                  @relation("tenant_venmo_qr_code_file_idTofile", fields: [venmo_qr_code_file_id], references: [file_id])
+  tenant_address                          tenant_address[]
+  tenant_business_hours                   tenant_business_hours?
+  tenant_custom_hours                     tenant_custom_hours[]
+  tenant_insurance                        tenant_insurance?
+  tenant_license                          tenant_license[]
+  tenant_payment_terms                    tenant_payment_terms?
+  tenant_service                          tenant_service[]
+  tenant_service_area                     tenant_service_area[]
+  user                                    user[]
+  user_role                               user_role[]
+  file_share_links                        file_share_link[]
+  storage_config                          storage_config?
 
-model LicenseType {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  name        String   @unique @db.VarChar(100)
-  description String?  @db.Text
-  is_active   Boolean  @default(true)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-
-  // Relations
-  licenses TenantLicense[]
-
+  @@index([ein])
   @@index([is_active])
-  @@map("license_type")
+  @@index([logo_file_id], map: "tenant_logo_file_id_fkey")
+  @@index([subdomain])
+  @@index([subscription_plan_id])
+  @@index([subscription_status])
+  @@index([trial_end_date])
+  @@index([venmo_qr_code_file_id], map: "tenant_venmo_qr_code_file_id_fkey")
 }
 
-// ============================================
-// TENANT ADDRESS - Multiple addresses per tenant
-// ============================================
-
-model TenantAddress {
-  id           String   @id @default(uuid()) @db.VarChar(36)
+model tenant_address {
+  id           String   @id @db.VarChar(36)
   tenant_id    String   @db.VarChar(36)
-  address_type String   @db.VarChar(20) // legal, billing, service, mailing, office
+  address_type String   @db.VarChar(20)
   line1        String   @db.VarChar(255)
   line2        String?  @db.VarChar(255)
   city         String   @db.VarChar(100)
-  state        String   @db.VarChar(2) // 2-letter state code
-  zip_code     String   @db.VarChar(10) // 5 or 9 digits
+  state        String   @db.VarChar(2)
+  zip_code     String   @db.VarChar(10)
   country      String   @default("USA") @db.VarChar(3)
   lat          Decimal? @db.Decimal(10, 8)
   long         Decimal? @db.Decimal(11, 8)
   is_po_box    Boolean  @default(false)
   is_default   Boolean  @default(false)
   created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
-
-  // Relations
-  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  updated_at   DateTime
+  tenant       tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@index([tenant_id, address_type])
   @@index([tenant_id, is_default])
-  @@map("tenant_address")
 }
 
-// ============================================
-// TENANT LICENSE - Professional licenses
-// ============================================
-
-model TenantLicense {
-  id                   String    @id @default(uuid()) @db.VarChar(36)
-  tenant_id            String    @db.VarChar(36)
-  license_type_id      String?   @db.VarChar(36) // Null if "Other" selected
-  custom_license_type  String?   @db.VarChar(100) // Used if license_type_id is null
-  license_number       String    @db.VarChar(100)
-  issuing_state        String    @db.VarChar(2)
-  issue_date           DateTime?
-  expiry_date          DateTime
-  document_file_id     String?   @db.VarChar(36)
-  created_at           DateTime  @default(now())
-  updated_at           DateTime  @updatedAt
-
-  // Relations
-  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  license_type  LicenseType? @relation(fields: [license_type_id], references: [id])
-  document_file File?        @relation("LicenseDocument", fields: [document_file_id], references: [file_id])
-
-  @@index([tenant_id, expiry_date])
-  @@index([expiry_date]) // For global expiry alerts
-  @@map("tenant_license")
-}
-
-// ============================================
-// TENANT INSURANCE - Insurance and bonding
-// ============================================
-
-model TenantInsurance {
-  id                    String    @id @default(uuid()) @db.VarChar(36)
-  tenant_id             String    @unique @db.VarChar(36) // One insurance record per tenant
-  gl_insurance_provider String?   @db.VarChar(100) // General Liability
-  gl_policy_number      String?   @db.VarChar(100)
-  gl_coverage_amount    Decimal?  @db.Decimal(12, 2)
-  gl_effective_date     DateTime?
-  gl_expiry_date        DateTime?
-  gl_document_file_id   String?   @db.VarChar(36)
-  wc_insurance_provider String?   @db.VarChar(100) // Workers Comp
-  wc_policy_number      String?   @db.VarChar(100)
-  wc_coverage_amount    Decimal?  @db.Decimal(12, 2)
-  wc_effective_date     DateTime?
-  wc_expiry_date        DateTime?
-  wc_document_file_id   String?   @db.VarChar(36)
-  created_at            DateTime  @default(now())
-  updated_at            DateTime  @updatedAt
-
-  // Relations
-  tenant           Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  gl_document_file File?  @relation("GLInsuranceDocument", fields: [gl_document_file_id], references: [file_id])
-  wc_document_file File?  @relation("WCInsuranceDocument", fields: [wc_document_file_id], references: [file_id])
-
-  @@index([gl_expiry_date])
-  @@index([wc_expiry_date])
-  @@map("tenant_insurance")
-}
-
-// ============================================
-// TENANT PAYMENT TERMS - Default payment terms
-// ============================================
-
-model TenantPaymentTerms {
-  id         String   @id @default(uuid()) @db.VarChar(36)
-  tenant_id  String   @unique @db.VarChar(36) // One default per tenant
-  terms_json Json // Array of payment milestones
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  // Relations
-  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-
-  @@map("tenant_payment_terms")
-}
-
-// ============================================
-// TENANT BUSINESS HOURS - Standard weekly hours
-// ============================================
-
-model TenantBusinessHours {
-  id               String   @id @default(uuid()) @db.VarChar(36)
+model tenant_business_hours {
+  id               String   @id @db.VarChar(36)
   tenant_id        String   @unique @db.VarChar(36)
   monday_closed    Boolean  @default(false)
-  monday_open1     String?  @db.VarChar(5) // HH:MM format
+  monday_open1     String?  @db.VarChar(5)
   monday_close1    String?  @db.VarChar(5)
-  monday_open2     String?  @db.VarChar(5) // Optional second shift
+  monday_open2     String?  @db.VarChar(5)
   monday_close2    String?  @db.VarChar(5)
   tuesday_closed   Boolean  @default(false)
   tuesday_open1    String?  @db.VarChar(5)
@@ -464,277 +390,254 @@ model TenantBusinessHours {
   sunday_open2     String?  @db.VarChar(5)
   sunday_close2    String?  @db.VarChar(5)
   created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
-
-  // Relations
-  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-
-  @@map("tenant_business_hours")
+  updated_at       DateTime
+  tenant           tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 }
 
-// ============================================
-// TENANT CUSTOM HOURS - Holidays and special dates
-// ============================================
-
-model TenantCustomHours {
-  id          String    @id @default(uuid()) @db.VarChar(36)
-  tenant_id   String    @db.VarChar(36)
-  date        DateTime  @db.Date
-  reason      String    @db.VarChar(255) // e.g., "Christmas", "Vacation"
-  closed      Boolean   @default(false)
-  open_time1  String?   @db.VarChar(5) // First shift opening time
-  close_time1 String?   @db.VarChar(5) // First shift closing time
-  open_time2  String?   @db.VarChar(5) // Second shift opening time (after lunch)
-  close_time2 String?   @db.VarChar(5) // Second shift closing time
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @updatedAt
-
-  // Relations
-  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-
-  @@unique([tenant_id, date], name: "tenant_date_unique")
-  @@index([tenant_id, date])
-  @@map("tenant_custom_hours")
-}
-
-// ============================================
-// TENANT SERVICE AREA - Service coverage areas
-// ============================================
-
-model TenantServiceArea {
-  id            String   @id @default(uuid()) @db.VarChar(36)
-  tenant_id     String   @db.VarChar(36)
-  type          String   @db.VarChar(20) // city, zipcode, radius, state
-  value         String   @db.VarChar(100) // City name, ZIP code, or description
-  latitude      Decimal  @db.Decimal(10, 8)
-  longitude     Decimal  @db.Decimal(11, 8)
-  radius_miles  Decimal? @db.Decimal(5, 2) // Only for radius type
-  state         String?  @db.VarChar(2) // State code (2 letters)
-  city_name     String?  @db.VarChar(100) // City name (optional)
-  zipcode       String?  @db.VarChar(10) // ZIP code (optional)
-  entire_state  Boolean  @default(false) // True if covering entire state
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
-
-  // Relations
-  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-
-  @@index([tenant_id, type])
-  @@index([latitude, longitude]) // For distance queries
-  @@map("tenant_service_area")
-}
-
-// ============================================
-// USER SIGNATURE - Estimator signatures
-// ============================================
-
-model UserSignature {
-  id                String   @id @default(uuid()) @db.VarChar(36)
-  user_id           String   @unique @db.VarChar(36) // One signature per user
-  signature_file_id String   @db.VarChar(36) // Reference to file storage
-  signature_name    String   @db.VarChar(100) // Full name for display
-  signature_title   String?  @db.VarChar(100) // e.g., "Lead Estimator"
-  signature_phone   String?  @db.VarChar(20)
-  signature_email   String?  @db.VarChar(255)
-  created_at        DateTime @default(now())
-  updated_at        DateTime @updatedAt
-
-  // Relations
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@map("user_signature")
-}
-
-// ============================================
-// FILE - File metadata tracking
-// ============================================
-
-model File {
-  id                String    @id @default(uuid()) @db.VarChar(36)
-  tenant_id         String    @db.VarChar(36)
-  file_id           String    @unique @db.VarChar(36)
-  original_filename String    @db.VarChar(255)
-  mime_type         String    @db.VarChar(100)
-  size_bytes        Int
-  category          String    @db.VarChar(50)
-  storage_path      String    @db.VarChar(500)
-  uploaded_by       String    @db.VarChar(36)
-  entity_type       String?   @db.VarChar(50)
-  entity_id         String?   @db.VarChar(36)
-  is_orphan         Boolean   @default(false)
-  orphaned_at       DateTime?
-  is_trashed        Boolean   @default(false)
-  trashed_at        DateTime?
-  created_at        DateTime  @default(now())
-  updated_at        DateTime  @updatedAt
-
-  // Relations
-  tenant                    Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  uploader                  User               @relation(fields: [uploaded_by], references: [id])
-  tenant_logos              Tenant[]           @relation("TenantLogo")
-  tenant_venmo_qrs          Tenant[]           @relation("TenantVenmoQR")
-  license_documents         TenantLicense[]    @relation("LicenseDocument")
-  gl_insurance_documents    TenantInsurance[]  @relation("GLInsuranceDocument")
-  wc_insurance_documents    TenantInsurance[]  @relation("WCInsuranceDocument")
-
-  @@index([tenant_id, category])
-  @@index([tenant_id, is_orphan])
-  @@index([tenant_id, is_trashed])
-  @@index([file_id])
-  @@map("file")
-}
-
-// ============================================
-// SERVICE - Master list of available services
-// ============================================
-
-model Service {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  name        String   @unique @db.VarChar(100) // e.g., "Roofing", "Gutter", "Plumbing"
-  slug        String   @unique @db.VarChar(100) // e.g., "roofing", "gutter", "plumbing"
-  description String?  @db.VarChar(500)
-  is_active   Boolean  @default(true)
+model tenant_custom_hours {
+  id          String   @id @db.VarChar(36)
+  tenant_id   String   @db.VarChar(36)
+  date        DateTime @db.Date
+  reason      String   @db.VarChar(255)
+  closed      Boolean  @default(false)
   created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  updated_at  DateTime
+  close_time1 String?  @db.VarChar(5)
+  close_time2 String?  @db.VarChar(5)
+  open_time1  String?  @db.VarChar(5)
+  open_time2  String?  @db.VarChar(5)
+  tenant      tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
-  // Relations
-  tenant_services TenantService[]
-
-  @@index([is_active])
-  @@index([slug])
-  @@map("service")
+  @@unique([tenant_id, date])
+  @@index([tenant_id, date])
 }
 
-// ============================================
-// TENANT SERVICE - Junction table for tenant services
-// ============================================
+model tenant_insurance {
+  id                                              String    @id @db.VarChar(36)
+  tenant_id                                       String    @unique @db.VarChar(36)
+  gl_insurance_provider                           String?   @db.VarChar(100)
+  gl_policy_number                                String?   @db.VarChar(100)
+  gl_coverage_amount                              Decimal?  @db.Decimal(12, 2)
+  gl_effective_date                               DateTime?
+  gl_expiry_date                                  DateTime?
+  gl_document_file_id                             String?   @db.VarChar(36)
+  wc_insurance_provider                           String?   @db.VarChar(100)
+  wc_policy_number                                String?   @db.VarChar(100)
+  wc_coverage_amount                              Decimal?  @db.Decimal(12, 2)
+  wc_effective_date                               DateTime?
+  wc_expiry_date                                  DateTime?
+  wc_document_file_id                             String?   @db.VarChar(36)
+  created_at                                      DateTime  @default(now())
+  updated_at                                      DateTime
+  file_tenant_insurance_gl_document_file_idTofile file?     @relation("tenant_insurance_gl_document_file_idTofile", fields: [gl_document_file_id], references: [file_id])
+  tenant                                          tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  file_tenant_insurance_wc_document_file_idTofile file?     @relation("tenant_insurance_wc_document_file_idTofile", fields: [wc_document_file_id], references: [file_id])
 
-model TenantService {
-  id         String   @id @default(uuid()) @db.VarChar(36)
+  @@index([gl_document_file_id], map: "tenant_insurance_gl_document_file_id_fkey")
+  @@index([gl_expiry_date])
+  @@index([wc_document_file_id], map: "tenant_insurance_wc_document_file_id_fkey")
+  @@index([wc_expiry_date])
+}
+
+model tenant_license {
+  id                  String        @id @db.VarChar(36)
+  tenant_id           String        @db.VarChar(36)
+  license_type_id     String?       @db.VarChar(36)
+  custom_license_type String?       @db.VarChar(100)
+  license_number      String        @db.VarChar(100)
+  issuing_state       String        @db.VarChar(2)
+  issue_date          DateTime?
+  expiry_date         DateTime
+  document_file_id    String?       @db.VarChar(36)
+  created_at          DateTime      @default(now())
+  updated_at          DateTime
+  file                file?         @relation(fields: [document_file_id], references: [file_id])
+  license_type        license_type? @relation(fields: [license_type_id], references: [id])
+  tenant              tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([document_file_id], map: "tenant_license_document_file_id_fkey")
+  @@index([expiry_date])
+  @@index([license_type_id], map: "tenant_license_license_type_id_fkey")
+  @@index([tenant_id, expiry_date])
+}
+
+model tenant_payment_terms {
+  id         String   @id @db.VarChar(36)
+  tenant_id  String   @unique @db.VarChar(36)
+  terms_json String   @db.LongText
+  created_at DateTime @default(now())
+  updated_at DateTime
+  tenant     tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+}
+
+model tenant_service {
+  id         String   @id @db.VarChar(36)
   tenant_id  String   @db.VarChar(36)
   service_id String   @db.VarChar(36)
   created_at DateTime @default(now())
+  service    service  @relation(fields: [service_id], references: [id], onDelete: Cascade)
+  tenant     tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
-  // Relations
-  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  service Service @relation(fields: [service_id], references: [id], onDelete: Cascade)
-
-  @@unique([tenant_id, service_id], name: "tenant_service_unique")
-  @@index([tenant_id])
+  @@unique([tenant_id, service_id])
   @@index([service_id])
-  @@map("tenant_service")
+  @@index([tenant_id])
 }
 
-// ============================================
-// MODULE - Platform modules/features
-// ============================================
-
-model Module {
-  id           String   @id @default(uuid()) @db.VarChar(36)
-  name         String   @unique @db.VarChar(50) // e.g., "leads", "quotes", "projects"
-  display_name String   @db.VarChar(100) // e.g., "Lead Management"
-  description  String?  @db.VarChar(500)
-  is_active    Boolean  @default(true)
-  sort_order   Int      @default(0)
-  icon         String?  @db.VarChar(50) // Icon name for UI
+model tenant_service_area {
+  id           String   @id @db.VarChar(36)
+  tenant_id    String   @db.VarChar(36)
+  type         String   @db.VarChar(20)
+  value        String   @db.VarChar(100)
+  latitude     Decimal  @db.Decimal(10, 8)
+  longitude    Decimal  @db.Decimal(11, 8)
+  radius_miles Decimal? @db.Decimal(5, 2)
+  state        String?  @db.VarChar(2)
   created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
+  updated_at   DateTime
+  city_name    String?  @db.VarChar(100)
+  entire_state Boolean  @default(false)
+  zipcode      String?  @db.VarChar(10)
+  tenant       tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
-  // Relations
-  permissions Permission[]
-
-  @@index([is_active])
-  @@index([name])
-  @@index([sort_order])
-  @@map("module")
+  @@index([latitude, longitude])
+  @@index([tenant_id, type])
 }
 
-// ============================================
-// PERMISSION - Actions per module
-// ============================================
+model user {
+  id                                            String          @id @db.VarChar(36)
+  tenant_id                                     String?         @db.VarChar(36)
+  email                                         String          @db.VarChar(255)
+  password_hash                                 String          @db.VarChar(255)
+  first_name                                    String          @db.VarChar(100)
+  last_name                                     String          @db.VarChar(100)
+  phone                                         String?         @db.VarChar(20)
+  is_active                                     Boolean         @default(false)
+  is_platform_admin                             Boolean         @default(false)
+  email_verified                                Boolean         @default(false)
+  email_verified_at                             DateTime?
+  activation_token                              String?         @db.VarChar(255)
+  activation_token_expires                      DateTime?
+  password_reset_token                          String?         @db.VarChar(255)
+  password_reset_expires                        DateTime?
+  last_login_at                                 DateTime?
+  mfa_enabled                                   Boolean         @default(false)
+  mfa_secret                                    String?         @db.VarChar(255)
+  oauth_provider                                String?         @db.VarChar(50)
+  oauth_provider_id                             String?         @db.VarChar(255)
+  created_at                                    DateTime        @default(now())
+  updated_at                                    DateTime
+  deleted_at                                    DateTime?
+  audit_log                                     audit_log[]
+  file                                          file[]
+  refresh_token                                 refresh_token[]
+  tenant                                        tenant?         @relation(fields: [tenant_id], references: [id])
+  user_role_user_role_assigned_by_user_idTouser user_role[]     @relation("user_role_assigned_by_user_idTouser")
+  user_role_user_role_user_idTouser             user_role[]     @relation("user_role_user_idTouser")
+  user_signature                                user_signature?
+  share_links                                   file_share_link[]
 
-model Permission {
-  id           String   @id @default(uuid()) @db.VarChar(36)
-  module_id    String   @db.VarChar(36)
-  action       String   @db.VarChar(50) // e.g., "view", "create", "edit", "delete"
-  display_name String   @db.VarChar(100) // e.g., "View Leads", "Create Quotes"
-  description  String?  @db.VarChar(500)
-  is_active    Boolean  @default(true)
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
-
-  // Relations
-  module                     Module                   @relation(fields: [module_id], references: [id], onDelete: Cascade)
-  role_permissions           RolePermission[]
-  role_template_permissions  RoleTemplatePermission[]
-
-  @@unique([module_id, action], name: "module_action_unique")
-  @@index([module_id])
-  @@index([is_active])
-  @@map("permission")
+  @@unique([email, tenant_id])
+  @@index([activation_token])
+  @@index([email])
+  @@index([oauth_provider, oauth_provider_id])
+  @@index([password_reset_token])
+  @@index([tenant_id, is_active])
 }
 
-// ============================================
-// ROLE PERMISSION - Junction table for role permissions
-// ============================================
+model user_role {
+  id                                       String   @id @db.VarChar(36)
+  user_id                                  String   @db.VarChar(36)
+  role_id                                  String   @db.VarChar(36)
+  created_at                               DateTime @default(now())
+  tenant_id                                String   @db.VarChar(36)
+  assigned_by_user_id                      String?  @db.VarChar(36)
+  assigned_at                              DateTime @default(now())
+  updated_at                               DateTime @default(now())
+  user_user_role_assigned_by_user_idTouser user?    @relation("user_role_assigned_by_user_idTouser", fields: [assigned_by_user_id], references: [id])
+  role                                     role     @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  tenant                                   tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user_user_role_user_idTouser             user     @relation("user_role_user_idTouser", fields: [user_id], references: [id], onDelete: Cascade)
 
-model RolePermission {
-  id                  String    @id @default(uuid()) @db.VarChar(36)
-  role_id             String    @db.VarChar(36)
-  permission_id       String    @db.VarChar(36)
-  granted_at          DateTime  @default(now())
-  granted_by_user_id  String?   @db.VarChar(36)
-  created_at          DateTime  @default(now())
-  updated_at          DateTime  @updatedAt
-
-  // Relations
-  role       Role       @relation(fields: [role_id], references: [id], onDelete: Cascade)
-  permission Permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
-
-  @@unique([role_id, permission_id], name: "role_permission_unique")
+  @@unique([user_id, role_id, tenant_id], map: "user_role_tenant_unique")
+  @@unique([user_id, role_id])
+  @@index([assigned_by_user_id], map: "user_role_assigned_by_user_id_fkey")
   @@index([role_id])
-  @@index([permission_id])
-  @@map("role_permission")
+  @@index([tenant_id])
+  @@index([user_id])
+  @@index([user_id, tenant_id])
 }
 
-// ============================================
-// ROLE TEMPLATE - Pre-configured role sets
-// ============================================
-
-model RoleTemplate {
-  id                  String    @id @default(uuid()) @db.VarChar(36)
-  name                String    @unique @db.VarChar(100)
-  description         String?   @db.Text
-  is_system_template  Boolean   @default(false) // True for 7 default templates
-  is_active           Boolean   @default(true)
-  created_by_user_id  String?   @db.VarChar(36)
-  created_at          DateTime  @default(now())
-  updated_at          DateTime  @updatedAt
-
-  // Relations
-  template_permissions RoleTemplatePermission[]
-
-  @@index([is_system_template])
-  @@index([is_active])
-  @@map("role_template")
+model user_signature {
+  id                String   @id @db.VarChar(36)
+  user_id           String   @unique @db.VarChar(36)
+  signature_file_id String   @db.VarChar(36)
+  signature_name    String   @db.VarChar(100)
+  signature_title   String?  @db.VarChar(100)
+  signature_phone   String?  @db.VarChar(20)
+  signature_email   String?  @db.VarChar(255)
+  created_at        DateTime @default(now())
+  updated_at        DateTime
+  user              user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
-// ============================================
-// ROLE TEMPLATE PERMISSION - Junction table for template permissions
-// ============================================
-
-model RoleTemplatePermission {
-  id               String    @id @default(uuid()) @db.VarChar(36)
-  role_template_id String    @db.VarChar(36)
-  permission_id    String    @db.VarChar(36)
+model file_share_link {
+  id               String    @id @db.VarChar(36)
+  tenant_id        String    @db.VarChar(36)
+  file_id          String    @db.VarChar(36)
+  share_token      String    @unique @db.VarChar(64)
+  password_hash    String?   @db.VarChar(255)
+  expires_at       DateTime?
+  max_downloads    Int?
+  download_count   Int       @default(0)
+  view_count       Int       @default(0)
+  created_by       String    @db.VarChar(36)
+  is_active        Boolean   @default(true)
   created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+  last_accessed_at DateTime?
+  file             file      @relation(fields: [file_id], references: [file_id], onDelete: Cascade)
+  creator          user      @relation(fields: [created_by], references: [id])
+  tenant           tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
-  // Relations
-  role_template RoleTemplate @relation(fields: [role_template_id], references: [id], onDelete: Cascade)
-  permission    Permission   @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+  @@index([tenant_id])
+  @@index([file_id])
+  @@index([created_by])
+  @@index([expires_at])
+  @@index([is_active])
+}
 
-  @@unique([role_template_id, permission_id], name: "role_template_permission_unique")
-  @@index([role_template_id])
-  @@index([permission_id])
-  @@map("role_template_permission")
+model storage_config {
+  id                     String   @id @db.VarChar(36)
+  tenant_id              String   @unique @db.VarChar(36)
+  storage_provider       String   @default("local") @db.VarChar(20)
+  s3_endpoint            String?  @db.VarChar(255)
+  s3_region              String?  @db.VarChar(50)
+  s3_bucket              String?  @db.VarChar(100)
+  s3_access_key_id       String?  @db.VarChar(255)
+  s3_secret_key          String?  @db.VarChar(500)
+  s3_use_ssl             Boolean  @default(true)
+  s3_force_path_style    Boolean  @default(false)
+  enable_webp_conversion Boolean  @default(true)
+  webp_quality           Int      @default(85) @db.TinyInt
+  enable_thumbnails      Boolean  @default(true)
+  thumbnail_width        Int      @default(200)
+  thumbnail_height       Int      @default(200)
+  strip_exif             Boolean  @default(true)
+  enable_pdf_thumbnails  Boolean  @default(true)
+  pdf_thumbnail_quality  Int      @default(80) @db.TinyInt
+  created_at             DateTime @default(now())
+  updated_at             DateTime @updatedAt
+  tenant                 tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+}
+
+enum audit_log_actor_type {
+  user
+  system
+  platform_admin
+  cron_job
+}
+
+enum audit_log_status {
+  success
+  failure
 }

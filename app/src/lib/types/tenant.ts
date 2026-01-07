@@ -50,6 +50,7 @@ export interface TenantProfile {
   // BRANDING
   logo_file_id: string | null;
   logo_file?: FileMetadata | null;
+  file_tenant_logo_file_idTofile?: FileMetadata | null;
   primary_brand_color: string | null;
   secondary_brand_color: string | null;
   accent_color: string | null;
@@ -171,6 +172,7 @@ export interface License {
   expiry_date: string; // ISO 8601 date string
   document_file_id: string | null;
   document_file?: FileMetadata | null;
+  file?: FileMetadata | null;
   license_type?: LicenseType;
   created_at: string;
   updated_at: string;
@@ -542,8 +544,10 @@ export interface SubscriptionPlan {
 export interface TenantStatistics {
   users: number;
   addresses: number;
+  tenant_address: number;
   licenses: number;
-  expiring_licenses: number;
+  tenant_license: number;
+  expiring_tenant_license: number;
   insurance_expiring_soon: {
     gl: boolean;
     wc: boolean;

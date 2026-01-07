@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { TenantLicenseService } from '../services/tenant-license.service';
@@ -101,13 +102,9 @@ export class LicenseExpiryCheckJob {
           tenant_id: tenantId,
           is_active: true,
         },
-        select: {
-          id: true,
-          email: true,
-          first_name: true,
-          last_name: true,
-          user_roles: {
-            select: {
+        include: {
+          user_role_user_role_user_idTouser: {
+            include: {
               role: {
                 select: {
                   name: true,
@@ -120,7 +117,7 @@ export class LicenseExpiryCheckJob {
 
       // Filter by role name (check if user has Owner or Admin role)
       const recipients = allUsers.filter(user =>
-        user.user_roles.some(ur => ['Owner', 'Admin'].includes(ur.role.name))
+        user.user_role_user_role_user_idTouser.some(ur => ['Owner', 'Admin'].includes(ur.role.name))
       );
 
       if (recipients.length === 0) {
@@ -152,16 +149,16 @@ export class LicenseExpiryCheckJob {
       // });
 
       // Create audit log entry
-      await this.prisma.auditLog.create({
+      await this.prisma.audit_log.create({
         data: {
-          tenant_id: tenantId,
+        id: randomBytes(16).toString('hex'),tenant_id: tenantId,
           actor_user_id: null, // System action
           actor_type: 'cron_job',
           action_type: 'ALERT',
           entity_type: 'TenantLicense',
           entity_id: '',
           description: `License expiry alert: ${licenses.length} license(s) expiring in ${daysUntilExpiry} days`,
-          metadata_json: {
+          metadata_json: JSON.stringify({
             type: 'license_expiry_alert',
             days_until_expiry: daysUntilExpiry,
             license_count: licenses.length,
@@ -170,7 +167,7 @@ export class LicenseExpiryCheckJob {
               license_number: l.license_number,
               expiry_date: l.expiry_date,
             })),
-          },
+          }),
         },
       });
     } catch (error) {

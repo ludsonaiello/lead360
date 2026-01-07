@@ -70,7 +70,7 @@ apiClient.interceptors.response.use(
     // Handle 401 Unauthorized - Token expired or invalid
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       // Avoid refresh for login/register/public endpoints
-      const publicEndpoints = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/forgot-password', '/auth/reset-password', '/auth/activate'];
+      const publicEndpoints = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/forgot-password', '/auth/reset-password', '/auth/activate', '/public/share'];
       const isPublicEndpoint = publicEndpoints.some((endpoint) =>
         originalRequest.url?.includes(endpoint)
       );

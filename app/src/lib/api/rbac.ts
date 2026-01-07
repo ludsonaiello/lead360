@@ -209,6 +209,13 @@ export const getAllRoles = async (params?: {
  */
 export const getRoleById = async (roleId: string): Promise<RoleWithPermissions> => {
   const { data } = await apiClient.get(`/admin/rbac/roles/${roleId}`);
+
+  // Normalize backend response: role_permission (singular) → role_permissions (plural)
+  if (data.role_permission && !data.role_permissions) {
+    data.role_permissions = data.role_permission;
+    delete data.role_permission;
+  }
+
   return data;
 };
 
