@@ -307,14 +307,18 @@ export class FilesService {
   /**
    * Find all files with filters and pagination
    */
-  async findAll(tenantId: string, query: FileQueryDto) {
+  async findAll(tenantId: string | null, query: FileQueryDto) {
     const { category, entity_type, entity_id, file_type, start_date, end_date, search, page = 1, limit = 20 } = query;
 
     // Build where clause
     const where: any = {
-      tenant_id: tenantId,
       is_trashed: false, // Don't show trashed files
     };
+
+    // Only filter by tenant_id if provided (null for platform admins viewing all files)
+    if (tenantId) {
+      where.tenant_id = tenantId;
+    }
 
     if (category) {
       where.category = category;
@@ -377,6 +381,7 @@ export class FilesService {
       take: limit,
       select: {
         id: true,
+        tenant_id: true,
         file_id: true,
         original_filename: true,
         mime_type: true,
@@ -394,7 +399,7 @@ export class FilesService {
     // Add URLs to files
     const filesWithUrls = await Promise.all(
       files.map(async (file) => {
-        const fileInfo = await this.fileStorage.getFileInfo(tenantId, file.file_id);
+        const fileInfo = await this.fileStorage.getFileInfo(file.tenant_id, file.file_id);
         return {
           ...file,
           url: fileInfo.url,
@@ -1254,5 +1259,387 @@ export class FilesService {
     });
 
     return zipBuffer;
+  }
+
+  // ============================================================================
+  // ADMIN METHODS (Platform Admin Only - Bypass Tenant Isolation)
+  // ============================================================================
+
+  /**
+   * List all files for Platform Admin (bypasses tenant isolation)
+   * Optionally filter by tenant_id if provided
+   */
+  async findAllForAdmin(query: any) {
+    const { tenant_id, page = 1, limit = 50, status, mime_type, search, category, entity_type, file_type } = query;
+
+    // Enforce max limit
+    const safeLimit = Math.min(limit, 100);
+
+    const where: any = {};
+
+    // Only filter by tenant if provided
+    if (tenant_id) {
+      where.tenant_id = tenant_id;
+    }
+
+    if (status === 'deleted') {
+      where.is_trashed = true;
+    } else if (status === 'active') {
+      where.is_trashed = false;
+    }
+
+    if (mime_type) {
+      where.mime_type = mime_type;
+    }
+
+    if (search) {
+      where.original_filename = { contains: search };
+    }
+
+    if (category) {
+      where.category = category;
+    }
+
+    if (entity_type) {
+      where.entity_type = entity_type;
+    }
+
+    // Filter by file type (image, document, other)
+    if (file_type) {
+      if (file_type === 'image') {
+        where.mime_type = {
+          startsWith: 'image/',
+        };
+      } else if (file_type === 'document') {
+        where.OR = [
+          { mime_type: { startsWith: 'application/pdf' } },
+          { mime_type: { contains: 'document' } },
+          { mime_type: { contains: 'word' } },
+          { mime_type: { contains: 'excel' } },
+          { mime_type: { contains: 'spreadsheet' } },
+          { mime_type: { startsWith: 'text/' } },
+        ];
+      } else if (file_type === 'other') {
+        where.NOT = {
+          OR: [
+            { mime_type: { startsWith: 'image/' } },
+            { mime_type: { startsWith: 'application/pdf' } },
+            { mime_type: { contains: 'document' } },
+            { mime_type: { contains: 'word' } },
+            { mime_type: { contains: 'excel' } },
+            { mime_type: { contains: 'spreadsheet' } },
+            { mime_type: { startsWith: 'text/' } },
+          ],
+        };
+      }
+    }
+
+    const [files, total] = await Promise.all([
+      this.prisma.file.findMany({
+        where,
+        include: {
+          tenant_file_tenant_idTotenant: {
+            select: {
+              id: true,
+              company_name: true,
+            },
+          },
+          user: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              email: true,
+            },
+          },
+        },
+        skip: (page - 1) * safeLimit,
+        take: safeLimit,
+        orderBy: { created_at: 'desc' },
+      }),
+      this.prisma.file.count({ where }),
+    ]);
+
+    return {
+      data: files,
+      pagination: {
+        current_page: page,
+        total_pages: Math.ceil(total / safeLimit),
+        total_count: total,
+        limit: safeLimit,
+      },
+    };
+  }
+
+  /**
+   * Get file by ID for Platform Admin (bypasses tenant isolation)
+   */
+  async getFileByIdForAdmin(fileId: string) {
+    const file = await this.prisma.file.findUnique({
+      where: { id: fileId },
+      include: {
+        tenant_file_tenant_idTotenant: {
+          select: {
+            id: true,
+            company_name: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            email: true,
+          },
+        },
+        file_share_links: {
+          select: {
+            id: true,
+            share_token: true,
+            password_hash: true,
+            expires_at: true,
+            download_count: true,
+            view_count: true,
+            is_active: true,
+            created_at: true,
+          },
+        },
+      },
+    });
+
+    if (!file) {
+      throw new NotFoundException(`File with ID ${fileId} not found`);
+    }
+
+    return file;
+  }
+
+  /**
+   * Delete file for Platform Admin (bypasses tenant isolation)
+   * Soft deletes from database and removes from storage
+   */
+  async deleteFileForAdmin(fileId: string, adminUserId: string) {
+    const file = await this.getFileByIdForAdmin(fileId);
+
+    if (file.is_trashed) {
+      throw new BadRequestException('File is already deleted');
+    }
+
+    // Try to delete from storage (best effort)
+    try {
+      // Delete main file
+      await this.fileStorage.deleteFileByPath(file.storage_path);
+
+      // Delete thumbnail if exists
+      if (file.has_thumbnail && file.thumbnail_path) {
+        await this.fileStorage.deleteFileByPath(file.thumbnail_path);
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to delete file from storage: ${error.message}`);
+      // Continue with database soft delete even if storage delete fails
+    }
+
+    // Soft delete in database
+    await this.prisma.file.update({
+      where: { id: fileId },
+      data: {
+        is_trashed: true,
+        trashed_at: new Date(),
+      },
+    });
+
+    // Audit log
+    await this.auditLogger.log({
+      tenant_id: file.tenant_id,
+      actor_user_id: adminUserId,
+      actor_type: 'user',
+      entity_type: 'file',
+      entity_id: fileId,
+      action_type: 'deleted',
+      description: `File "${file.original_filename}" deleted by Platform Admin`,
+      before_json: {
+        id: file.id,
+        original_filename: file.original_filename,
+        mime_type: file.mime_type,
+        size_bytes: file.size_bytes,
+        tenant_id: file.tenant_id,
+        tenant_name: file.tenant_file_tenant_idTotenant.company_name,
+      },
+      metadata_json: {
+        admin_action: true,
+        admin_user_id: adminUserId,
+        storage_provider: file.storage_provider,
+        category: file.category,
+      },
+    });
+
+    return { success: true, message: 'File deleted successfully' };
+  }
+
+  /**
+   * Get storage statistics by tenant for Platform Admin
+   * Shows storage consumption per tenant
+   */
+  async getStorageStatsByTenant() {
+    const stats = await this.prisma.file.groupBy({
+      by: ['tenant_id'],
+      where: {
+        is_trashed: false,
+      },
+      _count: {
+        id: true,
+      },
+      _sum: {
+        size_bytes: true,
+      },
+    });
+
+    // Fetch tenant names
+    const tenantIds = stats.map((s) => s.tenant_id);
+    const tenants = await this.prisma.tenant.findMany({
+      where: { id: { in: tenantIds } },
+      select: { id: true, company_name: true },
+    });
+
+    const tenantMap = new Map(tenants.map((t) => [t.id, t]));
+
+    return stats.map((stat) => {
+      const tenant = tenantMap.get(stat.tenant_id);
+      const fileCount = stat._count?.id || 0;
+      const totalBytes = stat._sum?.size_bytes || 0;
+      return {
+        tenant_id: stat.tenant_id,
+        tenant_name: tenant?.company_name || 'Unknown',
+        file_count: fileCount,
+        total_bytes: totalBytes,
+        total_mb: (totalBytes / (1024 * 1024)).toFixed(2),
+      };
+    }).sort((a, b) => b.total_bytes - a.total_bytes); // Sort by size descending
+  }
+
+  /**
+   * Get all share links for Platform Admin (bypasses tenant isolation)
+   * Optionally filter by tenant_id
+   */
+  async getAllShareLinksForAdmin(query: any) {
+    const { tenant_id, active_only = false, page = 1, limit = 50 } = query;
+
+    // Enforce max limit
+    const safeLimit = Math.min(limit, 100);
+
+    const where: any = {};
+
+    if (tenant_id) {
+      where.tenant_id = tenant_id;
+    }
+
+    if (active_only) {
+      where.is_active = true;
+      where.OR = [
+        { expires_at: null },
+        { expires_at: { gt: new Date() } },
+      ];
+    }
+
+    const [shareLinks, total] = await Promise.all([
+      this.prisma.file_share_link.findMany({
+        where,
+        include: {
+          file: {
+            select: {
+              id: true,
+              original_filename: true,
+              mime_type: true,
+              size_bytes: true,
+              category: true,
+            },
+          },
+          tenant: {
+            select: {
+              id: true,
+              company_name: true,
+            },
+          },
+          creator: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              email: true,
+            },
+          },
+        },
+        skip: (page - 1) * safeLimit,
+        take: safeLimit,
+        orderBy: { created_at: 'desc' },
+      }),
+      this.prisma.file_share_link.count({ where }),
+    ]);
+
+    return {
+      data: shareLinks,
+      pagination: {
+        current_page: page,
+        total_pages: Math.ceil(total / safeLimit),
+        total_count: total,
+        limit: safeLimit,
+      },
+    };
+  }
+
+  /**
+   * Get platform-wide file statistics for admin dashboard
+   */
+  async getFileStatsForAdmin() {
+    const [
+      totalFiles,
+      totalDeleted,
+      totalSize,
+      filesByCategory,
+      filesByMimeType,
+      orphanFiles,
+    ] = await Promise.all([
+      this.prisma.file.count({ where: { is_trashed: false } }),
+      this.prisma.file.count({ where: { is_trashed: true } }),
+      this.prisma.file.aggregate({
+        where: { is_trashed: false },
+        _sum: { size_bytes: true },
+      }),
+      this.prisma.file.groupBy({
+        by: ['category'],
+        where: { is_trashed: false },
+        _count: { id: true },
+      }),
+      this.prisma.file.groupBy({
+        by: ['mime_type'],
+        where: { is_trashed: false },
+        _count: { id: true },
+      }),
+      this.prisma.file.count({
+        where: {
+          is_trashed: false,
+          is_orphan: true,
+        },
+      }),
+    ]);
+
+    return {
+      total_files: totalFiles,
+      total_deleted: totalDeleted,
+      total_size_bytes: totalSize._sum.size_bytes || 0,
+      total_size_mb: ((totalSize._sum.size_bytes || 0) / (1024 * 1024)).toFixed(2),
+      orphan_files: orphanFiles,
+      by_category: filesByCategory.map((item) => ({
+        category: item.category,
+        count: item._count?.id || 0,
+      })),
+      by_mime_type: filesByMimeType
+        .map((item) => ({
+          mime_type: item.mime_type,
+          count: item._count?.id || 0,
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10), // Top 10 MIME types
+    };
   }
 }

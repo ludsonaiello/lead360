@@ -29,13 +29,14 @@ export function Tabs({ tabs, activeTab, onChange, className = '' }: TabsProps) {
     }
   }, [activeTab]);
 
-  // Read initial tab from URL hash on mount
+  // Read initial tab from URL hash on mount only
   useEffect(() => {
     const hash = window.location.hash.replace('#', '');
     if (hash && tabs.some(tab => tab.id === hash)) {
       onChange(hash);
     }
-  }, [tabs, onChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className={`border-b border-gray-200 dark:border-gray-700 ${className}`}>

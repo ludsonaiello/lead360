@@ -48,7 +48,7 @@ import { UpdateServiceDto } from './dto/update-service.dto';
  */
 @ApiTags('Admin - Platform Management')
 @ApiBearerAuth()
-@Controller('api/v1/admin')
+@Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('Platform Admin') // CRITICAL: Only Platform Admin can access
 export class AdminController {

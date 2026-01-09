@@ -1,7 +1,7 @@
 import { randomBytes } from 'crypto';
-import { Processor, Process } from '@nestjs/bull';
+import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
-import type { Job } from 'bull';
+import { Job } from 'bullmq';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { FilesService } from '../files.service';
 
@@ -13,20 +13,31 @@ import { FilesService } from '../files.service';
  * 3. Permanently delete trashed files (30+ days in trash)
  */
 @Processor('file-cleanup')
-export class FileCleanupProcessor {
+export class FileCleanupProcessor extends WorkerHost {
   private readonly logger = new Logger(FileCleanupProcessor.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly filesService: FilesService,
-  ) {}
+  ) {
+    super();
+  }
+
+  async process(job: Job): Promise<any> {
+    // Route to appropriate handler based on job name
+    if (job.name === 'daily-cleanup') {
+      return this.handleDailyCleanup(job);
+    } else if (job.name === 'manual-cleanup') {
+      return this.handleManualCleanup(job);
+    }
+    throw new Error(`Unknown job type: ${job.name}`);
+  }
 
   /**
    * Daily cleanup job - runs at midnight
    * Processes all tenants to maintain file hygiene
    */
-  @Process('daily-cleanup')
-  async handleDailyCleanup(job: Job) {
+  private async handleDailyCleanup(job: Job) {
     this.logger.log('Starting daily file cleanup job');
 
     try {
@@ -134,8 +145,7 @@ export class FileCleanupProcessor {
    * Manual cleanup job - can be triggered on-demand
    * Processes a specific tenant
    */
-  @Process('manual-cleanup')
-  async handleManualCleanup(job: Job<{ tenantId: string; userId: string }>) {
+  private async handleManualCleanup(job: Job<{ tenantId: string; userId: string }, any, string>) {
     const { tenantId, userId } = job.data;
 
     this.logger.log(`Starting manual cleanup for tenant ${tenantId}`);

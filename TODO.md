@@ -275,7 +275,7 @@
 
 ### 0.8 File Storage Service
 
-**Status**: `Not Started`
+**Status**: `Completed`
 
 #### Documentation
 

@@ -33,6 +33,11 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('User not authenticated');
     }
 
+    // If "Platform Admin" is required and user is platform admin, grant access
+    if (requiredRoles.includes('Platform Admin') && user.is_platform_admin) {
+      return true;
+    }
+
     // User roles can be either array of strings or array of role objects
     const userRoles = user.roles || [];
 

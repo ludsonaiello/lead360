@@ -22,6 +22,7 @@ import {
   X,
   ScrollText,
   Image,
+  Cog,
 } from 'lucide-react';
 import ProtectedMenuItem from '@/components/rbac/shared/ProtectedMenuItem';
 
@@ -54,6 +55,7 @@ const adminNavigation: NavItem[] = [
   { name: 'Permissions', href: '/admin/rbac/permissions', icon: Key, permission: 'rbac:view' },
   { name: 'Modules', href: '/admin/rbac/modules', icon: Layers, permission: 'rbac:view' },
   { name: 'Templates', href: '/admin/rbac/templates', icon: LayoutTemplate, permission: 'rbac:view' },
+  { name: 'Background Jobs', href: '/admin/jobs', icon: Cog, permission: 'platform_admin:view_all_tenants' },
   { name: 'All Media', href: '/admin/files', icon: Image, permission: 'platform_admin:view_all_tenants' },
   { name: 'System Audit Log', href: '/admin/audit-logs', icon: ScrollText, permission: 'platform_admin:view_all_tenants' },
 ];

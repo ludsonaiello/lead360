@@ -1,5 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
-import { BullModule } from '@nestjs/bull';
+import { BullModule } from '@nestjs/bullmq';
 import { PrismaModule } from '../../core/database/prisma.module';
 import { RBACModule } from '../rbac/rbac.module';
 

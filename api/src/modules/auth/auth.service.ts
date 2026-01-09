@@ -25,6 +25,7 @@ import {
 } from './dto';
 import { JwtPayload } from './entities/jwt-payload.entity';
 import { AuditLoggerService } from '../audit/services/audit-logger.service';
+import { JobQueueService } from '../jobs/services/job-queue.service';
 
 @Injectable()
 export class AuthService {
@@ -40,6 +41,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly auditLogger: AuditLoggerService,
+    private readonly jobQueue: JobQueueService,
   ) {}
 
   /**
@@ -186,15 +188,17 @@ export class AuthService {
       return { user, tenant };
     });
 
-    // TODO: Queue activation email via BullMQ
-    // await this.emailQueue.add('send-email', {
-    //   to: result.user.email,
-    //   template: 'activation',
-    //   data: {
-    //     first_name: result.user.first_name,
-    //     activation_link: `${this.configService.get('APP_URL')}/activate?token=${activationToken}`,
-    //   },
-    // });
+    // Queue activation email
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://app.lead360.app';
+    await this.jobQueue.queueEmail({
+      to: result.user.email,
+      templateKey: 'account-activation',
+      variables: {
+        user_name: result.user.first_name,
+        activation_link: `${frontendUrl}/activate?token=${activationToken}`,
+      },
+      tenantId: result.tenant.id,
+    });
 
     return {
       user: {
@@ -493,15 +497,17 @@ export class AuthService {
       status: 'success',
     });
 
-    // TODO: Queue password reset email via BullMQ
-    // await this.emailQueue.add('send-email', {
-    //   to: user.email,
-    //   template: 'password-reset',
-    //   data: {
-    //     first_name: user.first_name,
-    //     reset_link: `${this.configService.get('APP_URL')}/reset-password?token=${resetToken}`,
-    //   },
-    // });
+    // Queue password reset email
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://app.lead360.app';
+    await this.jobQueue.queueEmail({
+      to: user.email,
+      templateKey: 'password-reset',
+      variables: {
+        user_name: user.first_name,
+        reset_link: `${frontendUrl}/reset-password?token=${resetToken}`,
+      },
+      tenantId: user.tenant_id ?? undefined,
+    });
 
     return { message: successMessage };
   }
@@ -657,7 +663,17 @@ export class AuthService {
       status: 'success',
     });
 
-    // TODO: Queue activation email via BullMQ
+    // Queue activation email
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://app.lead360.app';
+    await this.jobQueue.queueEmail({
+      to: user.email,
+      templateKey: 'account-activation',
+      variables: {
+        user_name: user.first_name,
+        activation_link: `${frontendUrl}/activate?token=${activationToken}`,
+      },
+      tenantId: user.tenant_id ?? undefined,
+    });
 
     return { message: successMessage };
   }

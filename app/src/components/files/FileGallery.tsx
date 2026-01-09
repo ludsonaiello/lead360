@@ -26,6 +26,16 @@ interface FileGalleryProps {
   showBulkActions?: boolean;
   showUploadButton?: boolean;
   onUploadClick?: () => void;
+  customFetchFiles?: (filters: FileFiltersType) => Promise<{
+    data: File[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }>;
+  customDeleteFile?: (fileId: string) => Promise<void>;
 }
 
 export interface FileGalleryRef {
@@ -40,6 +50,8 @@ export const FileGallery = forwardRef<FileGalleryRef, FileGalleryProps>(
       showBulkActions = true,
       showUploadButton = true,
       onUploadClick,
+      customFetchFiles,
+      customDeleteFile,
     },
     ref
   ) => {
@@ -62,6 +74,7 @@ export const FileGallery = forwardRef<FileGalleryRef, FileGalleryProps>(
     } = useFileGallery({
       initialFilters,
       autoLoad: true,
+      customFetchFiles,
     });
 
     const [selectedFileForDetail, setSelectedFileForDetail] = useState<File | null>(null);
@@ -93,7 +106,12 @@ export const FileGallery = forwardRef<FileGalleryRef, FileGalleryProps>(
     if (!confirm(`Delete ${file.original_filename}?`)) return;
 
     try {
-      await deleteFile(file.file_id);
+      // Use custom delete function if provided, otherwise use default
+      if (customDeleteFile) {
+        await customDeleteFile(file.file_id);
+      } else {
+        await deleteFile(file.file_id);
+      }
       toast.success('File deleted successfully');
       refresh();
     } catch (error: any) {

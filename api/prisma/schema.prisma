@@ -641,3 +641,112 @@ enum audit_log_status {
   success
   failure
 }
+
+model job {
+  id            String    @id @default(uuid()) @db.VarChar(36)
+  job_type      String    @db.VarChar(100)
+  status        String    @db.VarChar(50)
+  tenant_id     String?   @db.VarChar(36)
+  payload       Json?
+  result        Json?
+  error_message String?   @db.Text
+  attempts      Int       @default(0)
+  max_retries   Int       @default(3)
+  created_at    DateTime  @default(now())
+  started_at    DateTime?
+  completed_at  DateTime?
+  failed_at     DateTime?
+  duration_ms   Int?
+
+  job_log       job_log[]
+  email_queue   email_queue?
+
+  @@index([tenant_id, status, created_at])
+  @@index([job_type, status])
+  @@index([status, created_at])
+}
+
+model job_log {
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  job_id     String   @db.VarChar(36)
+  timestamp  DateTime @default(now())
+  level      String   @db.VarChar(20)
+  message    String   @db.Text
+  metadata   Json?
+
+  job        job      @relation(fields: [job_id], references: [id], onDelete: Cascade)
+
+  @@index([job_id, timestamp])
+}
+
+model scheduled_job {
+  id              String    @id @default(uuid()) @db.VarChar(36)
+  job_type        String    @unique @db.VarChar(100)
+  name            String    @db.VarChar(200)
+  description     String?   @db.Text
+  schedule        String    @db.VarChar(100)
+  timezone        String    @db.VarChar(100) @default("America/New_York")
+  is_enabled      Boolean   @default(true)
+  last_run_at     DateTime?
+  next_run_at     DateTime?
+  max_retries     Int       @default(3)
+  timeout_seconds Int       @default(300)
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  @@index([is_enabled, next_run_at])
+  @@index([job_type])
+}
+
+model platform_email_config {
+  id                String    @id @default(uuid()) @db.VarChar(36)
+  smtp_host         String    @db.VarChar(255)
+  smtp_port         Int
+  smtp_encryption   String    @db.VarChar(20) @default("tls")
+  smtp_username     String    @db.VarChar(255)
+  smtp_password     String    @db.Text
+  from_email        String    @db.VarChar(255)
+  from_name         String    @db.VarChar(255)
+  is_verified       Boolean   @default(false)
+  updated_at        DateTime  @updatedAt
+  updated_by_user_id String?  @db.VarChar(36)
+}
+
+model email_template {
+  id              String    @id @default(uuid()) @db.VarChar(36)
+  template_key    String    @unique @db.VarChar(100)
+  subject         String    @db.VarChar(500)
+  html_body       String    @db.Text
+  text_body       String?   @db.Text
+  variables       Json
+  variable_schema Json?
+  description     String?   @db.Text
+  is_system       Boolean   @default(false)
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  @@index([template_key])
+  @@index([is_system])
+}
+
+model email_queue {
+  id                String    @id @default(uuid()) @db.VarChar(36)
+  job_id            String    @unique @db.VarChar(36)
+  template_key      String?   @db.VarChar(100)
+  to_email          String    @db.VarChar(255)
+  cc_emails         Json?
+  bcc_emails        Json?
+  subject           String    @db.VarChar(500)
+  html_body         String    @db.Text
+  text_body         String?   @db.Text
+  status            String    @db.VarChar(50) @default("pending")
+  smtp_message_id   String?   @db.VarChar(255)
+  error_message     String?   @db.Text
+  sent_at           DateTime?
+  created_at        DateTime  @default(now())
+
+  job               job       @relation(fields: [job_id], references: [id], onDelete: Cascade)
+
+  @@index([status, created_at])
+  @@index([job_id])
+}

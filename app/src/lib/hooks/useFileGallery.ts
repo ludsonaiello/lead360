@@ -14,6 +14,15 @@ interface UseFileGalleryOptions {
   initialFilters?: Partial<FileFilters>;
   initialViewMode?: ViewMode;
   autoLoad?: boolean;
+  customFetchFiles?: (filters: FileFilters) => Promise<{
+    data: File[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }>;
 }
 
 interface UseFileGalleryReturn {
@@ -40,7 +49,7 @@ interface UseFileGalleryReturn {
 }
 
 export function useFileGallery(options: UseFileGalleryOptions = {}): UseFileGalleryReturn {
-  const { initialFilters = {}, initialViewMode = 'grid', autoLoad = true } = options;
+  const { initialFilters = {}, initialViewMode = 'grid', autoLoad = true, customFetchFiles } = options;
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -83,7 +92,9 @@ export function useFileGallery(options: UseFileGalleryOptions = {}): UseFileGall
       setIsLoading(true);
       setError(null);
 
-      const response = await getFiles(filters);
+      // Use custom fetch if provided, otherwise use default
+      const fetchFunction = customFetchFiles || getFiles;
+      const response = await fetchFunction(filters);
 
       setFiles(response.data);
       setPagination(response.pagination);
@@ -93,7 +104,7 @@ export function useFileGallery(options: UseFileGalleryOptions = {}): UseFileGall
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, [filters, customFetchFiles]);
 
   // Auto-load files on mount and when filters change
   useEffect(() => {

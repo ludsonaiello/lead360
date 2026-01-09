@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { BullModule } from '@nestjs/bull';
+import { BullModule } from '@nestjs/bullmq';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './core/database';
 import { FileStorageModule } from './core/file-storage';
@@ -11,6 +11,7 @@ import { TenantModule } from './modules/tenant/tenant.module';
 import { FilesModule } from './modules/files/files.module';
 import { RBACModule } from './modules/rbac/rbac.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { JobsModule } from './modules/jobs/jobs.module';
 
 @Module({
   imports: [
@@ -22,7 +23,7 @@ import { AuditModule } from './modules/audit/audit.module';
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        redis: {
+        connection: {
           host: configService.get('REDIS_HOST') || '127.0.0.1',
           port: configService.get('REDIS_PORT') || 6379,
           password: configService.get('REDIS_PASSWORD'),
@@ -37,6 +38,7 @@ import { AuditModule } from './modules/audit/audit.module';
     FilesModule, // General file management with orphan tracking
     RBACModule, // Role-Based Access Control (RBAC) management
     AuditModule, // Audit logging with async queue and export functionality
+    JobsModule, // Background jobs and email services
   ],
   controllers: [HealthController],
   providers: [

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { InjectQueue } from '@nestjs/bull';
-import type { Queue } from 'bull';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 /**
  * Scheduler for automated file cleanup jobs
@@ -30,7 +30,10 @@ export class FileCleanupScheduler {
           type: 'exponential',
           delay: 60000, // Start with 1 minute delay
         },
-        removeOnComplete: true, // Remove completed jobs to prevent queue bloat
+        removeOnComplete: {
+          age: 86400, // Keep completed jobs for 24 hours
+          count: 1000,
+        },
         removeOnFail: false, // Keep failed jobs for debugging
       });
 
@@ -57,7 +60,10 @@ export class FileCleanupScheduler {
           type: 'fixed',
           delay: 30000, // 30 seconds
         },
-        removeOnComplete: true,
+        removeOnComplete: {
+          age: 3600, // Keep completed jobs for 1 hour
+          count: 100,
+        },
         removeOnFail: false,
       });
 

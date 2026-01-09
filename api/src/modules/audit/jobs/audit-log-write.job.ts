@@ -1,18 +1,19 @@
 import { randomBytes } from 'crypto';
-import { Processor, Process } from '@nestjs/bull';
+import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
-import type { Job } from 'bull';
+import { Job } from 'bullmq';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { CreateAuditLogDto } from '../dto';
 
 @Processor('audit-log-write')
-export class AuditLogWriteJob {
+export class AuditLogWriteJob extends WorkerHost {
   private readonly logger = new Logger(AuditLogWriteJob.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    super();
+  }
 
-  @Process('write-log')
-  async handleWriteLog(job: Job<CreateAuditLogDto>) {
+  async process(job: Job<CreateAuditLogDto, any, string>): Promise<any> {
     const logData = job.data;
 
     this.logger.debug(`Processing audit log write: ${logData.description}`);

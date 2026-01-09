@@ -1,7 +1,7 @@
 import { randomBytes } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bull';
-import type { Queue } from 'bull';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { CreateAuditLogDto } from '../dto';
 
@@ -78,7 +78,10 @@ export class AuditLoggerService {
             type: 'exponential',
             delay: 1000, // Reduced from 2000ms to speed up retries
           },
-          removeOnComplete: true,
+          removeOnComplete: {
+            age: 3600, // Keep completed jobs for 1 hour
+            count: 1000,
+          },
           removeOnFail: false,
         });
       } else {
