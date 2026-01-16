@@ -48,6 +48,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       const userData = await authApi.getProfile();
+
+      console.log('[AUTH] User profile loaded', {
+        userId: userData.id,
+        email: userData.email,
+        tenantId: userData.tenant_id,
+        roles: userData.roles,
+        isPlatformAdmin: userData.is_platform_admin,
+        timestamp: new Date().toISOString(),
+      });
+
       setUser(userData);
     } catch (error) {
       console.error('[AuthContext] Failed to fetch user:', error);

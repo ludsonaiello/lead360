@@ -188,12 +188,12 @@ export function EmailTemplateList({
               </p>
 
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => onPreview(template)} className="flex-1">
+                <Button variant="secondary" size="sm" onClick={() => onPreview(template)} className="flex-1">
                   <Eye className="w-3.5 h-3.5 mr-1" />
                   Preview
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   onClick={() => onEdit(template)}
                   className="flex-1"
@@ -203,7 +203,7 @@ export function EmailTemplateList({
                 </Button>
                 {!template.is_system && (
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     onClick={() => handleDelete(template)}
                     className="text-red-600 dark:text-red-400"

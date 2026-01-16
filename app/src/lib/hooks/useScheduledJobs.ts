@@ -97,7 +97,7 @@ export function useScheduledJobs() {
   const updateSchedule = useCallback(
     async (id: string, data: Partial<ScheduledJob>) => {
       try {
-        await updateScheduledJob(id, data);
+        await updateScheduledJob(id, data as any);
         toast.success('Schedule updated successfully');
         await fetchSchedules();
       } catch (err: any) {

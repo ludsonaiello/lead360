@@ -58,9 +58,25 @@ export class TenantResolutionMiddleware implements NestMiddleware {
       const host = req.headers.host || '';
       const subdomain = this.extractSubdomain(host);
 
-      // If no subdomain or special subdomain, try to get tenant_id from JWT
+      // If no subdomain or special subdomain, try to get tenant_id from JWT or header
       if (!subdomain || this.SPECIAL_SUBDOMAINS.includes(subdomain)) {
-        // For localhost/IP access (e.g., tests, development), extract tenant_id from JWT token
+        // PRIORITY 1: Check X-Impersonate-Tenant-Id header (for Platform Admins viewing tenant data)
+        const impersonateTenantId = req.headers['x-impersonate-tenant-id'] as string;
+
+        if (impersonateTenantId) {
+          // Verify user is Platform Admin by extracting JWT payload
+          const jwtPayload = this.extractJwtPayload(req);
+          if (jwtPayload && jwtPayload.is_platform_admin) {
+            req.tenant_id = impersonateTenantId;
+            // Load full tenant object
+            const tenant = await this.tenantService.findById(impersonateTenantId);
+            req.tenant = tenant;
+            console.log(`[TenantResolution] Admin ${jwtPayload.email} viewing tenant ${impersonateTenantId}`);
+            return next();
+          }
+        }
+
+        // PRIORITY 2: For localhost/IP access (e.g., tests, development), extract tenant_id from JWT token
         const tenantIdFromJwt = this.extractTenantIdFromJwt(req);
 
         if (tenantIdFromJwt) {
@@ -133,10 +149,10 @@ export class TenantResolutionMiddleware implements NestMiddleware {
   }
 
   /**
-   * Extract tenant_id from JWT token in Authorization header
-   * Returns tenant_id or null if token is invalid/missing
+   * Extract full JWT payload from Authorization header
+   * Returns payload or null if token is invalid/missing
    */
-  private extractTenantIdFromJwt(req: Request): string | null {
+  private extractJwtPayload(req: Request): JwtPayload | null {
     try {
       // Extract Bearer token from Authorization header
       const authHeader = req.headers.authorization;
@@ -150,12 +166,21 @@ export class TenantResolutionMiddleware implements NestMiddleware {
       const secret = this.configService.get<string>('JWT_SECRET');
       const payload = this.jwtService.verify<JwtPayload>(token, { secret });
 
-      // Return tenant_id from payload (can be null for Platform Admins)
-      return payload.tenant_id || null;
+      return payload;
     } catch (error) {
       // Token invalid, expired, or malformed - return null
       return null;
     }
+  }
+
+  /**
+   * Extract tenant_id from JWT token in Authorization header
+   * Returns tenant_id or null if token is invalid/missing
+   */
+  private extractTenantIdFromJwt(req: Request): string | null {
+    const payload = this.extractJwtPayload(req);
+    // Return tenant_id from payload (can be null for Platform Admins)
+    return payload?.tenant_id || null;
   }
 
   /**

@@ -19,10 +19,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: secret,
+      passReqToCallback: true, // Enable access to request object
     });
   }
 
-  async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
+  async validate(req: any, payload: JwtPayload): Promise<AuthenticatedUser> {
     // Verify user still exists and is active
     const user = await this.prisma.user.findFirst({
       where: {
@@ -36,10 +37,13 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('User not found or inactive');
     }
 
+    // Check if tenant_id was overridden by middleware (for Platform Admin impersonation)
+    const tenant_id = req.tenant_id || payload.tenant_id;
+
     return {
       id: payload.sub,
       email: payload.email,
-      tenant_id: payload.tenant_id,
+      tenant_id: tenant_id, // Use overridden tenant_id if present
       roles: payload.roles,
       is_platform_admin: payload.is_platform_admin,
     };

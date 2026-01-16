@@ -71,6 +71,7 @@ import { InsuranceExpiryCheckJob } from './jobs/insurance-expiry-check.job';
     TenantServiceAreaService,
     SubscriptionService,
     LicenseTypeService,
+    ServiceService,
     TenantResolutionMiddleware,
     FeatureFlagGuard,
   ],

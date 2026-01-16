@@ -10,7 +10,7 @@ import { Modal, ModalContent, ModalActions } from '@/components/ui/Modal';
 import { Tabs } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { JobDetailModal as JobDetail } from '@/lib/types/jobs';
+import { JobDetail } from '@/lib/types/jobs';
 import { getJobDetail, retryJob, deleteJob } from '@/lib/api/jobs';
 import { JobStatusBadge } from './JobStatusBadge';
 import {
@@ -237,7 +237,7 @@ export function JobDetailModal({ isOpen, onClose, jobId, onJobUpdated }: JobDeta
         <div className="text-center py-12">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
           <p className="text-red-600 dark:text-red-400">{error}</p>
-          <Button variant="outline" onClick={fetchJobDetail} className="mt-4">
+          <Button variant="secondary" onClick={fetchJobDetail} className="mt-4">
             Retry
           </Button>
         </div>
@@ -254,7 +254,7 @@ export function JobDetailModal({ isOpen, onClose, jobId, onJobUpdated }: JobDeta
             {job.status === 'failed' && (
               <>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   onClick={handleRetry}
                   disabled={isRetrying}
                 >
@@ -262,7 +262,7 @@ export function JobDetailModal({ isOpen, onClose, jobId, onJobUpdated }: JobDeta
                   Retry
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   onClick={handleDelete}
                   disabled={isDeleting}
                   className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"

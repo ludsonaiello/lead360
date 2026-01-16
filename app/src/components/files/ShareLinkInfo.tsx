@@ -58,10 +58,10 @@ export function ShareLinkInfo({
         {/* Status Badges */}
         <div className="flex items-center gap-2">
           {isExpired && (
-            <Badge variant="red" label="Expired" />
+            <Badge variant="danger" label="Expired" />
           )}
           {maxReached && !isExpired && (
-            <Badge variant="red" label="Max Downloads" />
+            <Badge variant="danger" label="Max Downloads" />
           )}
           {!isExpired && !maxReached && shareLink.is_active && (
             <Badge variant="green" label="Active" />

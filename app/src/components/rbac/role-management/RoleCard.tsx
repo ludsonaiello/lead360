@@ -52,8 +52,8 @@ export default function RoleCard({
   // Handle both role_permissions (plural) and role_permission (singular) from backend
   const rolePerms = role.role_permissions || (role as any).role_permission;
   const permissionCount = rolePerms?.length || 0;
-  // Backend returns user_role (singular) not user_roles (plural)
-  const userCount = role._count?.user_role || role._count?.user_roles || 0;
+  // Backend returns user_roles (plural) not user_role (singular)
+  const userCount = (role._count as any)?.user_role || role._count?.user_roles || 0;
 
   return (
     <Card className="p-6 hover:shadow-lg transition-shadow">

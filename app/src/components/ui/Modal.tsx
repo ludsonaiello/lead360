@@ -63,7 +63,7 @@ export function Modal({
             >
               <Dialog.Panel
                 className={`
-                  w-full ${sizeClasses[size]} transform overflow-hidden rounded-lg
+                  w-full ${sizeClasses[size]} transform overflow-visible rounded-lg
                   bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl
                   border border-gray-200 dark:border-gray-700 transition-all
                 `}

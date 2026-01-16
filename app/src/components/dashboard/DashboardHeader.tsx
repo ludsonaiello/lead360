@@ -10,6 +10,7 @@ import { Menu, Search, Bell, User, LogOut, Settings, ChevronDown, Sun, Moon } fr
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
 import Link from 'next/link';
+import AlertsBell from '@/components/admin/alerts/AlertsBell';
 
 interface DashboardHeaderProps {
   onMenuClick: () => void;
@@ -64,37 +65,8 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
             )}
           </button>
 
-          {/* Notifications */}
-          <div className="relative">
-            <button
-              onClick={() => setNotificationsOpen(!notificationsOpen)}
-              className="relative p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <Bell className="h-6 w-6" />
-              {/* Notification badge */}
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-danger-500 ring-2 ring-white dark:ring-gray-800" />
-            </button>
-
-            {/* Notifications dropdown */}
-            {notificationsOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setNotificationsOpen(false)}
-                />
-                <div className="absolute right-0 z-20 mt-2 w-80 origin-top-right rounded-lg bg-white dark:bg-gray-800 shadow-soft-lg ring-1 ring-black/5 dark:ring-gray-700">
-                  <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">Notifications</h3>
-                  </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    <div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                      No new notifications
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+          {/* Admin Alerts (only for platform admins) */}
+          {user?.is_platform_admin && <AlertsBell />}
 
           {/* Profile dropdown */}
           <div className="relative">

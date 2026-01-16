@@ -174,14 +174,14 @@ export function ScheduleEditor({ isOpen, onClose, schedule, onSave }: ScheduleEd
             </label>
             <div className="flex gap-2 mb-3">
               <Button
-                variant={mode === 'preset' ? 'primary' : 'outline'}
+                variant={mode === 'preset' ? 'primary' : 'secondary'}
                 size="sm"
                 onClick={() => setMode('preset')}
               >
                 Preset Schedule
               </Button>
               <Button
-                variant={mode === 'custom' ? 'primary' : 'outline'}
+                variant={mode === 'custom' ? 'primary' : 'secondary'}
                 size="sm"
                 onClick={() => setMode('custom')}
               >
@@ -193,7 +193,7 @@ export function ScheduleEditor({ isOpen, onClose, schedule, onSave }: ScheduleEd
             {mode === 'preset' && (
               <Select
                 value={preset}
-                onChange={(e) => handlePresetChange(e.target.value)}
+                onChange={(value) => handlePresetChange(value)}
                 options={presetOptions}
               />
             )}
@@ -231,7 +231,7 @@ export function ScheduleEditor({ isOpen, onClose, schedule, onSave }: ScheduleEd
           <Select
             label="Timezone"
             value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
+            onChange={(value) => setTimezone(value)}
             options={timezoneOptions}
           />
 
@@ -246,7 +246,7 @@ export function ScheduleEditor({ isOpen, onClose, schedule, onSave }: ScheduleEd
               </p>
             </div>
             <ToggleSwitch
-              checked={isEnabled}
+              enabled={isEnabled}
               onChange={setIsEnabled}
               label=""
             />

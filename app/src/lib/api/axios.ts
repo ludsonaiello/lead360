@@ -38,7 +38,7 @@ function onTokenRefreshed(token: string) {
 }
 
 /**
- * Request interceptor - Add authorization header
+ * Request interceptor - Add authorization header and impersonation context
  */
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
@@ -46,6 +46,45 @@ apiClient.interceptors.request.use(
 
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // Add impersonation headers if in impersonation mode
+    if (typeof window !== 'undefined') {
+      const impersonatedTenantId = sessionStorage.getItem('impersonatedTenantId');
+      const impersonatedTenantName = sessionStorage.getItem('impersonatedTenantName');
+
+      if (impersonatedTenantId && config.headers) {
+        config.headers['X-Impersonate-Tenant-Id'] = impersonatedTenantId;
+
+        // Log impersonation requests in development
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[API REQUEST - IMPERSONATING]', {
+            url: `${config.baseURL}${config.url}`,
+            method: config.method?.toUpperCase(),
+            impersonatedTenantId,
+            impersonatedTenantName,
+            headers: {
+              Authorization: config.headers.Authorization ? `Bearer ${token?.substring(0, 20)}...` : 'None',
+              'X-Impersonate-Tenant-Id': impersonatedTenantId,
+            },
+            params: config.params,
+            data: config.data,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      } else if (process.env.NODE_ENV === 'development') {
+        // Log normal (non-impersonation) requests
+        console.log('[API REQUEST - NORMAL]', {
+          url: `${config.baseURL}${config.url}`,
+          method: config.method?.toUpperCase(),
+          headers: {
+            Authorization: config.headers?.Authorization ? `Bearer ${token?.substring(0, 20)}...` : 'None',
+          },
+          params: config.params,
+          data: config.data,
+          timestamp: new Date().toISOString(),
+        });
+      }
     }
 
     return config;
@@ -60,6 +99,20 @@ apiClient.interceptors.request.use(
  */
 apiClient.interceptors.response.use(
   (response) => {
+    // Log successful responses in development when impersonating
+    if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+      const impersonatedTenantId = sessionStorage.getItem('impersonatedTenantId');
+      if (impersonatedTenantId) {
+        console.log('[API RESPONSE - IMPERSONATING]', {
+          url: response.config.url,
+          method: response.config.method?.toUpperCase(),
+          status: response.status,
+          impersonatedTenantId,
+          dataPreview: response.data ? JSON.stringify(response.data).substring(0, 200) + '...' : 'No data',
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
     return response;
   },
   async (error: AxiosError) => {

@@ -122,6 +122,27 @@ export class FilesController {
     return this.filesService.cleanupTrashedFiles(req.user.tenant_id, req.user.id);
   }
 
+  @Get('storage/usage')
+  @ApiOperation({ summary: 'Get tenant storage usage statistics' })
+  @ApiResponse({
+    status: 200,
+    description: 'Storage usage retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        current_usage_bytes: { type: 'number', example: 157286400 },
+        current_usage_gb: { type: 'number', example: 0.15 },
+        max_storage_gb: { type: 'number', example: 50, nullable: true },
+        percentage_used: { type: 'number', example: 0.3, nullable: true },
+        is_unlimited: { type: 'boolean', example: false },
+        file_count: { type: 'number', example: 42 },
+      },
+    },
+  })
+  async getStorageUsage(@Request() req) {
+    return this.filesService.getTenantStorageUsage(req.user.tenant_id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a single file by ID' })
   @ApiParam({ name: 'id', description: 'File ID (file_id)' })

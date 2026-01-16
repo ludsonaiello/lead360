@@ -4,6 +4,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -81,9 +82,9 @@ export class AdminController {
 
     if (search) {
       where.OR = [
-        { company_name: { contains: search, mode: 'insensitive' } },
-        { subdomain: { contains: search, mode: 'insensitive' } },
-        { legal_business_name: { contains: search, mode: 'insensitive' } },
+        { company_name: { contains: search } },
+        { subdomain: { contains: search } },
+        { legal_business_name: { contains: search } },
       ];
     }
 
@@ -260,10 +261,26 @@ export class AdminController {
 
   @Get('subscription-plans/:id/tenants')
   @ApiOperation({ summary: 'Get tenants using a subscription plan (admin-only)' })
-  @ApiParam({ name: 'id', description: 'Subscription plan ID' })
+  @ApiParam({ name: 'id', description: 'Subscription plan ID (UUID)' })
   @ApiResponse({ status: 200, description: 'Tenants retrieved successfully' })
   async getTenantsUsingPlan(@Param('id', ParseUUIDPipe) planId: string) {
     return this.subscriptionService.getTenantsUsingPlan(planId);
+  }
+
+  @Delete('subscription-plans/:id')
+  @ApiOperation({
+    summary: 'Delete subscription plan (admin-only)',
+    description: 'Delete a subscription plan. Cannot delete if tenants are currently using it.',
+  })
+  @ApiParam({ name: 'id', description: 'Subscription plan ID (UUID)' })
+  @ApiResponse({ status: 200, description: 'Subscription plan deleted successfully' })
+  @ApiResponse({ status: 400, description: 'Cannot delete plan - tenants are using it' })
+  @ApiResponse({ status: 404, description: 'Subscription plan not found' })
+  async deleteSubscriptionPlan(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) planId: string,
+  ) {
+    return this.subscriptionService.deletePlan(planId, req.user.id);
   }
 
   // ========== DASHBOARD & ANALYTICS ==========

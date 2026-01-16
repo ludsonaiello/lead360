@@ -1,4 +1,4 @@
-import { randomBytes } from 'crypto';
+import { randomUUID } from 'crypto';
 import {
   Injectable,
   NotFoundException,
@@ -86,7 +86,7 @@ export class SubscriptionService {
 
       return await tx.subscription_plan.create({
         data: {
-          id: randomBytes(16).toString('hex'),
+          id: randomUUID(),
           updated_at: new Date(),
           ...createDto,
           feature_flags: JSON.stringify(createDto.feature_flags),
@@ -140,9 +140,18 @@ export class SubscriptionService {
         });
       }
 
+      // Prepare update data with feature_flags converted to JSON string if present
+      const updateData = {
+        ...updateDto,
+        ...(updateDto.feature_flags && {
+          feature_flags: JSON.stringify(updateDto.feature_flags),
+        }),
+        updated_at: new Date(),
+      };
+
       return await tx.subscription_plan.update({
         where: { id: planId } as any,
-        data: updateDto,
+        data: updateData,
       });
     });
 
@@ -314,8 +323,11 @@ export class SubscriptionService {
         id: true,
         subdomain: true,
         company_name: true,
+        subscription_plan_id: true,
         subscription_status: true,
         trial_end_date: true,
+        billing_cycle: true,
+        next_billing_date: true,
         is_active: true,
         created_at: true,
       } as any,

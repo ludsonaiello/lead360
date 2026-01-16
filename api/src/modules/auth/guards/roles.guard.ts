@@ -38,6 +38,11 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
+    // Platform admins bypass ALL tenant-level role checks
+    if (user.is_platform_admin) {
+      return true;
+    }
+
     // User roles can be either array of strings or array of role objects
     const userRoles = user.roles || [];
 

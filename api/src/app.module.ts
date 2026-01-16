@@ -12,6 +12,7 @@ import { FilesModule } from './modules/files/files.module';
 import { RBACModule } from './modules/rbac/rbac.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { JobsModule } from './modules/jobs/jobs.module';
     PrismaModule,
     FileStorageModule, // File upload and storage service
     AuthModule,
+    AdminModule, // Platform Admin Dashboard & Management (MUST be before TenantModule to avoid route conflicts)
     TenantModule, // Tenant management with multi-tenant isolation
     FilesModule, // General file management with orphan tracking
     RBACModule, // Role-Based Access Control (RBAC) management

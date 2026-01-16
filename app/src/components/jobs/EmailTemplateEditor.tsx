@@ -213,7 +213,7 @@ export function EmailTemplateEditor({ isOpen, onClose, template, onSave }: Email
             {/* Browse Variables Button */}
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={() => setShowVariableSelector(true)}
               className="mb-3 w-full sm:w-auto"
             >

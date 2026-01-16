@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, UnauthorizedException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { FileStorageService } from '../../core/file-storage/file-storage.service';
 import { StorageProviderFactory } from '../../core/file-storage/storage-provider.factory';
@@ -24,6 +24,104 @@ export class FilesService {
     private readonly imageProcessor: ImageProcessorService,
     private readonly auditLogger: AuditLoggerService,
   ) {}
+
+  /**
+   * Check storage quota before upload
+   * Throws ForbiddenException if tenant exceeds their storage limit
+   */
+  async checkStorageQuota(tenantId: string, newFileSizeBytes: number): Promise<void> {
+    // Get tenant's subscription plan
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { subscription_plan: true },
+    });
+
+    // If no plan or no storage limit, allow upload (unlimited)
+    if (!tenant?.subscription_plan?.max_storage_gb) {
+      return;
+    }
+
+    // Calculate current storage usage (exclude trashed files)
+    const currentUsage = await this.prisma.file.aggregate({
+      where: {
+        tenant_id: tenantId,
+        is_trashed: false,
+      },
+      _sum: {
+        size_bytes: true,
+      },
+    });
+
+    const currentBytes = currentUsage._sum.size_bytes || 0;
+    const maxBytes = Number(tenant.subscription_plan.max_storage_gb) * 1024 * 1024 * 1024; // GB to bytes
+    const newTotalBytes = currentBytes + newFileSizeBytes;
+
+    if (newTotalBytes > maxBytes) {
+      const currentGB = (currentBytes / (1024 * 1024 * 1024)).toFixed(2);
+      const maxGB = Number(tenant.subscription_plan.max_storage_gb).toFixed(2);
+      const fileSizeMB = (newFileSizeBytes / (1024 * 1024)).toFixed(2);
+
+      throw new ForbiddenException(
+        `Storage quota exceeded. You are using ${currentGB} GB of ${maxGB} GB. ` +
+        `This file (${fileSizeMB} MB) would exceed your limit. ` +
+        `Please upgrade your plan or delete some files to free up space.`
+      );
+    }
+
+    this.logger.log(
+      `Storage quota check passed for tenant ${tenantId}: ` +
+      `${((currentBytes / maxBytes) * 100).toFixed(1)}% used (${(currentBytes / (1024 * 1024 * 1024)).toFixed(2)} GB / ${Number(tenant.subscription_plan.max_storage_gb).toFixed(2)} GB)`
+    );
+  }
+
+  /**
+   * Get tenant storage usage statistics
+   * Returns current usage, quota limit, and percentage used
+   */
+  async getTenantStorageUsage(tenantId: string) {
+    // Get tenant's subscription plan
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { subscription_plan: true },
+    });
+
+    // Calculate current storage usage and file count (exclude trashed files)
+    const [currentUsage, fileCount] = await Promise.all([
+      this.prisma.file.aggregate({
+        where: {
+          tenant_id: tenantId,
+          is_trashed: false,
+        },
+        _sum: {
+          size_bytes: true,
+        },
+      }),
+      this.prisma.file.count({
+        where: {
+          tenant_id: tenantId,
+          is_trashed: false,
+        },
+      }),
+    ]);
+
+    const currentBytes = currentUsage._sum.size_bytes || 0;
+    const currentGB = currentBytes / (1024 * 1024 * 1024);
+    const maxStorageGB = tenant?.subscription_plan?.max_storage_gb
+      ? Number(tenant.subscription_plan.max_storage_gb)
+      : null;
+
+    const isUnlimited = maxStorageGB === null;
+    const percentageUsed = isUnlimited ? null : (currentGB / maxStorageGB) * 100;
+
+    return {
+      current_usage_bytes: currentBytes,
+      current_usage_gb: Number(currentGB.toFixed(2)),
+      max_storage_gb: maxStorageGB,
+      percentage_used: percentageUsed !== null ? Number(percentageUsed.toFixed(2)) : null,
+      is_unlimited: isUnlimited,
+      file_count: fileCount,
+    };
+  }
 
   /**
    * Get validation rules by category
@@ -143,6 +241,9 @@ export class FilesService {
         `File size exceeds ${(validationRules.maxSizeBytes / (1024 * 1024)).toFixed(2)}MB limit`,
       );
     }
+
+    // Check storage quota before upload
+    await this.checkStorageQuota(tenantId, file.size);
 
     // Get storage provider for this tenant
     const storageProvider = await this.storageFactory.getProvider(tenantId);

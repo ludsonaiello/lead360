@@ -104,7 +104,7 @@ export function JobList({ jobs, isLoading, onJobClick, onRetry, className = '' }
                   <div className="flex items-center justify-end gap-2">
                     {job.status === 'failed' && onRetry && (
                       <Button
-                        variant="undefined"
+                        variant="secondary"
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -162,7 +162,7 @@ export function JobList({ jobs, isLoading, onJobClick, onRetry, className = '' }
             {job.status === 'failed' && onRetry && (
               <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                 <Button
-                  variant="undefined"
+                  variant="secondary"
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation();

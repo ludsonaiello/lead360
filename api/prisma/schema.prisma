@@ -98,6 +98,35 @@ model license_type {
   @@index([is_active])
 }
 
+model industry {
+  id                String            @id @default(uuid()) @db.VarChar(36)
+  name              String            @unique @db.VarChar(100)
+  description       String?           @db.Text
+  is_active         Boolean           @default(true)
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
+  tenant_industries tenant_industry[]
+
+  @@index([is_active])
+  @@index([name])
+  @@map("industry")
+}
+
+model tenant_industry {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  tenant_id   String   @db.VarChar(36)
+  industry_id String   @db.VarChar(36)
+  created_at  DateTime @default(now())
+
+  tenant   tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  industry industry @relation(fields: [industry_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, industry_id])
+  @@index([tenant_id])
+  @@index([industry_id])
+  @@map("tenant_industry")
+}
+
 model module {
   id           String       @id @db.VarChar(36)
   name         String       @unique @db.VarChar(50)
@@ -229,83 +258,89 @@ model service {
 }
 
 model subscription_plan {
-  id            String   @id @db.VarChar(36)
-  name          String   @unique @db.VarChar(100)
-  description   String?  @db.Text
-  monthly_price Decimal  @db.Decimal(10, 2)
-  annual_price  Decimal  @db.Decimal(10, 2)
-  max_users     Int
-  feature_flags String   @db.LongText
-  is_active     Boolean  @default(true)
-  is_default    Boolean  @default(false)
-  created_at    DateTime @default(now())
-  updated_at    DateTime
-  tenant        tenant[]
+  id             String   @id @db.VarChar(36)
+  name           String   @unique @db.VarChar(100)
+  description    String?  @db.Text
+  monthly_price  Decimal  @db.Decimal(10, 2)
+  annual_price   Decimal  @db.Decimal(10, 2)
+  max_users      Int
+  max_storage_gb Decimal? @db.Decimal(10, 2)
+  offers_trial   Boolean  @default(false)
+  trial_days     Int?
+  feature_flags  String   @db.LongText
+  is_active      Boolean  @default(true)
+  is_default     Boolean  @default(false)
+  created_at     DateTime @default(now())
+  updated_at     DateTime
+  tenant         tenant[]
 
   @@index([is_active])
   @@index([is_default])
+  @@index([offers_trial])
 }
 
 model tenant {
-  id                                      String                 @id @db.VarChar(36)
-  subdomain                               String                 @unique @db.VarChar(63)
-  company_name                            String                 @db.VarChar(200)
-  is_active                               Boolean                @default(true)
-  legal_business_name                     String                 @db.VarChar(200)
-  dba_name                                String?                @db.VarChar(200)
-  business_entity_type                    String                 @db.VarChar(50)
-  state_of_registration                   String                 @db.VarChar(2)
+  id                                      String                  @id @db.VarChar(36)
+  subdomain                               String                  @unique @db.VarChar(63)
+  company_name                            String                  @db.VarChar(200)
+  is_active                               Boolean                 @default(true)
+  legal_business_name                     String                  @db.VarChar(200)
+  dba_name                                String?                 @db.VarChar(200)
+  business_entity_type                    String                  @db.VarChar(50)
+  state_of_registration                   String                  @db.VarChar(2)
   date_of_incorporation                   DateTime?
-  ein                                     String                 @unique @db.VarChar(10)
-  state_tax_id                            String?                @db.VarChar(50)
-  sales_tax_permit                        String?                @db.VarChar(50)
-  primary_contact_phone                   String                 @db.VarChar(20)
-  secondary_phone                         String?                @db.VarChar(20)
-  primary_contact_email                   String                 @db.VarChar(255)
-  support_email                           String?                @db.VarChar(255)
-  billing_email                           String?                @db.VarChar(255)
-  website_url                             String?                @db.VarChar(255)
-  instagram_url                           String?                @db.VarChar(255)
-  facebook_url                            String?                @db.VarChar(255)
-  tiktok_url                              String?                @db.VarChar(255)
-  youtube_url                             String?                @db.VarChar(255)
-  bank_name                               String?                @db.VarChar(100)
-  routing_number                          String?                @db.VarChar(9)
-  account_number                          String?                @db.VarChar(50)
-  account_type                            String?                @db.VarChar(20)
-  venmo_username                          String?                @db.VarChar(50)
-  venmo_qr_code_file_id                   String?                @db.VarChar(36)
-  logo_file_id                            String?                @db.VarChar(36)
-  primary_brand_color                     String?                @db.VarChar(7)
-  secondary_brand_color                   String?                @db.VarChar(7)
-  accent_color                            String?                @db.VarChar(7)
-  invoice_prefix                          String                 @default("INV") @db.VarChar(10)
-  next_invoice_number                     Int                    @default(1)
-  quote_prefix                            String                 @default("Q-") @db.VarChar(10)
-  next_quote_number                       Int                    @default(1)
-  default_quote_validity_days             Int                    @default(30)
-  default_quote_terms                     String?                @db.Text
-  default_quote_footer                    String?                @db.Text
-  default_invoice_footer                  String?                @db.Text
-  default_payment_instructions            String?                @db.Text
-  timezone                                String                 @default("America/New_York") @db.VarChar(50)
-  subscription_plan_id                    String?                @db.VarChar(36)
-  subscription_status                     String                 @default("trial") @db.VarChar(20)
+  ein                                     String                  @unique @db.VarChar(10)
+  state_tax_id                            String?                 @db.VarChar(50)
+  sales_tax_permit                        String?                 @db.VarChar(50)
+  primary_contact_phone                   String                  @db.VarChar(20)
+  secondary_phone                         String?                 @db.VarChar(20)
+  primary_contact_email                   String                  @db.VarChar(255)
+  support_email                           String?                 @db.VarChar(255)
+  billing_email                           String?                 @db.VarChar(255)
+  website_url                             String?                 @db.VarChar(255)
+  instagram_url                           String?                 @db.VarChar(255)
+  facebook_url                            String?                 @db.VarChar(255)
+  tiktok_url                              String?                 @db.VarChar(255)
+  youtube_url                             String?                 @db.VarChar(255)
+  bank_name                               String?                 @db.VarChar(100)
+  routing_number                          String?                 @db.VarChar(9)
+  account_number                          String?                 @db.VarChar(50)
+  account_type                            String?                 @db.VarChar(20)
+  venmo_username                          String?                 @db.VarChar(50)
+  venmo_qr_code_file_id                   String?                 @db.VarChar(36)
+  logo_file_id                            String?                 @db.VarChar(36)
+  primary_brand_color                     String?                 @db.VarChar(7)
+  secondary_brand_color                   String?                 @db.VarChar(7)
+  accent_color                            String?                 @db.VarChar(7)
+  invoice_prefix                          String                  @default("INV") @db.VarChar(10)
+  next_invoice_number                     Int                     @default(1)
+  quote_prefix                            String                  @default("Q-") @db.VarChar(10)
+  next_quote_number                       Int                     @default(1)
+  default_quote_validity_days             Int                     @default(30)
+  default_quote_terms                     String?                 @db.Text
+  default_quote_footer                    String?                 @db.Text
+  default_invoice_footer                  String?                 @db.Text
+  default_payment_instructions            String?                 @db.Text
+  timezone                                String                  @default("America/New_York") @db.VarChar(50)
+  subscription_plan_id                    String?                 @db.VarChar(36)
+  subscription_status                     String                  @default("trial") @db.VarChar(20)
   trial_end_date                          DateTime?
-  billing_cycle                           String?                @db.VarChar(20)
+  billing_cycle                           String?                 @db.VarChar(20)
   next_billing_date                       DateTime?
-  created_at                              DateTime               @default(now())
+  created_at                              DateTime                @default(now())
   updated_at                              DateTime
   deleted_at                              DateTime?
-  default_contingency_rate                Decimal?               @db.Decimal(5, 2)
-  default_overhead_rate                   Decimal?               @db.Decimal(5, 2)
-  default_profit_margin                   Decimal?               @db.Decimal(5, 2)
-  sales_tax_rate                          Decimal?               @db.Decimal(5, 3)
+  default_contingency_rate                Decimal?                @db.Decimal(5, 2)
+  default_overhead_rate                   Decimal?                @db.Decimal(5, 2)
+  default_profit_margin                   Decimal?                @db.Decimal(5, 2)
+  sales_tax_rate                          Decimal?                @db.Decimal(5, 3)
+  business_size                           String?                 @db.VarChar(20)
   audit_log                               audit_log[]
-  file_file_tenant_idTotenant             file[]                 @relation("file_tenant_idTotenant")
-  file_tenant_logo_file_idTofile          file?                  @relation("tenant_logo_file_idTofile", fields: [logo_file_id], references: [file_id])
-  subscription_plan                       subscription_plan?     @relation(fields: [subscription_plan_id], references: [id])
-  file_tenant_venmo_qr_code_file_idTofile file?                  @relation("tenant_venmo_qr_code_file_idTofile", fields: [venmo_qr_code_file_id], references: [file_id])
+  file_file_tenant_idTotenant             file[]                  @relation("file_tenant_idTotenant")
+  file_tenant_logo_file_idTofile          file?                   @relation("tenant_logo_file_idTofile", fields: [logo_file_id], references: [file_id])
+  subscription_plan                       subscription_plan?      @relation(fields: [subscription_plan_id], references: [id])
+  file_tenant_venmo_qr_code_file_idTofile file?                   @relation("tenant_venmo_qr_code_file_idTofile", fields: [venmo_qr_code_file_id], references: [file_id])
+  tenant_industries                       tenant_industry[]
   tenant_address                          tenant_address[]
   tenant_business_hours                   tenant_business_hours?
   tenant_custom_hours                     tenant_custom_hours[]
@@ -318,6 +353,7 @@ model tenant {
   user_role                               user_role[]
   file_share_links                        file_share_link[]
   storage_config                          storage_config?
+  impersonation_sessions                  impersonation_session[]
 
   @@index([ein])
   @@index([is_active])
@@ -504,37 +540,43 @@ model tenant_service_area {
 }
 
 model user {
-  id                                            String          @id @db.VarChar(36)
-  tenant_id                                     String?         @db.VarChar(36)
-  email                                         String          @db.VarChar(255)
-  password_hash                                 String          @db.VarChar(255)
-  first_name                                    String          @db.VarChar(100)
-  last_name                                     String          @db.VarChar(100)
-  phone                                         String?         @db.VarChar(20)
-  is_active                                     Boolean         @default(false)
-  is_platform_admin                             Boolean         @default(false)
-  email_verified                                Boolean         @default(false)
+  id                                            String                  @id @db.VarChar(36)
+  tenant_id                                     String?                 @db.VarChar(36)
+  email                                         String                  @db.VarChar(255)
+  password_hash                                 String                  @db.VarChar(255)
+  first_name                                    String                  @db.VarChar(100)
+  last_name                                     String                  @db.VarChar(100)
+  phone                                         String?                 @db.VarChar(20)
+  is_active                                     Boolean                 @default(false)
+  is_platform_admin                             Boolean                 @default(false)
+  email_verified                                Boolean                 @default(false)
   email_verified_at                             DateTime?
-  activation_token                              String?         @db.VarChar(255)
+  activation_token                              String?                 @db.VarChar(255)
   activation_token_expires                      DateTime?
-  password_reset_token                          String?         @db.VarChar(255)
+  password_reset_token                          String?                 @db.VarChar(255)
   password_reset_expires                        DateTime?
   last_login_at                                 DateTime?
-  mfa_enabled                                   Boolean         @default(false)
-  mfa_secret                                    String?         @db.VarChar(255)
-  oauth_provider                                String?         @db.VarChar(50)
-  oauth_provider_id                             String?         @db.VarChar(255)
-  created_at                                    DateTime        @default(now())
+  mfa_enabled                                   Boolean                 @default(false)
+  mfa_secret                                    String?                 @db.VarChar(255)
+  oauth_provider                                String?                 @db.VarChar(50)
+  oauth_provider_id                             String?                 @db.VarChar(255)
+  created_at                                    DateTime                @default(now())
   updated_at                                    DateTime
   deleted_at                                    DateTime?
   audit_log                                     audit_log[]
   file                                          file[]
   refresh_token                                 refresh_token[]
-  tenant                                        tenant?         @relation(fields: [tenant_id], references: [id])
-  user_role_user_role_assigned_by_user_idTouser user_role[]     @relation("user_role_assigned_by_user_idTouser")
-  user_role_user_role_user_idTouser             user_role[]     @relation("user_role_user_idTouser")
+  tenant                                        tenant?                 @relation(fields: [tenant_id], references: [id])
+  user_role_user_role_assigned_by_user_idTouser user_role[]             @relation("user_role_assigned_by_user_idTouser")
+  user_role_user_role_user_idTouser             user_role[]             @relation("user_role_user_idTouser")
   user_signature                                user_signature?
   share_links                                   file_share_link[]
+  feature_flags_updated                         feature_flag[]
+  maintenance_modes_updated                     maintenance_mode[]
+  system_settings_updated                       system_setting[]
+  impersonation_sessions_as_admin               impersonation_session[] @relation("ImpersonatingAdmin")
+  impersonation_sessions_as_target              impersonation_session[] @relation("ImpersonatedUser")
+  export_jobs                                   export_job[]
 
   @@unique([email, tenant_id])
   @@index([activation_token])
@@ -630,6 +672,99 @@ model storage_config {
   tenant                 tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 }
 
+// Admin Panel Models
+
+model feature_flag {
+  id                 String   @id @default(uuid()) @db.VarChar(36)
+  flag_key           String   @unique @db.VarChar(100)
+  name               String   @db.VarChar(255)
+  description        String?  @db.Text
+  is_enabled         Boolean  @default(true)
+  updated_at         DateTime @updatedAt
+  updated_by_user_id String?  @db.VarChar(36)
+  updated_by_user    user?    @relation(fields: [updated_by_user_id], references: [id], onDelete: SetNull)
+
+  @@index([flag_key])
+  @@index([is_enabled])
+}
+
+model maintenance_mode {
+  id                 String    @id @default(uuid()) @db.VarChar(36)
+  is_enabled         Boolean   @default(false)
+  mode               String    @default("immediate") @db.VarChar(20)
+  start_time         DateTime?
+  end_time           DateTime?
+  message            String?   @db.Text
+  allowed_ips        String?   @db.Text
+  updated_at         DateTime  @updatedAt
+  updated_by_user_id String?   @db.VarChar(36)
+  updated_by_user    user?     @relation(fields: [updated_by_user_id], references: [id], onDelete: SetNull)
+}
+
+model admin_notification {
+  id         String    @id @default(uuid()) @db.VarChar(36)
+  type       String    @db.VarChar(50)
+  title      String    @db.VarChar(255)
+  message    String    @db.Text
+  link       String?   @db.Text
+  is_read    Boolean   @default(false)
+  created_at DateTime  @default(now())
+  expires_at DateTime?
+
+  @@index([is_read, created_at(sort: Desc)])
+  @@index([created_at])
+}
+
+model impersonation_session {
+  id                     String   @id @default(uuid()) @db.VarChar(36)
+  admin_user_id          String   @db.VarChar(36)
+  impersonated_user_id   String   @db.VarChar(36)
+  impersonated_tenant_id String   @db.VarChar(36)
+  session_token          String   @unique @db.VarChar(255)
+  expires_at             DateTime
+  created_at             DateTime @default(now())
+
+  admin_user          user   @relation("ImpersonatingAdmin", fields: [admin_user_id], references: [id], onDelete: Cascade)
+  impersonated_user   user   @relation("ImpersonatedUser", fields: [impersonated_user_id], references: [id], onDelete: Cascade)
+  impersonated_tenant tenant @relation(fields: [impersonated_tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([admin_user_id])
+  @@index([session_token])
+  @@index([expires_at])
+}
+
+model system_setting {
+  id                 String   @id @default(uuid()) @db.VarChar(36)
+  setting_key        String   @unique @db.VarChar(100)
+  setting_value      String   @db.Text
+  data_type          String   @db.VarChar(20)
+  description        String?  @db.Text
+  updated_at         DateTime @updatedAt
+  updated_by_user_id String?  @db.VarChar(36)
+  updated_by_user    user?    @relation(fields: [updated_by_user_id], references: [id], onDelete: SetNull)
+
+  @@index([setting_key])
+}
+
+model export_job {
+  id            String    @id @default(uuid()) @db.VarChar(36)
+  admin_user_id String    @db.VarChar(36)
+  export_type   String    @db.VarChar(50)
+  format        String    @db.VarChar(10)
+  filters       Json?
+  status        String    @default("pending") @db.VarChar(20)
+  file_path     String?   @db.Text
+  row_count     Int?
+  error_message String?   @db.Text
+  created_at    DateTime  @default(now())
+  completed_at  DateTime?
+
+  admin_user user @relation(fields: [admin_user_id], references: [id], onDelete: Cascade)
+
+  @@index([admin_user_id, created_at(sort: Desc)])
+  @@index([status])
+}
+
 enum audit_log_actor_type {
   user
   system
@@ -658,8 +793,8 @@ model job {
   failed_at     DateTime?
   duration_ms   Int?
 
-  job_log       job_log[]
-  email_queue   email_queue?
+  job_log     job_log[]
+  email_queue email_queue?
 
   @@index([tenant_id, status, created_at])
   @@index([job_type, status])
@@ -667,14 +802,14 @@ model job {
 }
 
 model job_log {
-  id         String   @id @default(uuid()) @db.VarChar(36)
-  job_id     String   @db.VarChar(36)
-  timestamp  DateTime @default(now())
-  level      String   @db.VarChar(20)
-  message    String   @db.Text
-  metadata   Json?
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  job_id    String   @db.VarChar(36)
+  timestamp DateTime @default(now())
+  level     String   @db.VarChar(20)
+  message   String   @db.Text
+  metadata  Json?
 
-  job        job      @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  job job @relation(fields: [job_id], references: [id], onDelete: Cascade)
 
   @@index([job_id, timestamp])
 }
@@ -685,7 +820,7 @@ model scheduled_job {
   name            String    @db.VarChar(200)
   description     String?   @db.Text
   schedule        String    @db.VarChar(100)
-  timezone        String    @db.VarChar(100) @default("America/New_York")
+  timezone        String    @default("America/New_York") @db.VarChar(100)
   is_enabled      Boolean   @default(true)
   last_run_at     DateTime?
   next_run_at     DateTime?
@@ -699,53 +834,53 @@ model scheduled_job {
 }
 
 model platform_email_config {
-  id                String    @id @default(uuid()) @db.VarChar(36)
-  smtp_host         String    @db.VarChar(255)
-  smtp_port         Int
-  smtp_encryption   String    @db.VarChar(20) @default("tls")
-  smtp_username     String    @db.VarChar(255)
-  smtp_password     String    @db.Text
-  from_email        String    @db.VarChar(255)
-  from_name         String    @db.VarChar(255)
-  is_verified       Boolean   @default(false)
-  updated_at        DateTime  @updatedAt
+  id                 String   @id @default(uuid()) @db.VarChar(36)
+  smtp_host          String   @db.VarChar(255)
+  smtp_port          Int
+  smtp_encryption    String   @default("tls") @db.VarChar(20)
+  smtp_username      String   @db.VarChar(255)
+  smtp_password      String   @db.Text
+  from_email         String   @db.VarChar(255)
+  from_name          String   @db.VarChar(255)
+  is_verified        Boolean  @default(false)
+  updated_at         DateTime @updatedAt
   updated_by_user_id String?  @db.VarChar(36)
 }
 
 model email_template {
-  id              String    @id @default(uuid()) @db.VarChar(36)
-  template_key    String    @unique @db.VarChar(100)
-  subject         String    @db.VarChar(500)
-  html_body       String    @db.Text
-  text_body       String?   @db.Text
+  id              String   @id @default(uuid()) @db.VarChar(36)
+  template_key    String   @unique @db.VarChar(100)
+  subject         String   @db.VarChar(500)
+  html_body       String   @db.Text
+  text_body       String?  @db.Text
   variables       Json
   variable_schema Json?
-  description     String?   @db.Text
-  is_system       Boolean   @default(false)
-  created_at      DateTime  @default(now())
-  updated_at      DateTime  @updatedAt
+  description     String?  @db.Text
+  is_system       Boolean  @default(false)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
 
   @@index([template_key])
   @@index([is_system])
 }
 
 model email_queue {
-  id                String    @id @default(uuid()) @db.VarChar(36)
-  job_id            String    @unique @db.VarChar(36)
-  template_key      String?   @db.VarChar(100)
-  to_email          String    @db.VarChar(255)
-  cc_emails         Json?
-  bcc_emails        Json?
-  subject           String    @db.VarChar(500)
-  html_body         String    @db.Text
-  text_body         String?   @db.Text
-  status            String    @db.VarChar(50) @default("pending")
-  smtp_message_id   String?   @db.VarChar(255)
-  error_message     String?   @db.Text
-  sent_at           DateTime?
-  created_at        DateTime  @default(now())
+  id              String    @id @default(uuid()) @db.VarChar(36)
+  job_id          String    @unique @db.VarChar(36)
+  template_key    String?   @db.VarChar(100)
+  to_email        String    @db.VarChar(255)
+  cc_emails       Json?
+  bcc_emails      Json?
+  subject         String    @db.VarChar(500)
+  html_body       String    @db.Text
+  text_body       String?   @db.Text
+  status          String    @default("pending") @db.VarChar(50)
+  smtp_message_id String?   @db.VarChar(255)
+  error_message   String?   @db.Text
+  sent_at         DateTime?
+  created_at      DateTime  @default(now())
 
-  job               job       @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  job job @relation(fields: [job_id], references: [id], onDelete: Cascade)
 
   @@index([status, created_at])
   @@index([job_id])

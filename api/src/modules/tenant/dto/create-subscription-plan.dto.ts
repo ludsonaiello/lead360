@@ -51,6 +51,32 @@ export class CreateSubscriptionPlanDto {
   @Min(1)
   max_users: number;
 
+  @ApiPropertyOptional({
+    description: 'Maximum storage in GB (null or omit for unlimited storage)',
+    example: 50,
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  max_storage_gb?: number;
+
+  @ApiPropertyOptional({
+    description: 'Does this plan offer a free trial?',
+    example: true,
+  })
+  @IsBoolean()
+  @IsOptional()
+  offers_trial?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Trial duration in days (required if offers_trial is true)',
+    example: 14,
+  })
+  @IsInt()
+  @IsOptional()
+  @Min(1)
+  trial_days?: number;
+
   @ApiProperty({
     description: 'Feature flags (JSON object with boolean flags)',
     example: {

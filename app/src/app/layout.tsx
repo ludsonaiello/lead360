@@ -4,6 +4,8 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RBACProvider } from "@/contexts/RBACContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { ImpersonationProvider } from "@/contexts/ImpersonationContext";
+import ImpersonationBanner from "@/components/admin/shared/ImpersonationBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -48,8 +50,11 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <RBACProvider>
-              {children}
-              <Toaster position="top-right" />
+              <ImpersonationProvider>
+                <ImpersonationBanner />
+                {children}
+                <Toaster position="top-right" />
+              </ImpersonationProvider>
             </RBACProvider>
           </AuthProvider>
         </ThemeProvider>
