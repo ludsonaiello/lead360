@@ -313,21 +313,21 @@
 
 #### Documentation
 
-- [ ] contracts/background-jobs-contract.md
-- [ ] backend/module-background-jobs.md
+- [X] contracts/background-jobs-contract.md
+- [X] backend/module-background-jobs.md
 
 #### Backend Development
 
-- [ ] Setup Redis connection
-- [ ] Configure BullMQ
-- [ ] Create queue definitions (notifications, pdf, ai, webhooks)
-- [ ] Create base processor pattern
+- [X] Setup Redis connection
+- [X] Configure BullMQ
+- [X] Create queue definitions (notifications, pdf, ai, webhooks)
+- [X] Create base processor pattern
 - [ ] Create email queue + processor
 - [ ] Create SMS queue + processor
-- [ ] Implement retry logic
-- [ ] Implement job monitoring
-- [ ] Write unit tests
-- [ ] Write integration tests
+- [X] Implement retry logic
+- [X] Implement job monitoring
+- [X] Write unit tests
+- [X] Write integration tests
 
 ---
 
@@ -363,9 +363,9 @@ Before moving to Sprint 1, verify:
 
 #### Documentation
 
-- [ ] contracts/leads-contract.md
-- [ ] backend/module-leads.md
-- [ ] frontend/module-leads.md
+- [X] contracts/leads-contract.md
+- [X] backend/module-leads.md
+- [X] frontend/module-leads.md
 
 #### Backend Development
 

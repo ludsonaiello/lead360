@@ -354,6 +354,9 @@ model tenant {
   file_share_links                        file_share_link[]
   storage_config                          storage_config?
   impersonation_sessions                  impersonation_session[]
+  leads                                   lead[]
+  service_requests                        service_request[]
+  webhook_api_keys                        webhook_api_key[]
 
   @@index([ein])
   @@index([is_active])
@@ -577,6 +580,10 @@ model user {
   impersonation_sessions_as_admin               impersonation_session[] @relation("ImpersonatingAdmin")
   impersonation_sessions_as_target              impersonation_session[] @relation("ImpersonatedUser")
   export_jobs                                   export_job[]
+  leads_created                                 lead[]                  @relation("lead_created_by_user")
+  lead_notes                                    lead_note[]             @relation("lead_note_user")
+  lead_activities                               lead_activity[]         @relation("lead_activity_user")
+  webhook_api_keys_created                      webhook_api_key[]       @relation("webhook_api_key_created_by_user")
 
   @@unique([email, tenant_id])
   @@index([activation_token])
@@ -884,4 +891,173 @@ model email_queue {
 
   @@index([status, created_at])
   @@index([job_id])
+}
+
+// ============================================================================
+// LEADS MODULE - Customer Relationship Management
+// ============================================================================
+
+model lead {
+  id                   String              @id @db.VarChar(36)
+  tenant_id            String              @db.VarChar(36)
+  first_name           String              @db.VarChar(100)
+  last_name            String              @db.VarChar(100)
+  language_spoken      String              @default("EN") @db.VarChar(10)
+  accept_sms           Boolean             @default(false)
+  preferred_communication String           @default("email") @db.VarChar(20)
+  status               String              @default("lead") @db.VarChar(20)
+  source               String              @db.VarChar(20)
+  external_source_id   String?             @db.VarChar(255)
+  created_at           DateTime            @default(now())
+  updated_at           DateTime            @updatedAt
+  created_by_user_id   String?             @db.VarChar(36)
+  lost_reason          String?             @db.Text
+  lost_at              DateTime?
+
+  tenant               tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by_user      user?               @relation("lead_created_by_user", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  emails               lead_email[]
+  phones               lead_phone[]
+  addresses            lead_address[]
+  service_requests     service_request[]
+  notes                lead_note[]
+  activities           lead_activity[]
+
+  @@index([tenant_id, status])
+  @@index([tenant_id, created_at(sort: Desc)])
+  @@index([tenant_id, external_source_id])
+  @@index([tenant_id, updated_at(sort: Desc)])
+  @@map("lead")
+}
+
+model lead_email {
+  id         String   @id @db.VarChar(36)
+  lead_id    String   @db.VarChar(36)
+  email      String   @db.VarChar(255)
+  is_primary Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  lead       lead     @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+
+  @@index([lead_id])
+  @@index([lead_id, is_primary])
+  @@map("lead_email")
+}
+
+model lead_phone {
+  id         String   @id @db.VarChar(36)
+  lead_id    String   @db.VarChar(36)
+  phone      String   @db.VarChar(20)
+  phone_type String   @default("mobile") @db.VarChar(20)
+  is_primary Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  lead       lead     @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+
+  @@index([lead_id])
+  @@index([lead_id, is_primary])
+  @@map("lead_phone")
+}
+
+model lead_address {
+  id              String            @id @db.VarChar(36)
+  lead_id         String            @db.VarChar(36)
+  address_line1   String            @db.VarChar(255)
+  address_line2   String?           @db.VarChar(255)
+  city            String            @db.VarChar(100)
+  state           String            @db.VarChar(2)
+  zip_code        String            @db.VarChar(10)
+  country         String            @default("US") @db.VarChar(2)
+  latitude        Decimal           @db.Decimal(10, 8)
+  longitude       Decimal           @db.Decimal(11, 8)
+  google_place_id String?           @db.VarChar(255)
+  is_primary      Boolean           @default(false)
+  address_type    String            @default("service") @db.VarChar(20)
+  created_at      DateTime          @default(now())
+
+  lead            lead              @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  service_requests service_request[]
+
+  @@index([lead_id])
+  @@index([lead_id, is_primary])
+  @@index([lead_id, address_type])
+  @@map("lead_address")
+}
+
+model service_request {
+  id              String        @id @db.VarChar(36)
+  tenant_id       String        @db.VarChar(36)
+  lead_id         String        @db.VarChar(36)
+  lead_address_id String?       @db.VarChar(36)
+  service_name    String        @db.VarChar(100)
+  service_type    String?       @db.VarChar(100)
+  time_demand     String        @default("flexible") @db.VarChar(20)
+  description     String?       @db.Text
+  extra_data      Json?
+  status          String        @default("new") @db.VarChar(20)
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+
+  tenant          tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  lead            lead          @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  lead_address    lead_address? @relation(fields: [lead_address_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, lead_id])
+  @@index([tenant_id, status])
+  @@index([tenant_id, created_at(sort: Desc)])
+  @@map("service_request")
+}
+
+model lead_note {
+  id         String   @id @db.VarChar(36)
+  lead_id    String   @db.VarChar(36)
+  user_id    String?  @db.VarChar(36)
+  note_text  String   @db.Text
+  is_pinned  Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  lead       lead     @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  user       user?    @relation("lead_note_user", fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([lead_id, created_at(sort: Desc)])
+  @@index([lead_id, is_pinned(sort: Desc), created_at(sort: Desc)])
+  @@map("lead_note")
+}
+
+model lead_activity {
+  id            String   @id @db.VarChar(36)
+  lead_id       String   @db.VarChar(36)
+  user_id       String?  @db.VarChar(36)
+  activity_type String   @db.VarChar(50)
+  description   String   @db.VarChar(500)
+  metadata      Json?
+  created_at    DateTime @default(now())
+
+  lead          lead     @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  user          user?    @relation("lead_activity_user", fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([lead_id, created_at(sort: Desc)])
+  @@map("lead_activity")
+}
+
+model webhook_api_key {
+  id                  String    @id @db.VarChar(36)
+  tenant_id           String    @db.VarChar(36)
+  key_name            String    @db.VarChar(100)
+  api_key             String    @unique @db.VarChar(64)
+  api_secret          String    @db.VarChar(128)
+  is_active           Boolean   @default(true)
+  allowed_sources     Json?
+  rate_limit          Int       @default(100)
+  last_used_at        DateTime?
+  created_at          DateTime  @default(now())
+  created_by_user_id  String    @db.VarChar(36)
+
+  tenant              tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by_user     user      @relation("webhook_api_key_created_by_user", fields: [created_by_user_id], references: [id])
+
+  @@index([api_key])
+  @@index([tenant_id, is_active])
+  @@map("webhook_api_key")
 }

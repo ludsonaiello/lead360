@@ -224,3 +224,34 @@ export function SanitizeDate() {
     return value;
   });
 }
+
+/**
+ * Transform comma-separated string into array
+ *
+ * Useful for query parameters that accept multiple values:
+ * - "lead,prospect,customer" → ["lead", "prospect", "customer"]
+ * - "lead" → ["lead"]
+ * - ["lead", "prospect"] → ["lead", "prospect"] (already array, no change)
+ *
+ * @example
+ * @ToArray()
+ * @IsEnum(LeadStatus, { each: true })
+ * @IsOptional()
+ * status?: LeadStatus[];
+ */
+export function ToArray() {
+  return Transform(({ value }: TransformFnParams) => {
+    if (!value) return value;
+
+    // Already an array
+    if (Array.isArray(value)) return value;
+
+    // Split comma-separated string
+    if (typeof value === 'string') {
+      return value.split(',').map(item => item.trim()).filter(Boolean);
+    }
+
+    // Single value → wrap in array
+    return [value];
+  });
+}

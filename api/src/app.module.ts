@@ -13,6 +13,7 @@ import { RBACModule } from './modules/rbac/rbac.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { LeadsModule } from './modules/leads/leads.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { AdminModule } from './modules/admin/admin.module';
     RBACModule, // Role-Based Access Control (RBAC) management
     AuditModule, // Audit logging with async queue and export functionality
     JobsModule, // Background jobs and email services
+    LeadsModule, // Leads/Customer management with CRM functionality
   ],
   controllers: [HealthController],
   providers: [

@@ -534,3 +534,228 @@ export const brandingSchema = z.object({
 });
 
 export type BrandingFormData = z.infer<typeof brandingSchema>;
+
+// ==========================================
+// LEADS MODULE VALIDATION SCHEMAS
+// ==========================================
+
+/**
+ * Lead phone validation schema
+ * CRITICAL: API expects 10 digits only (no +1 prefix)
+ * But PhoneInput component stores in E.164 format (+15551234567)
+ * This schema converts from E.164 to 10 digits
+ */
+export const leadPhoneSchema = z
+  .string()
+  .min(1, 'Phone is required')
+  .transform((val) => {
+    // Remove +1 prefix if present
+    const cleaned = val.replace(/^\+1/, '').replace(/\D/g, '');
+    return cleaned;
+  })
+  .refine((val) => val.length === 10, {
+    message: 'Phone must be 10 digits',
+  });
+
+/**
+ * Optional lead phone validation
+ */
+export const leadPhoneOptionalSchema = z
+  .string()
+  .optional()
+  .transform((val) => {
+    if (!val) return undefined;
+    // Remove +1 prefix if present
+    const cleaned = val.replace(/^\+1/, '').replace(/\D/g, '');
+    return cleaned.length === 10 ? cleaned : undefined;
+  });
+
+/**
+ * Lead email validation
+ */
+export const leadEmailSchema = z
+  .string()
+  .min(1, 'Email is required')
+  .email('Invalid email format')
+  .max(255);
+
+/**
+ * Optional lead email validation
+ */
+export const leadEmailOptionalSchema = z
+  .string()
+  .optional()
+  .refine((val) => !val || z.string().email().safeParse(val).success, {
+    message: 'Invalid email format',
+  });
+
+/**
+ * Lead address validation (Google Maps autocomplete)
+ */
+export const leadAddressSchema = z.object({
+  address_line1: z.string().min(1, 'Address line 1 is required').max(255),
+  address_line2: z.string().max(255).optional().or(z.literal('')),
+  city: z.string().min(1, 'City is required').max(100),
+  state: stateCodeSchema,
+  zip_code: zipCodeSchema,
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+  address_type: z.enum(['service', 'billing', 'mailing', 'other']).optional(),
+  is_primary: z.boolean().optional(),
+});
+
+export type LeadAddressFormData = z.infer<typeof leadAddressSchema>;
+
+/**
+ * Lead creation validation schema
+ * CRITICAL: At least ONE email OR phone required
+ */
+export const createLeadSchema = z
+  .object({
+    first_name: nameSchema,
+    last_name: nameSchema,
+    language_spoken: z.string().optional(),
+    accept_sms: z.boolean().optional(),
+    preferred_communication: z.enum(['email', 'phone', 'sms']).optional(),
+    source: z
+      .enum(['manual', 'website', 'referral', 'phone_call', 'walk_in', 'social_media', 'email', 'webhook', 'other'])
+      .optional(),
+    external_source_id: z.string().max(255).optional(),
+    // Contact methods (arrays)
+    emails: z
+      .array(
+        z.object({
+          email: leadEmailSchema,
+          is_primary: z.boolean().optional(),
+        })
+      )
+      .optional(),
+    phones: z
+      .array(
+        z.object({
+          phone: leadPhoneSchema,
+          phone_type: z.enum(['mobile', 'home', 'work', 'other']).optional(),
+          is_primary: z.boolean().optional(),
+        })
+      )
+      .optional(),
+    addresses: z.array(leadAddressSchema).optional(),
+    // Service request (optional)
+    service_request: z
+      .object({
+        service_name: z.string().min(1).max(100).optional(),
+        service_type: z.string().max(100).optional(),
+        service_description: z.string().max(2000).optional(),
+        urgency: z.enum(['low', 'medium', 'high', 'emergency']).optional(),
+        requested_date: z.string().optional(),
+        estimated_value: z.number().min(0).optional(),
+        notes: z.string().max(2000).optional(),
+      })
+      .optional(),
+  })
+  .refine(
+    (data) => {
+      // At least ONE email OR phone required
+      const hasEmail = data.emails && data.emails.length > 0;
+      const hasPhone = data.phones && data.phones.length > 0;
+      return hasEmail || hasPhone;
+    },
+    {
+      message: 'At least one email or phone number is required',
+      path: ['emails'],
+    }
+  );
+
+export type CreateLeadFormData = z.infer<typeof createLeadSchema>;
+
+/**
+ * Update lead validation schema
+ */
+export const updateLeadSchema = z.object({
+  first_name: nameSchema.optional(),
+  last_name: nameSchema.optional(),
+  language_spoken: z.string().optional(),
+  accept_sms: z.boolean().optional(),
+  preferred_communication: z.enum(['email', 'phone', 'sms']).optional(),
+});
+
+export type UpdateLeadFormData = z.infer<typeof updateLeadSchema>;
+
+/**
+ * Update lead status validation
+ */
+export const updateLeadStatusSchema = z
+  .object({
+    status: z.enum(['lead', 'prospect', 'customer', 'lost']),
+    lost_reason: z.string().max(500).optional(),
+  })
+  .refine(
+    (data) => {
+      // If status is 'lost', lost_reason is required
+      if (data.status === 'lost') {
+        return !!data.lost_reason && data.lost_reason.trim() !== '';
+      }
+      return true;
+    },
+    {
+      message: 'Lost reason is required when marking lead as lost',
+      path: ['lost_reason'],
+    }
+  );
+
+export type UpdateLeadStatusFormData = z.infer<typeof updateLeadStatusSchema>;
+
+/**
+ * Add email validation
+ */
+export const addEmailSchema = z.object({
+  email: leadEmailSchema,
+  is_primary: z.boolean().optional(),
+});
+
+export type AddEmailFormData = z.infer<typeof addEmailSchema>;
+
+/**
+ * Add phone validation
+ */
+export const addPhoneSchema = z.object({
+  phone: leadPhoneSchema,
+  phone_type: z.enum(['mobile', 'home', 'work', 'other']).optional(),
+  is_primary: z.boolean().optional(),
+});
+
+export type AddPhoneFormData = z.infer<typeof addPhoneSchema>;
+
+/**
+ * Add note validation
+ */
+export const addNoteSchema = z.object({
+  note_text: z.string().min(1, 'Note text is required').max(5000),
+  is_pinned: z.boolean().optional(),
+});
+
+export type AddNoteFormData = z.infer<typeof addNoteSchema>;
+
+/**
+ * Service request validation
+ */
+export const createServiceRequestSchema = z.object({
+  service_name: z.string().min(1, 'Service name is required').max(100),
+  service_type: z.string().max(100).optional(),
+  service_description: z.string().min(1, 'Description is required').max(2000),
+  urgency: z.enum(['low', 'medium', 'high', 'emergency']).optional(),
+  requested_date: z.string().optional(),
+  estimated_value: z.number().min(0).optional(),
+  notes: z.string().max(2000).optional(),
+});
+
+export type CreateServiceRequestFormData = z.infer<typeof createServiceRequestSchema>;
+
+/**
+ * Webhook API key creation validation
+ */
+export const createWebhookKeySchema = z.object({
+  key_name: z.string().min(3, 'Key name must be at least 3 characters').max(100),
+});
+
+export type CreateWebhookKeyFormData = z.infer<typeof createWebhookKeySchema>;

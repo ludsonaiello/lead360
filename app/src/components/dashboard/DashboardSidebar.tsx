@@ -30,6 +30,8 @@ import {
   ChevronRight,
   ChevronDown,
   ChevronUp,
+  UserPlus,
+  Webhook,
 } from 'lucide-react';
 import ProtectedMenuItem from '@/components/rbac/shared/ProtectedMenuItem';
 import { useAuth } from '@/contexts/AuthContext';
@@ -58,10 +60,12 @@ interface NavGroup {
 
 const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Leads', href: '/leads', icon: UserPlus, permission: 'leads:view' },
   { name: 'Customers', href: '/customers', icon: Users, permission: 'users:view' },
   { name: 'Documents', href: '/documents', icon: FileText, permission: 'documents:view' },
   { name: 'Media', href: '/files', icon: Image, permission: 'files:view' },
   { name: 'Business Settings', href: '/settings/business', icon: Building2, permission: 'settings:edit' },
+  { name: 'Webhooks', href: '/settings/webhooks', icon: Webhook, permission: 'leads:edit' },
   { name: 'Profile Settings', href: '/settings/profile', icon: Settings },
   { name: 'Audit Log', href: '/settings/audit-log', icon: ScrollText, permission: 'audit:view' },
   { name: 'Help', href: '/help', icon: HelpCircle },
