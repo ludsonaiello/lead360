@@ -42,7 +42,7 @@ export class SendEmailProcessor extends WorkerHost {
       const duration = Date.now() - startTime;
 
       // Get template details for email_queue record
-      const template = await this.prisma.email_template.findUnique({
+      const template = await this.prisma.email_template.findFirst({
         where: { template_key: templateKey },
       });
 
@@ -53,11 +53,11 @@ export class SendEmailProcessor extends WorkerHost {
           job_id: jobId,
           template_key: templateKey,
           to_email: to,
-          cc_emails: cc,
-          bcc_emails: bcc,
+          cc_emails: cc ?? undefined,
+          bcc_emails: bcc ?? undefined,
           subject: template?.subject || '',
           html_body: template?.html_body || '',
-          text_body: template?.text_body,
+          text_body: template?.text_body ?? undefined,
           status: 'sent',
           smtp_message_id: result.messageId,
           sent_at: new Date(),
@@ -92,8 +92,8 @@ export class SendEmailProcessor extends WorkerHost {
             job_id: jobId,
             template_key: templateKey || '',
             to_email: to,
-            cc_emails: cc,
-            bcc_emails: bcc,
+            cc_emails: cc ?? undefined,
+            bcc_emails: bcc ?? undefined,
             subject: '',
             html_body: '',
             status: 'failed',

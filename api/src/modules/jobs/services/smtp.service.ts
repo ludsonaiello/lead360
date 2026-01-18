@@ -22,19 +22,19 @@ export class SmtpService {
       throw new Error('SMTP configuration not found');
     }
 
-    const password = this.encryption.decrypt(config.smtp_password);
+    const password = config.smtp_password ? this.encryption.decrypt(config.smtp_password) : '';
 
     this.transporter = nodemailer.createTransport({
-      host: config.smtp_host,
-      port: config.smtp_port,
+      host: config.smtp_host ?? '',
+      port: config.smtp_port ?? 587,
       secure: config.smtp_encryption === 'ssl',
       auth: {
-        user: config.smtp_username,
+        user: config.smtp_username ?? '',
         pass: password,
       },
       pool: true,
       maxConnections: 5,
-    });
+    } as any);
 
     this.lastConfigUpdate = config.updated_at;
     this.logger.log('SMTP transporter initialized');

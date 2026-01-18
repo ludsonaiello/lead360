@@ -13,7 +13,7 @@ export class EmailTemplateService {
   ) {}
 
   async getTemplate(templateKey: string) {
-    const template = await this.prisma.email_template.findUnique({
+    const template = await this.prisma.email_template.findFirst({
       where: { template_key: templateKey },
     });
 
@@ -105,7 +105,7 @@ export class EmailTemplateService {
     }
 
     const updated = await this.prisma.email_template.update({
-      where: { template_key: templateKey },
+      where: { id: existing.id },
       data,
     });
 
@@ -145,7 +145,7 @@ export class EmailTemplateService {
     }
 
     return this.prisma.email_template.delete({
-      where: { template_key: templateKey },
+      where: { id: template.id },
     });
   }
 

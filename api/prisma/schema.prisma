@@ -357,6 +357,11 @@ model tenant {
   leads                                   lead[]
   service_requests                        service_request[]
   webhook_api_keys                        webhook_api_key[]
+  tenant_email_config                     tenant_email_config?
+  email_templates                         email_template[]
+  communication_events                    communication_event[]
+  notifications                           notification[]
+  notification_rules                      notification_rule[]
 
   @@index([ein])
   @@index([is_active])
@@ -584,6 +589,8 @@ model user {
   lead_notes                                    lead_note[]             @relation("lead_note_user")
   lead_activities                               lead_activity[]         @relation("lead_activity_user")
   webhook_api_keys_created                      webhook_api_key[]       @relation("webhook_api_key_created_by_user")
+  communication_events                          communication_event[]   @relation("communication_event_user")
+  notifications                                 notification[]          @relation("notification_user")
 
   @@unique([email, tenant_id])
   @@index([activation_token])
@@ -840,36 +847,7 @@ model scheduled_job {
   @@index([job_type])
 }
 
-model platform_email_config {
-  id                 String   @id @default(uuid()) @db.VarChar(36)
-  smtp_host          String   @db.VarChar(255)
-  smtp_port          Int
-  smtp_encryption    String   @default("tls") @db.VarChar(20)
-  smtp_username      String   @db.VarChar(255)
-  smtp_password      String   @db.Text
-  from_email         String   @db.VarChar(255)
-  from_name          String   @db.VarChar(255)
-  is_verified        Boolean  @default(false)
-  updated_at         DateTime @updatedAt
-  updated_by_user_id String?  @db.VarChar(36)
-}
-
-model email_template {
-  id              String   @id @default(uuid()) @db.VarChar(36)
-  template_key    String   @unique @db.VarChar(100)
-  subject         String   @db.VarChar(500)
-  html_body       String   @db.Text
-  text_body       String?  @db.Text
-  variables       Json
-  variable_schema Json?
-  description     String?  @db.Text
-  is_system       Boolean  @default(false)
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
-
-  @@index([template_key])
-  @@index([is_system])
-}
+// Models moved to Communication Module section below
 
 model email_queue {
   id              String    @id @default(uuid()) @db.VarChar(36)
@@ -1060,4 +1038,275 @@ model webhook_api_key {
   @@index([api_key])
   @@index([tenant_id, is_active])
   @@map("webhook_api_key")
+}
+
+// ============================================================================
+// COMMUNICATION MODULE - Multi-Provider Communication System
+// ============================================================================
+
+model communication_provider {
+  id                          String   @id @db.VarChar(36)
+  provider_key                String   @unique @db.VarChar(50)
+  provider_name               String   @db.VarChar(100)
+  provider_type               communication_provider_type
+  credentials_schema          Json
+  config_schema               Json?
+  default_config              Json?
+  supports_webhooks           Boolean  @default(false)
+  webhook_events              Json?
+  webhook_verification_method String?  @db.VarChar(50)
+  documentation_url           String?  @db.VarChar(500)
+  logo_url                    String?  @db.VarChar(500)
+  is_active                   Boolean  @default(true)
+  is_system                   Boolean  @default(false)
+  created_at                  DateTime @default(now())
+  updated_at                  DateTime @updatedAt
+
+  platform_email_configs      platform_email_config[]
+  tenant_email_configs        tenant_email_config[]
+  communication_events        communication_event[]
+  webhook_event_logs          webhook_event[]
+
+  @@index([provider_type, is_active])
+  @@index([provider_key])
+  @@index([is_active])
+  @@map("communication_provider")
+}
+
+model platform_email_config {
+  id                 String                    @id @default(uuid()) @db.VarChar(36)
+  provider_id        String?                   @db.VarChar(36)
+  credentials        Json?
+  provider_config    Json?
+  smtp_host          String?                   @db.VarChar(255)
+  smtp_port          Int?
+  smtp_encryption    String?                   @default("tls") @db.VarChar(20)
+  smtp_username      String?                   @db.VarChar(255)
+  smtp_password      String?                   @db.Text
+  from_email         String                    @db.VarChar(255)
+  from_name          String                    @db.VarChar(255)
+  webhook_secret     String?                   @db.VarChar(255)
+  is_verified        Boolean                   @default(false)
+  updated_at         DateTime                  @updatedAt
+  updated_by_user_id String?                   @db.VarChar(36)
+
+  provider           communication_provider?   @relation(fields: [provider_id], references: [id])
+
+  @@index([provider_id])
+  @@map("platform_email_config")
+}
+
+model tenant_email_config {
+  id              String                  @id @db.VarChar(36)
+  tenant_id       String                  @unique @db.VarChar(36)
+  provider_id     String                  @db.VarChar(36)
+  credentials     Json
+  provider_config Json?
+  from_email      String                  @db.VarChar(255)
+  from_name       String                  @db.VarChar(100)
+  reply_to_email  String?                 @db.VarChar(255)
+  webhook_secret  String?                 @db.VarChar(255)
+  is_active       Boolean                 @default(true)
+  is_verified     Boolean                 @default(false)
+  created_at      DateTime                @default(now())
+  updated_at      DateTime                @updatedAt
+
+  tenant          tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  provider        communication_provider  @relation(fields: [provider_id], references: [id])
+
+  @@index([tenant_id, provider_id])
+  @@index([tenant_id, is_active])
+  @@index([provider_id])
+  @@map("tenant_email_config")
+}
+
+model email_template {
+  id              String                     @id @default(uuid()) @db.VarChar(36)
+  tenant_id       String?                    @db.VarChar(36)
+  template_key    String                     @db.VarChar(100)
+  category        email_template_category    @default(transactional)
+  subject         String                     @db.VarChar(500)
+  html_body       String                     @db.Text
+  text_body       String?                    @db.Text
+  variables       Json
+  variable_schema Json?
+  description     String?                    @db.Text
+  is_system       Boolean                    @default(false)
+  is_active       Boolean                    @default(true)
+  created_at      DateTime                   @default(now())
+  updated_at      DateTime                   @updatedAt
+
+  tenant          tenant?                    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, template_key], map: "unique_tenant_template_key")
+  @@index([tenant_id, is_active])
+  @@index([tenant_id, category])
+  @@index([is_system])
+  @@map("email_template")
+}
+
+model communication_event {
+  id                   String                      @id @db.VarChar(36)
+  tenant_id            String?                     @db.VarChar(36)
+  channel              communication_channel
+  direction            communication_direction     @default(outbound)
+  provider_id          String                      @db.VarChar(36)
+  status               communication_status        @default(pending)
+  to_email             String?                     @db.VarChar(255)
+  to_phone             String?                     @db.VarChar(20)
+  cc_emails            Json?
+  bcc_emails           Json?
+  from_email           String?                     @db.VarChar(255)
+  from_name            String?                     @db.VarChar(100)
+  subject              String?                     @db.VarChar(500)
+  html_body            String?                     @db.LongText
+  text_body            String?                     @db.LongText
+  template_key         String?                     @db.VarChar(100)
+  template_variables   Json?
+  attachments          Json?
+  provider_message_id  String?                     @unique @db.VarChar(255)
+  provider_metadata    Json?
+  webhook_signature    String?                     @db.VarChar(255)
+  error_message        String?                     @db.Text
+  sent_at              DateTime?
+  delivered_at         DateTime?
+  opened_at            DateTime?
+  clicked_at           DateTime?
+  bounced_at           DateTime?
+  bounce_type          String?                     @db.VarChar(50)
+  related_entity_type  String?                     @db.VarChar(50)
+  related_entity_id    String?                     @db.VarChar(36)
+  created_at           DateTime                    @default(now())
+  created_by_user_id   String?                     @db.VarChar(36)
+
+  tenant               tenant?                     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  provider             communication_provider      @relation(fields: [provider_id], references: [id])
+  created_by_user      user?                       @relation("communication_event_user", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  webhook_events       webhook_event[]
+
+  @@index([provider_message_id])
+  @@index([tenant_id, created_at(sort: Desc)])
+  @@index([tenant_id, status])
+  @@index([tenant_id, channel])
+  @@index([tenant_id, channel, created_at(sort: Desc)])
+  @@index([related_entity_type, related_entity_id])
+  @@index([to_email])
+  @@index([to_phone])
+  @@index([provider_id, status])
+  @@index([created_at(sort: Desc)])
+  @@map("communication_event")
+}
+
+model webhook_event {
+  id                      String                  @id @db.VarChar(36)
+  provider_id             String                  @db.VarChar(36)
+  communication_event_id  String?                 @db.VarChar(36)
+  event_type              String                  @db.VarChar(50)
+  provider_message_id     String?                 @db.VarChar(255)
+  payload                 Json
+  signature               String?                 @db.VarChar(500)
+  signature_verified      Boolean                 @default(false)
+  ip_address              String?                 @db.VarChar(45)
+  processed               Boolean                 @default(false)
+  processed_at            DateTime?
+  error_message           String?                 @db.Text
+  created_at              DateTime                @default(now())
+
+  provider                communication_provider  @relation(fields: [provider_id], references: [id])
+  communication_event     communication_event?    @relation(fields: [communication_event_id], references: [id], onDelete: SetNull)
+
+  @@index([provider_id, created_at(sort: Desc)])
+  @@index([provider_message_id])
+  @@index([processed, created_at])
+  @@index([communication_event_id])
+  @@index([event_type])
+  @@map("webhook_event")
+}
+
+model notification {
+  id                  String    @id @db.VarChar(36)
+  tenant_id           String    @db.VarChar(36)
+  user_id             String?   @db.VarChar(36)
+  type                String    @db.VarChar(50)
+  title               String    @db.VarChar(255)
+  message             String    @db.Text
+  action_url          String?   @db.VarChar(500)
+  related_entity_type String?   @db.VarChar(50)
+  related_entity_id   String?   @db.VarChar(36)
+  is_read             Boolean   @default(false)
+  read_at             DateTime?
+  expires_at          DateTime?
+  created_at          DateTime  @default(now())
+
+  tenant              tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user                user?     @relation("notification_user", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, user_id, is_read, created_at(sort: Desc)])
+  @@index([tenant_id, is_read, created_at(sort: Desc)])
+  @@index([user_id, is_read, created_at(sort: Desc)])
+  @@index([expires_at])
+  @@index([tenant_id, type])
+  @@map("notification")
+}
+
+model notification_rule {
+  id                  String                          @id @db.VarChar(36)
+  tenant_id           String                          @db.VarChar(36)
+  event_type          String                          @db.VarChar(100)
+  notify_in_app       Boolean                         @default(true)
+  notify_email        Boolean                         @default(false)
+  email_template_key  String?                         @db.VarChar(100)
+  recipient_type      notification_recipient_type     @default(owner)
+  specific_user_ids   Json?
+  is_active           Boolean                         @default(true)
+  created_at          DateTime                        @default(now())
+  updated_at          DateTime                        @updatedAt
+
+  tenant              tenant                          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, event_type, is_active])
+  @@index([tenant_id, is_active])
+  @@index([event_type])
+  @@map("notification_rule")
+}
+
+// Communication Module Enums
+enum communication_provider_type {
+  email
+  sms
+  call
+  whatsapp
+}
+
+enum communication_channel {
+  email
+  sms
+  whatsapp
+}
+
+enum communication_direction {
+  outbound
+  inbound
+}
+
+enum communication_status {
+  pending
+  sent
+  delivered
+  failed
+  bounced
+}
+
+enum email_template_category {
+  system
+  transactional
+  marketing
+  notification
+}
+
+enum notification_recipient_type {
+  owner
+  assigned_user
+  specific_users
+  all_users
 }

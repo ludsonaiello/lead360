@@ -7,6 +7,7 @@ async function seedEmailTemplates() {
   const templates = [
     {
       id: randomBytes(16).toString('hex'),
+      tenant_id: null,
       template_key: 'password-reset',
       subject: 'Reset Your Password - Lead360',
       html_body: `
@@ -41,6 +42,7 @@ async function seedEmailTemplates() {
     },
     {
       id: randomBytes(16).toString('hex'),
+      tenant_id: null,
       template_key: 'account-activation',
       subject: 'Activate Your Account - Lead360',
       html_body: `
@@ -74,6 +76,7 @@ async function seedEmailTemplates() {
     },
     {
       id: randomBytes(16).toString('hex'),
+      tenant_id: null,
       template_key: 'license-expiry-warning',
       subject: 'License Expiring Soon - {{company_name}}',
       html_body: `
@@ -115,6 +118,7 @@ async function seedEmailTemplates() {
     },
     {
       id: randomBytes(16).toString('hex'),
+      tenant_id: null,
       template_key: 'test-email',
       subject: 'Test Email - Lead360',
       html_body: `<h1>SMTP Configuration Test</h1><p>If you receive this, your SMTP settings are correct.</p>
@@ -167,11 +171,24 @@ Dashboard URL: {{tenant_dashboard_url}}
   ];
 
   for (const template of templates) {
-    await prisma.email_template.upsert({
-      where: { template_key: template.template_key },
-      update: template,
-      create: template,
+    // For system templates, check if exists and update/create accordingly
+    const existing = await prisma.email_template.findFirst({
+      where: {
+        template_key: template.template_key,
+        tenant_id: null,
+      },
     });
+
+    if (existing) {
+      await prisma.email_template.update({
+        where: { id: existing.id },
+        data: template,
+      });
+    } else {
+      await prisma.email_template.create({
+        data: template,
+      });
+    }
   }
 
   console.log('✅ Email templates seeded successfully');
