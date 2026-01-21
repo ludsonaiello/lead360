@@ -263,3 +263,4 @@
 2026/01/12 16:32:49 [error] 2265417#2265417: *1047863 access forbidden by rule, client: 87.121.69.252, server: lead360.app, request: "GET /.env HTTP/1.1", host: "lead360.app"
 2026/01/15 04:30:04 [error] 2535560#2535560: *1318669 access forbidden by rule, client: 74.248.130.235, server: lead360.app, request: "GET /.env HTTP/1.1", host: "lead360.app"
 2026/01/15 04:30:04 [error] 2535560#2535560: *1318669 access forbidden by rule, client: 74.248.130.235, server: lead360.app, request: "GET /.env HTTP/1.1", host: "lead360.app"
+2026/01/19 11:50:00 [error] 3154713#3154713: *1795523 access forbidden by rule, client: 31.184.236.37, server: lead360.app, request: "GET /.env HTTP/1.1", host: "lead360.app"

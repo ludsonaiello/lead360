@@ -6,6 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { Prisma, $Enums } from '@prisma/client';
 import * as Handlebars from 'handlebars';
 import { randomUUID } from 'crypto';
 import {
@@ -15,6 +16,7 @@ import {
   ValidateTemplateDto,
   PreviewTemplateDto,
 } from '../dto/template.dto';
+import { TemplateVariableRegistryService } from '../../../shared/services/template-variable-registry.service';
 
 /**
  * Email Templates Service
@@ -32,47 +34,110 @@ import {
 export class EmailTemplatesService {
   private readonly logger = new Logger(EmailTemplatesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly variableRegistry: TemplateVariableRegistryService,
+  ) {}
 
   /**
-   * List all templates for tenant (includes system templates)
+   * List all templates for tenant
+   * - Platform admins see all templates (platform, shared, tenant)
+   * - Tenants see shared + their own tenant templates only
    */
-  async findAll(tenantId: string, dto: ListTemplatesDto) {
+  async findAll(
+    tenantId: string | null,
+    dto: ListTemplatesDto,
+    isPlatformAdmin: boolean = false,
+  ) {
     const where: any = {
-      OR: [
-        { tenant_id: tenantId }, // Tenant-specific templates
-        { is_system: true }, // System templates (tenant_id = NULL)
-      ],
+      AND: [],
     };
 
+    // Template type filter (NEW - replaces is_system logic)
+    if (dto.template_type) {
+      // Explicit filter by type
+      where.AND.push({ template_type: dto.template_type });
+
+      // For tenant templates, also filter by tenant_id
+      if (dto.template_type === 'tenant' && tenantId) {
+        where.AND.push({ tenant_id: tenantId });
+      }
+    } else if (dto.is_system !== undefined) {
+      // DEPRECATED: Backward compatibility for is_system filter
+      if (dto.is_system === true) {
+        where.AND.push({ is_system: true });
+      } else {
+        where.AND.push({ is_system: false });
+        if (tenantId) {
+          where.AND.push({ tenant_id: tenantId });
+        }
+      }
+    } else {
+      // Default visibility rules (no filter specified)
+      if (isPlatformAdmin) {
+        // Platform admin sees ALL templates (platform, shared, tenant)
+        // No filter needed
+      } else if (tenantId) {
+        // Regular tenant user sees:
+        // - Shared templates (global library)
+        // - Their own tenant templates
+        where.AND.push({
+          OR: [
+            { template_type: 'shared' },
+            { template_type: 'tenant', tenant_id: tenantId },
+          ],
+        });
+      } else {
+        // No tenantId and not admin = error (shouldn't happen)
+        throw new ForbiddenException('Access denied');
+      }
+    }
+
+    // Category filter
     if (dto.category) {
-      where.category = dto.category;
+      where.AND.push({ category: dto.category });
     }
 
+    // Active status filter
     if (dto.is_active !== undefined) {
-      where.is_active = dto.is_active;
+      where.AND.push({ is_active: dto.is_active });
     }
 
+    // Search filter
     if (dto.search) {
-      where.OR = [
-        { template_key: { contains: dto.search } },
-        { description: { contains: dto.search } },
-      ];
+      where.AND.push({
+        OR: [
+          { template_key: { contains: dto.search } },
+          { description: { contains: dto.search } },
+        ],
+      });
     }
 
+    // Pagination
+    const page = dto.page || 1;
+    const limit = dto.limit || 20;
+    const skip = (page - 1) * limit;
+
+    // Get total count
+    const total = await this.prisma.email_template.count({ where });
+
+    // Get paginated templates
     const templates = await this.prisma.email_template.findMany({
       where,
-      orderBy: [{ is_system: 'desc' }, { template_key: 'asc' }],
+      orderBy: [{ template_type: 'asc' }, { template_key: 'asc' }],
+      skip,
+      take: limit,
       select: {
         id: true,
         tenant_id: true,
         template_key: true,
         category: true,
+        template_type: true,
         subject: true,
         description: true,
         variables: true,
         variable_schema: true,
-        is_system: true,
+        is_system: true, // Keep for backward compatibility
         is_active: true,
         created_at: true,
         updated_at: true,
@@ -81,7 +146,10 @@ export class EmailTemplatesService {
 
     return {
       templates,
-      total: templates.length,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
     };
   }
 
@@ -112,6 +180,7 @@ export class EmailTemplatesService {
     tenantId: string,
     dto: CreateEmailTemplateDto,
     userId: string,
+    isPlatformAdmin: boolean = false,
   ) {
     // Check if template key already exists for this tenant
     const existing = await this.prisma.email_template.findFirst({
@@ -127,7 +196,7 @@ export class EmailTemplatesService {
       );
     }
 
-    // Validate Handlebars syntax
+    // Validate Handlebars syntax and extract variables
     const validation = this.validateHandlebars({
       subject: dto.subject,
       html_body: dto.html_body,
@@ -141,21 +210,59 @@ export class EmailTemplatesService {
       });
     }
 
+    // Use provided variables or auto-extracted ones
+    const variables = dto.variables || validation.variables_used || [];
+
+    // Determine template type
+    let template_type = dto.template_type || 'tenant';
+
+    // Validate permissions for platform/shared templates
+    if (template_type === 'platform' && !isPlatformAdmin) {
+      throw new ForbiddenException(
+        'Only platform admins can create platform templates',
+      );
+    }
+    if (template_type === 'shared' && !isPlatformAdmin) {
+      throw new ForbiddenException(
+        'Only platform admins can create shared templates',
+      );
+    }
+
+    // Determine final tenant_id
+    let final_tenant_id: string | null;
+
+    if (template_type === 'platform' || template_type === 'shared') {
+      // Platform/shared templates always have NULL tenant_id
+      final_tenant_id = null;
+    } else if (dto.tenant_id && isPlatformAdmin) {
+      // Platform admin can create tenant template for specific tenant
+      final_tenant_id = dto.tenant_id;
+    } else if (dto.tenant_id && !isPlatformAdmin) {
+      // Non-admin trying to specify tenant_id - security violation
+      throw new ForbiddenException(
+        'Only platform admins can create templates for other tenants',
+      );
+    } else {
+      // Regular user creating template for their own tenant
+      final_tenant_id = tenantId;
+    }
+
     // Create template
     const template = await this.prisma.email_template.create({
       data: {
         id: randomUUID(),
-        tenant_id: tenantId,
+        tenant_id: final_tenant_id,
         template_key: dto.template_key,
         category: dto.category,
+        template_type: template_type as $Enums.email_template_type,
         subject: dto.subject,
         html_body: dto.html_body,
         text_body: dto.text_body,
-        variables: dto.variables || [],
+        variables: variables,
         variable_schema: dto.variable_schema || {},
         description: dto.description,
-        is_system: false,
-        is_active: true,
+        is_system: template_type !== 'tenant', // Keep for backward compatibility
+        is_active: dto.is_active !== undefined ? dto.is_active : true,
       },
     });
 
@@ -174,23 +281,28 @@ export class EmailTemplatesService {
     templateKey: string,
     dto: UpdateEmailTemplateDto,
     userId: string,
+    isPlatformAdmin: boolean = false,
   ) {
     // Find template
+    // Platform admins can edit system templates (tenant_id = null)
+    // Regular users can only edit their tenant's templates
     const template = await this.prisma.email_template.findFirst({
       where: {
         template_key: templateKey,
-        tenant_id: tenantId,
+        ...(isPlatformAdmin
+          ? {} // Platform admin can access any template
+          : { tenant_id: tenantId }), // Regular users only see their tenant templates
       },
     });
 
     if (!template) {
       throw new NotFoundException(
-        `Template '${templateKey}' not found for this tenant`,
+        `Template '${templateKey}' not found${isPlatformAdmin ? '' : ' for this tenant'}`,
       );
     }
 
-    // Prevent editing system templates
-    if (template.is_system) {
+    // Prevent editing system templates UNLESS user is platform admin
+    if (template.is_system && !isPlatformAdmin) {
       throw new ForbiddenException(
         'System templates cannot be edited. Create a custom template instead.',
       );
@@ -237,23 +349,32 @@ export class EmailTemplatesService {
   /**
    * Delete template
    */
-  async delete(tenantId: string, templateKey: string, userId: string) {
+  async delete(
+    tenantId: string,
+    templateKey: string,
+    userId: string,
+    isPlatformAdmin: boolean = false,
+  ) {
     // Find template
+    // Platform admins can delete system templates (tenant_id = null)
+    // Regular users can only delete their tenant's templates
     const template = await this.prisma.email_template.findFirst({
       where: {
         template_key: templateKey,
-        tenant_id: tenantId,
+        ...(isPlatformAdmin
+          ? {} // Platform admin can access any template
+          : { tenant_id: tenantId }), // Regular users only see their tenant templates
       },
     });
 
     if (!template) {
       throw new NotFoundException(
-        `Template '${templateKey}' not found for this tenant`,
+        `Template '${templateKey}' not found${isPlatformAdmin ? '' : ' for this tenant'}`,
       );
     }
 
-    // Prevent deleting system templates
-    if (template.is_system) {
+    // Prevent deleting system templates UNLESS user is platform admin
+    if (template.is_system && !isPlatformAdmin) {
       throw new ForbiddenException('System templates cannot be deleted.');
     }
 
@@ -263,7 +384,7 @@ export class EmailTemplatesService {
     });
 
     this.logger.log(
-      `Template deleted: ${templateKey} by user ${userId} for tenant ${tenantId}`,
+      `Template deleted: ${templateKey} by user ${userId}${template.is_system ? ' (system template)' : ` for tenant ${tenantId}`}`,
     );
 
     return { message: 'Template deleted successfully' };
@@ -328,121 +449,11 @@ export class EmailTemplatesService {
   }
 
   /**
-   * Get variable registry (common variables available in templates)
+   * Get comprehensive variable registry for email templates
+   * Uses shared centralized variable registry service
    */
   async getVariableRegistry() {
-    return {
-      common: {
-        companyName: {
-          type: 'string',
-          description: 'Business name',
-          example: 'Acme Plumbing',
-        },
-        companyPhone: {
-          type: 'string',
-          description: 'Business phone number',
-          example: '(555) 123-4567',
-        },
-        companyEmail: {
-          type: 'string',
-          description: 'Business email',
-          example: 'info@acmeplumbing.com',
-        },
-        companyAddress: {
-          type: 'string',
-          description: 'Business address',
-          example: '123 Main St, City, ST 12345',
-        },
-        currentYear: {
-          type: 'number',
-          description: 'Current year',
-          example: new Date().getFullYear(),
-        },
-      },
-      customer: {
-        customerName: {
-          type: 'string',
-          description: 'Customer full name',
-          example: 'John Doe',
-        },
-        customerFirstName: {
-          type: 'string',
-          description: 'Customer first name',
-          example: 'John',
-        },
-        customerEmail: {
-          type: 'string',
-          description: 'Customer email',
-          example: 'john@example.com',
-        },
-        customerPhone: {
-          type: 'string',
-          description: 'Customer phone',
-          example: '(555) 987-6543',
-        },
-      },
-      quote: {
-        quoteNumber: {
-          type: 'string',
-          description: 'Quote number',
-          example: 'Q-12345',
-        },
-        quoteTotal: {
-          type: 'string',
-          description: 'Quote total (formatted)',
-          example: '$1,250.00',
-        },
-        quoteDate: {
-          type: 'string',
-          description: 'Quote date',
-          example: '2026-01-18',
-        },
-        quoteValidUntil: {
-          type: 'string',
-          description: 'Quote expiration date',
-          example: '2026-02-18',
-        },
-      },
-      invoice: {
-        invoiceNumber: {
-          type: 'string',
-          description: 'Invoice number',
-          example: 'INV-12345',
-        },
-        invoiceTotal: {
-          type: 'string',
-          description: 'Invoice total (formatted)',
-          example: '$1,250.00',
-        },
-        invoiceDueDate: {
-          type: 'string',
-          description: 'Invoice due date',
-          example: '2026-02-01',
-        },
-        amountDue: {
-          type: 'string',
-          description: 'Amount due (formatted)',
-          example: '$1,250.00',
-        },
-      },
-      appointment: {
-        appointmentDate: {
-          type: 'string',
-          description: 'Appointment date',
-          example: '2026-01-20',
-        },
-        appointmentTime: {
-          type: 'string',
-          description: 'Appointment time',
-          example: '10:00 AM',
-        },
-        technicianName: {
-          type: 'string',
-          description: 'Assigned technician name',
-          example: 'Mike Smith',
-        },
-      },
-    };
+    return this.variableRegistry.getAllVariables();
   }
 
   /**
@@ -506,12 +517,24 @@ export class EmailTemplatesService {
     subject: string;
     html_body: string;
     text_body?: string;
-  }): { valid: boolean; errors?: string[] } {
+  }): { valid: boolean; errors?: string[]; variables_used?: string[] } {
     const errors: string[] = [];
+    const variablesSet = new Set<string>();
+
+    // Helper to extract variables from template string
+    const extractVariables = (template: string) => {
+      // Match {{variable}} and {{#if variable}} patterns
+      const variableRegex = /\{\{[#\/]?\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g;
+      let match;
+      while ((match = variableRegex.exec(template)) !== null) {
+        variablesSet.add(match[1]);
+      }
+    };
 
     // Validate subject
     try {
       Handlebars.compile(content.subject);
+      extractVariables(content.subject);
     } catch (error) {
       errors.push(`Subject: ${error.message}`);
     }
@@ -519,6 +542,7 @@ export class EmailTemplatesService {
     // Validate HTML body
     try {
       Handlebars.compile(content.html_body);
+      extractVariables(content.html_body);
     } catch (error) {
       errors.push(`HTML body: ${error.message}`);
     }
@@ -527,6 +551,7 @@ export class EmailTemplatesService {
     if (content.text_body) {
       try {
         Handlebars.compile(content.text_body);
+        extractVariables(content.text_body);
       } catch (error) {
         errors.push(`Text body: ${error.message}`);
       }
@@ -535,6 +560,73 @@ export class EmailTemplatesService {
     return {
       valid: errors.length === 0,
       errors: errors.length > 0 ? errors : undefined,
+      variables_used: Array.from(variablesSet).sort(),
     };
+  }
+
+  /**
+   * Clone a shared template to tenant
+   */
+  async cloneTemplate(
+    tenantId: string,
+    sourceKey: string,
+    newKey: string | undefined,
+    userId: string,
+  ) {
+    // Find source template (must be shared)
+    const source = await this.prisma.email_template.findFirst({
+      where: {
+        template_key: sourceKey,
+        template_type: 'shared',
+      },
+    });
+
+    if (!source) {
+      throw new NotFoundException('Shared template not found');
+    }
+
+    // Generate new key if not provided
+    const cloneKey = newKey || `${sourceKey}-custom`;
+
+    // Check if key exists for tenant
+    const existing = await this.prisma.email_template.findFirst({
+      where: {
+        template_key: cloneKey,
+        tenant_id: tenantId,
+      },
+    });
+
+    if (existing) {
+      throw new BadRequestException(
+        `Template with key '${cloneKey}' already exists for this tenant`,
+      );
+    }
+
+    // Create cloned template
+    const cloned = await this.prisma.email_template.create({
+      data: {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        template_key: cloneKey,
+        category: source.category,
+        template_type: 'tenant', // Always tenant type
+        subject: source.subject,
+        html_body: source.html_body,
+        text_body: source.text_body,
+        variables: source.variables as Prisma.InputJsonValue,
+        variable_schema: source.variable_schema as Prisma.InputJsonValue,
+        description: source.description
+          ? `Cloned from: ${source.description}`
+          : `Cloned from ${sourceKey}`,
+        is_system: false,
+        is_active: true,
+      },
+    });
+
+    this.logger.log(
+      `Template cloned: ${sourceKey} → ${cloneKey} by user ${userId} for tenant ${tenantId}`,
+    );
+
+    return cloned;
   }
 }

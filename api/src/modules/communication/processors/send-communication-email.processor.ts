@@ -77,14 +77,20 @@ export class SendCommunicationEmailProcessor extends WorkerHost {
       let providerConfig: any;
 
       if (event.tenant_id) {
-        // Tenant email
-        const tenantConfig = await this.prisma.tenant_email_config.findUnique({
-          where: { tenant_id: event.tenant_id },
+        // Tenant email - get ACTIVE provider configuration
+        const tenantConfig = await this.prisma.tenant_email_config.findFirst({
+          where: {
+            tenant_id: event.tenant_id,
+            is_active: true, // ✅ CRITICAL: Only use active provider
+          },
+          include: {
+            provider: true,
+          },
         });
 
-        if (!tenantConfig || !tenantConfig.is_active) {
+        if (!tenantConfig) {
           throw new Error(
-            `Tenant email config not found or inactive for tenant ${event.tenant_id}`,
+            `No active email provider configured for tenant ${event.tenant_id}. Please add and activate a provider in Communication Settings.`,
           );
         }
 

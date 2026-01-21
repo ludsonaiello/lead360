@@ -957,7 +957,19 @@ curl -X POST "https://api.lead360.app/api/v1/admin/communication/platform-email-
 
 ## Tenant Email Configuration
 
-Tenant-specific email configuration allows each business to use their own email provider.
+Tenant-specific email configuration allows each business to configure **multiple email providers** and switch between them easily.
+
+### Multi-Provider Support (NEW)
+
+As of January 2026, tenants can now:
+- Configure **multiple email providers** (SendGrid, Brevo, Amazon SES, SMTP)
+- **Switch between providers** instantly with one-click activation
+- **Keep backup providers** configured for quick failover
+- **No data loss** when switching - all configurations are preserved
+
+**Active Provider**: Only ONE provider can be active at a time. All outbound emails use the active provider.
+
+---
 
 ### 11. List Available Providers
 
@@ -1042,11 +1054,499 @@ curl -X GET "https://api.lead360.app/api/v1/communication/tenant-email-config/pr
 
 ---
 
-### 12. Get Tenant Email Config
+### 12. List All Provider Configurations (NEW)
+
+**Endpoint**: `GET /communication/tenant-email-config/configurations`
+
+**Description**: Get all email provider configurations for this tenant (active provider listed first)
+
+**Authentication**: Required (JWT)
+
+**RBAC**: All roles
+
+**Request Example**:
+
+```bash
+curl -X GET "https://api.lead360.app/api/v1/communication/tenant-email-config/configurations" \
+  -H "Authorization: Bearer {token}"
+```
+
+**Success Response** (200 OK):
+
+```json
+[
+  {
+    "id": "config-sendgrid-001",
+    "tenant_id": "tenant-acme-plumbing",
+    "provider_id": "prov-sendgrid-001",
+    "provider": {
+      "id": "prov-sendgrid-001",
+      "provider_key": "sendgrid",
+      "provider_name": "SendGrid",
+      "provider_type": "email"
+    },
+    "provider_config": {
+      "click_tracking": false,
+      "open_tracking": true
+    },
+    "from_email": "info@acmeplumbing.com",
+    "from_name": "Acme Plumbing",
+    "reply_to_email": "support@acmeplumbing.com",
+    "is_active": true,
+    "is_verified": true,
+    "created_at": "2026-01-18T09:00:00.000Z",
+    "updated_at": "2026-01-21T10:00:00.000Z"
+  },
+  {
+    "id": "config-brevo-002",
+    "tenant_id": "tenant-acme-plumbing",
+    "provider_id": "prov-brevo-001",
+    "provider": {
+      "id": "prov-brevo-001",
+      "provider_key": "brevo",
+      "provider_name": "Brevo",
+      "provider_type": "email"
+    },
+    "provider_config": {
+      "enable_tracking": false
+    },
+    "from_email": "info@acmeplumbing.com",
+    "from_name": "Acme Plumbing",
+    "reply_to_email": null,
+    "is_active": false,
+    "is_verified": false,
+    "created_at": "2026-01-15T14:00:00.000Z",
+    "updated_at": "2026-01-15T14:00:00.000Z"
+  }
+]
+```
+
+**Response Fields**: Same as single configuration endpoint (see below)
+
+**Empty Array** (200 OK) - When no providers configured:
+```json
+[]
+```
+
+---
+
+### 13. Get Active Provider Configuration (NEW)
+
+**Endpoint**: `GET /communication/tenant-email-config/configurations/active`
+
+**Description**: Get the currently active provider configuration for this tenant
+
+**Authentication**: Required (JWT)
+
+**RBAC**: All roles
+
+**Request Example**:
+
+```bash
+curl -X GET "https://api.lead360.app/api/v1/communication/tenant-email-config/configurations/active" \
+  -H "Authorization: Bearer {token}"
+```
+
+**Success Response** (200 OK):
+
+```json
+{
+  "id": "config-sendgrid-001",
+  "tenant_id": "tenant-acme-plumbing",
+  "provider_id": "prov-sendgrid-001",
+  "provider": {
+    "id": "prov-sendgrid-001",
+    "provider_key": "sendgrid",
+    "provider_name": "SendGrid",
+    "provider_type": "email"
+  },
+  "provider_config": {
+    "click_tracking": false,
+    "open_tracking": true
+  },
+  "from_email": "info@acmeplumbing.com",
+  "from_name": "Acme Plumbing",
+  "reply_to_email": "support@acmeplumbing.com",
+  "is_active": true,
+  "is_verified": true,
+  "created_at": "2026-01-18T09:00:00.000Z",
+  "updated_at": "2026-01-21T10:00:00.000Z"
+}
+```
+
+**Error Responses**:
+
+**404 Not Found** - No active provider configured:
+```json
+{
+  "statusCode": 404,
+  "message": "No active email provider configured for tenant {tenant_id}. Please add and activate a provider in Communication Settings."
+}
+```
+
+---
+
+### 14. Get Specific Provider Configuration (NEW)
+
+**Endpoint**: `GET /communication/tenant-email-config/configurations/:configId`
+
+**Description**: Get a specific provider configuration **with decrypted credentials** (Owner/Admin only)
+
+**Authentication**: Required (JWT)
+
+**RBAC**: Owner, Admin only
+
+**Path Parameters**:
+
+| Parameter | Type | Required | Description | Example |
+|-----------|------|----------|-------------|---------|
+| configId | string (uuid) | Yes | Provider configuration ID | `config-sendgrid-001` |
+
+**Request Example**:
+
+```bash
+curl -X GET "https://api.lead360.app/api/v1/communication/tenant-email-config/configurations/config-sendgrid-001" \
+  -H "Authorization: Bearer {token}"
+```
+
+**Success Response** (200 OK):
+
+```json
+{
+  "id": "config-sendgrid-001",
+  "tenant_id": "tenant-acme-plumbing",
+  "provider_id": "prov-sendgrid-001",
+  "provider": {
+    "id": "prov-sendgrid-001",
+    "provider_key": "sendgrid",
+    "provider_name": "SendGrid",
+    "provider_type": "email"
+  },
+  "credentials": {
+    "api_key": "SG.xxxxxxxxxxxxxxxxxxx"
+  },
+  "provider_config": {
+    "click_tracking": false,
+    "open_tracking": true
+  },
+  "from_email": "info@acmeplumbing.com",
+  "from_name": "Acme Plumbing",
+  "reply_to_email": "support@acmeplumbing.com",
+  "webhook_secret": "webhook_secret_xyz123",
+  "is_active": true,
+  "is_verified": true,
+  "created_at": "2026-01-18T09:00:00.000Z",
+  "updated_at": "2026-01-21T10:00:00.000Z"
+}
+```
+
+**Note**: This endpoint returns **decrypted credentials** and **webhook_secret**. Only accessible by Owner/Admin roles.
+
+**Error Responses**:
+
+**404 Not Found**:
+```json
+{
+  "statusCode": 404,
+  "message": "Email provider configuration not found"
+}
+```
+
+---
+
+### 15. Create Provider Configuration (NEW)
+
+**Endpoint**: `POST /communication/tenant-email-config/configurations`
+
+**Description**: Create a new email provider configuration for this tenant
+
+**Authentication**: Required (JWT)
+
+**RBAC**: Owner, Admin only
+
+**Request Body**:
+
+| Field | Type | Required | Validation | Description | Example |
+|-------|------|----------|------------|-------------|---------|
+| provider_id | string (uuid) | Yes | Valid provider UUID | Provider to use | `"prov-sendgrid-001"` |
+| credentials | object | Yes | Must match provider's credentials_schema | Provider API credentials | `{"api_key": "SG.xxx"}` |
+| provider_config | object | No | Must match provider's config_schema | Provider-specific settings | `{"click_tracking": false}` |
+| from_email | string | Yes | Valid email format | Sender email | `"info@acmeplumbing.com"` |
+| from_name | string | Yes | 2-100 chars | Sender name | `"Acme Plumbing"` |
+| reply_to_email | string | No | Valid email format | Reply-to email | `"support@acmeplumbing.com"` |
+| webhook_secret | string | No | Min 16 chars | Webhook verification secret | `"webhook_secret_xyz"` |
+| is_active | boolean | No | Default: false | Set as active provider immediately | `true` |
+
+**Request Example**:
+
+```bash
+curl -X POST "https://api.lead360.app/api/v1/communication/tenant-email-config/configurations" \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider_id": "prov-sendgrid-001",
+    "credentials": {
+      "api_key": "SG.xxxxxxxxxxxxxxxxxxx"
+    },
+    "provider_config": {
+      "click_tracking": false,
+      "open_tracking": true
+    },
+    "from_email": "info@acmeplumbing.com",
+    "from_name": "Acme Plumbing",
+    "reply_to_email": "support@acmeplumbing.com",
+    "webhook_secret": "webhook_secret_xyz123",
+    "is_active": true
+  }'
+```
+
+**Success Response** (201 Created):
+
+```json
+{
+  "id": "config-sendgrid-001",
+  "tenant_id": "tenant-acme-plumbing",
+  "provider_id": "prov-sendgrid-001",
+  "provider": {
+    "provider_key": "sendgrid",
+    "provider_name": "SendGrid"
+  },
+  "from_email": "info@acmeplumbing.com",
+  "from_name": "Acme Plumbing",
+  "reply_to_email": "support@acmeplumbing.com",
+  "is_active": true,
+  "is_verified": false,
+  "created_at": "2026-01-21T10:00:00.000Z",
+  "updated_at": "2026-01-21T10:00:00.000Z"
+}
+```
+
+**Error Responses**:
+
+**400 Bad Request** - Provider configuration already exists:
+```json
+{
+  "statusCode": 400,
+  "message": "Provider configuration already exists. Use update endpoint."
+}
+```
+
+**400 Bad Request** - Invalid credentials:
+```json
+{
+  "statusCode": 400,
+  "message": "Invalid provider credentials or configuration",
+  "errors": {
+    "api_key": "SendGrid API key must start with 'SG.'"
+  }
+}
+```
+
+**404 Not Found** - Provider doesn't exist:
+```json
+{
+  "statusCode": 404,
+  "message": "Provider not found"
+}
+```
+
+---
+
+### 16. Update Provider Configuration (NEW)
+
+**Endpoint**: `PATCH /communication/tenant-email-config/configurations/:configId`
+
+**Description**: Update an existing email provider configuration
+
+**Authentication**: Required (JWT)
+
+**RBAC**: Owner, Admin only
+
+**Path Parameters**:
+
+| Parameter | Type | Required | Description | Example |
+|-----------|------|----------|-------------|---------|
+| configId | string (uuid) | Yes | Provider configuration ID | `config-sendgrid-001` |
+
+**Request Body** (all fields optional):
+
+| Field | Type | Required | Validation | Description | Example |
+|-------|------|----------|------------|-------------|---------|
+| provider_id | string (uuid) | No | Valid provider UUID | Change provider | `"prov-brevo-001"` |
+| credentials | object | No | Must match provider's credentials_schema | Update credentials | `{"api_key": "SG.new"}` |
+| provider_config | object | No | Must match provider's config_schema | Update settings | `{"click_tracking": true}` |
+| from_email | string | No | Valid email format | Update sender email | `"hello@acme.com"` |
+| from_name | string | No | 2-100 chars | Update sender name | `"Acme Corp"` |
+| reply_to_email | string | No | Valid email format | Update reply-to | `"info@acme.com"` |
+| webhook_secret | string | No | Min 16 chars | Update webhook secret | `"new_secret_xyz"` |
+| is_active | boolean | No | - | Activate/deactivate | `false` |
+
+**Request Example**:
+
+```bash
+curl -X PATCH "https://api.lead360.app/api/v1/communication/tenant-email-config/configurations/config-sendgrid-001" \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from_name": "Acme Corp (Updated)",
+    "provider_config": {
+      "click_tracking": true,
+      "open_tracking": true
+    }
+  }'
+```
+
+**Success Response** (200 OK):
+
+```json
+{
+  "id": "config-sendgrid-001",
+  "tenant_id": "tenant-acme-plumbing",
+  "provider_id": "prov-sendgrid-001",
+  "provider": {
+    "provider_key": "sendgrid",
+    "provider_name": "SendGrid"
+  },
+  "from_email": "info@acmeplumbing.com",
+  "from_name": "Acme Corp (Updated)",
+  "reply_to_email": "support@acmeplumbing.com",
+  "is_active": true,
+  "is_verified": true,
+  "created_at": "2026-01-18T09:00:00.000Z",
+  "updated_at": "2026-01-21T10:30:00.000Z"
+}
+```
+
+**Note**: When credentials are updated, `is_verified` is automatically reset to `false`.
+
+**Error Responses**:
+
+**404 Not Found**:
+```json
+{
+  "statusCode": 404,
+  "message": "Email provider configuration not found"
+}
+```
+
+---
+
+### 17. Activate Provider Configuration (NEW)
+
+**Endpoint**: `PATCH /communication/tenant-email-config/configurations/:configId/activate`
+
+**Description**: Set this provider as active (deactivates all other providers automatically)
+
+**Authentication**: Required (JWT)
+
+**RBAC**: Owner, Admin only
+
+**Path Parameters**:
+
+| Parameter | Type | Required | Description | Example |
+|-----------|------|----------|-------------|---------|
+| configId | string (uuid) | Yes | Provider configuration ID to activate | `config-brevo-001` |
+
+**Request Example**:
+
+```bash
+curl -X PATCH "https://api.lead360.app/api/v1/communication/tenant-email-config/configurations/config-brevo-001/activate" \
+  -H "Authorization: Bearer {token}"
+```
+
+**Success Response** (200 OK):
+
+```json
+{
+  "id": "config-brevo-001",
+  "tenant_id": "tenant-acme-plumbing",
+  "provider_id": "prov-brevo-001",
+  "provider": {
+    "provider_key": "brevo",
+    "provider_name": "Brevo"
+  },
+  "from_email": "info@acmeplumbing.com",
+  "from_name": "Acme Plumbing",
+  "is_active": true,
+  "is_verified": false,
+  "created_at": "2026-01-15T14:00:00.000Z",
+  "updated_at": "2026-01-21T11:00:00.000Z"
+}
+```
+
+**Behavior**:
+- Sets specified config as `is_active: true`
+- Automatically sets all other configs for this tenant as `is_active: false`
+- All future emails will use the newly activated provider
+
+**Error Responses**:
+
+**404 Not Found**:
+```json
+{
+  "statusCode": 404,
+  "message": "Provider configuration not found"
+}
+```
+
+---
+
+### 18. Delete Provider Configuration (NEW)
+
+**Endpoint**: `DELETE /communication/tenant-email-config/configurations/:configId`
+
+**Description**: Delete a provider configuration from this tenant
+
+**Authentication**: Required (JWT)
+
+**RBAC**: Owner, Admin only
+
+**Path Parameters**:
+
+| Parameter | Type | Required | Description | Example |
+|-----------|------|----------|-------------|---------|
+| configId | string (uuid) | Yes | Provider configuration ID to delete | `config-brevo-001` |
+
+**Request Example**:
+
+```bash
+curl -X DELETE "https://api.lead360.app/api/v1/communication/tenant-email-config/configurations/config-brevo-001" \
+  -H "Authorization: Bearer {token}"
+```
+
+**Success Response** (200 OK):
+
+```json
+{
+  "success": true,
+  "message": "Provider configuration deleted successfully"
+}
+```
+
+**Behavior**:
+- Deletes the provider configuration
+- **Active providers CAN be deleted** (tenant allowed to have zero providers)
+- If tenant has no active provider and tries to send email, clear error is shown
+
+**Error Responses**:
+
+**404 Not Found**:
+```json
+{
+  "statusCode": 404,
+  "message": "Provider configuration not found"
+}
+```
+
+---
+
+### 19. Get Tenant Email Config (DEPRECATED)
 
 **Endpoint**: `GET /communication/tenant-email-config`
 
-**Description**: Get current tenant's email configuration
+**⚠️ DEPRECATED**: Use `GET /communication/tenant-email-config/configurations/active` instead
+
+**Description**: Get current tenant's active email configuration
 
 **Authentication**: Required (JWT)
 
@@ -1120,11 +1620,13 @@ curl -X GET "https://api.lead360.app/api/v1/communication/tenant-email-config" \
 
 ---
 
-### 13. Create/Update Tenant Email Config
+### 20. Create/Update Tenant Email Config (DEPRECATED)
 
 **Endpoint**: `POST /communication/tenant-email-config`
 
-**Description**: Create or update tenant's email configuration
+**⚠️ DEPRECATED**: Use `POST /communication/tenant-email-config/configurations` to create or `PATCH /communication/tenant-email-config/configurations/:configId` to update
+
+**Description**: Create or update tenant's email configuration (DEPRECATED - will be removed in future version)
 
 **Authentication**: Required (JWT)
 
@@ -1316,6 +1818,29 @@ curl -X POST "https://api.lead360.app/api/v1/communication/tenant-email-config/t
 
 Email templates use Handlebars syntax with variable substitution.
 
+### Template Types (3-Tier System)
+
+The platform uses a 3-tier template system to separate platform operations, shared starter templates, and tenant customizations:
+
+| Type | Purpose | Visibility | tenant_id | Who Can Create | Examples |
+|------|---------|------------|-----------|----------------|----------|
+| **platform** | Platform internal operations | Platform admins only | `NULL` | Platform admins only | password-reset, account-activation, license-expiry-warning |
+| **shared** | Pre-made starter templates | All tenants (read-only) | `NULL` | Platform admins only | invoice-reminder, quote-sent, appointment-confirmation |
+| **tenant** | Custom tenant templates | Owning tenant only | Tenant UUID | Any Owner/Admin | acme-custom-quote, my-invoice-template |
+
+**Key Features**:
+- **Platform templates** are hidden from tenant users (internal operations only)
+- **Shared templates** are visible to all tenants in a template gallery
+- Tenants can **clone shared templates** to create customizable tenant templates
+- **Tenant templates** are fully editable by the owning tenant
+
+**Workflow**:
+1. Platform admin creates shared template (e.g., "invoice-reminder")
+2. Tenant browses template gallery and finds "invoice-reminder"
+3. Tenant clicks "Use Template" → System clones it as "invoice-reminder-custom" (tenant template)
+4. Tenant customizes subject, body, branding in their cloned template
+5. Tenant uses their custom template for sending emails
+
 ### 15. List Email Templates
 
 **Endpoint**: `GET /communication/templates`
@@ -1331,14 +1856,30 @@ Email templates use Handlebars syntax with variable substitution.
 | Parameter | Type | Required | Default | Description | Example |
 |-----------|------|----------|---------|-------------|---------|
 | category | string | No | - | Filter by category: `system`, `transactional`, `marketing`, `notification` | `transactional` |
+| template_type | string | No | - | Filter by template type: `platform`, `shared`, `tenant` | `shared` |
+| is_system | boolean | No | - | **DEPRECATED**: Use `template_type` instead. Filter system templates | `false` |
 | is_active | boolean | No | - | Filter by active status | `true` |
 | search | string | No | - | Search in template_key, subject, description | `password` |
 | page | number | No | 1 | Page number | `1` |
 | limit | number | No | 20 | Items per page (max 100) | `50` |
 
+**Visibility Rules**:
+- **Platform Admin**: Sees ALL templates (platform, shared, tenant)
+- **Tenant User**: Sees shared templates + their own tenant templates only
+- **Platform templates are hidden from tenant users** (password-reset, license-expiry, etc.)
+
 **Request Example**:
 
 ```bash
+# Get all templates (respects visibility rules)
+curl -X GET "https://api.lead360.app/api/v1/communication/templates?page=1&limit=20" \
+  -H "Authorization: Bearer {token}"
+
+# Filter by template type
+curl -X GET "https://api.lead360.app/api/v1/communication/templates?template_type=shared&page=1&limit=20" \
+  -H "Authorization: Bearer {token}"
+
+# Filter by category and active status
 curl -X GET "https://api.lead360.app/api/v1/communication/templates?category=transactional&is_active=true&page=1&limit=20" \
   -H "Authorization: Bearer {token}"
 ```
@@ -1347,18 +1888,16 @@ curl -X GET "https://api.lead360.app/api/v1/communication/templates?category=tra
 
 ```json
 {
-  "data": [
+  "templates": [
     {
       "id": "tmpl-001",
       "tenant_id": null,
       "template_key": "password-reset",
-      "template_name": "Password Reset Email",
-      "description": "Email sent when user requests password reset",
       "category": "system",
+      "template_type": "platform",
       "subject": "Reset your Lead360 password",
-      "html_body": "<!DOCTYPE html><html><body><h1>Password Reset</h1><p>Hello {{user_name}},</p><p>Click the link below to reset your password:</p><a href=\"{{reset_link}}\">Reset Password</a></body></html>",
-      "text_body": "Hello {{user_name}},\n\nClick the link below to reset your password:\n{{reset_link}}",
-      "variables": {},
+      "description": "Email sent when user requests password reset",
+      "variables": ["user_name", "reset_link"],
       "variable_schema": {
         "type": "object",
         "properties": {
@@ -1376,13 +1915,11 @@ curl -X GET "https://api.lead360.app/api/v1/communication/templates?category=tra
       "id": "tmpl-002",
       "tenant_id": "tenant-acme-plumbing",
       "template_key": "quote-sent",
-      "template_name": "Quote Sent to Customer",
-      "description": "Email sent when quote is delivered to customer",
       "category": "transactional",
+      "template_type": "tenant",
       "subject": "Your quote from {{company_name}}",
-      "html_body": "...",
-      "text_body": "...",
-      "variables": {},
+      "description": "Email sent when quote is delivered to customer",
+      "variables": ["company_name", "customer_name", "quote_number", "quote_total", "quote_link"],
       "variable_schema": {
         "type": "object",
         "properties": {
@@ -1398,14 +1935,37 @@ curl -X GET "https://api.lead360.app/api/v1/communication/templates?category=tra
       "is_active": true,
       "created_at": "2026-01-18T08:00:00.000Z",
       "updated_at": "2026-01-18T09:00:00.000Z"
+    },
+    {
+      "id": "tmpl-003",
+      "tenant_id": null,
+      "template_key": "invoice-reminder",
+      "category": "transactional",
+      "template_type": "shared",
+      "subject": "Invoice Reminder: {{invoice_number}}",
+      "description": "Shared template: tenants can clone and customize",
+      "variables": ["company_name", "customer_name", "invoice_number", "amount_due", "due_date"],
+      "variable_schema": {
+        "type": "object",
+        "properties": {
+          "company_name": { "type": "string" },
+          "customer_name": { "type": "string" },
+          "invoice_number": { "type": "string" },
+          "amount_due": { "type": "string" },
+          "due_date": { "type": "string" }
+        },
+        "required": ["company_name", "customer_name", "invoice_number", "amount_due"]
+      },
+      "is_system": true,
+      "is_active": true,
+      "created_at": "2026-01-18T08:00:00.000Z",
+      "updated_at": "2026-01-18T09:00:00.000Z"
     }
   ],
-  "meta": {
-    "page": 1,
-    "limit": 20,
-    "total_count": 45,
-    "total_pages": 3
-  }
+  "total": 45,
+  "page": 1,
+  "limit": 20,
+  "totalPages": 3
 }
 ```
 
@@ -1413,26 +1973,24 @@ curl -X GET "https://api.lead360.app/api/v1/communication/templates?category=tra
 
 | Field | Type | Description |
 |-------|------|-------------|
-| data | array | Array of template objects |
-| data[].id | string (uuid) | Template ID |
-| data[].tenant_id | string \| null | Tenant ID (null = admin template) |
-| data[].template_key | string | Unique template key |
-| data[].template_name | string | Display name |
-| data[].description | string | Template description |
-| data[].category | enum | Category: `system`, `transactional`, `marketing`, `notification` |
-| data[].subject | string | Email subject (Handlebars template) |
-| data[].html_body | string | HTML email body (Handlebars template) |
-| data[].text_body | string \| null | Plain text body (Handlebars template) |
-| data[].variables | object (JSON) | Sample/default variables for this template |
-| data[].variable_schema | object (JSON Schema) | Variables validation schema |
-| data[].is_system | boolean | Whether template is system-managed |
-| data[].is_active | boolean | Whether template is enabled |
-| data[].created_at | string (ISO 8601) | Creation timestamp |
-| data[].updated_at | string (ISO 8601) | Last update timestamp |
-| meta.page | number | Current page number |
-| meta.limit | number | Items per page |
-| meta.total_count | number | Total matching templates |
-| meta.total_pages | number | Total pages |
+| templates | array | Array of template objects |
+| templates[].id | string (uuid) | Template ID |
+| templates[].tenant_id | string \| null | Tenant ID (null for platform/shared templates) |
+| templates[].template_key | string | Unique template key (kebab-case) |
+| templates[].category | enum | Category: `system`, `transactional`, `marketing`, `notification` |
+| templates[].template_type | enum | **NEW**: Template type: `platform`, `shared`, `tenant` |
+| templates[].subject | string | Email subject (supports Handlebars variables) |
+| templates[].description | string \| null | Template description |
+| templates[].variables | array | Array of variable names used in template |
+| templates[].variable_schema | object (JSON Schema) | Variables validation schema |
+| templates[].is_system | boolean | **DEPRECATED**: Use `template_type` instead. Whether template is system-managed |
+| templates[].is_active | boolean | Whether template is enabled |
+| templates[].created_at | string (ISO 8601) | Creation timestamp |
+| templates[].updated_at | string (ISO 8601) | Last update timestamp |
+| total | number | Total matching templates (across all pages) |
+| page | number | Current page number (1-based) |
+| limit | number | Items per page |
+| totalPages | number | Total number of pages |
 
 ---
 
@@ -1521,15 +2079,17 @@ curl -X GET "https://api.lead360.app/api/v1/communication/templates/password-res
 
 | Field | Type | Required | Validation | Description | Example |
 |-------|------|----------|------------|-------------|---------|
-| template_key | string | Yes | Alphanumeric + hyphens/underscores, unique per tenant | Unique template key | `"quote-sent"` |
-| template_name | string | Yes | 3-100 chars | Display name | `"Quote Sent to Customer"` |
-| description | string | No | Max 500 chars | Template description | `"Email sent when quote is delivered"` |
+| template_key | string | Yes | Alphanumeric + hyphens, unique per tenant | Unique template key (kebab-case) | `"quote-sent"` |
 | category | enum | Yes | `system`, `transactional`, `marketing`, `notification` | Template category | `"transactional"` |
+| template_type | enum | No | `platform`, `shared`, `tenant` (default: `tenant`) | Template type. Only platform admins can create `platform`/`shared` | `"tenant"` |
+| tenant_id | string (uuid) | No | Valid tenant UUID | **Platform admins only**: Create template for specific tenant | `"14a34ab2-..."` |
 | subject | string | Yes | 1-500 chars, Handlebars syntax | Email subject line | `"Your quote from {{company_name}}"` |
 | html_body | string | Yes | Valid HTML, Handlebars syntax | HTML email body | See example below |
 | text_body | string | No | Handlebars syntax | Plain text body | See example below |
-| variables | object | No | JSON object | Sample/default variables for this template | `{}` |
-| variable_schema | object | Yes | Valid JSON Schema | Variables validation | See example below |
+| variables | array | No | Array of strings (auto-extracted if not provided) | Variable names used in template | `["company_name", "customer_name"]` |
+| variable_schema | object | No | Valid JSON Schema | Variables validation schema | See example below |
+| description | string | No | Max 500 chars | Template description | `"Email sent when quote is delivered"` |
+| is_active | boolean | No | Default: `true` | Whether template is active | `true` |
 
 **Request Example**:
 
@@ -1539,13 +2099,12 @@ curl -X POST "https://api.lead360.app/api/v1/communication/templates" \
   -H "Content-Type: application/json" \
   -d '{
     "template_key": "quote-sent",
-    "template_name": "Quote Sent to Customer",
-    "description": "Email sent when quote is delivered to customer",
     "category": "transactional",
+    "template_type": "tenant",
     "subject": "Your quote from {{company_name}}",
     "html_body": "<!DOCTYPE html><html><body><h1>Quote from {{company_name}}</h1><p>Hello {{customer_name}},</p><p>Thank you for your request! Quote #{{quote_number}} is ready.</p><p><strong>Total: {{quote_total}}</strong></p><p><a href=\"{{quote_link}}\">View Quote</a></p></body></html>",
     "text_body": "Hello {{customer_name}},\n\nThank you for your request! Quote #{{quote_number}} is ready.\n\nTotal: {{quote_total}}\n\nView your quote here: {{quote_link}}",
-    "variables": {},
+    "variables": ["company_name", "customer_name", "quote_number", "quote_total", "quote_link"],
     "variable_schema": {
       "type": "object",
       "properties": {
@@ -1556,7 +2115,9 @@ curl -X POST "https://api.lead360.app/api/v1/communication/templates" \
         "quote_link": { "type": "string", "format": "uri", "description": "Link to view quote" }
       },
       "required": ["company_name", "customer_name", "quote_number", "quote_total", "quote_link"]
-    }
+    },
+    "description": "Email sent when quote is delivered to customer",
+    "is_active": true
   }'
 ```
 
@@ -1601,6 +2162,36 @@ curl -X POST "https://api.lead360.app/api/v1/communication/templates" \
 {
   "statusCode": 409,
   "message": "Template with key 'quote-sent' already exists for this tenant"
+}
+```
+
+**403 Forbidden** (insufficient permissions):
+```json
+{
+  "statusCode": 403,
+  "message": "Only platform admins can create platform templates"
+}
+```
+
+**Template Type Permissions**:
+- **tenant**: Any Owner/Admin can create (default)
+- **shared**: Only platform admins can create
+- **platform**: Only platform admins can create
+
+**Tenant ID Permissions**:
+- **Regular users**: Cannot specify `tenant_id` (uses their own tenant from JWT)
+- **Platform admins**: Can specify `tenant_id` to create templates for specific tenants
+
+**Platform Admin Use Case**:
+When a platform admin wants to create a custom tenant template for a specific tenant:
+```json
+{
+  "template_key": "custom-quote",
+  "category": "transactional",
+  "template_type": "tenant",
+  "tenant_id": "14a34ab2-6f6f-4e41-9bea-c444a304557e",
+  "subject": "Custom subject",
+  ...
 }
 ```
 
@@ -1949,9 +2540,107 @@ curl -X POST "https://api.lead360.app/api/v1/communication/templates/validate" \
 
 ---
 
+### 23. Clone Shared Template
+
+**Endpoint**: `POST /communication/templates/:key/clone`
+
+**Description**: Clone a shared template to create a tenant-specific customizable copy
+
+**Authentication**: Required (JWT)
+
+**RBAC**: Owner, Admin, Manager
+
+**Path Parameters**:
+
+| Parameter | Type | Required | Description | Example |
+|-----------|------|----------|-------------|---------|
+| key | string | Yes | Shared template key to clone | `invoice-reminder` |
+
+**Request Body**:
+
+| Field | Type | Required | Description | Example |
+|-------|------|----------|-------------|---------|
+| new_template_key | string | No | Custom key for cloned template (defaults to `{key}-custom`) | `"invoice-reminder-custom"` |
+
+**Use Case**:
+Tenants browse the shared template gallery, find a template they like, and click "Use Template". This clones the shared template as a tenant-specific template that they can customize.
+
+**Request Example**:
+
+```bash
+# Clone with auto-generated key
+curl -X POST "https://api.lead360.app/api/v1/communication/templates/invoice-reminder/clone" \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# Clone with custom key
+curl -X POST "https://api.lead360.app/api/v1/communication/templates/invoice-reminder/clone" \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "new_template_key": "my-invoice-reminder"
+  }'
+```
+
+**Success Response** (201 Created):
+
+```json
+{
+  "id": "tmpl-clone-001",
+  "tenant_id": "tenant-acme-plumbing",
+  "template_key": "invoice-reminder-custom",
+  "category": "transactional",
+  "template_type": "tenant",
+  "subject": "Invoice Reminder: {{invoice_number}}",
+  "html_body": "...",
+  "text_body": "...",
+  "variables": ["company_name", "customer_name", "invoice_number", "amount_due", "due_date"],
+  "variable_schema": { "...": "copied from source" },
+  "description": "Cloned from: Shared template: tenants can clone and customize",
+  "is_system": false,
+  "is_active": true,
+  "created_at": "2026-01-19T12:00:00.000Z",
+  "updated_at": "2026-01-19T12:00:00.000Z"
+}
+```
+
+**Response Notes**:
+- Cloned template has `template_type: "tenant"`
+- `tenant_id` is set to the requesting user's tenant
+- All content copied from source template
+- Template can now be edited and customized by tenant
+
+**Error Responses**:
+
+**404 Not Found** (shared template not found):
+```json
+{
+  "statusCode": 404,
+  "message": "Shared template not found"
+}
+```
+
+**409 Conflict** (key already exists):
+```json
+{
+  "statusCode": 409,
+  "message": "Template with key 'invoice-reminder-custom' already exists for this tenant"
+}
+```
+
+**Workflow Example**:
+1. Tenant views shared template gallery
+2. Finds "invoice-reminder" shared template
+3. Clicks "Use Template"
+4. System clones it as "invoice-reminder-custom" (tenant template)
+5. Tenant can now edit subject, body, styling to match their brand
+
+---
+
 ## Send Email
 
-### 23. Send Templated Email
+### 24. Send Templated Email
 
 **Endpoint**: `POST /communication/send-email/templated`
 
@@ -2048,7 +2737,7 @@ curl -X POST "https://api.lead360.app/api/v1/communication/send-email/templated"
 
 ---
 
-### 24. Send Raw Email
+### 25. Send Raw Email
 
 **Endpoint**: `POST /communication/send-email/raw`
 
@@ -2132,7 +2821,7 @@ curl -X POST "https://api.lead360.app/api/v1/communication/send-email/raw" \
 
 ## Communication History
 
-### 25. List Communication Events
+### 26. List Communication Events
 
 **Endpoint**: `GET /communication/history`
 
@@ -2248,7 +2937,7 @@ curl -X GET "https://api.lead360.app/api/v1/communication/history?channel=email&
 
 ---
 
-### 26. Get Communication Event Details
+### 27. Get Communication Event Details
 
 **Endpoint**: `GET /communication/history/:id`
 
@@ -2364,7 +3053,7 @@ curl -X GET "https://api.lead360.app/api/v1/communication/history/comm-event-001
 
 ---
 
-### 27. Resend Failed Email
+### 28. Resend Failed Email
 
 **Endpoint**: `POST /communication/history/:id/resend`
 
@@ -2422,7 +3111,7 @@ curl -X POST "https://api.lead360.app/api/v1/communication/history/comm-event-fa
 
 In-app notification system with real-time updates.
 
-### 28. List User Notifications
+### 29. List User Notifications
 
 **Endpoint**: `GET /communication/notifications`
 
@@ -2517,7 +3206,7 @@ curl -X GET "https://api.lead360.app/api/v1/communication/notifications?is_read=
 
 ---
 
-### 29. Get Unread Notification Count
+### 30. Get Unread Notification Count
 
 **Endpoint**: `GET /communication/notifications/unread-count`
 
@@ -2544,7 +3233,7 @@ curl -X GET "https://api.lead360.app/api/v1/communication/notifications/unread-c
 
 ---
 
-### 30. Mark Notification as Read
+### 31. Mark Notification as Read
 
 **Endpoint**: `PATCH /communication/notifications/:id/read`
 
@@ -2596,7 +3285,7 @@ curl -X PATCH "https://api.lead360.app/api/v1/communication/notifications/notif-
 
 ---
 
-### 31. Mark All Notifications as Read
+### 32. Mark All Notifications as Read
 
 **Endpoint**: `POST /communication/notifications/mark-all-read`
 
@@ -2624,7 +3313,7 @@ curl -X POST "https://api.lead360.app/api/v1/communication/notifications/mark-al
 
 ---
 
-### 32. Delete Notification
+### 33. Delete Notification
 
 **Endpoint**: `DELETE /communication/notifications/:id`
 
@@ -2667,7 +3356,7 @@ No response body.
 
 Automation rules for creating notifications based on events.
 
-### 33. List Notification Rules
+### 34. List Notification Rules
 
 **Endpoint**: `GET /communication/notification-rules`
 
@@ -2742,7 +3431,7 @@ curl -X GET "https://api.lead360.app/api/v1/communication/notification-rules?is_
 
 ---
 
-### 34. Create Notification Rule
+### 35. Create Notification Rule
 
 **Endpoint**: `POST /communication/notification-rules`
 
@@ -2811,7 +3500,7 @@ curl -X POST "https://api.lead360.app/api/v1/communication/notification-rules" \
 
 ---
 
-### 35. Update Notification Rule
+### 36. Update Notification Rule
 
 **Endpoint**: `PATCH /communication/notification-rules/:id`
 
@@ -2870,7 +3559,7 @@ curl -X PATCH "https://api.lead360.app/api/v1/communication/notification-rules/r
 
 ---
 
-### 36. Delete Notification Rule
+### 37. Delete Notification Rule
 
 **Endpoint**: `DELETE /communication/notification-rules/:id`
 
@@ -2913,7 +3602,7 @@ No response body.
 
 Webhook receivers are **public endpoints** (no JWT authentication required).
 
-### 37. SendGrid Webhook
+### 38. SendGrid Webhook
 
 **Endpoint**: `POST /webhooks/communication/sendgrid`
 
@@ -2990,7 +3679,7 @@ Webhook receivers are **public endpoints** (no JWT authentication required).
 
 ---
 
-### 38. Amazon SES Webhook
+### 39. Amazon SES Webhook
 
 **Endpoint**: `POST /webhooks/communication/amazon-ses`
 
@@ -3025,7 +3714,7 @@ Webhook receivers are **public endpoints** (no JWT authentication required).
 
 ---
 
-### 39. Brevo Webhook
+### 40. Brevo Webhook
 
 **Endpoint**: `POST /webhooks/communication/brevo`
 
@@ -3067,7 +3756,7 @@ Webhook receivers are **public endpoints** (no JWT authentication required).
 
 ---
 
-### 40. Twilio SMS Webhook
+### 41. Twilio SMS Webhook
 
 **Endpoint**: `POST /webhooks/communication/twilio-sms`
 
@@ -3105,7 +3794,7 @@ MessageSid=twilio-sms-abc123
 
 ---
 
-### 41. Twilio WhatsApp Webhook
+### 42. Twilio WhatsApp Webhook
 
 **Endpoint**: `POST /webhooks/communication/twilio-whatsapp`
 

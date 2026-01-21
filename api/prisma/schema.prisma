@@ -357,7 +357,7 @@ model tenant {
   leads                                   lead[]
   service_requests                        service_request[]
   webhook_api_keys                        webhook_api_key[]
-  tenant_email_config                     tenant_email_config?
+  tenant_email_configs                    tenant_email_config[]
   email_templates                         email_template[]
   communication_events                    communication_event[]
   notifications                           notification[]
@@ -1098,7 +1098,7 @@ model platform_email_config {
 
 model tenant_email_config {
   id              String                  @id @db.VarChar(36)
-  tenant_id       String                  @unique @db.VarChar(36)
+  tenant_id       String                  @db.VarChar(36)
   provider_id     String                  @db.VarChar(36)
   credentials     Json
   provider_config Json?
@@ -1106,7 +1106,7 @@ model tenant_email_config {
   from_name       String                  @db.VarChar(100)
   reply_to_email  String?                 @db.VarChar(255)
   webhook_secret  String?                 @db.VarChar(255)
-  is_active       Boolean                 @default(true)
+  is_active       Boolean                 @default(false)
   is_verified     Boolean                 @default(false)
   created_at      DateTime                @default(now())
   updated_at      DateTime                @updatedAt
@@ -1114,7 +1114,7 @@ model tenant_email_config {
   tenant          tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   provider        communication_provider  @relation(fields: [provider_id], references: [id])
 
-  @@index([tenant_id, provider_id])
+  @@unique([tenant_id, provider_id])
   @@index([tenant_id, is_active])
   @@index([provider_id])
   @@map("tenant_email_config")
@@ -1125,6 +1125,7 @@ model email_template {
   tenant_id       String?                    @db.VarChar(36)
   template_key    String                     @db.VarChar(100)
   category        email_template_category    @default(transactional)
+  template_type   email_template_type        @default(tenant)
   subject         String                     @db.VarChar(500)
   html_body       String                     @db.Text
   text_body       String?                    @db.Text
@@ -1142,6 +1143,7 @@ model email_template {
   @@index([tenant_id, is_active])
   @@index([tenant_id, category])
   @@index([is_system])
+  @@index([template_type, tenant_id], map: "idx_email_template_type_tenant")
   @@map("email_template")
 }
 
@@ -1302,6 +1304,12 @@ enum email_template_category {
   transactional
   marketing
   notification
+}
+
+enum email_template_type {
+  platform
+  shared
+  tenant
 }
 
 enum notification_recipient_type {

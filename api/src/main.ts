@@ -5,10 +5,25 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import * as bodyParser from 'body-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
+
+  // Add raw body parsing middleware for webhook signature verification
+  // This must be added BEFORE the JSON body parser
+  app.use(
+    bodyParser.json({
+      verify: (req: any, res, buf, encoding) => {
+        // Store raw body Buffer for webhook signature verification
+        // CRITICAL: SendGrid signature verification requires the raw Buffer, not string
+        if (req.url && req.url.includes('/webhooks/communication/')) {
+          req.rawBody = buf; // Store as Buffer, not string!
+        }
+      },
+    }),
+  );
 
   // Global logging interceptor (logs RAW request BEFORE validation)
   app.useGlobalInterceptors(new LoggingInterceptor());
@@ -24,10 +39,7 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true, // Strip properties not in DTO
       forbidNonWhitelisted: true, // Throw error for unknown properties
-      transform: true, // Transform payloads to DTO instances
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
+      transform: true, // Transform payloads to DTO instances (explicit transforms only)
     }),
   );
 

@@ -4,17 +4,28 @@ import {
   IsEnum,
   IsBoolean,
   IsObject,
+  IsArray,
   IsOptional,
   Matches,
   MinLength,
   MaxLength,
+  IsInt,
+  Min,
+  Max,
 } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 
 export enum TemplateCategory {
   SYSTEM = 'system',
   TRANSACTIONAL = 'transactional',
   MARKETING = 'marketing',
   NOTIFICATION = 'notification',
+}
+
+export enum TemplateType {
+  PLATFORM = 'platform',
+  SHARED = 'shared',
+  TENANT = 'tenant',
 }
 
 /**
@@ -64,12 +75,14 @@ export class CreateEmailTemplateDto {
   @IsOptional()
   text_body?: string;
 
-  @ApiProperty({
-    description: 'Array of variable names used in template',
+  @ApiPropertyOptional({
+    description: 'Array of variable names used in template (auto-extracted if not provided)',
     example: ['customerName', 'companyName', 'quoteNumber'],
   })
-  @IsObject()
-  variables: string[];
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  variables?: string[];
 
   @ApiPropertyOptional({
     description: 'JSON Schema defining variable types and validation',
@@ -89,6 +102,36 @@ export class CreateEmailTemplateDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @ApiPropertyOptional({
+    description: 'Whether template is active (defaults to true)',
+    example: true,
+  })
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
+  @IsBoolean()
+  @IsOptional()
+  is_active?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Template type (platform/shared/tenant). Defaults to tenant. Only platform admins can create platform/shared templates.',
+    enum: TemplateType,
+    example: TemplateType.TENANT,
+  })
+  @IsEnum(TemplateType)
+  @IsOptional()
+  template_type?: TemplateType;
+
+  @ApiPropertyOptional({
+    description: 'Tenant ID (only for platform admins creating templates for specific tenants)',
+    example: '14a34ab2-6f6f-4e41-9bea-c444a304557e',
+  })
+  @IsString()
+  @IsOptional()
+  tenant_id?: string;
 }
 
 /**
@@ -130,7 +173,8 @@ export class UpdateEmailTemplateDto {
   @ApiPropertyOptional({
     description: 'Array of variable names used in template',
   })
-  @IsObject()
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
   variables?: string[];
 
@@ -243,9 +287,35 @@ export class ListTemplatesDto {
   @ApiPropertyOptional({
     description: 'Filter by active status',
   })
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
   @IsBoolean()
   @IsOptional()
   is_active?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Filter by system template status (DEPRECATED: use template_type instead)',
+    deprecated: true,
+  })
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
+  @IsBoolean()
+  @IsOptional()
+  is_system?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Filter by template type (platform/shared/tenant)',
+    enum: TemplateType,
+  })
+  @IsEnum(TemplateType)
+  @IsOptional()
+  template_type?: TemplateType;
 
   @ApiPropertyOptional({
     description: 'Search by template key or description',
@@ -253,4 +323,27 @@ export class ListTemplatesDto {
   @IsString()
   @IsOptional()
   search?: string;
+
+  @ApiPropertyOptional({
+    description: 'Page number (1-based)',
+    example: 1,
+    default: 1,
+  })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  page?: number;
+
+  @ApiPropertyOptional({
+    description: 'Items per page',
+    example: 20,
+    default: 20,
+  })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  limit?: number;
 }

@@ -60,12 +60,34 @@ export class WebhooksController {
   ) {
     this.logger.log(`Received SendGrid webhook with ${events?.length || 0} events`);
 
+    // Log all headers for debugging
+    this.logger.debug(`[SENDGRID WEBHOOK] All headers: ${JSON.stringify(req.headers)}`);
+    this.logger.debug(`[SENDGRID WEBHOOK] Signature header (x-twilio-email-event-webhook-signature): ${signature || 'missing'}`);
+    this.logger.debug(`[SENDGRID WEBHOOK] Timestamp header (x-twilio-email-event-webhook-timestamp): ${timestamp || 'missing'}`);
+    this.logger.debug(`[SENDGRID WEBHOOK] Body type: ${Array.isArray(events) ? 'array' : typeof events}`);
+    this.logger.debug(`[SENDGRID WEBHOOK] Events count: ${events?.length || 0}`);
+
     try {
+      // Get raw body Buffer from request (required for SendGrid signature verification)
+      // SendGrid's verifySignature() expects a Buffer, not a string
+      const rawBody = (req as any).rawBody;
+
+      if (!rawBody) {
+        this.logger.error(`[SENDGRID WEBHOOK] Raw body not available - signature verification will fail`);
+        throw new Error('Raw body not captured for webhook verification');
+      }
+
+      const isBuffer = Buffer.isBuffer(rawBody);
+      this.logger.debug(`[SENDGRID WEBHOOK] Raw body type: ${isBuffer ? 'Buffer' : typeof rawBody}`);
+      this.logger.debug(`[SENDGRID WEBHOOK] Raw body available: ${!!rawBody}`);
+      this.logger.debug(`[SENDGRID WEBHOOK] Raw body first 150 chars: ${rawBody.toString('utf8').substring(0, 150)}`);
+      this.logger.debug(`[SENDGRID WEBHOOK] Raw body length: ${rawBody.length} bytes`);
+
       await this.webhooksService.processSendGridWebhook(
         events,
         signature,
         timestamp,
-        JSON.stringify(req.body),
+        rawBody, // Pass Buffer, not string
       );
 
       return { success: true };
@@ -92,28 +114,67 @@ export class WebhooksController {
     description: 'Invalid SNS signature',
   })
   @ApiExcludeEndpoint() // Exclude from Swagger (internal webhook)
-  async handleAmazonSES(@Body() payload: any, @Req() req: Request) {
-    this.logger.log(`Received Amazon SES webhook: ${payload.Type || 'unknown type'}`);
+  async handleAmazonSES(@Body() payload: any, @Req() req: Request, @Headers() headers: any) {
+    this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    this.logger.log('🔔 AMAZON SES WEBHOOK RECEIVED');
+    this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    this.logger.log(`📍 URL: ${req.method} ${req.url}`);
+    this.logger.log(`📦 Payload Type: ${payload.Type || payload['detail-type'] || 'unknown type'}`);
+    this.logger.log(`📋 Headers: ${JSON.stringify(headers, null, 2)}`);
+    this.logger.log(`📄 Full Payload: ${JSON.stringify(payload, null, 2)}`);
+    this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     try {
-      // Handle SNS subscription confirmation
+      // Handle EventBridge events (new format from AWS SES)
+      if (payload['detail-type']) {
+        this.logger.log(`📬 EventBridge event detected: ${payload['detail-type']}`);
+
+        // Extract messageId from EventBridge payload
+        const messageId = payload.detail?.mail?.messageId;
+        const eventType = payload.detail?.eventType;
+
+        this.logger.log(`📧 Message ID: ${messageId}`);
+        this.logger.log(`📊 Event Type: ${eventType}`);
+
+        if (messageId) {
+          // Process the event (update communication_event status)
+          await this.webhooksService.processAmazonSESEventBridge(payload);
+          return { success: true, messageId, eventType };
+        } else {
+          this.logger.warn('EventBridge payload missing messageId');
+          return { success: false, message: 'Missing messageId in EventBridge payload' };
+        }
+      }
+
+      // Handle SNS subscription confirmation (legacy format)
       if (payload.Type === 'SubscriptionConfirmation') {
+        this.logger.log('📨 SNS Subscription Confirmation detected');
         await this.webhooksService.confirmSnsSubscription(payload);
         return { success: true };
       }
 
-      // Handle SNS notification
+      // Handle SNS notification (legacy format)
       if (payload.Type === 'Notification') {
+        this.logger.log('📬 SNS Notification detected');
         await this.webhooksService.processAmazonSESWebhook(payload);
         return { success: true };
       }
 
-      this.logger.warn(`Unknown SNS message type: ${payload.Type}`);
-      return { success: false, message: 'Unknown message type' };
+      this.logger.warn(`Unknown message format - Type: ${payload.Type}, detail-type: ${payload['detail-type']}`);
+      return { success: false, message: 'Unknown message format' };
     } catch (error) {
-      this.logger.error(`Amazon SES webhook processing failed: ${error.message}`);
+      this.logger.error(`Amazon SES webhook processing failed: ${error.message}`, error.stack);
       throw error;
     }
+  }
+
+  @Post('amazon_ses')
+  @Public() // No JWT required
+  @HttpCode(HttpStatus.OK)
+  @ApiExcludeEndpoint() // Exclude from Swagger (internal webhook)
+  async handleAmazonSESUnderscore(@Body() payload: any, @Req() req: Request, @Headers() headers: any) {
+    // Alias for amazon-ses (AWS sometimes uses underscore)
+    return this.handleAmazonSES(payload, req, headers);
   }
 
   @Post('brevo')

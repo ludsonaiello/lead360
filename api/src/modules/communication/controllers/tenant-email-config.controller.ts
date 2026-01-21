@@ -2,10 +2,13 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
   Body,
   UseGuards,
   Request,
   Query,
+  Param,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -13,6 +16,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiQuery,
+  ApiParam,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -20,6 +24,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { TenantEmailConfigService } from '../services/tenant-email-config.service';
 import { CommunicationProviderService } from '../services/communication-provider.service';
 import {
+  CreateTenantEmailConfigDto,
   UpdateTenantEmailConfigDto,
   TestEmailConfigDto,
 } from '../dto/email-config.dto';
@@ -82,11 +87,114 @@ export class TenantEmailConfigController {
     return this.providerService.getActiveProviders(type);
   }
 
+  @Get('configurations')
+  @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Employee')
+  @ApiOperation({
+    summary: 'List all email provider configurations',
+    description: 'Get all provider configurations for this tenant (active provider listed first)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Configurations retrieved successfully',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', example: 'config-001' },
+          tenant_id: { type: 'string', example: 'tenant-acme-plumbing' },
+          provider_id: { type: 'string', example: 'prov-sendgrid-001' },
+          provider: {
+            type: 'object',
+            properties: {
+              provider_key: { type: 'string', example: 'sendgrid' },
+              provider_name: { type: 'string', example: 'SendGrid' },
+            },
+          },
+          from_email: { type: 'string', example: 'info@acmeplumbing.com' },
+          from_name: { type: 'string', example: 'Acme Plumbing' },
+          reply_to_email: { type: 'string', example: 'support@acmeplumbing.com' },
+          is_active: { type: 'boolean', example: true },
+          is_verified: { type: 'boolean', example: true },
+          created_at: { type: 'string', example: '2026-01-18T00:00:00.000Z' },
+          updated_at: { type: 'string', example: '2026-01-18T00:00:00.000Z' },
+        },
+      },
+    },
+  })
+  async listConfigurations(@Request() req) {
+    return this.tenantEmailConfigService.listProviderConfigs(req.user.tenant_id);
+  }
+
+  @Get('configurations/active')
+  @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Employee')
+  @ApiOperation({
+    summary: 'Get active email provider configuration',
+    description: 'Get the currently active provider configuration for this tenant',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Active configuration retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', example: 'config-001' },
+        tenant_id: { type: 'string', example: 'tenant-acme-plumbing' },
+        provider_id: { type: 'string', example: 'prov-sendgrid-001' },
+        provider: {
+          type: 'object',
+          properties: {
+            provider_key: { type: 'string', example: 'sendgrid' },
+            provider_name: { type: 'string', example: 'SendGrid' },
+          },
+        },
+        from_email: { type: 'string', example: 'info@acmeplumbing.com' },
+        from_name: { type: 'string', example: 'Acme Plumbing' },
+        reply_to_email: { type: 'string', example: 'support@acmeplumbing.com' },
+        is_active: { type: 'boolean', example: true },
+        is_verified: { type: 'boolean', example: true },
+        created_at: { type: 'string', example: '2026-01-18T00:00:00.000Z' },
+        updated_at: { type: 'string', example: '2026-01-18T00:00:00.000Z' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No active email provider configured',
+  })
+  async getActiveConfiguration(@Request() req) {
+    return this.tenantEmailConfigService.getActiveProvider(req.user.tenant_id);
+  }
+
+  @Get('configurations/:configId')
+  @Roles('Owner', 'Admin')
+  @ApiOperation({
+    summary: 'Get specific provider configuration with credentials',
+    description: 'Get a specific provider configuration including decrypted credentials (Owner/Admin only)',
+  })
+  @ApiParam({
+    name: 'configId',
+    description: 'Provider configuration ID',
+    example: 'config-001',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Configuration retrieved successfully with decrypted credentials',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Configuration not found',
+  })
+  async getConfiguration(@Request() req, @Param('configId') configId: string) {
+    return this.tenantEmailConfigService.getProviderConfig(req.user.tenant_id, configId);
+  }
+
   @Get()
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Employee')
   @ApiOperation({
-    summary: 'Get current tenant email configuration',
-    description: 'Get tenant-specific email settings (credentials hidden)',
+    summary: '[DEPRECATED] Get current tenant email configuration',
+    description: 'DEPRECATED: Use GET /configurations/active instead. Get tenant-specific email settings (credentials hidden)',
+    deprecated: true,
   })
   @ApiResponse({
     status: 200,
@@ -122,11 +230,154 @@ export class TenantEmailConfigController {
     return this.tenantEmailConfigService.get(req.user.tenant_id);
   }
 
+  @Post('configurations')
+  @Roles('Owner', 'Admin')
+  @ApiOperation({
+    summary: 'Create new email provider configuration',
+    description: 'Add a new email provider configuration for this tenant',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Configuration created successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', example: 'config-001' },
+        tenant_id: { type: 'string', example: 'tenant-acme-plumbing' },
+        provider_id: { type: 'string', example: 'prov-sendgrid-001' },
+        from_email: { type: 'string', example: 'info@acmeplumbing.com' },
+        from_name: { type: 'string', example: 'Acme Plumbing' },
+        is_active: { type: 'boolean', example: true },
+        is_verified: { type: 'boolean', example: false },
+        created_at: { type: 'string', example: '2026-01-18T00:00:00.000Z' },
+        updated_at: { type: 'string', example: '2026-01-18T00:00:00.000Z' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Provider configuration already exists or validation error',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Provider not found',
+  })
+  async createConfiguration(
+    @Request() req,
+    @Body() dto: CreateTenantEmailConfigDto,
+  ) {
+    return this.tenantEmailConfigService.createProviderConfig(
+      req.user.tenant_id,
+      dto,
+      req.user.id,
+    );
+  }
+
+  @Patch('configurations/:configId')
+  @Roles('Owner', 'Admin')
+  @ApiOperation({
+    summary: 'Update email provider configuration',
+    description: 'Update an existing email provider configuration',
+  })
+  @ApiParam({
+    name: 'configId',
+    description: 'Provider configuration ID',
+    example: 'config-001',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Configuration updated successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Configuration not found',
+  })
+  async updateConfiguration(
+    @Request() req,
+    @Param('configId') configId: string,
+    @Body() dto: UpdateTenantEmailConfigDto,
+  ) {
+    return this.tenantEmailConfigService.updateProviderConfig(
+      req.user.tenant_id,
+      configId,
+      dto,
+      req.user.id,
+    );
+  }
+
+  @Patch('configurations/:configId/activate')
+  @Roles('Owner', 'Admin')
+  @ApiOperation({
+    summary: 'Set email provider as active',
+    description: 'Activate this provider configuration for sending emails (deactivates others)',
+  })
+  @ApiParam({
+    name: 'configId',
+    description: 'Provider configuration ID',
+    example: 'config-001',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Provider activated successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Configuration not found',
+  })
+  async activateConfiguration(
+    @Request() req,
+    @Param('configId') configId: string,
+  ) {
+    return this.tenantEmailConfigService.setActiveProvider(
+      req.user.tenant_id,
+      configId,
+      req.user.id,
+    );
+  }
+
+  @Delete('configurations/:configId')
+  @Roles('Owner', 'Admin')
+  @ApiOperation({
+    summary: 'Delete email provider configuration',
+    description: 'Remove a provider configuration from this tenant',
+  })
+  @ApiParam({
+    name: 'configId',
+    description: 'Provider configuration ID',
+    example: 'config-001',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Configuration deleted successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        message: { type: 'string', example: 'Provider configuration deleted successfully' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Configuration not found',
+  })
+  async deleteConfiguration(
+    @Request() req,
+    @Param('configId') configId: string,
+  ) {
+    return this.tenantEmailConfigService.deleteProviderConfig(
+      req.user.tenant_id,
+      configId,
+      req.user.id,
+    );
+  }
+
   @Post()
   @Roles('Owner', 'Admin')
   @ApiOperation({
-    summary: 'Create or update tenant email configuration',
-    description: 'Configure tenant-specific email settings with provider credentials',
+    summary: '[DEPRECATED] Create or update tenant email configuration',
+    description: 'DEPRECATED: Use POST /configurations to create or PATCH /configurations/:id to update. Configure tenant-specific email settings with provider credentials',
+    deprecated: true,
   })
   @ApiResponse({
     status: 200,
@@ -205,8 +456,14 @@ export class TenantEmailConfigController {
     description: 'Failed to send test email',
   })
   async sendTestEmail(@Request() req, @Body() dto: TestEmailConfigDto) {
+    // Get active provider config to test
+    const activeConfig = await this.tenantEmailConfigService.getActiveProvider(
+      req.user.tenant_id,
+    );
+
     return this.tenantEmailConfigService.sendTestEmail(
       req.user.tenant_id,
+      activeConfig.id,
       dto.to,
       req.user.id,
     );

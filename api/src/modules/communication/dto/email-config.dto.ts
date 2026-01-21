@@ -5,6 +5,7 @@ import {
   IsUUID,
   IsObject,
   IsOptional,
+  IsBoolean,
   MinLength,
   MaxLength,
 } from 'class-validator';
@@ -67,9 +68,9 @@ export class UpdatePlatformEmailConfigDto {
 }
 
 /**
- * DTO for updating tenant email configuration
+ * DTO for creating tenant email provider configuration
  */
-export class UpdateTenantEmailConfigDto {
+export class CreateTenantEmailConfigDto {
   @ApiProperty({
     description: 'Provider ID to use for tenant emails',
     example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
@@ -129,6 +130,92 @@ export class UpdateTenantEmailConfigDto {
   @MinLength(16)
   @IsOptional()
   webhook_secret?: string;
+
+  @ApiPropertyOptional({
+    description: 'Set this provider as active for sending emails',
+    example: true,
+    default: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  is_active?: boolean;
+}
+
+/**
+ * DTO for updating tenant email configuration
+ */
+export class UpdateTenantEmailConfigDto {
+  @ApiPropertyOptional({
+    description: 'Provider ID to use for tenant emails',
+    example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+  })
+  @IsUUID()
+  @IsOptional()
+  provider_id?: string;
+
+  @ApiPropertyOptional({
+    description: 'Provider credentials (will be encrypted)',
+    example: {
+      api_key: 'SG.xxxxxxxxxxxxxxxxxxx',
+    },
+  })
+  @IsObject()
+  @IsOptional()
+  credentials?: object;
+
+  @ApiPropertyOptional({
+    description: 'Provider-specific configuration',
+    example: {
+      click_tracking: false,
+      open_tracking: true,
+    },
+  })
+  @IsObject()
+  @IsOptional()
+  provider_config?: object;
+
+  @ApiPropertyOptional({
+    description: 'From email address',
+    example: 'info@acmeplumbing.com',
+  })
+  @IsEmail()
+  @IsOptional()
+  from_email?: string;
+
+  @ApiPropertyOptional({
+    description: 'From name',
+    example: 'Acme Plumbing',
+  })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
+  @IsOptional()
+  from_name?: string;
+
+  @ApiPropertyOptional({
+    description: 'Reply-to email address',
+    example: 'support@acmeplumbing.com',
+  })
+  @IsEmail()
+  @IsOptional()
+  reply_to_email?: string;
+
+  @ApiPropertyOptional({
+    description: 'Webhook verification secret (recommended)',
+    example: 'webhook_secret_xyz123',
+  })
+  @IsString()
+  @MinLength(16)
+  @IsOptional()
+  webhook_secret?: string;
+
+  @ApiPropertyOptional({
+    description: 'Set this provider as active for sending emails',
+    example: true,
+  })
+  @IsBoolean()
+  @IsOptional()
+  is_active?: boolean;
 }
 
 /**

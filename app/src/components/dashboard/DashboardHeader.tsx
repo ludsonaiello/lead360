@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
 import Link from 'next/link';
 import AlertsBell from '@/components/admin/alerts/AlertsBell';
+import NotificationBell from '@/components/communication/NotificationBell';
 
 interface DashboardHeaderProps {
   onMenuClick: () => void;
@@ -67,6 +68,9 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
 
           {/* Admin Alerts (only for platform admins) */}
           {user?.is_platform_admin && <AlertsBell />}
+
+          {/* User Notifications Bell */}
+          <NotificationBell />
 
           {/* Profile dropdown */}
           <div className="relative">

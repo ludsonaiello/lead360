@@ -27,10 +27,19 @@ export class NotificationsService {
    * Find all notifications for a user (includes tenant-wide broadcasts)
    */
   async findAllForUser(
-    tenantId: string,
+    tenantId: string | null,
     userId: string,
     dto: ListNotificationsDto,
   ) {
+    // Platform admins (tenantId = null) should have no notifications
+    // Notifications are tenant-specific only
+    if (!tenantId) {
+      return {
+        notifications: [],
+        total: 0,
+      };
+    }
+
     const limit = Math.min(dto.limit || 50, 100);
 
     // Build where clause
@@ -90,7 +99,13 @@ export class NotificationsService {
   /**
    * Get unread notification count for user
    */
-  async getUnreadCount(tenantId: string, userId: string) {
+  async getUnreadCount(tenantId: string | null, userId: string) {
+    // Platform admins (tenantId = null) should have 0 notifications
+    // Notifications are tenant-specific only
+    if (!tenantId) {
+      return { count: 0 };
+    }
+
     const count = await this.prisma.notification.count({
       where: {
         tenant_id: tenantId,

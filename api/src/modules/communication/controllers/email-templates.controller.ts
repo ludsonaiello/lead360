@@ -99,7 +99,11 @@ export class EmailTemplatesController {
     },
   })
   async findAll(@Request() req, @Query() dto: ListTemplatesDto) {
-    return this.templatesService.findAll(req.user.tenant_id, dto);
+    return this.templatesService.findAll(
+      req.user.tenant_id,
+      dto,
+      req.user.is_platform_admin,
+    );
   }
 
   @Get('variables/registry')
@@ -205,14 +209,19 @@ export class EmailTemplatesController {
     description: 'Template key already exists',
   })
   async create(@Request() req, @Body() dto: CreateEmailTemplateDto) {
-    return this.templatesService.create(req.user.tenant_id, dto, req.user.id);
+    return this.templatesService.create(
+      req.user.tenant_id,
+      dto,
+      req.user.id,
+      req.user.is_platform_admin,
+    );
   }
 
   @Patch(':key')
   @Roles('Owner', 'Admin')
   @ApiOperation({
     summary: 'Update email template',
-    description: 'Update tenant-specific template (cannot update system templates)',
+    description: 'Update tenant-specific template. Platform admins can edit system templates.',
   })
   @ApiParam({
     name: 'key',
@@ -228,7 +237,7 @@ export class EmailTemplatesController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Cannot update system template or insufficient permissions',
+    description: 'Tenant users cannot update system templates or insufficient permissions',
   })
   @ApiResponse({ status: 404, description: 'Template not found' })
   async update(
@@ -241,6 +250,7 @@ export class EmailTemplatesController {
       key,
       dto,
       req.user.id,
+      req.user.is_platform_admin,
     );
   }
 
@@ -249,7 +259,7 @@ export class EmailTemplatesController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete email template',
-    description: 'Delete tenant-specific template (cannot delete system templates)',
+    description: 'Delete tenant-specific template. Platform admins can delete system templates.',
   })
   @ApiParam({
     name: 'key',
@@ -261,11 +271,16 @@ export class EmailTemplatesController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Cannot delete system template or insufficient permissions',
+    description: 'Tenant users cannot delete system templates or insufficient permissions',
   })
   @ApiResponse({ status: 404, description: 'Template not found' })
   async delete(@Request() req, @Param('key') key: string) {
-    await this.templatesService.delete(req.user.tenant_id, key, req.user.id);
+    await this.templatesService.delete(
+      req.user.tenant_id,
+      key,
+      req.user.id,
+      req.user.is_platform_admin,
+    );
   }
 
   @Post('validate')
@@ -337,5 +352,41 @@ export class EmailTemplatesController {
     @Body() dto: PreviewTemplateDto,
   ) {
     return this.templatesService.preview(req.user.tenant_id, dto);
+  }
+
+  @Post(':key/clone')
+  @Roles('Owner', 'Admin', 'Manager')
+  @ApiOperation({
+    summary: 'Clone a shared template to tenant',
+    description:
+      'Create a copy of a shared template as a tenant-specific template that can be customized',
+  })
+  @ApiParam({
+    name: 'key',
+    description: 'Template key of the shared template to clone',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Template cloned successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Shared template not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Template key already exists for this tenant',
+  })
+  async cloneTemplate(
+    @Request() req,
+    @Param('key') key: string,
+    @Body() dto: { new_template_key?: string },
+  ) {
+    return this.templatesService.cloneTemplate(
+      req.user.tenant_id,
+      key,
+      dto.new_template_key,
+      req.user.id,
+    );
   }
 }

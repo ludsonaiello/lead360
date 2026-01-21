@@ -9,6 +9,7 @@ import {
   Matches,
   IsUrl,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export enum ProviderType {
   EMAIL = 'email',
@@ -220,7 +221,25 @@ export class FilterProvidersDto {
     description: 'Filter by active status',
     example: true,
   })
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
   @IsBoolean()
   @IsOptional()
   is_active?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Include system providers',
+    example: true,
+  })
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
+  @IsBoolean()
+  @IsOptional()
+  include_system?: boolean;
 }

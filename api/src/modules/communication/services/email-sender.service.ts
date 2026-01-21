@@ -224,7 +224,25 @@ export class EmailSenderService {
     config: any,
     email: EmailPayload,
   ): Promise<SendResult> {
-    const AWS = await import('aws-sdk');
+    const awsModule = await import('aws-sdk');
+    const AWS = awsModule.default || awsModule;
+
+    // 🔍 DEBUG: Log all Amazon SES configuration details (FULL CREDENTIALS FOR DEBUGGING)
+    this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    this.logger.log('🔍 AMAZON SES DEBUG - FULL Configuration Details');
+    this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    this.logger.log(`📍 Region: ${credentials.region || 'NOT SET'}`);
+    this.logger.log(`🔑 Access Key ID (FULL): ${credentials.access_key_id || 'NOT SET'}`);
+    this.logger.log(`🔐 Secret Access Key (FULL): ${credentials.secret_access_key || 'NOT SET'}`);
+    this.logger.log(`📧 From: "${email.from_name}" <${email.from_email}>`);
+    this.logger.log(`📬 To: ${Array.isArray(email.to) ? email.to.join(', ') : email.to}`);
+    this.logger.log(`📝 Subject: ${email.subject}`);
+    this.logger.log(`⚙️  Configuration Set: ${config?.configuration_set || 'NONE'}`);
+    this.logger.log(`📎 Has Attachments: ${email.attachments && email.attachments.length > 0 ? 'YES (' + email.attachments.length + ')' : 'NO'}`);
+    this.logger.log(`🔧 Provider Config (full): ${JSON.stringify(config, null, 2)}`);
+    this.logger.log(`🔧 Credentials Object (full): ${JSON.stringify(credentials, null, 2)}`);
+    this.logger.log(`🔌 Using SES API (not SMTP) - Endpoint will be: https://email.${credentials.region || 'us-east-1'}.amazonaws.com`);
+    this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     const ses = new AWS.SES({
       accessKeyId: credentials.access_key_id,

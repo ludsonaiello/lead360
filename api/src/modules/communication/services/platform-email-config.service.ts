@@ -48,7 +48,7 @@ export class PlatformEmailConfigService {
 
   async createOrUpdate(dto: UpdatePlatformEmailConfigDto, userId: string) {
     // Validate provider exists and is active
-    const provider = await this.providerService.getProvider(dto.provider_id);
+    const provider = await this.providerService.getProviderById(dto.provider_id);
 
     if (!provider.is_active) {
       throw new Error('Provider is not active');

@@ -32,6 +32,9 @@ import {
   ChevronUp,
   UserPlus,
   Webhook,
+  Mail,
+  MessageSquare,
+  Send,
 } from 'lucide-react';
 import ProtectedMenuItem from '@/components/rbac/shared/ProtectedMenuItem';
 import { useAuth } from '@/contexts/AuthContext';
@@ -58,10 +61,22 @@ interface NavGroup {
   permission?: string;
 }
 
-const navigation: NavItem[] = [
+const navigation: (NavItem | NavGroup)[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Leads', href: '/leads', icon: UserPlus, permission: 'leads:view' },
   { name: 'Customers', href: '/customers', icon: Users, permission: 'users:view' },
+  {
+    name: 'Communications',
+    icon: Mail,
+    permission: 'communications:view',
+    items: [
+      { name: 'History', href: '/communications/history', icon: Send, permission: 'communications:view' },
+      { name: 'Templates', href: '/communications/templates', icon: FileText, permission: 'communications:view' },
+      { name: 'Notifications', href: '/communications/notifications', icon: Bell, permission: 'communications:view' },
+      { name: 'Notification Rules', href: '/communications/notification-rules', icon: MessageSquare, permission: 'communications:edit' },
+      { name: 'Settings', href: '/communications/settings', icon: Settings, permission: 'communications:edit' },
+    ],
+  },
   { name: 'Documents', href: '/documents', icon: FileText, permission: 'documents:view' },
   { name: 'Media', href: '/files', icon: Image, permission: 'files:view' },
   { name: 'Business Settings', href: '/settings/business', icon: Building2, permission: 'settings:edit' },
@@ -83,6 +98,16 @@ const adminNavigationGroups: (NavItem | NavGroup)[] = [
       { name: 'Tenants', href: '/admin/tenants', icon: Building2, permission: 'platform_admin:view_all_tenants' },
       { name: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCard, permission: 'platform_admin:view_all_tenants' },
       { name: 'Industries', href: '/admin/industries', icon: Briefcase, permission: 'platform_admin:view_all_tenants' },
+    ],
+  },
+  {
+    name: 'Communications',
+    icon: Mail,
+    permission: 'platform_admin:view_all_tenants',
+    items: [
+      { name: 'Templates', href: '/admin/communications/templates', icon: FileText, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Providers', href: '/admin/communications/providers', icon: Layers, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Email Configuration', href: '/admin/communications/email-config', icon: Settings, permission: 'platform_admin:view_all_tenants' },
     ],
   },
   {
@@ -121,7 +146,8 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
   // State for expanded groups - auto-expand based on active route
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
     const expanded = new Set<string>();
-    adminNavigationGroups.forEach(item => {
+    const allGroups = [...navigation, ...adminNavigationGroups];
+    allGroups.forEach(item => {
       if ('items' in item) {
         const hasActiveChild = item.items.some(child =>
           pathname === child.href || pathname.startsWith(child.href + '/')
@@ -135,7 +161,8 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
   // Update expanded groups when pathname changes
   useEffect(() => {
     const newExpanded = new Set(expandedGroups);
-    adminNavigationGroups.forEach(item => {
+    const allGroups = [...navigation, ...adminNavigationGroups];
+    allGroups.forEach(item => {
       if ('items' in item) {
         const hasActiveChild = item.items.some(child =>
           pathname === child.href || pathname.startsWith(child.href + '/')
@@ -453,7 +480,7 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
               {showTenantMenu && (
                 <li>
                   <ul role="list" className="-mx-2 space-y-1">
-                    {navigation.map((item) => renderNavItem(item, isCollapsed))}
+                    {navigation.map((item) => renderNavItemOrGroup(item, isCollapsed))}
                   </ul>
                 </li>
               )}
@@ -505,43 +532,7 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
               {showTenantMenu && (
                 <li>
                   <ul role="list" className="-mx-2 space-y-1">
-                    {navigation.map((item) => {
-                      const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-                      const Icon = item.icon;
-
-                      const linkContent = (
-                        <Link
-                          href={item.href}
-                          onClick={onClose}
-                          className={`
-                            group flex gap-x-3 rounded-lg p-3 text-sm font-semibold leading-6
-                            transition-all duration-200
-                            ${
-                              isActive
-                                ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400'
-                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-brand-600 dark:hover:text-brand-400'
-                            }
-                          `}
-                        >
-                          <Icon
-                            className={`h-6 w-6 shrink-0 ${
-                              isActive ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-brand-600 dark:group-hover:text-brand-400'
-                            }`}
-                          />
-                          {item.name}
-                        </Link>
-                      );
-
-                      if (item.permission) {
-                        return (
-                          <ProtectedMenuItem key={item.name} requiredPermission={item.permission}>
-                            {linkContent}
-                          </ProtectedMenuItem>
-                        );
-                      }
-
-                      return <li key={item.name}>{linkContent}</li>;
-                    })}
+                    {navigation.map((item) => renderNavItemOrGroupMobile(item))}
                   </ul>
                 </li>
               )}

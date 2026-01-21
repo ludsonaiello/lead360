@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createHmac } from 'crypto';
+import { EventWebhook, EventWebhookHeader } from '@sendgrid/eventwebhook';
 
 /**
  * Webhook Verification Service
@@ -12,28 +13,78 @@ export class WebhookVerificationService {
   private readonly logger = new Logger(WebhookVerificationService.name);
 
   /**
-   * Verify SendGrid webhook signature
+   * Verify SendGrid webhook signature using official SendGrid library
    *
-   * SendGrid uses HMAC-SHA256 with timestamp to prevent replay attacks
+   * SendGrid uses ECDSA (Elliptic Curve Digital Signature Algorithm) with public key verification
+   * Reference: https://docs.sendgrid.com/for-developers/tracking-events/getting-started-event-webhook-security-features
+   * Library: https://github.com/sendgrid/sendgrid-nodejs/tree/main/packages/eventwebhook
    */
   verifySendGrid(
-    payload: string,
+    payload: Buffer,
     signature: string,
     timestamp: string,
-    secret: string,
+    publicKeyBase64: string,
   ): boolean {
     try {
-      // Construct the signed payload
-      const signedPayload = timestamp + payload;
+      this.logger.debug(`[SENDGRID VERIFY] Starting verification with official library`);
+      this.logger.debug(`[SENDGRID VERIFY] Signature: ${signature}`);
+      this.logger.debug(`[SENDGRID VERIFY] Timestamp: ${timestamp}`);
+      this.logger.debug(`[SENDGRID VERIFY] Public key (base64): ${publicKeyBase64}`);
+      this.logger.debug(`[SENDGRID VERIFY] Payload type: ${Buffer.isBuffer(payload) ? 'Buffer' : typeof payload}`);
+      this.logger.debug(`[SENDGRID VERIFY] Payload length: ${payload.length} bytes`);
 
-      // Calculate expected signature
-      const expectedSignature = createHmac('sha256', secret)
-        .update(signedPayload)
-        .digest('base64');
+      // Initialize SendGrid EventWebhook
+      const eventWebhook = new EventWebhook();
+
+      // Convert base64 public key to PEM format (required by SendGrid library)
+      // The library expects PEM format: -----BEGIN PUBLIC KEY-----...-----END PUBLIC KEY-----
+      const publicKeyPEM = `-----BEGIN PUBLIC KEY-----\n${publicKeyBase64}\n-----END PUBLIC KEY-----`;
+      this.logger.debug(`[SENDGRID VERIFY] Public key PEM format:\n${publicKeyPEM}`);
+
+      // Convert public key to ECDSA format
+      let ecPublicKey;
+      try {
+        ecPublicKey = eventWebhook.convertPublicKeyToECDSA(publicKeyPEM);
+        this.logger.debug(`[SENDGRID VERIFY] Public key converted to ECDSA format successfully`);
+        this.logger.debug(`[SENDGRID VERIFY] ECDSA key type: ${typeof ecPublicKey}`);
+        this.logger.debug(`[SENDGRID VERIFY] ECDSA key object keys: ${Object.keys(ecPublicKey).join(', ')}`);
+      } catch (keyError) {
+        this.logger.error(`[SENDGRID VERIFY] Failed to convert public key: ${keyError.message}`);
+        throw keyError;
+      }
+
+      // ✅ CORRECT APPROACH: Verify the raw Buffer directly
+      // SendGrid signs the EXACT raw bytes sent over HTTP
+      // Do NOT convert to string - that breaks verification for batched webhooks
+      // The verifySignature method accepts Buffer even though types say string
+      this.logger.debug(`[SENDGRID VERIFY] Verifying raw Buffer (${payload.length} bytes)`);
+      this.logger.debug(`[SENDGRID VERIFY] First 20 bytes (hex): ${payload.slice(0, 20).toString('hex')}`);
+
+      const verified = eventWebhook.verifySignature(
+        ecPublicKey,
+        payload as any,  // Pass Buffer directly (types say string, but Buffer is correct)
+        signature,
+        timestamp,
+      );
+
+      if (!verified) {
+        this.logger.warn('SendGrid webhook signature verification failed');
+        this.logger.warn(`Payload length: ${payload.length} bytes`);
+        this.logger.warn(`Signature: ${signature}`);
+        this.logger.warn(`Timestamp: ${timestamp}`);
+        this.logger.warn(`First 50 bytes of payload: ${payload.toString('utf8').substring(0, 50)}`);
+        return false;
+      }
+
+      this.logger.debug(`[SENDGRID VERIFY] ✅ Signature verified successfully (raw Buffer)`);
 
       // Prevent replay attacks (5 minute window)
       const now = Math.floor(Date.now() / 1000);
       const webhookTimestamp = parseInt(timestamp, 10);
+
+      this.logger.debug(`[SENDGRID VERIFY] Current timestamp: ${now}`);
+      this.logger.debug(`[SENDGRID VERIFY] Webhook timestamp: ${webhookTimestamp}`);
+      this.logger.debug(`[SENDGRID VERIFY] Time difference: ${Math.abs(now - webhookTimestamp)}s`);
 
       if (Math.abs(now - webhookTimestamp) > 300) {
         this.logger.warn(
@@ -42,18 +93,12 @@ export class WebhookVerificationService {
         return false;
       }
 
-      // Constant-time comparison to prevent timing attacks
-      const verified = this.timingSafeEqual(signature, expectedSignature);
-
-      if (!verified) {
-        this.logger.warn('SendGrid webhook signature verification failed');
-      }
-
-      return verified;
+      return true;
     } catch (error) {
       this.logger.error(
         `SendGrid signature verification error: ${error.message}`,
       );
+      this.logger.error(`Stack: ${error.stack}`);
       return false;
     }
   }

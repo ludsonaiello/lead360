@@ -6,6 +6,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './core/database';
 import { FileStorageModule } from './core/file-storage';
+import { SharedModule } from './shared/shared.module';
 import { AuthModule, JwtAuthGuard } from './modules/auth';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { FilesModule } from './modules/files/files.module';
@@ -14,6 +15,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { LeadsModule } from './modules/leads/leads.module';
+import { CommunicationModule } from './modules/communication/communication.module';
 
 @Module({
   imports: [
@@ -33,6 +35,7 @@ import { LeadsModule } from './modules/leads/leads.module';
       }),
       inject: [ConfigService],
     }),
+    SharedModule, // Shared services (template variables, etc.) - available globally
     PrismaModule,
     FileStorageModule, // File upload and storage service
     AuthModule,
@@ -43,6 +46,7 @@ import { LeadsModule } from './modules/leads/leads.module';
     AuditModule, // Audit logging with async queue and export functionality
     JobsModule, // Background jobs and email services
     LeadsModule, // Leads/Customer management with CRM functionality
+    CommunicationModule, // Multi-provider communication (Email, SMS, WhatsApp)
   ],
   controllers: [HealthController],
   providers: [
