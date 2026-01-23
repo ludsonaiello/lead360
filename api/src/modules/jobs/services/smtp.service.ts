@@ -16,21 +16,31 @@ export class SmtpService {
   ) {}
 
   async initializeTransporter(): Promise<void> {
-    const config = await this.prisma.platform_email_config.findFirst();
+    const config = await this.prisma.platform_email_config.findFirst({
+      where: { is_active: true },
+      include: { provider: true },
+    });
 
     if (!config) {
-      throw new Error('SMTP configuration not found');
+      throw new Error('Active SMTP configuration not found');
     }
 
-    const password = config.smtp_password ? this.encryption.decrypt(config.smtp_password) : '';
+    // Check if the provider is SMTP
+    if (config.provider?.provider_key !== 'smtp') {
+      throw new Error(`Active provider is not SMTP, it is: ${config.provider?.provider_key}`);
+    }
+
+    // Decrypt credentials (now stored in JSON format)
+    const decryptedCredentials = this.encryption.decrypt(config.credentials as string);
+    const credentials = JSON.parse(decryptedCredentials);
 
     this.transporter = nodemailer.createTransport({
-      host: config.smtp_host ?? '',
-      port: config.smtp_port ?? 587,
-      secure: config.smtp_encryption === 'ssl',
+      host: credentials.host ?? '',
+      port: credentials.port ?? 587,
+      secure: credentials.encryption === 'ssl',
       auth: {
-        user: config.smtp_username ?? '',
-        pass: password,
+        user: credentials.username ?? '',
+        pass: credentials.password ?? '',
       },
       pool: true,
       maxConnections: 5,
@@ -52,10 +62,12 @@ export class SmtpService {
       await this.initializeTransporter();
     }
 
-    const config = await this.prisma.platform_email_config.findFirst();
+    const config = await this.prisma.platform_email_config.findFirst({
+      where: { is_active: true },
+    });
 
     if (!config) {
-      throw new Error('SMTP configuration not found');
+      throw new Error('Active SMTP configuration not found');
     }
 
     const info = await this.transporter.sendMail({
@@ -85,7 +97,9 @@ export class SmtpService {
   }
 
   private async configChanged(): Promise<boolean> {
-    const config = await this.prisma.platform_email_config.findFirst();
+    const config = await this.prisma.platform_email_config.findFirst({
+      where: { is_active: true },
+    });
     return !!(config && config.updated_at > this.lastConfigUpdate);
   }
 }

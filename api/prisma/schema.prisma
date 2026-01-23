@@ -1074,24 +1074,23 @@ model communication_provider {
 }
 
 model platform_email_config {
-  id                 String                    @id @default(uuid()) @db.VarChar(36)
-  provider_id        String?                   @db.VarChar(36)
-  credentials        Json?
-  provider_config    Json?
-  smtp_host          String?                   @db.VarChar(255)
-  smtp_port          Int?
-  smtp_encryption    String?                   @default("tls") @db.VarChar(20)
-  smtp_username      String?                   @db.VarChar(255)
-  smtp_password      String?                   @db.Text
-  from_email         String                    @db.VarChar(255)
-  from_name          String                    @db.VarChar(255)
-  webhook_secret     String?                   @db.VarChar(255)
-  is_verified        Boolean                   @default(false)
-  updated_at         DateTime                  @updatedAt
-  updated_by_user_id String?                   @db.VarChar(36)
+  id              String                  @id @db.VarChar(36)
+  provider_id     String                  @db.VarChar(36)
+  credentials     Json
+  provider_config Json?
+  from_email      String                  @db.VarChar(255)
+  from_name       String                  @db.VarChar(100)
+  reply_to_email  String?                 @db.VarChar(255)
+  webhook_secret  String?                 @db.VarChar(255)
+  is_active       Boolean                 @default(false)
+  is_verified     Boolean                 @default(false)
+  created_at      DateTime                @default(now())
+  updated_at      DateTime                @updatedAt
 
-  provider           communication_provider?   @relation(fields: [provider_id], references: [id])
+  provider        communication_provider  @relation(fields: [provider_id], references: [id])
 
+  @@unique([provider_id])
+  @@index([is_active])
   @@index([provider_id])
   @@map("platform_email_config")
 }

@@ -31,7 +31,7 @@ import { ScheduledJobExecutor } from './schedulers/scheduled-job-executor.schedu
 // Controllers
 import { JobsAdminController } from './controllers/jobs-admin.controller';
 import { ScheduledJobsController } from './controllers/scheduled-jobs.controller';
-import { EmailSettingsController } from './controllers/email-settings.controller';
+// import { EmailSettingsController } from './controllers/email-settings.controller'; // DEPRECATED: Use platform-email-config controller
 import { EmailTemplatesController } from './controllers/email-templates.controller';
 
 @Module({
@@ -70,7 +70,7 @@ import { EmailTemplatesController } from './controllers/email-templates.controll
   ],
   controllers: [
     // Register specific routes BEFORE parameterized routes
-    EmailSettingsController,
+    // EmailSettingsController, // DEPRECATED: Use platform-email-config controller
     EmailTemplatesController,
     ScheduledJobsController,
     JobsAdminController, // Has :id parameter, must be last

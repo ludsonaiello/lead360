@@ -140,52 +140,160 @@ export const getProviderStats = async (key: string): Promise<ProviderStats> => {
 };
 
 // ==========================================
-// PLATFORM EMAIL CONFIG (Admin) - 3 endpoints
+// PLATFORM EMAIL CONFIG (Admin) - Multi-Provider Support - 8 endpoints
 // ==========================================
 
 /**
- * Get platform email configuration
- * @endpoint GET /admin/communication/platform-email-config
+ * List all platform email configurations
+ * @endpoint GET /admin/communication/platform-email-config/configurations
  * @permission Platform Admin only
- * @throws 404 - Platform email config not found
  */
-export const getPlatformEmailConfig = async (): Promise<PlatformEmailConfig> => {
-  const { data } = await apiClient.get<PlatformEmailConfig>(
-    '/admin/communication/platform-email-config'
+export const listPlatformConfigs = async (): Promise<PlatformEmailConfig[]> => {
+  const { data } = await apiClient.get<PlatformEmailConfig[]>(
+    '/admin/communication/platform-email-config/configurations'
   );
   return data;
 };
 
 /**
- * Create or update platform email configuration
- * @endpoint POST /admin/communication/platform-email-config
+ * Get active platform email configuration
+ * @endpoint GET /admin/communication/platform-email-config/configurations/active
  * @permission Platform Admin only
- * @throws 400 - Validation errors (credentials, config schema mismatch)
- * @throws 404 - Provider not found
+ * @throws 404 - No active configuration found
+ */
+export const getActivePlatformConfig = async (): Promise<PlatformEmailConfig> => {
+  const { data } = await apiClient.get<PlatformEmailConfig>(
+    '/admin/communication/platform-email-config/configurations/active'
+  );
+  return data;
+};
+
+/**
+ * Get specific platform email configuration (with credentials)
+ * @endpoint GET /admin/communication/platform-email-config/configurations/:configId
+ * @permission Platform Admin only
+ * @throws 404 - Configuration not found
+ */
+export const getPlatformConfig = async (configId: string): Promise<PlatformEmailConfig> => {
+  const { data } = await apiClient.get<PlatformEmailConfig>(
+    `/admin/communication/platform-email-config/configurations/${configId}`
+  );
+  return data;
+};
+
+/**
+ * Create platform email configuration
+ * @endpoint POST /admin/communication/platform-email-config/configurations
+ * @permission Platform Admin only
+ * @throws 400 - Validation errors
+ * @throws 409 - Configuration already exists for this provider
+ */
+export const createPlatformConfig = async (
+  dto: UpdatePlatformEmailConfigDto
+): Promise<PlatformEmailConfig> => {
+  const { data } = await apiClient.post<PlatformEmailConfig>(
+    '/admin/communication/platform-email-config/configurations',
+    dto
+  );
+  return data;
+};
+
+/**
+ * Update platform email configuration
+ * @endpoint PATCH /admin/communication/platform-email-config/configurations/:configId
+ * @permission Platform Admin only
+ * @throws 400 - Validation errors
+ * @throws 404 - Configuration not found
+ */
+export const updatePlatformConfig = async (
+  configId: string,
+  dto: UpdatePlatformEmailConfigDto
+): Promise<PlatformEmailConfig> => {
+  const { data } = await apiClient.patch<PlatformEmailConfig>(
+    `/admin/communication/platform-email-config/configurations/${configId}`,
+    dto
+  );
+  return data;
+};
+
+/**
+ * Activate platform email configuration
+ * @endpoint POST /admin/communication/platform-email-config/configurations/:configId/activate
+ * @permission Platform Admin only
+ * @throws 404 - Configuration not found
+ */
+export const activatePlatformConfig = async (configId: string): Promise<PlatformEmailConfig> => {
+  const { data } = await apiClient.post<PlatformEmailConfig>(
+    `/admin/communication/platform-email-config/configurations/${configId}/activate`
+  );
+  return data;
+};
+
+/**
+ * Delete platform email configuration
+ * @endpoint DELETE /admin/communication/platform-email-config/configurations/:configId
+ * @permission Platform Admin only
+ * @throws 400 - Cannot delete active configuration
+ * @throws 404 - Configuration not found
+ */
+export const deletePlatformConfig = async (configId: string): Promise<void> => {
+  await apiClient.delete(
+    `/admin/communication/platform-email-config/configurations/${configId}`
+  );
+};
+
+/**
+ * Test platform email configuration
+ * @endpoint POST /admin/communication/platform-email-config/configurations/:configId/test
+ * @permission Platform Admin only
+ * @throws 404 - Configuration not found
+ * @throws 500 - Email send failed
+ */
+export const testPlatformConfig = async (
+  configId: string,
+  dto: TestEmailDto
+): Promise<SendEmailResponse> => {
+  const { data} = await apiClient.post<SendEmailResponse>(
+    `/admin/communication/platform-email-config/configurations/${configId}/test`,
+    dto
+  );
+  return data;
+};
+
+// ==========================================
+// DEPRECATED (Kept for backward compatibility)
+// ==========================================
+
+/**
+ * @deprecated Use listPlatformConfigs() instead
+ */
+export const getPlatformEmailConfig = async (): Promise<PlatformEmailConfig> => {
+  const { data } = await apiClient.get<PlatformEmailConfig>(
+    '/admin/communication/platform-email-config/configurations/active'
+  );
+  return data;
+};
+
+/**
+ * @deprecated Use createPlatformConfig() or updatePlatformConfig() instead
  */
 export const updatePlatformEmailConfig = async (
   dto: UpdatePlatformEmailConfigDto
 ): Promise<PlatformEmailConfig> => {
   const { data } = await apiClient.post<PlatformEmailConfig>(
-    '/admin/communication/platform-email-config',
+    '/admin/communication/platform-email-config/configurations',
     dto
   );
   return data;
 };
 
 /**
- * Send test email using platform configuration
- * @endpoint POST /admin/communication/platform-email-config/test
- * @permission Platform Admin only
- * @throws 400 - Platform email not configured
- * @throws 500 - Email send failed
+ * @deprecated Use testPlatformConfig() instead
  */
 export const testPlatformEmail = async (dto: TestEmailDto): Promise<SendEmailResponse> => {
-  const { data } = await apiClient.post<SendEmailResponse>(
-    '/admin/communication/platform-email-config/test',
-    dto
-  );
-  return data;
+  // Get active config first
+  const activeConfig = await getActivePlatformConfig();
+  return testPlatformConfig(activeConfig.id, dto);
 };
 
 // ==========================================

@@ -726,20 +726,108 @@ curl -X GET "https://api.lead360.app/api/v1/admin/communication/providers/sendgr
 
 ## Platform Email Config (Admin)
 
+**NEW**: Now supports **multi-provider** configuration! Configure multiple email providers (SendGrid, Brevo, Amazon SES, SMTP) and switch between them easily. Only ONE provider can be active at a time.
+
 Platform email configuration is used for system emails (password reset, welcome emails, etc.).
 
-### 8. Get Platform Email Config
+---
 
-**Endpoint**: `GET /admin/communication/platform-email-config`
+### 8. List All Platform Email Configurations
 
-**Description**: Get the current platform-wide email configuration
+**Endpoint**: `GET /admin/communication/platform-email-config/configurations`
+
+**Description**: Get all configured email providers for the platform
 
 **Authentication**: Required - Platform Admin only
 
 **Request Example**:
 
 ```bash
-curl -X GET "https://api.lead360.app/api/v1/admin/communication/platform-email-config" \
+curl -X GET "https://api.lead360.app/api/v1/admin/communication/platform-email-config/configurations" \
+  -H "Authorization: Bearer {admin_token}"
+```
+
+**Success Response** (200 OK):
+
+```json
+[
+  {
+    "id": "cfg-001",
+    "provider_id": "prov-brevo-001",
+    "provider": {
+      "id": "prov-brevo-001",
+      "provider_key": "brevo",
+      "provider_name": "Brevo",
+      "provider_type": "email",
+      "is_active": true
+    },
+    "from_email": "noreply@lead360.app",
+    "from_name": "Lead360 Platform",
+    "reply_to_email": "support@lead360.app",
+    "is_active": true,
+    "is_verified": true,
+    "credentials_configured": true,
+    "created_at": "2026-01-22T10:00:00.000Z",
+    "updated_at": "2026-01-22T12:00:00.000Z"
+  },
+  {
+    "id": "cfg-002",
+    "provider_id": "prov-amazon_ses-001",
+    "provider": {
+      "id": "prov-amazon_ses-001",
+      "provider_key": "amazon_ses",
+      "provider_name": "Amazon SES",
+      "provider_type": "email",
+      "is_active": true
+    },
+    "from_email": "noreply@lead360.app",
+    "from_name": "Lead360",
+    "reply_to_email": null,
+    "is_active": false,
+    "is_verified": false,
+    "credentials_configured": true,
+    "created_at": "2026-01-22T11:00:00.000Z",
+    "updated_at": "2026-01-22T11:00:00.000Z"
+  }
+]
+```
+
+**Response Fields (per configuration)**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | string (uuid) | Configuration ID |
+| provider_id | string (uuid) | Provider ID |
+| provider.id | string (uuid) | Provider ID |
+| provider.provider_key | string | Provider key (`sendgrid`, `brevo`, `amazon_ses`, `smtp`) |
+| provider.provider_name | string | Provider display name |
+| provider.provider_type | string | Always `"email"` |
+| provider.is_active | boolean | Whether provider is available for use |
+| from_email | string | Sender email address |
+| from_name | string | Sender name |
+| reply_to_email | string \| null | Reply-to email address |
+| is_active | boolean | Whether this is the active provider (only one can be true) |
+| is_verified | boolean | Whether test email succeeded |
+| credentials_configured | boolean | Whether credentials are set (always `true` in list) |
+| created_at | string (ISO 8601) | Creation timestamp |
+| updated_at | string (ISO 8601) | Last update timestamp |
+
+**Note**: Credentials are **never** returned in list view. Use the "Get Specific Configuration" endpoint to retrieve credentials.
+
+---
+
+### 9. Get Active Platform Email Configuration
+
+**Endpoint**: `GET /admin/communication/platform-email-config/configurations/active`
+
+**Description**: Get the currently active email provider for the platform
+
+**Authentication**: Required - Platform Admin only
+
+**Request Example**:
+
+```bash
+curl -X GET "https://api.lead360.app/api/v1/admin/communication/platform-email-config/configurations/active" \
   -H "Authorization: Bearer {admin_token}"
 ```
 
@@ -747,27 +835,87 @@ curl -X GET "https://api.lead360.app/api/v1/admin/communication/platform-email-c
 
 ```json
 {
-  "id": "platform-email-config-001",
-  "provider_id": "prov-sendgrid-001",
+  "id": "cfg-001",
+  "provider_id": "prov-brevo-001",
   "provider": {
-    "provider_key": "sendgrid",
-    "provider_name": "SendGrid",
+    "id": "prov-brevo-001",
+    "provider_key": "brevo",
+    "provider_name": "Brevo",
     "provider_type": "email"
+  },
+  "from_email": "noreply@lead360.app",
+  "from_name": "Lead360 Platform",
+  "reply_to_email": "support@lead360.app",
+  "is_active": true,
+  "is_verified": true,
+  "credentials_configured": true,
+  "created_at": "2026-01-22T10:00:00.000Z",
+  "updated_at": "2026-01-22T12:00:00.000Z"
+}
+```
+
+**Error Responses**:
+
+**404 Not Found**:
+```json
+{
+  "statusCode": 404,
+  "message": "No active platform email configuration found"
+}
+```
+
+---
+
+### 10. Get Specific Platform Email Configuration (with Credentials)
+
+**Endpoint**: `GET /admin/communication/platform-email-config/configurations/:configId`
+
+**Description**: Get full configuration including **decrypted credentials** (Platform Admin only)
+
+**Authentication**: Required - Platform Admin only
+
+**URL Parameters**:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| configId | string (uuid) | Configuration ID |
+
+**Request Example**:
+
+```bash
+curl -X GET "https://api.lead360.app/api/v1/admin/communication/platform-email-config/configurations/cfg-001" \
+  -H "Authorization: Bearer {admin_token}"
+```
+
+**Success Response** (200 OK):
+
+```json
+{
+  "id": "cfg-001",
+  "provider_id": "prov-brevo-001",
+  "credentials": {
+    "api_key": "xkeysib-abc123..."
   },
   "provider_config": {
     "click_tracking": false,
     "open_tracking": true
   },
-  "smtp_host": null,
-  "smtp_port": null,
-  "smtp_encryption": null,
-  "smtp_username": null,
   "from_email": "noreply@lead360.app",
   "from_name": "Lead360 Platform",
-  "webhook_secret": null,
+  "reply_to_email": "support@lead360.app",
+  "webhook_secret": "my_webhook_secret_12345",
+  "is_active": true,
   "is_verified": true,
-  "updated_at": "2026-01-18T10:00:00.000Z",
-  "updated_by_user_id": "user-platform-admin-001"
+  "created_at": "2026-01-22T10:00:00.000Z",
+  "updated_at": "2026-01-22T12:00:00.000Z",
+  "provider": {
+    "id": "prov-brevo-001",
+    "provider_key": "brevo",
+    "provider_name": "Brevo",
+    "provider_type": "email",
+    "credentials_schema": {...},
+    "settings_schema": {...}
+  }
 }
 ```
 
@@ -776,23 +924,18 @@ curl -X GET "https://api.lead360.app/api/v1/admin/communication/platform-email-c
 | Field | Type | Description |
 |-------|------|-------------|
 | id | string (uuid) | Configuration ID |
-| provider_id | string (uuid) \| null | Provider being used (null if SMTP) |
-| provider.provider_key | string | Provider key (e.g., `sendgrid`, `smtp`) |
-| provider.provider_name | string | Provider display name |
-| provider.provider_type | string | Always `"email"` |
-| provider_config | object | Provider-specific configuration |
-| smtp_host | string \| null | SMTP server hostname (only for SMTP provider) |
-| smtp_port | integer \| null | SMTP server port (only for SMTP provider) |
-| smtp_encryption | string \| null | Encryption method: `tls`, `ssl`, or `none` (SMTP only) |
-| smtp_username | string \| null | SMTP username (SMTP only) |
-| from_email | string | Default sender email |
-| from_name | string | Default sender name |
-| webhook_secret | string \| null | Webhook verification secret (hidden in response) |
+| provider_id | string (uuid) | Provider ID |
+| credentials | object | **Decrypted** provider credentials (API keys, passwords, etc.) |
+| provider_config | object \| null | Provider-specific configuration |
+| from_email | string | Sender email address |
+| from_name | string | Sender name (max 100 chars) |
+| reply_to_email | string \| null | Reply-to email address |
+| webhook_secret | string \| null | Webhook verification secret |
+| is_active | boolean | Whether this is the active provider |
 | is_verified | boolean | Whether test email succeeded |
+| created_at | string (ISO 8601) | Creation timestamp |
 | updated_at | string (ISO 8601) | Last update timestamp |
-| updated_by_user_id | string (uuid) \| null | User who last updated config |
-
-**Note**: The `credentials` field is **never** returned in API responses (always encrypted).
+| provider | object | Full provider details including schemas |
 
 **Error Responses**:
 
@@ -800,17 +943,17 @@ curl -X GET "https://api.lead360.app/api/v1/admin/communication/platform-email-c
 ```json
 {
   "statusCode": 404,
-  "message": "Platform email configuration not found"
+  "message": "Platform email configuration not found: cfg-001"
 }
 ```
 
 ---
 
-### 9. Update Platform Email Config
+### 11. Create Platform Email Configuration
 
-**Endpoint**: `POST /admin/communication/platform-email-config`
+**Endpoint**: `POST /admin/communication/platform-email-config/configurations`
 
-**Description**: Create or update platform-wide email configuration
+**Description**: Add a new email provider configuration for the platform
 
 **Authentication**: Required - Platform Admin only
 
@@ -818,23 +961,25 @@ curl -X GET "https://api.lead360.app/api/v1/admin/communication/platform-email-c
 
 | Field | Type | Required | Validation | Description | Example |
 |-------|------|----------|------------|-------------|---------|
-| provider_id | string (uuid) | Yes | Must be active email provider | Provider to use | `"prov-sendgrid-001"` |
-| credentials | object | Yes | Must match provider's credentials_schema | Provider API credentials | `{"api_key": "SG.xxx"}` |
+| provider_id | string (uuid) | Yes | Must be active email provider | Provider to configure | `"prov-brevo-001"` |
+| credentials | object | Yes | Must match provider's credentials_schema | Provider API credentials | `{"api_key": "xkeysib-xxx"}` |
 | provider_config | object | No | Must match provider's config_schema | Provider-specific settings | `{"click_tracking": false}` |
 | from_email | string | Yes | Valid email format | Sender email | `"noreply@lead360.app"` |
 | from_name | string | Yes | 2-100 chars | Sender name | `"Lead360 Platform"` |
-| webhook_secret | string | No | Min 16 chars (if webhooks supported) | Webhook verification secret | `"webhook_secret_xyz"` |
+| reply_to_email | string | No | Valid email format | Reply-to email | `"support@lead360.app"` |
+| webhook_secret | string | No | Min 16 chars | Webhook verification secret | `"webhook_secret_xyz"` |
+| is_active | boolean | No | Default: `false` | Set as active provider | `true` |
 
-**Request Example**:
+**Request Example** (Brevo):
 
 ```bash
-curl -X POST "https://api.lead360.app/api/v1/admin/communication/platform-email-config" \
+curl -X POST "https://api.lead360.app/api/v1/admin/communication/platform-email-config/configurations" \
   -H "Authorization: Bearer {admin_token}" \
   -H "Content-Type: application/json" \
   -d '{
-    "provider_id": "prov-sendgrid-001",
+    "provider_id": "prov-brevo-001",
     "credentials": {
-      "api_key": "SG.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      "api_key": "xkeysib-abc123456789..."
     },
     "provider_config": {
       "click_tracking": false,
@@ -842,33 +987,74 @@ curl -X POST "https://api.lead360.app/api/v1/admin/communication/platform-email-
     },
     "from_email": "noreply@lead360.app",
     "from_name": "Lead360 Platform",
-    "webhook_secret": "my_webhook_secret_12345"
+    "reply_to_email": "support@lead360.app",
+    "webhook_secret": "my_webhook_secret_12345",
+    "is_active": true
   }'
 ```
 
-**Success Response** (201 Created or 200 OK):
+**Request Example** (Amazon SES):
+
+```bash
+curl -X POST "https://api.lead360.app/api/v1/admin/communication/platform-email-config/configurations" \
+  -H "Authorization: Bearer {admin_token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider_id": "prov-amazon_ses-001",
+    "credentials": {
+      "access_key_id": "AKIA...",
+      "secret_access_key": "wJalrXUt...",
+      "region": "us-east-1"
+    },
+    "provider_config": {
+      "configuration_set": "my-config-set"
+    },
+    "from_email": "noreply@lead360.app",
+    "from_name": "Lead360",
+    "is_active": false
+  }'
+```
+
+**Request Example** (SMTP):
+
+```bash
+curl -X POST "https://api.lead360.app/api/v1/admin/communication/platform-email-config/configurations" \
+  -H "Authorization: Bearer {admin_token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider_id": "prov-smtp-001",
+    "credentials": {
+      "host": "smtp.gmail.com",
+      "port": 587,
+      "encryption": "tls",
+      "username": "noreply@lead360.app",
+      "password": "app_password_here"
+    },
+    "from_email": "noreply@lead360.app",
+    "from_name": "Lead360",
+    "is_active": false
+  }'
+```
+
+**Success Response** (201 Created):
 
 ```json
 {
-  "id": "platform-email-config-001",
-  "provider_id": "prov-sendgrid-001",
+  "id": "cfg-001",
+  "provider_id": "prov-brevo-001",
   "provider": {
-    "provider_key": "sendgrid",
-    "provider_name": "SendGrid"
+    "provider_key": "brevo",
+    "provider_name": "Brevo",
+    "provider_type": "email"
   },
-  "provider_config": {
-    "click_tracking": false,
-    "open_tracking": true
-  },
-  "smtp_host": null,
-  "smtp_port": null,
-  "smtp_encryption": null,
-  "smtp_username": null,
   "from_email": "noreply@lead360.app",
   "from_name": "Lead360 Platform",
+  "reply_to_email": "support@lead360.app",
+  "is_active": true,
   "is_verified": false,
-  "updated_at": "2026-01-18T12:00:00.000Z",
-  "updated_by_user_id": "user-platform-admin-001"
+  "credentials_configured": true,
+  "created_at": "2026-01-22T10:00:00.000Z",
+  "updated_at": "2026-01-22T10:00:00.000Z"
 }
 ```
 
@@ -878,7 +1064,15 @@ curl -X POST "https://api.lead360.app/api/v1/admin/communication/platform-email-
 ```json
 {
   "statusCode": 400,
-  "message": "Provider SendGrid is not active"
+  "message": "Provider is not active"
+}
+```
+
+**409 Conflict** (duplicate):
+```json
+{
+  "statusCode": 409,
+  "message": "Platform configuration already exists for provider: Brevo"
 }
 ```
 
@@ -886,23 +1080,216 @@ curl -X POST "https://api.lead360.app/api/v1/admin/communication/platform-email-
 ```json
 {
   "statusCode": 400,
-  "message": "Invalid provider credentials or configuration",
-  "errors": {
-    "credentials.api_key": "API key must start with 'SG.'",
-    "provider_config.click_tracking": "Must be a boolean"
-  }
+  "message": "Invalid credentials: {\"api_key\":\"Required field\"}"
 }
 ```
 
 ---
 
-### 10. Test Platform Email
+### 12. Update Platform Email Configuration
 
-**Endpoint**: `POST /admin/communication/platform-email-config/test`
+**Endpoint**: `PATCH /admin/communication/platform-email-config/configurations/:configId`
 
-**Description**: Send a test email using platform configuration
+**Description**: Update an existing email provider configuration
 
 **Authentication**: Required - Platform Admin only
+
+**URL Parameters**:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| configId | string (uuid) | Configuration ID |
+
+**Request Body** (all fields optional):
+
+| Field | Type | Validation | Description | Example |
+|-------|------|------------|-------------|---------|
+| credentials | object | Must match provider's credentials_schema | Provider API credentials | `{"api_key": "new_key"}` |
+| provider_config | object | Must match provider's config_schema | Provider-specific settings | `{"click_tracking": true}` |
+| from_email | string | Valid email format | Sender email | `"no-reply@lead360.app"` |
+| from_name | string | 2-100 chars | Sender name | `"Lead360"` |
+| reply_to_email | string | Valid email format | Reply-to email | `"help@lead360.app"` |
+| webhook_secret | string | Min 16 chars | Webhook verification secret | `"new_secret_123"` |
+| is_active | boolean | - | Set as active provider | `true` |
+
+**Request Example**:
+
+```bash
+curl -X PATCH "https://api.lead360.app/api/v1/admin/communication/platform-email-config/configurations/cfg-001" \
+  -H "Authorization: Bearer {admin_token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from_name": "Lead360 System",
+    "reply_to_email": "help@lead360.app",
+    "provider_config": {
+      "click_tracking": true,
+      "open_tracking": true
+    }
+  }'
+```
+
+**Success Response** (200 OK):
+
+```json
+{
+  "id": "cfg-001",
+  "provider_id": "prov-brevo-001",
+  "provider": {
+    "provider_key": "brevo",
+    "provider_name": "Brevo",
+    "provider_type": "email"
+  },
+  "from_email": "noreply@lead360.app",
+  "from_name": "Lead360 System",
+  "reply_to_email": "help@lead360.app",
+  "is_active": true,
+  "is_verified": true,
+  "credentials_configured": true,
+  "created_at": "2026-01-22T10:00:00.000Z",
+  "updated_at": "2026-01-22T15:00:00.000Z"
+}
+```
+
+**Error Responses**:
+
+**404 Not Found**:
+```json
+{
+  "statusCode": 404,
+  "message": "Platform email configuration not found: cfg-001"
+}
+```
+
+**400 Bad Request** (validation error):
+```json
+{
+  "statusCode": 400,
+  "message": "Invalid credentials: {\"api_key\":\"Invalid format\"}"
+}
+```
+
+---
+
+### 13. Activate Platform Email Configuration
+
+**Endpoint**: `POST /admin/communication/platform-email-config/configurations/:configId/activate`
+
+**Description**: Set this configuration as the active provider (deactivates all others)
+
+**Authentication**: Required - Platform Admin only
+
+**URL Parameters**:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| configId | string (uuid) | Configuration ID to activate |
+
+**Request Example**:
+
+```bash
+curl -X POST "https://api.lead360.app/api/v1/admin/communication/platform-email-config/configurations/cfg-002/activate" \
+  -H "Authorization: Bearer {admin_token}"
+```
+
+**Success Response** (200 OK):
+
+```json
+{
+  "id": "cfg-002",
+  "provider_id": "prov-amazon_ses-001",
+  "provider": {
+    "provider_key": "amazon_ses",
+    "provider_name": "Amazon SES",
+    "provider_type": "email"
+  },
+  "from_email": "noreply@lead360.app",
+  "from_name": "Lead360",
+  "reply_to_email": null,
+  "is_active": true,
+  "is_verified": false,
+  "credentials_configured": true,
+  "created_at": "2026-01-22T11:00:00.000Z",
+  "updated_at": "2026-01-22T16:00:00.000Z"
+}
+```
+
+**Note**: All other configurations will have `is_active` set to `false`.
+
+**Error Responses**:
+
+**404 Not Found**:
+```json
+{
+  "statusCode": 404,
+  "message": "Platform email configuration not found: cfg-002"
+}
+```
+
+---
+
+### 14. Delete Platform Email Configuration
+
+**Endpoint**: `DELETE /admin/communication/platform-email-config/configurations/:configId`
+
+**Description**: Remove an email provider configuration (cannot delete active config)
+
+**Authentication**: Required - Platform Admin only
+
+**URL Parameters**:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| configId | string (uuid) | Configuration ID to delete |
+
+**Request Example**:
+
+```bash
+curl -X DELETE "https://api.lead360.app/api/v1/admin/communication/platform-email-config/configurations/cfg-002" \
+  -H "Authorization: Bearer {admin_token}"
+```
+
+**Success Response** (200 OK):
+
+```json
+{
+  "success": true,
+  "message": "Platform email configuration deleted successfully"
+}
+```
+
+**Error Responses**:
+
+**400 Bad Request** (active config):
+```json
+{
+  "statusCode": 400,
+  "message": "Cannot delete active configuration. Please activate another configuration first."
+}
+```
+
+**404 Not Found**:
+```json
+{
+  "statusCode": 404,
+  "message": "Platform email configuration not found: cfg-002"
+}
+```
+
+---
+
+### 15. Test Platform Email Configuration
+
+**Endpoint**: `POST /admin/communication/platform-email-config/configurations/:configId/test`
+
+**Description**: Send a test email using a specific configuration
+
+**Authentication**: Required - Platform Admin only
+
+**URL Parameters**:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| configId | string (uuid) | Configuration ID to test |
 
 **Request Body**:
 
@@ -913,7 +1300,7 @@ curl -X POST "https://api.lead360.app/api/v1/admin/communication/platform-email-
 **Request Example**:
 
 ```bash
-curl -X POST "https://api.lead360.app/api/v1/admin/communication/platform-email-config/test" \
+curl -X POST "https://api.lead360.app/api/v1/admin/communication/platform-email-config/configurations/cfg-001/test" \
   -H "Authorization: Bearer {admin_token}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -928,10 +1315,12 @@ curl -X POST "https://api.lead360.app/api/v1/admin/communication/platform-email-
   "success": true,
   "message": "Test email sent successfully",
   "provider_response": {
-    "messageId": "abc123-sendgrid-message-id"
+    "messageId": "abc123-brevo-message-id"
   }
 }
 ```
+
+**Note**: On success, the configuration's `is_verified` field is automatically set to `true`.
 
 **Error Responses**:
 
@@ -939,17 +1328,15 @@ curl -X POST "https://api.lead360.app/api/v1/admin/communication/platform-email-
 ```json
 {
   "statusCode": 404,
-  "message": "Platform email configuration not found"
+  "message": "Platform email configuration not found: cfg-001"
 }
 ```
 
-**400 Bad Request** (sending failed):
+**500 Internal Server Error** (sending failed):
 ```json
 {
-  "statusCode": 400,
-  "message": "Failed to send test email",
-  "error": "SMTP authentication failed",
-  "provider": "SendGrid"
+  "statusCode": 500,
+  "message": "Test email failed: Invalid API key"
 }
 ```
 

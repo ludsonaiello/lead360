@@ -235,10 +235,10 @@ export class SendEmailService {
     }
 
     // Use platform configuration
-    const platformConfig = await this.platformEmailConfig.get();
+    const platformConfig = await this.platformEmailConfig.getActiveConfiguration();
     if (!platformConfig) {
       throw new NotFoundException(
-        'No email configuration found. Please configure email settings.',
+        'No active email configuration found. Please configure email settings.',
       );
     }
 
