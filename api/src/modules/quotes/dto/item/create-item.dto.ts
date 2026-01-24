@@ -1,0 +1,104 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsString,
+  IsNumber,
+  IsBoolean,
+  IsOptional,
+  IsUUID,
+  Length,
+  Min,
+} from 'class-validator';
+
+export class CreateItemDto {
+  @ApiProperty({
+    example: 'Premium hardwood flooring',
+    description: 'Item title',
+  })
+  @IsString()
+  @Length(1, 255)
+  title: string;
+
+  @ApiPropertyOptional({
+    example: 'Oak hardwood, 3/4 inch thick, prefinished',
+    description: 'Detailed description of the item',
+  })
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @ApiProperty({
+    example: 500,
+    description: 'Quantity of units',
+  })
+  @IsNumber()
+  @Min(0.01)
+  quantity: number;
+
+  @ApiProperty({
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'Unit measurement UUID (sq ft, linear ft, etc.)',
+  })
+  @IsString()
+  @IsUUID()
+  unit_measurement_id: string;
+
+  @ApiProperty({
+    example: 5.50,
+    description: 'Material cost per unit',
+  })
+  @IsNumber()
+  @Min(0)
+  material_cost_per_unit: number;
+
+  @ApiProperty({
+    example: 3.25,
+    description: 'Labor cost per unit',
+  })
+  @IsNumber()
+  @Min(0)
+  labor_cost_per_unit: number;
+
+  @ApiPropertyOptional({
+    example: 0.50,
+    description: 'Equipment cost per unit',
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  equipment_cost_per_unit?: number;
+
+  @ApiPropertyOptional({
+    example: 0.0,
+    description: 'Subcontract cost per unit',
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  subcontract_cost_per_unit?: number;
+
+  @ApiPropertyOptional({
+    example: 0.75,
+    description: 'Other cost per unit',
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  other_cost_per_unit?: number;
+
+  @ApiPropertyOptional({
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'Quote group UUID (if item belongs to a group)',
+  })
+  @IsString()
+  @IsOptional()
+  @IsUUID()
+  quote_group_id?: string;
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Save this item to the library for future reuse',
+  })
+  @IsBoolean()
+  @IsOptional()
+  save_to_library?: boolean;
+}

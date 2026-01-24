@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `tenant` ADD COLUMN `approval_thresholds` JSON NULL,
+    ADD COLUMN `profitability_thresholds` JSON NULL;

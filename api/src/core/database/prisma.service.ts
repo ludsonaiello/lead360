@@ -76,6 +76,15 @@ export class PrismaService
       'Role',
       'Permission',
       'RolePermission',
+      // Quote Module Models
+      'Quote',
+      'Vendor',
+      'ItemLibrary',
+      'QuoteBundle',
+      'QuoteTag',
+      'QuoteWarrantyTier',
+      'UnitMeasurement',
+      'QuoteTemplate',
     ];
 
     // Models exempt from tenant_id check (admin/system tables)

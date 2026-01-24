@@ -2,6 +2,12 @@ generator client {
   provider = "prisma-client-js"
 }
 
+generator erd {
+  provider = "prisma-erd-generator"
+  output   = "../documentation/quotes_ERD.md"
+  theme    = "forest"
+}
+
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
@@ -75,6 +81,9 @@ model file {
   tenant_insurance_tenant_insurance_wc_document_file_idTofile tenant_insurance[] @relation("tenant_insurance_wc_document_file_idTofile")
   tenant_license                                              tenant_license[]
   file_share_links                                            file_share_link[]
+  vendor_signatures                                           vendor[]           @relation("vendor_signature")
+  quote_attachments                                           quote_attachment[] @relation("attachment_file")
+  quote_attachment_qr_codes                                   quote_attachment[] @relation("attachment_qr_code")
 
   @@index([file_id])
   @@index([tenant_id, category])
@@ -334,7 +343,10 @@ model tenant {
   default_overhead_rate                   Decimal?                @db.Decimal(5, 2)
   default_profit_margin                   Decimal?                @db.Decimal(5, 2)
   sales_tax_rate                          Decimal?                @db.Decimal(5, 3)
+  approval_thresholds                     Json?
+  profitability_thresholds                Json?
   business_size                           String?                 @db.VarChar(20)
+  active_quote_template_id                String?                 @db.VarChar(36)
   audit_log                               audit_log[]
   file_file_tenant_idTotenant             file[]                  @relation("file_tenant_idTotenant")
   file_tenant_logo_file_idTofile          file?                   @relation("tenant_logo_file_idTofile", fields: [logo_file_id], references: [file_id])
@@ -362,6 +374,16 @@ model tenant {
   communication_events                    communication_event[]
   notifications                           notification[]
   notification_rules                      notification_rule[]
+  unit_measurements                       unit_measurement[]      @relation("unit_measurement_tenant")
+  quote_templates                         quote_template[]        @relation("quote_template_tenant")
+  active_quote_template                   quote_template?         @relation("tenant_active_template", fields: [active_quote_template_id], references: [id], onDelete: SetNull)
+  vendors                                 vendor[]                @relation("vendor_tenant")
+  quote_tags                              quote_tag[]             @relation("quote_tag_tenant")
+  quote_warranty_tiers                    quote_warranty_tier[]   @relation("quote_warranty_tier_tenant")
+  quotes                                  quote[]                 @relation("quote_tenant")
+  item_libraries                          item_library[]          @relation("item_library_tenant")
+  quote_bundles                           quote_bundle[]          @relation("quote_bundle_tenant")
+  quote_jobsite_addresses                 quote_jobsite_address[] @relation("quote_jobsite_addresses")
 
   @@index([ein])
   @@index([is_active])
@@ -591,6 +613,13 @@ model user {
   webhook_api_keys_created                      webhook_api_key[]       @relation("webhook_api_key_created_by_user")
   communication_events                          communication_event[]   @relation("communication_event_user")
   notifications                                 notification[]          @relation("notification_user")
+  quote_templates_created                       quote_template[]        @relation("quote_template_creator")
+  vendors_created                               vendor[]                @relation("vendor_creator")
+  quotes_created                                quote[]                 @relation("quote_creator")
+  quote_versions_changed                        quote_version[]         @relation("quote_version_changer")
+  quote_approvals                               quote_approval[]        @relation("quote_approval_approver")
+  item_libraries_created                        item_library[]          @relation("item_library_creator")
+  quote_bundles_created                         quote_bundle[]          @relation("quote_bundle_creator")
 
   @@unique([email, tenant_id])
   @@index([activation_token])
@@ -900,6 +929,7 @@ model lead {
   service_requests     service_request[]
   notes                lead_note[]
   activities           lead_activity[]
+  quotes               quote[]                 @relation("quote_lead")
 
   @@index([tenant_id, status])
   @@index([tenant_id, created_at(sort: Desc)])
@@ -1271,6 +1301,463 @@ model notification_rule {
   @@map("notification_rule")
 }
 
+// ============================================================================
+// QUOTE MODULE - Quote Management System
+// ============================================================================
+
+model unit_measurement {
+  id                 String               @id @db.VarChar(36)
+  tenant_id          String?              @db.VarChar(36)
+  name               String               @db.VarChar(100)
+  abbreviation       String               @db.VarChar(20)
+  is_global          Boolean              @default(false)
+  is_active          Boolean              @default(true)
+  created_at         DateTime             @default(now())
+  updated_at         DateTime             @updatedAt
+
+  tenant             tenant?              @relation("unit_measurement_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  quote_items        quote_item[]
+  item_library       item_library[]
+  quote_bundle_items quote_bundle_item[]
+
+  @@index([tenant_id, is_active])
+  @@index([is_global, is_active])
+  @@map("unit_measurement")
+}
+
+model quote_template {
+  id                  String    @id @db.VarChar(36)
+  tenant_id           String?   @db.VarChar(36)
+  name                String    @db.VarChar(200)
+  description         String?   @db.Text
+  html_content        String    @db.LongText
+  thumbnail_url       String?   @db.VarChar(500)
+  is_global           Boolean   @default(false)
+  is_active           Boolean   @default(true)
+  is_default          Boolean   @default(false)
+  created_by_user_id  String?   @db.VarChar(36)
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  tenant              tenant?   @relation("quote_template_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by_user     user?     @relation("quote_template_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  quotes              quote[]
+  tenants_using       tenant[]  @relation("tenant_active_template")
+
+  @@index([tenant_id])
+  @@index([is_global, is_active])
+  @@index([is_default])
+  @@map("quote_template")
+}
+
+model vendor {
+  id                  String    @id @db.VarChar(36)
+  tenant_id           String    @db.VarChar(36)
+  name                String    @db.VarChar(200)
+  email               String    @db.VarChar(255)
+  phone               String    @db.VarChar(20)
+  address_line1       String    @db.VarChar(255)
+  address_line2       String?   @db.VarChar(255)
+  city                String    @db.VarChar(100)
+  state               String    @db.VarChar(2)
+  zip_code            String    @db.VarChar(10)
+  latitude            Decimal   @db.Decimal(10, 8)
+  longitude           Decimal   @db.Decimal(11, 8)
+  google_place_id     String?   @db.VarChar(255)
+  signature_file_id   String    @db.VarChar(36)
+  is_active           Boolean   @default(true)
+  is_default          Boolean   @default(false)
+  created_by_user_id  String?   @db.VarChar(36)
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  tenant              tenant    @relation("vendor_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  signature_file      file      @relation("vendor_signature", fields: [signature_file_id], references: [file_id], onDelete: Restrict)
+  created_by_user     user?     @relation("vendor_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  quotes              quote[]
+
+  @@unique([tenant_id, email])
+  @@index([tenant_id, is_active])
+  @@index([tenant_id, is_default])
+  @@map("vendor")
+}
+
+model quote_tag {
+  id         String    @id @db.VarChar(36)
+  tenant_id  String    @db.VarChar(36)
+  name       String    @db.VarChar(100)
+  color      String    @db.VarChar(7)
+  is_active  Boolean   @default(true)
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  tenant      tenant                 @relation("quote_tag_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  assignments quote_tag_assignment[]
+
+  @@unique([tenant_id, name])
+  @@index([tenant_id, is_active])
+  @@map("quote_tag")
+}
+
+model quote_warranty_tier {
+  id               String              @id @db.VarChar(36)
+  tenant_id        String              @db.VarChar(36)
+  tier_name        String              @db.VarChar(100)
+  description      String?             @db.Text
+  price_type       warranty_price_type
+  price_value      Decimal             @db.Decimal(10, 2)
+  duration_months  Int
+  is_active        Boolean             @default(true)
+  created_at       DateTime            @default(now())
+  updated_at       DateTime            @updatedAt
+
+  tenant           tenant              @relation("quote_warranty_tier_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  quote_items      quote_item[]
+
+  @@index([tenant_id, is_active])
+  @@map("quote_warranty_tier")
+}
+
+model quote_jobsite_address {
+  id              String    @id @db.VarChar(36)
+  tenant_id       String    @db.VarChar(36)
+  address_line1   String    @db.VarChar(255)
+  address_line2   String?   @db.VarChar(255)
+  city            String    @db.VarChar(100)
+  state           String    @db.VarChar(2)
+  zip_code        String    @db.VarChar(10)
+  latitude        Decimal   @db.Decimal(10, 8)
+  longitude       Decimal   @db.Decimal(11, 8)
+  google_place_id String?   @db.VarChar(255)
+  created_at      DateTime  @default(now())
+
+  tenant          tenant    @relation("quote_jobsite_addresses", fields: [tenant_id], references: [id], onDelete: Cascade)
+  quotes          quote[]
+
+  @@index([tenant_id, latitude, longitude])
+  @@map("quote_jobsite_address")
+}
+
+model quote {
+  id                          String        @id @db.VarChar(36)
+  tenant_id                   String        @db.VarChar(36)
+  quote_number                String        @db.VarChar(50)
+  title                       String        @db.VarChar(200)
+  status                      quote_status  @default(draft)
+  lead_id                     String?       @db.VarChar(36)
+  vendor_id                   String?       @db.VarChar(36)
+  jobsite_address_id          String        @db.VarChar(36)
+  po_number                   String?       @db.VarChar(100)
+  private_notes               String?       @db.Text
+  use_default_settings        Boolean       @default(true)
+  custom_profit_percent       Decimal?      @db.Decimal(5, 2)
+  custom_overhead_percent     Decimal?      @db.Decimal(5, 2)
+  custom_contingency_percent  Decimal?      @db.Decimal(5, 2)
+  custom_terms                String?       @db.Text
+  custom_payment_instructions String?       @db.Text
+  expiration_days             Int?
+  expires_at                  DateTime?
+  active_version_number       Decimal       @default(1.0) @db.Decimal(4, 2)
+  subtotal                    Decimal       @default(0) @db.Decimal(12, 2)
+  tax_amount                  Decimal       @default(0) @db.Decimal(12, 2)
+  discount_amount             Decimal       @default(0) @db.Decimal(12, 2)
+  total                       Decimal       @default(0) @db.Decimal(12, 2)
+  active_template_id          String?       @db.VarChar(36)
+  is_archived                 Boolean       @default(false)
+  created_by_user_id          String?       @db.VarChar(36)
+  created_at                  DateTime      @default(now())
+  updated_at                  DateTime      @updatedAt
+
+  tenant                      tenant        @relation("quote_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  lead                        lead?         @relation("quote_lead", fields: [lead_id], references: [id], onDelete: SetNull)
+  vendor                      vendor?       @relation(fields: [vendor_id], references: [id], onDelete: SetNull)
+  jobsite_address             quote_jobsite_address @relation(fields: [jobsite_address_id], references: [id], onDelete: Restrict)
+  active_template             quote_template? @relation(fields: [active_template_id], references: [id], onDelete: SetNull)
+  created_by_user             user?         @relation("quote_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+
+  versions                    quote_version[]
+  items                       quote_item[]
+  groups                      quote_group[]
+  approvals                   quote_approval[]
+  discount_rules              quote_discount_rule[]
+  tag_assignments             quote_tag_assignment[]
+  attachments                 quote_attachment[]
+  view_logs                   quote_view_log[]
+  draw_schedule               draw_schedule_entry[]
+  public_access               quote_public_access[]
+
+  @@unique([tenant_id, quote_number])
+  @@index([tenant_id, status])
+  @@index([tenant_id, vendor_id])
+  @@index([tenant_id, created_at(sort: Desc)])
+  @@index([tenant_id, lead_id])
+  @@index([tenant_id, expires_at])
+  @@index([tenant_id, is_archived])
+  @@index([status])
+  @@map("quote")
+}
+
+model quote_version {
+  id                  String    @id @db.VarChar(36)
+  quote_id            String    @db.VarChar(36)
+  version_number      Decimal   @db.Decimal(4, 2)
+  snapshot_data       String    @db.LongText
+  change_summary      String?   @db.Text
+  changed_by_user_id  String?   @db.VarChar(36)
+  created_at          DateTime  @default(now())
+
+  quote               quote     @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  changed_by_user     user?     @relation("quote_version_changer", fields: [changed_by_user_id], references: [id], onDelete: SetNull)
+
+  @@unique([quote_id, version_number])
+  @@index([quote_id, created_at(sort: Desc)])
+  @@map("quote_version")
+}
+
+model quote_group {
+  id          String    @id @db.VarChar(36)
+  quote_id    String    @db.VarChar(36)
+  name        String    @db.VarChar(200)
+  description String?   @db.Text
+  order_index Int       @default(0)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  quote       quote     @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  items       quote_item[]
+
+  @@index([quote_id, order_index])
+  @@map("quote_group")
+}
+
+model quote_item {
+  id                        String    @id @db.VarChar(36)
+  quote_id                  String    @db.VarChar(36)
+  quote_group_id            String?   @db.VarChar(36)
+  item_library_id           String?   @db.VarChar(36)
+  title                     String    @db.VarChar(200)
+  description               String?   @db.Text
+  quantity                  Decimal   @db.Decimal(10, 2)
+  unit_measurement_id       String    @db.VarChar(36)
+  order_index               Int       @default(0)
+  material_cost_per_unit    Decimal   @default(0) @db.Decimal(10, 2)
+  labor_cost_per_unit       Decimal   @default(0) @db.Decimal(10, 2)
+  equipment_cost_per_unit   Decimal   @default(0) @db.Decimal(10, 2)
+  subcontract_cost_per_unit Decimal   @default(0) @db.Decimal(10, 2)
+  other_cost_per_unit       Decimal   @default(0) @db.Decimal(10, 2)
+  total_cost                Decimal   @default(0) @db.Decimal(12, 2)
+  custom_markup_percent     Decimal?  @db.Decimal(5, 2)
+  custom_discount_amount    Decimal?  @db.Decimal(10, 2)
+  custom_tax_rate           Decimal?  @db.Decimal(5, 2)
+  private_notes             String?   @db.Text
+  save_to_library           Boolean   @default(false)
+  warranty_tier_id          String?   @db.VarChar(36)
+  created_at                DateTime  @default(now())
+  updated_at                DateTime  @updatedAt
+
+  quote                     quote     @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  quote_group               quote_group? @relation(fields: [quote_group_id], references: [id], onDelete: SetNull)
+  unit_measurement          unit_measurement @relation(fields: [unit_measurement_id], references: [id], onDelete: Restrict)
+  warranty_tier             quote_warranty_tier? @relation(fields: [warranty_tier_id], references: [id], onDelete: SetNull)
+
+  @@index([quote_id, order_index])
+  @@index([quote_id, quote_group_id])
+  @@index([item_library_id])
+  @@map("quote_item")
+}
+
+model quote_approval {
+  id                String          @id @db.VarChar(36)
+  quote_id          String          @db.VarChar(36)
+  approval_level    Int
+  approver_user_id  String          @db.VarChar(36)
+  status            approval_status @default(pending)
+  comments          String?         @db.Text
+  decided_at        DateTime?
+  created_at        DateTime        @default(now())
+
+  quote             quote           @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  approver_user     user            @relation("quote_approval_approver", fields: [approver_user_id], references: [id], onDelete: Restrict)
+
+  @@index([quote_id, approval_level])
+  @@index([approver_user_id, status])
+  @@map("quote_approval")
+}
+
+model quote_discount_rule {
+  id          String              @id @db.VarChar(36)
+  quote_id    String              @db.VarChar(36)
+  rule_type   discount_rule_type
+  value       Decimal             @db.Decimal(10, 2)
+  reason      String              @db.VarChar(255)
+  apply_to    discount_apply_to   @default(subtotal)
+  order_index Int                 @default(0)
+  created_at  DateTime            @default(now())
+
+  quote       quote               @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+
+  @@index([quote_id, order_index])
+  @@map("quote_discount_rule")
+}
+
+model quote_tag_assignment {
+  id           String    @id @db.VarChar(36)
+  quote_id     String    @db.VarChar(36)
+  quote_tag_id String    @db.VarChar(36)
+  created_at   DateTime  @default(now())
+
+  quote        quote     @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  quote_tag    quote_tag @relation(fields: [quote_tag_id], references: [id], onDelete: Cascade)
+
+  @@unique([quote_id, quote_tag_id])
+  @@index([quote_id])
+  @@index([quote_tag_id])
+  @@map("quote_tag_assignment")
+}
+
+model quote_attachment {
+  id               String          @id @db.VarChar(36)
+  quote_id         String          @db.VarChar(36)
+  attachment_type  attachment_type
+  file_id          String?         @db.VarChar(36)
+  url              String?         @db.VarChar(500)
+  title            String?         @db.VarChar(200)
+  qr_code_file_id  String?         @db.VarChar(36)
+  grid_layout      grid_layout?
+  order_index      Int             @default(0)
+  created_at       DateTime        @default(now())
+
+  quote            quote           @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  file             file?           @relation("attachment_file", fields: [file_id], references: [file_id], onDelete: SetNull)
+  qr_code_file     file?           @relation("attachment_qr_code", fields: [qr_code_file_id], references: [file_id], onDelete: SetNull)
+
+  @@index([quote_id, attachment_type, order_index])
+  @@index([file_id])
+  @@map("quote_attachment")
+}
+
+model quote_view_log {
+  id                    String       @id @db.VarChar(36)
+  quote_id              String       @db.VarChar(36)
+  public_token          String       @db.VarChar(32)
+  viewed_at             DateTime     @default(now())
+  ip_address            String?      @db.VarChar(45)
+  view_duration_seconds Int?
+  device_type           device_type?
+  referrer_url          String?      @db.VarChar(500)
+
+  quote                 quote        @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+
+  @@index([quote_id, viewed_at])
+  @@index([public_token])
+  @@map("quote_view_log")
+}
+
+model draw_schedule_entry {
+  id                String                 @id @db.VarChar(36)
+  quote_id          String                 @db.VarChar(36)
+  draw_number       Int
+  description       String                 @db.VarChar(255)
+  calculation_type  draw_calculation_type
+  value             Decimal                @db.Decimal(10, 2)
+  order_index       Int                    @default(0)
+  created_at        DateTime               @default(now())
+
+  quote             quote                  @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+
+  @@index([quote_id, order_index])
+  @@map("draw_schedule_entry")
+}
+
+model quote_public_access {
+  id            String    @id @db.VarChar(36)
+  quote_id      String    @db.VarChar(36)
+  access_token  String    @unique @db.VarChar(32)
+  password_hash String?   @db.VarChar(255)
+  password_hint String?   @db.VarChar(255)
+  is_active     Boolean   @default(true)
+  created_at    DateTime  @default(now())
+  expires_at    DateTime?
+
+  quote         quote     @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+
+  @@index([quote_id])
+  @@map("quote_public_access")
+}
+
+model item_library {
+  id                        String    @id @db.VarChar(36)
+  tenant_id                 String    @db.VarChar(36)
+  title                     String    @db.VarChar(200)
+  description               String?   @db.Text
+  default_quantity          Decimal   @default(1) @db.Decimal(10, 2)
+  unit_measurement_id       String    @db.VarChar(36)
+  material_cost_per_unit    Decimal   @default(0) @db.Decimal(10, 2)
+  labor_cost_per_unit       Decimal   @default(0) @db.Decimal(10, 2)
+  equipment_cost_per_unit   Decimal   @default(0) @db.Decimal(10, 2)
+  subcontract_cost_per_unit Decimal   @default(0) @db.Decimal(10, 2)
+  other_cost_per_unit       Decimal   @default(0) @db.Decimal(10, 2)
+  usage_count               Int       @default(0)
+  last_used_at              DateTime?
+  is_active                 Boolean   @default(true)
+  created_by_user_id        String?   @db.VarChar(36)
+  created_at                DateTime  @default(now())
+  updated_at                DateTime  @updatedAt
+
+  tenant                    tenant    @relation("item_library_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  unit_measurement          unit_measurement @relation(fields: [unit_measurement_id], references: [id], onDelete: Restrict)
+  created_by_user           user?     @relation("item_library_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, is_active])
+  @@index([tenant_id, title])
+  @@index([tenant_id, last_used_at])
+  @@map("item_library")
+}
+
+model quote_bundle {
+  id                 String    @id @db.VarChar(36)
+  tenant_id          String    @db.VarChar(36)
+  name               String    @db.VarChar(200)
+  description        String?   @db.Text
+  discount_type      discount_rule_type?
+  discount_value     Decimal?  @db.Decimal(10, 2)
+  is_active          Boolean   @default(true)
+  created_by_user_id String?   @db.VarChar(36)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+
+  tenant             tenant    @relation("quote_bundle_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by_user    user?     @relation("quote_bundle_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  items              quote_bundle_item[]
+
+  @@index([tenant_id, is_active])
+  @@index([tenant_id, name])
+  @@map("quote_bundle")
+}
+
+model quote_bundle_item {
+  id                        String    @id @db.VarChar(36)
+  quote_bundle_id           String    @db.VarChar(36)
+  item_library_id           String?   @db.VarChar(36)
+  title                     String    @db.VarChar(200)
+  description               String?   @db.Text
+  quantity                  Decimal   @db.Decimal(10, 2)
+  unit_measurement_id       String    @db.VarChar(36)
+  material_cost_per_unit    Decimal   @default(0) @db.Decimal(10, 2)
+  labor_cost_per_unit       Decimal   @default(0) @db.Decimal(10, 2)
+  equipment_cost_per_unit   Decimal   @default(0) @db.Decimal(10, 2)
+  subcontract_cost_per_unit Decimal   @default(0) @db.Decimal(10, 2)
+  other_cost_per_unit       Decimal   @default(0) @db.Decimal(10, 2)
+  order_index               Int       @default(0)
+  created_at                DateTime  @default(now())
+
+  quote_bundle              quote_bundle @relation(fields: [quote_bundle_id], references: [id], onDelete: Cascade)
+  unit_measurement          unit_measurement @relation(fields: [unit_measurement_id], references: [id], onDelete: Restrict)
+
+  @@index([quote_bundle_id, order_index])
+  @@map("quote_bundle_item")
+}
+
 // Communication Module Enums
 enum communication_provider_type {
   email
@@ -1316,4 +1803,65 @@ enum notification_recipient_type {
   assigned_user
   specific_users
   all_users
+}
+
+// ============================================================================
+// QUOTE MODULE ENUMS
+// ============================================================================
+
+enum quote_status {
+  draft
+  pending_approval
+  ready
+  sent
+  read
+  approved
+  denied
+  lost
+}
+
+enum attachment_type {
+  cover_photo
+  full_page_photo
+  grid_photo
+  url_attachment
+}
+
+enum grid_layout {
+  grid_2
+  grid_4
+  grid_6
+}
+
+enum approval_status {
+  pending
+  approved
+  rejected
+}
+
+enum discount_rule_type {
+  percentage
+  fixed_amount
+}
+
+enum discount_apply_to {
+  subtotal
+  total
+}
+
+enum warranty_price_type {
+  fixed
+  percentage
+}
+
+enum draw_calculation_type {
+  percentage
+  fixed_amount
+}
+
+enum device_type {
+  desktop
+  mobile
+  tablet
+  unknown
 }

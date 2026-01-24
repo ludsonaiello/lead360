@@ -16,6 +16,7 @@ import { JobsModule } from './modules/jobs/jobs.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { LeadsModule } from './modules/leads/leads.module';
 import { CommunicationModule } from './modules/communication/communication.module';
+import { QuotesModule } from './modules/quotes/quotes.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { CommunicationModule } from './modules/communication/communication.modul
     JobsModule, // Background jobs and email services
     LeadsModule, // Leads/Customer management with CRM functionality
     CommunicationModule, // Multi-provider communication (Email, SMS, WhatsApp)
+    QuotesModule, // Quote management with vendors, bundles, templates, and settings
   ],
   controllers: [HealthController],
   providers: [
