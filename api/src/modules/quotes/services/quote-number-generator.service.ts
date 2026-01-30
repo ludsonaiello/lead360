@@ -21,47 +21,52 @@ export class QuoteNumberGeneratorService {
     tenantId: string,
     transaction?: any,
   ): Promise<string> {
-    const prismaClient = transaction || this.prisma;
+    // If already in a transaction, use it directly; otherwise create a new one
+    if (transaction) {
+      return this.generateInTransaction(transaction, tenantId);
+    }
 
     // Use transaction to ensure thread-safety
-    const result = await prismaClient.$transaction(async (tx) => {
-      // Lock tenant row and fetch current quote number
-      const tenant = await tx.tenant.findFirst({
-        where: { id: tenantId },
-        select: {
-          quote_prefix: true,
-          next_quote_number: true,
-        },
-      });
+    return this.prisma.$transaction(async (tx) => {
+      return this.generateInTransaction(tx, tenantId);
+    });
+  }
 
-      if (!tenant) {
-        throw new Error(`Tenant not found: ${tenantId}`);
-      }
-
-      const currentNumber = tenant.next_quote_number;
-      const prefix = tenant.quote_prefix || 'Q-';
-      const year = new Date().getFullYear();
-
-      // Increment next_quote_number for tenant
-      await tx.tenant.update({
-        where: { id: tenantId },
-        data: {
-          next_quote_number: currentNumber + 1,
-        },
-      });
-
-      // Format: Q-2026-001
-      const paddedNumber = String(currentNumber).padStart(3, '0');
-      const quoteNumber = `${prefix}${year}-${paddedNumber}`;
-
-      this.logger.log(
-        `Generated quote number: ${quoteNumber} for tenant: ${tenantId}`,
-      );
-
-      return quoteNumber;
+  private async generateInTransaction(tx: any, tenantId: string): Promise<string> {
+    // Lock tenant row and fetch current quote number
+    const tenant = await tx.tenant.findFirst({
+      where: { id: tenantId },
+      select: {
+        quote_prefix: true,
+        next_quote_number: true,
+      },
     });
 
-    return result;
+    if (!tenant) {
+      throw new Error(`Tenant not found: ${tenantId}`);
+    }
+
+    const currentNumber = tenant.next_quote_number;
+    const prefix = tenant.quote_prefix || 'Q-';
+    const year = new Date().getFullYear();
+
+    // Increment next_quote_number for tenant
+    await tx.tenant.update({
+      where: { id: tenantId },
+      data: {
+        next_quote_number: currentNumber + 1,
+      },
+    });
+
+    // Format: Q-2026-001
+    const paddedNumber = String(currentNumber).padStart(3, '0');
+    const quoteNumber = `${prefix}${year}-${paddedNumber}`;
+
+    this.logger.log(
+      `Generated quote number: ${quoteNumber} for tenant: ${tenantId}`,
+    );
+
+    return quoteNumber;
   }
 
   /**

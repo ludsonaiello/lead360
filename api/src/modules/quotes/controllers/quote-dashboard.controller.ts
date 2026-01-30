@@ -73,7 +73,13 @@ export class QuoteDashboardController {
     const tenantId = req.user.tenant_id;
     const { from, to } = this.parseDateRange(query.date_from, query.date_to);
 
-    return await this.dashboardService.getOverview(tenantId, from, to, query.compare_to_previous || false);
+    return await this.dashboardService.getOverview(
+      tenantId,
+      from,
+      to,
+      query.compare_to_previous || false,
+      query.status,
+    );
   }
 
   @Get('quotes-over-time')

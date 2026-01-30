@@ -24,11 +24,15 @@
 14. [Version History](#version-history)
 15. [Profitability Analysis](#profitability-analysis)
 16. [PDF Generation](#pdf-generation)
-17. [Public Access & Analytics](#public-access--analytics)
-18. [Dashboard](#dashboard)
-19. [Search](#search)
-20. [Change Orders](#change-orders)
-21. [Admin Endpoints](#admin-endpoints)
+17. [Quote Attachments](#quote-attachments)
+18. [Email Delivery](#email-delivery)
+19. [Public Access & Analytics](#public-access--analytics)
+20. [Dashboard](#dashboard)
+21. [Search](#search)
+22. [Change Orders](#change-orders)
+23. [Quote Tags](#quote-tags)
+24. [Warranty Tiers](#warranty-tiers)
+25. [Admin Endpoints](#admin-endpoints)
 
 ---
 
@@ -2640,6 +2644,360 @@ I'll continue with the remaining sections in the next part. The file is being cr
 
 ---
 
+## Quote Attachments
+
+Manage attachments for quotes (photos, URL links with QR codes). Attachments appear in generated PDFs and can be reordered.
+
+### Create Attachment
+
+**Endpoint**: `POST /quotes/:quoteId/attachments`
+**RBAC**: `Owner`, `Admin`, `Manager`, `Sales`
+
+**Path Parameters**:
+- `quoteId` (UUID, required) - Quote UUID
+
+**Request Body**:
+```json
+{
+  "attachment_type": "url_attachment",
+  "url": "https://example.com/product-page",
+  "title": "Product Specifications",
+  "order_index": 1
+}
+```
+
+**Field Validation**:
+- `attachment_type` (enum, required): `cover_photo`, `full_page_photo`, `grid_photo`, `url_attachment`
+- `file_id` (UUID, conditional): Required if type is `cover_photo`, `full_page_photo`, or `grid_photo`. Max 36 characters.
+- `url` (string, conditional): Required if type is `url_attachment`. Must be valid URL format. Max 500 characters.
+- `title` (string, optional): Max 200 characters. Used for url_attachment labels.
+- `grid_layout` (enum, conditional): Required if type is `grid_photo`. Values: `grid_2`, `grid_4`, `grid_6`
+- `order_index` (number, optional): Display order. Auto-increments if not provided. Min 0.
+
+**Conditional Rules**:
+- **url_attachment**: Requires `url`, must NOT have `file_id`, auto-generates QR code
+- **Photo types**: Require `file_id`, must NOT have `url`
+- **grid_photo**: Requires `grid_layout` enum
+- **cover_photo**: Only 1 allowed per quote (creating new cover deletes old one)
+
+**Response**: `201 Created`
+```json
+{
+  "id": "attachment-uuid",
+  "quote_id": "quote-uuid",
+  "attachment_type": "url_attachment",
+  "file_id": null,
+  "url": "https://example.com/product-page",
+  "title": "Product Specifications",
+  "qr_code_file_id": "qr-file-uuid",
+  "grid_layout": null,
+  "order_index": 1,
+  "created_at": "2026-01-24T10:00:00Z",
+  "qr_code_file": {
+    "file_id": "qr-file-uuid",
+    "original_filename": "qr-code-1737714000000.png",
+    "mime_type": "image/png",
+    "size_bytes": 2048,
+    "url": "https://cdn.lead360.app/files/qr-file-uuid.png",
+    "width": 512,
+    "height": 512,
+    "thumbnail_url": "https://cdn.lead360.app/files/qr-file-uuid-thumb.webp"
+  }
+}
+```
+
+**Side Effects**:
+- If type = `url_attachment`: Generates QR code PNG and stores via FilesService
+- If type = `cover_photo` and one already exists: Deletes old cover photo
+- Audit log created
+
+**Error Responses**:
+- `404 Not Found` - Quote not found or file_id not found
+- `400 Bad Request` - Invalid attachment type rules (e.g., url_attachment with file_id)
+- `400 Bad Request` - grid_layout required for grid_photo
+
+---
+
+### List All Attachments
+
+**Endpoint**: `GET /quotes/:quoteId/attachments`
+**RBAC**: `Owner`, `Admin`, `Manager`, `Sales`, `Employee`
+
+**Path Parameters**:
+- `quoteId` (UUID, required) - Quote UUID
+
+**Response**: `200 OK`
+```json
+[
+  {
+    "id": "attachment-1",
+    "quote_id": "quote-uuid",
+    "attachment_type": "cover_photo",
+    "file_id": "file-uuid-1",
+    "url": null,
+    "title": null,
+    "qr_code_file_id": null,
+    "grid_layout": null,
+    "order_index": 0,
+    "created_at": "2026-01-24T09:00:00Z",
+    "file": {
+      "file_id": "file-uuid-1",
+      "original_filename": "cover-image.jpg",
+      "mime_type": "image/jpeg",
+      "size_bytes": 524288,
+      "url": "https://cdn.lead360.app/files/file-uuid-1.jpg",
+      "width": 1920,
+      "height": 1080,
+      "thumbnail_url": "https://cdn.lead360.app/files/file-uuid-1-thumb.webp"
+    }
+  },
+  {
+    "id": "attachment-2",
+    "quote_id": "quote-uuid",
+    "attachment_type": "url_attachment",
+    "file_id": null,
+    "url": "https://example.com/specs",
+    "title": "Technical Specs",
+    "qr_code_file_id": "qr-file-uuid",
+    "grid_layout": null,
+    "order_index": 1,
+    "created_at": "2026-01-24T10:00:00Z",
+    "qr_code_file": {
+      "file_id": "qr-file-uuid",
+      "original_filename": "qr-code-1737714000000.png",
+      "mime_type": "image/png",
+      "size_bytes": 2048,
+      "url": "https://cdn.lead360.app/files/qr-file-uuid.png",
+      "width": 512,
+      "height": 512,
+      "thumbnail_url": "https://cdn.lead360.app/files/qr-file-uuid-thumb.webp"
+    }
+  }
+]
+```
+
+**Ordering**: Results ordered by `attachment_type` (cover → full_page → grid → url), then `order_index` ASC
+
+**Error Responses**:
+- `404 Not Found` - Quote not found
+
+---
+
+### Get Single Attachment
+
+**Endpoint**: `GET /quotes/:quoteId/attachments/:attachmentId`
+**RBAC**: `Owner`, `Admin`, `Manager`, `Sales`, `Employee`
+
+**Path Parameters**:
+- `quoteId` (UUID, required) - Quote UUID
+- `attachmentId` (UUID, required) - Attachment UUID
+
+**Response**: `200 OK` (same structure as single item in list response)
+
+**Error Responses**:
+- `404 Not Found` - Quote or attachment not found
+
+---
+
+### Update Attachment
+
+**Endpoint**: `PATCH /quotes/:quoteId/attachments/:attachmentId`
+**RBAC**: `Owner`, `Admin`, `Manager`, `Sales`
+
+**Path Parameters**:
+- `quoteId` (UUID, required) - Quote UUID
+- `attachmentId` (UUID, required) - Attachment UUID
+
+**Request Body** (all fields optional):
+```json
+{
+  "title": "Updated Title",
+  "url": "https://new-url.com/page",
+  "grid_layout": "grid_4",
+  "order_index": 2
+}
+```
+
+**Field Validation**:
+- `title` (string, optional): Max 200 characters
+- `url` (string, optional): Valid URL format. Max 500 characters. **Triggers QR code regeneration if changed.**
+- `grid_layout` (enum, optional): `grid_2`, `grid_4`, `grid_6`. Only valid for grid_photo type.
+- `order_index` (number, optional): New display position. Min 0.
+
+**Restrictions**:
+- Cannot change `attachment_type` (create new attachment instead)
+- Cannot change `file_id` (create new attachment instead)
+
+**Response**: `200 OK` (updated attachment with new qr_code_file if URL changed)
+
+**Side Effects**:
+- If `url` changed: Regenerates QR code, updates `qr_code_file_id`
+- Audit log created
+
+**Error Responses**:
+- `404 Not Found` - Quote or attachment not found
+- `400 Bad Request` - Invalid update (e.g., grid_layout on non-grid_photo)
+
+---
+
+### Delete Attachment
+
+**Endpoint**: `DELETE /quotes/:quoteId/attachments/:attachmentId`
+**RBAC**: `Owner`, `Admin`, `Manager`, `Sales`
+
+**Path Parameters**:
+- `quoteId` (UUID, required) - Quote UUID
+- `attachmentId` (UUID, required) - Attachment UUID
+
+**Response**: `204 No Content`
+
+**Side Effects**:
+- Hard deletes attachment record
+- Deletes associated QR code file if exists (via FilesService)
+- Audit log created
+
+**Error Responses**:
+- `404 Not Found` - Quote or attachment not found
+
+---
+
+### Reorder Attachments
+
+**Endpoint**: `PATCH /quotes/:quoteId/attachments/reorder`
+**RBAC**: `Owner`, `Admin`, `Manager`, `Sales`
+
+**Path Parameters**:
+- `quoteId` (UUID, required) - Quote UUID
+
+**Request Body**:
+```json
+{
+  "attachments": [
+    { "id": "attachment-uuid-1", "order_index": 0 },
+    { "id": "attachment-uuid-2", "order_index": 1 },
+    { "id": "attachment-uuid-3", "order_index": 2 }
+  ]
+}
+```
+
+**Field Validation**:
+- `attachments` (array, required): Min 1 item
+- `attachments[].id` (UUID, required): Attachment UUID
+- `attachments[].order_index` (number, required): New position (must be unique)
+
+**Validation Rules**:
+- All attachment IDs must belong to the specified quote
+- order_index must be unique per attachment ID
+
+**Response**: `200 OK`
+```json
+{
+  "success": true,
+  "message": "Attachments reordered successfully"
+}
+```
+
+**Side Effects**:
+- Updates order_index for all specified attachments in single transaction
+- Audit log created
+
+**Error Responses**:
+- `404 Not Found` - Quote not found
+- `400 Bad Request` - One or more attachment IDs do not belong to this quote
+
+---
+
+## Email Delivery
+
+Send quotes to customers via email with PDF attachment and public viewing URL. Emails are queued via BullMQ for async delivery.
+
+### Send Quote via Email
+
+**Endpoint**: `POST /quotes/:id/send`
+**RBAC**: `Owner`, `Admin`, `Manager`, `Sales`
+
+**Path Parameters**:
+- `id` (UUID, required) - Quote UUID
+
+**Request Body**:
+```json
+{
+  "recipient_email": "customer@example.com",
+  "cc_emails": ["manager@company.com"],
+  "custom_message": "Looking forward to working with you on this project!"
+}
+```
+
+**Field Validation**:
+- `recipient_email` (email, optional): Defaults to lead's primary email if not provided
+- `cc_emails` (array of emails, optional): CC recipients. Each email must be valid format.
+- `custom_message` (string, optional): Personal message from sender. Max 1000 characters.
+
+**Pre-Conditions**:
+- Quote status must be `ready` (will reject if `draft`, `pending_approval`, etc.)
+- Quote must have a linked lead with email OR `recipient_email` must be provided
+
+**Response**: `200 OK`
+```json
+{
+  "success": true,
+  "message": "Quote email sent successfully",
+  "public_url": "https://acme.lead360.app/quotes/abc123token",
+  "pdf_file_id": "pdf-file-uuid",
+  "email_id": "communication-event-uuid"
+}
+```
+
+**Email Template**: `send-quote`
+
+**Template Variables** (auto-populated):
+- `quote_number`: Quote number (e.g., Q-2026-001)
+- `customer_name`: Lead full name or "Customer"
+- `company_name`: Tenant business name
+- `quote_title`: Quote title
+- `quote_total`: Formatted currency total (e.g., $15,250.00)
+- `public_url`: Public viewing URL (valid for 30 days)
+- `vendor_name`: Vendor/estimator name (optional)
+- `vendor_email`: Vendor contact email (optional)
+- `vendor_phone`: Vendor contact phone (optional)
+- `custom_message`: User's custom message (optional, shown in highlighted box)
+
+**Email Features**:
+- Professional HTML template with company branding
+- PDF attached automatically (generated if not exists)
+- Public URL button for online viewing
+- Mobile-responsive design
+- Vendor contact information footer
+
+**Side Effects** (executed sequentially):
+1. Validates quote status = `ready`
+2. Generates PDF if not already exists
+3. Generates public URL with 30-day expiry
+4. Sends email via Communication Module (BullMQ queue)
+5. **Changes quote status from `ready` → `sent`**
+6. Creates communication event for tracking
+7. Audit log created
+
+**Email Delivery**:
+- Queued via BullMQ (asynchronous)
+- Retry logic: 3 attempts with exponential backoff
+- Delivery status tracked in `communication_events` table
+- Email sent using tenant's configured provider (SMTP/SendGrid/SES/Brevo)
+
+**Error Responses**:
+- `404 Not Found` - Quote not found
+- `400 Bad Request` - Quote must be in ready status
+- `400 Bad Request` - No recipient email found (lead has no email and recipient_email not provided)
+- `500 Internal Server Error` - PDF generation failed
+- `500 Internal Server Error` - Email queueing failed
+
+**Monitoring**:
+- Check BullMQ dashboard for job status
+- View communication events for delivery status
+- Email delivery failures logged in `communication_events.error_message`
+
+---
+
 ## Dashboard
 
 ### Get Dashboard Overview
@@ -3191,6 +3549,128 @@ GET /quotes/dashboard/avg-pricing-by-task?date_from=2026-01-01&date_to=2026-01-3
 **Error Responses**:
 - `400 Bad Request` - Cannot delete last item
 - `404 Not Found` - Bundle or item not found
+
+---
+
+### Add Bundle to Quote
+
+**Endpoint**: `POST /quotes/:quoteId/bundles/:bundleId`
+**RBAC**: `Owner`, `Admin`, `Manager`, `Sales`
+
+**Description:**
+Applies a bundle template to a quote by converting bundle items into quote items. Optionally creates a quote group to organize the items and applies the bundle discount.
+
+**Path Parameters**:
+- `quoteId` (UUID, required) - Quote to add bundle to
+- `bundleId` (UUID, required) - Bundle to apply
+
+**Request Body**:
+```json
+{
+  "apply_discount": true,
+  "create_group": true,
+  "group_name": "Custom Kitchen Package"
+}
+```
+
+**Request Fields**:
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `apply_discount` | `boolean` | No | `true` | Whether to apply bundle discount as quote discount rule |
+| `create_group` | `boolean` | No | `true` | Whether to create a quote group for bundle items |
+| `group_name` | `string` | No | Bundle name | Custom name for the quote group |
+
+**Success Response**: `201 Created`
+```json
+{
+  "success": true,
+  "message": "Bundle 'Complete Kitchen Remodel' added to quote",
+  "quote_group_id": "abc123-def456",
+  "items_created": 5,
+  "discount_applied": true,
+  "discount_rule_id": "xyz789-uvw012"
+}
+```
+
+**Error Responses**:
+
+`404 Not Found` - Quote or bundle not found:
+```json
+{
+  "statusCode": 404,
+  "message": "Bundle not found",
+  "error": "Not Found"
+}
+```
+
+`400 Bad Request` - Bundle is inactive:
+```json
+{
+  "statusCode": 400,
+  "message": "Cannot add inactive bundle to quote",
+  "error": "Bad Request"
+}
+```
+
+`400 Bad Request` - Quote is approved:
+```json
+{
+  "statusCode": 400,
+  "message": "Cannot add bundle to approved quote",
+  "error": "Bad Request"
+}
+```
+
+`400 Bad Request` - Bundle has no items:
+```json
+{
+  "statusCode": 400,
+  "message": "Bundle has no items",
+  "error": "Bad Request"
+}
+```
+
+**Business Rules**:
+- Bundle must be active (`is_active = true`)
+- Quote status cannot be `approved`
+- All bundle items are converted to quote items in a single transaction
+- Bundle items preserve their `item_library_id` reference (if any)
+- Quote items track source bundle via `quote_bundle_id`
+- Items are fully editable after creation (bundle is just a template)
+- Quote totals are automatically recalculated
+- Version snapshot is automatically created (increments version by 0.1)
+- If `create_group` is true, items are organized in a quote group
+- If `apply_discount` is true and bundle has a discount, it's added as a quote discount rule
+
+**Example Use Cases**:
+
+1. **Add bundle with all defaults**:
+```bash
+POST /quotes/{quoteId}/bundles/{bundleId}
+Body: {}
+# Creates group, applies discount if bundle has one
+```
+
+2. **Add bundle without discount**:
+```bash
+POST /quotes/{quoteId}/bundles/{bundleId}
+Body: {"apply_discount": false}
+# Creates group but doesn't apply bundle discount
+```
+
+3. **Add bundle without group**:
+```bash
+POST /quotes/{quoteId}/bundles/{bundleId}
+Body: {"create_group": false}
+# Items added directly to quote without grouping
+```
+
+4. **Add bundle with custom group name**:
+```bash
+POST /quotes/{quoteId}/bundles/{bundleId}
+Body: {"group_name": "Upgraded Kitchen Package"}
+# Creates group with custom name instead of bundle name
+```
 
 ---
 
@@ -4326,6 +4806,476 @@ GET /quotes/dashboard/avg-pricing-by-task?date_from=2026-01-01&date_to=2026-01-3
 
 ---
 
+## Quote Tags
+
+**Controller**: `QuoteTagController`
+**Base Paths**: `/tags`, `/quotes/:id/tags`
+
+Quote tags allow tenants to organize and categorize their quotes with custom labels and colors. Tags can be assigned to multiple quotes and help with filtering and search.
+
+**Business Rules**:
+- Tag names must be unique per tenant (case-insensitive)
+- Cannot delete tags assigned to quotes (mark as inactive instead)
+- Multiple tags can be assigned per quote
+- Tags have custom colors for visual organization
+
+---
+
+### Create Quote Tag
+
+**Endpoint**: `POST /tags`
+**RBAC**: `Owner`, `Admin`, `Manager`
+
+Creates a new tag for organizing quotes.
+
+**Request Body**:
+```json
+{
+  "name": "High Priority",
+  "color": "#FF5733"
+}
+```
+
+**Field Validation**:
+- `name` (required): String, 1-100 characters
+- `color` (required): String, hex color format (#RRGGBB)
+
+**Response**: `201 Created`
+```json
+{
+  "id": "tag-uuid-123",
+  "name": "High Priority",
+  "color": "#FF5733",
+  "is_active": true,
+  "usage_count": 0,
+  "created_at": "2026-01-24T10:00:00.000Z",
+  "updated_at": "2026-01-24T10:00:00.000Z"
+}
+```
+
+**Error Responses**:
+- `409 Conflict` - Tag name already exists (case-insensitive match)
+
+---
+
+### List Quote Tags
+
+**Endpoint**: `GET /tags`
+**RBAC**: `Owner`, `Admin`, `Manager`, `Sales`, `Employee`
+
+Returns all tags for the tenant, ordered by name.
+
+**Query Parameters**:
+- `include_inactive` (optional, boolean): Include inactive tags (default: false)
+
+**Response**: `200 OK`
+```json
+[
+  {
+    "id": "tag-uuid-123",
+    "name": "High Priority",
+    "color": "#FF5733",
+    "is_active": true,
+    "usage_count": 15,
+    "created_at": "2026-01-24T10:00:00.000Z",
+    "updated_at": "2026-01-24T10:00:00.000Z"
+  }
+]
+```
+
+**Response Fields**:
+- `usage_count`: Number of quotes currently using this tag
+
+---
+
+### Get Quote Tag
+
+**Endpoint**: `GET /tags/:id`
+**RBAC**: `Owner`, `Admin`, `Manager`, `Sales`, `Employee`
+
+Retrieves a single tag by ID.
+
+**Path Parameters**:
+- `id` (required): Tag UUID
+
+**Response**: `200 OK`
+```json
+{
+  "id": "tag-uuid-123",
+  "name": "High Priority",
+  "color": "#FF5733",
+  "is_active": true,
+  "usage_count": 15,
+  "created_at": "2026-01-24T10:00:00.000Z",
+  "updated_at": "2026-01-24T10:00:00.000Z"
+}
+```
+
+**Error Responses**:
+- `404 Not Found` - Tag not found or doesn't belong to tenant
+
+---
+
+### Update Quote Tag
+
+**Endpoint**: `PATCH /tags/:id`
+**RBAC**: `Owner`, `Admin`, `Manager`
+
+Updates tag name, color, or active status.
+
+**Path Parameters**:
+- `id` (required): Tag UUID
+
+**Request Body** (all fields optional):
+```json
+{
+  "name": "Critical Priority",
+  "color": "#DC143C",
+  "is_active": false
+}
+```
+
+**Field Validation**:
+- `name` (optional): String, 1-100 characters
+- `color` (optional): String, hex color format
+- `is_active` (optional): Boolean
+
+**Response**: `200 OK`
+```json
+{
+  "id": "tag-uuid-123",
+  "name": "Critical Priority",
+  "color": "#DC143C",
+  "is_active": false,
+  "usage_count": 15,
+  "created_at": "2026-01-24T10:00:00.000Z",
+  "updated_at": "2026-01-24T10:30:00.000Z"
+}
+```
+
+**Error Responses**:
+- `404 Not Found` - Tag not found
+- `409 Conflict` - Tag name already exists (case-insensitive)
+
+---
+
+### Delete Quote Tag
+
+**Endpoint**: `DELETE /tags/:id`
+**RBAC**: `Owner`, `Admin`
+
+Deletes tag only if not assigned to any quote. Otherwise, mark as inactive.
+
+**Path Parameters**:
+- `id` (required): Tag UUID
+
+**Response**: `204 No Content`
+
+**Error Responses**:
+- `404 Not Found` - Tag not found
+- `400 Bad Request` - Cannot delete tag assigned to N quote(s). Mark as inactive instead.
+
+---
+
+### Assign Tags to Quote
+
+**Endpoint**: `POST /quotes/:id/tags`
+**RBAC**: `Owner`, `Admin`, `Manager`, `Sales`
+
+Assigns one or more tags to a quote. Replaces all existing tag assignments.
+
+**Path Parameters**:
+- `id` (required): Quote UUID
+
+**Request Body**:
+```json
+{
+  "tag_ids": ["tag-uuid-1", "tag-uuid-2", "tag-uuid-3"]
+}
+```
+
+**Field Validation**:
+- `tag_ids` (required): Array of tag UUIDs, minimum 1 item
+- All tags must exist, be active, and belong to the tenant
+
+**Response**: `200 OK`
+```json
+[
+  {
+    "id": "tag-uuid-1",
+    "name": "High Priority",
+    "color": "#FF5733",
+    "is_active": true,
+    "usage_count": 16,
+    "created_at": "2026-01-24T10:00:00.000Z",
+    "updated_at": "2026-01-24T10:00:00.000Z"
+  }
+]
+```
+
+**Error Responses**:
+- `404 Not Found` - Quote not found or tags not found/inactive
+
+**Side Effects**:
+- All previous tag assignments are removed
+- Audit log created for tag assignment
+- Quote updated_at timestamp refreshed
+
+---
+
+### Remove Tag from Quote
+
+**Endpoint**: `DELETE /quotes/:id/tags/:tagId`
+**RBAC**: `Owner`, `Admin`, `Manager`, `Sales`
+
+Removes a single tag assignment from a quote.
+
+**Path Parameters**:
+- `id` (required): Quote UUID
+- `tagId` (required): Tag UUID to remove
+
+**Response**: `204 No Content`
+
+**Error Responses**:
+- `404 Not Found` - Quote not found or tag not assigned to quote
+
+---
+
+### Get Quote Tags
+
+**Endpoint**: `GET /quotes/:id/tags`
+**RBAC**: `Owner`, `Admin`, `Manager`, `Sales`, `Employee`
+
+Retrieves all tags assigned to a specific quote.
+
+**Path Parameters**:
+- `id` (required): Quote UUID
+
+**Response**: `200 OK`
+```json
+[
+  {
+    "id": "tag-uuid-1",
+    "name": "High Priority",
+    "color": "#FF5733",
+    "is_active": true,
+    "usage_count": 16,
+    "created_at": "2026-01-24T10:00:00.000Z",
+    "updated_at": "2026-01-24T10:00:00.000Z"
+  }
+]
+```
+
+**Error Responses**:
+- `404 Not Found` - Quote not found
+
+---
+
+## Warranty Tiers
+
+**Controller**: `WarrantyTierController`
+**Base Path**: `/warranty-tiers`
+
+Warranty tiers define optional warranty options that can be added to individual quote items. Warranties can have fixed prices or be percentage-based on the item price.
+
+**Business Rules**:
+- Multiple tiers allowed per tenant
+- Price can be fixed amount or percentage of item price
+- Warranty price adds to item total
+- Cannot delete warranty tier if assigned to any quote item
+- Optional for all items
+
+---
+
+### Create Warranty Tier
+
+**Endpoint**: `POST /warranty-tiers`
+**RBAC**: `Owner`, `Admin`, `Manager`
+
+Creates a new warranty tier for quote items.
+
+**Request Body**:
+```json
+{
+  "tier_name": "1-Year Standard",
+  "description": "Standard 1-year warranty covering defects",
+  "price_type": "fixed",
+  "price_value": 199.99,
+  "duration_months": 12
+}
+```
+
+**Field Validation**:
+- `tier_name` (required): String, 1-100 characters
+- `description` (optional): String, text description
+- `price_type` (required): Enum (`fixed`, `percentage`)
+- `price_value` (required): Number, minimum 0 (dollar amount if fixed, percentage value if percentage)
+- `duration_months` (required): Integer, 1-600 (1 to 50 years)
+
+**Response**: `201 Created`
+```json
+{
+  "id": "tier-uuid-123",
+  "tier_name": "1-Year Standard",
+  "description": "Standard 1-year warranty covering defects",
+  "price_type": "fixed",
+  "price_value": 199.99,
+  "duration_months": 12,
+  "is_active": true,
+  "usage_count": 0,
+  "created_at": "2026-01-24T10:00:00.000Z",
+  "updated_at": "2026-01-24T10:00:00.000Z"
+}
+```
+
+---
+
+### List Warranty Tiers
+
+**Endpoint**: `GET /warranty-tiers`
+**RBAC**: `Owner`, `Admin`, `Manager`, `Sales`, `Employee`
+
+Returns all warranty tiers for the tenant, ordered by name.
+
+**Query Parameters**:
+- `include_inactive` (optional, boolean): Include inactive tiers (default: false)
+
+**Response**: `200 OK`
+```json
+[
+  {
+    "id": "tier-uuid-123",
+    "tier_name": "1-Year Standard",
+    "description": "Standard 1-year warranty covering defects",
+    "price_type": "fixed",
+    "price_value": 199.99,
+    "duration_months": 12,
+    "is_active": true,
+    "usage_count": 45,
+    "created_at": "2026-01-24T10:00:00.000Z",
+    "updated_at": "2026-01-24T10:00:00.000Z"
+  },
+  {
+    "id": "tier-uuid-456",
+    "tier_name": "5-Year Premium",
+    "description": "Extended 5-year warranty with priority support",
+    "price_type": "percentage",
+    "price_value": 15.0,
+    "duration_months": 60,
+    "is_active": true,
+    "usage_count": 23,
+    "created_at": "2026-01-24T10:00:00.000Z",
+    "updated_at": "2026-01-24T10:00:00.000Z"
+  }
+]
+```
+
+**Response Fields**:
+- `usage_count`: Number of quote items currently using this warranty tier
+- `price_value`: Dollar amount (if `price_type` is `fixed`) or percentage (if `price_type` is `percentage`)
+
+---
+
+### Get Warranty Tier
+
+**Endpoint**: `GET /warranty-tiers/:id`
+**RBAC**: `Owner`, `Admin`, `Manager`, `Sales`, `Employee`
+
+Retrieves a single warranty tier by ID.
+
+**Path Parameters**:
+- `id` (required): Warranty tier UUID
+
+**Response**: `200 OK`
+```json
+{
+  "id": "tier-uuid-123",
+  "tier_name": "1-Year Standard",
+  "description": "Standard 1-year warranty covering defects",
+  "price_type": "fixed",
+  "price_value": 199.99,
+  "duration_months": 12,
+  "is_active": true,
+  "usage_count": 45,
+  "created_at": "2026-01-24T10:00:00.000Z",
+  "updated_at": "2026-01-24T10:00:00.000Z"
+}
+```
+
+**Error Responses**:
+- `404 Not Found` - Warranty tier not found or doesn't belong to tenant
+
+---
+
+### Update Warranty Tier
+
+**Endpoint**: `PATCH /warranty-tiers/:id`
+**RBAC**: `Owner`, `Admin`, `Manager`
+
+Updates warranty tier properties.
+
+**Path Parameters**:
+- `id` (required): Warranty tier UUID
+
+**Request Body** (all fields optional):
+```json
+{
+  "tier_name": "1-Year Standard Plus",
+  "description": "Enhanced standard warranty",
+  "price_type": "percentage",
+  "price_value": 10.0,
+  "duration_months": 18,
+  "is_active": true
+}
+```
+
+**Field Validation**:
+- `tier_name` (optional): String, 1-100 characters
+- `description` (optional): String
+- `price_type` (optional): Enum (`fixed`, `percentage`)
+- `price_value` (optional): Number, minimum 0
+- `duration_months` (optional): Integer, 1-600
+- `is_active` (optional): Boolean
+
+**Response**: `200 OK`
+```json
+{
+  "id": "tier-uuid-123",
+  "tier_name": "1-Year Standard Plus",
+  "description": "Enhanced standard warranty",
+  "price_type": "percentage",
+  "price_value": 10.0,
+  "duration_months": 18,
+  "is_active": true,
+  "usage_count": 45,
+  "created_at": "2026-01-24T10:00:00.000Z",
+  "updated_at": "2026-01-24T10:30:00.000Z"
+}
+```
+
+**Error Responses**:
+- `404 Not Found` - Warranty tier not found
+
+---
+
+### Delete Warranty Tier
+
+**Endpoint**: `DELETE /warranty-tiers/:id`
+**RBAC**: `Owner`, `Admin`
+
+Deletes warranty tier only if not assigned to any quote item. Otherwise, mark as inactive.
+
+**Path Parameters**:
+- `id` (required): Warranty tier UUID
+
+**Response**: `204 No Content`
+
+**Error Responses**:
+- `404 Not Found` - Warranty tier not found
+- `400 Bad Request` - Cannot delete warranty tier that is assigned to N quote item(s). Mark as inactive instead.
+
+---
+
 ## Admin Endpoints (Platform Admin Only)
 
 **Controller**: `QuoteAdminController`
@@ -4829,9 +5779,15 @@ All list endpoints support pagination with consistent parameters:
 
 ## End of Documentation
 
-This comprehensive REST API documentation covers all 21 controllers and 150+ endpoints in the quotes module. Every endpoint includes exact field names, validation rules, request/response examples, RBAC requirements, and error scenarios.
+This comprehensive REST API documentation covers all 25 controllers and 170+ endpoints in the quotes module. Every endpoint includes exact field names, validation rules, request/response examples, RBAC requirements, and error scenarios.
+
+**New in This Update**:
+- Quote Attachments (6 endpoints) - Manage photos and URL links with QR codes
+- Email Delivery (1 endpoint) - Send quotes via email with PDF attachment
+- Quote Tags (8 endpoints) - Organize quotes with custom labels and colors
+- Warranty Tiers (5 endpoints) - Define warranty options for quote items
 
 **Last Updated**: January 24, 2026
 **Module Version**: 1.0
-**Total Endpoints Documented**: 150+
+**Total Endpoints Documented**: 170+ (20 new endpoints added)
 

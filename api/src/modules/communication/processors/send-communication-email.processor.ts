@@ -4,6 +4,7 @@ import { Job } from 'bullmq';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { EmailSenderService } from '../services/email-sender.service';
 import { EncryptionService } from '../../../core/encryption/encryption.service';
+import { FilesService } from '../../files/files.service';
 
 /**
  * Send Communication Email Processor
@@ -15,7 +16,7 @@ import { EncryptionService } from '../../../core/encryption/encryption.service';
  * Job: send-email
  *
  * Job Data:
- * - communicationEventId: UUID of communication_event record
+ * - communication_event_id: UUID of communication_event record
  *
  * Process:
  * 1. Load communication_event with provider details
@@ -32,6 +33,7 @@ export class SendCommunicationEmailProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly emailSender: EmailSenderService,
     private readonly encryption: EncryptionService,
+    private readonly filesService: FilesService,
   ) {
     super();
     this.logger.log(
@@ -40,17 +42,17 @@ export class SendCommunicationEmailProcessor extends WorkerHost {
   }
 
   async process(job: Job): Promise<any> {
-    const { communicationEventId } = job.data;
+    const { communication_event_id } = job.data;
     const jobId = job.id as string;
 
     this.logger.log(
-      `🔄 PROCESSING: Communication email job ${jobId} for event ${communicationEventId}`,
+      `🔄 PROCESSING: Communication email job ${jobId} for event ${communication_event_id}`,
     );
 
     try {
       // 1. Load communication_event with relations
       const event = await this.prisma.communication_event.findUnique({
-        where: { id: communicationEventId },
+        where: { id: communication_event_id },
         include: {
           provider: true,
           tenant: true,
@@ -60,13 +62,13 @@ export class SendCommunicationEmailProcessor extends WorkerHost {
 
       if (!event) {
         throw new Error(
-          `Communication event ${communicationEventId} not found`,
+          `Communication event ${communication_event_id} not found`,
         );
       }
 
       if (event.status !== 'pending') {
         this.logger.warn(
-          `Event ${communicationEventId} already processed (status: ${event.status})`,
+          `Event ${communication_event_id} already processed (status: ${event.status})`,
         );
         return { success: false, reason: 'Already processed' };
       }
@@ -111,7 +113,70 @@ export class SendCommunicationEmailProcessor extends WorkerHost {
         providerConfig = platformConfig.provider_config;
       }
 
-      // 3. Send via provider
+      // 3. Process attachments (fetch file content if file_id is provided)
+      let processedAttachments: Array<{
+        filename: string;
+        content: string;
+        mime_type: string;
+      }> | undefined;
+
+      if (event.attachments && Array.isArray(event.attachments)) {
+        const attachmentsWithNulls = await Promise.all(
+          (event.attachments as any[]).map(async (att) => {
+            // If attachment has file_id, fetch the file content from storage
+            if (att.file_id) {
+              // Query file directly to get storage_path
+              const file = await this.prisma.file.findFirst({
+                where: {
+                  file_id: att.file_id,
+                  tenant_id: event.tenant_id || undefined,
+                  is_trashed: false,
+                },
+              });
+
+              if (!file) {
+                this.logger.warn(
+                  `Attachment file ${att.file_id} not found, skipping`,
+                );
+                return null; // Skip this attachment
+              }
+
+              // Get storage provider and download file content
+              const storageProvider = await (this.filesService as any).storageFactory.getProvider(
+                event.tenant_id,
+              );
+              const fileBuffer = await storageProvider.download(
+                file.id,
+                file.storage_path,
+              );
+
+              return {
+                filename: file.original_filename,
+                content: fileBuffer.toString('base64'),
+                mime_type: file.mime_type,
+              };
+            }
+
+            // If attachment already has content, use it as-is
+            return {
+              filename: att.filename,
+              content: att.content,
+              mime_type: att.mime_type,
+            };
+          }),
+        );
+
+        // Filter out null entries (skipped attachments)
+        processedAttachments = attachmentsWithNulls.filter(
+          (att) => att !== null,
+        ) as Array<{
+          filename: string;
+          content: string;
+          mime_type: string;
+        }>;
+      }
+
+      // 4. Send via provider
       const startTime = Date.now();
 
       const result = await this.emailSender.send(
@@ -128,13 +193,7 @@ export class SendCommunicationEmailProcessor extends WorkerHost {
           subject: event.subject!,
           html_body: event.html_body!,
           text_body: event.text_body || undefined,
-          attachments: event.attachments
-            ? (event.attachments as any[]).map((att) => ({
-                filename: att.filename,
-                content: att.content,
-                mime_type: att.mime_type,
-              }))
-            : undefined,
+          attachments: processedAttachments,
         },
       );
 
@@ -142,7 +201,7 @@ export class SendCommunicationEmailProcessor extends WorkerHost {
 
       // 4. Update communication_event
       await this.prisma.communication_event.update({
-        where: { id: communicationEventId },
+        where: { id: communication_event_id },
         data: {
           status: 'sent',
           provider_message_id: result.messageId,
@@ -150,6 +209,32 @@ export class SendCommunicationEmailProcessor extends WorkerHost {
           sent_at: new Date(),
         },
       });
+
+      // 5. If this email is related to a quote, update quote status to 'sent'
+      if (
+        event.related_entity_type === 'quote' &&
+        event.related_entity_id &&
+        event.tenant_id
+      ) {
+        const quote = await this.prisma.quote.findFirst({
+          where: {
+            id: event.related_entity_id,
+            tenant_id: event.tenant_id,
+          },
+        });
+
+        // Only update if quote is currently 'ready' (first time sending)
+        if (quote && quote.status === 'ready') {
+          await this.prisma.quote.update({
+            where: { id: quote.id },
+            data: { status: 'sent' },
+          });
+
+          this.logger.log(
+            `Quote ${quote.id} status changed from 'ready' to 'sent' (email successfully sent)`,
+          );
+        }
+      }
 
       this.logger.log(
         `✅ Email job ${jobId} completed - Provider Message ID: ${result.messageId} (${duration}ms)`,
@@ -169,7 +254,7 @@ export class SendCommunicationEmailProcessor extends WorkerHost {
       // Update communication_event status to failed
       try {
         await this.prisma.communication_event.update({
-          where: { id: communicationEventId },
+          where: { id: communication_event_id },
           data: {
             status: 'failed',
             error_message: error.message,

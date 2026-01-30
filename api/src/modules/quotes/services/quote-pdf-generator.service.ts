@@ -8,6 +8,7 @@ import { FileCategory } from '../../files/dto/upload-file.dto';
 import { PdfResponseDto } from '../dto/pdf/pdf-response.dto';
 import * as puppeteer from 'puppeteer';
 import * as Handlebars from 'handlebars';
+import * as crypto from 'crypto';
 
 /**
  * QuotePdfGeneratorService
@@ -79,31 +80,122 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
   /**
    * Generate PDF for a quote
    *
+   * Implements intelligent caching to avoid regenerating PDFs unnecessarily.
+   * Returns cached PDF if:
+   * - Quote hasn't been modified since last generation
+   * - Generation parameters (e.g., includeCostBreakdown) haven't changed
+   * - Force regenerate flag is not set
+   *
    * @param tenantId - Tenant ID
    * @param quoteId - Quote UUID
    * @param userId - User initiating generation
+   * @param includeCostBreakdown - Whether to include cost breakdown in PDF
+   * @param forceRegenerate - Force regeneration even if cached PDF exists
    * @returns PDF file metadata with download URL
    */
-  async generatePdf(tenantId: string, quoteId: string, userId: string): Promise<PdfResponseDto> {
+  async generatePdf(
+    tenantId: string,
+    quoteId: string,
+    userId: string,
+    includeCostBreakdown: boolean = false,
+    forceRegenerate: boolean = false,
+  ): Promise<PdfResponseDto> {
     if (!this.browser) {
       throw new Error('PDF generation unavailable - Puppeteer browser not initialized');
     }
 
-    this.logger.log(`Generating PDF for quote ${quoteId}...`);
+    // 1. Fetch quote with PDF metadata and latest_pdf_file relation
+    const quote = await this.prisma.quote.findFirst({
+      where: {
+        id: quoteId,
+        tenant_id: tenantId,
+      },
+      include: {
+        tenant: true,
+        lead: true,
+        vendor: true,
+        items: {
+          include: {
+            quote_group: true,
+            unit_measurement: true,
+          },
+          orderBy: [
+            { quote_group: { order_index: 'asc' } },
+            { order_index: 'asc' },
+          ],
+        },
+        groups: {
+          orderBy: { order_index: 'asc' },
+        },
+        attachments: {
+          include: {
+            file: true,
+            qr_code_file: true,
+          },
+          orderBy: [
+            { attachment_type: 'asc' },
+            { order_index: 'asc' },
+          ],
+        },
+        latest_pdf_file: true, // Include the PDF file relation
+      },
+    });
 
-    // 1. Fetch complete quote data
-    const quote = await this.fetchCompleteQuoteData(tenantId, quoteId);
+    if (!quote) {
+      throw new NotFoundException(`Quote ${quoteId} not found`);
+    }
 
-    // 2. Calculate pricing
+    // 2. Check if regeneration is needed
+    const needsRegeneration = await this.shouldRegeneratePdf(quote, includeCostBreakdown, forceRegenerate);
+
+    // 3. Return existing PDF if still valid
+    if (!needsRegeneration && quote.latest_pdf_file) {
+      this.logger.log(`Using cached PDF for quote ${quoteId} (file: ${quote.latest_pdf_file.id})`);
+
+      // Get file with URL from FilesService
+      const fileWithUrl = await this.filesService.findOne(tenantId, quote.latest_pdf_file.file_id);
+
+      if (!fileWithUrl.url) {
+        this.logger.warn(`Cached PDF file ${quote.latest_pdf_file.file_id} has no URL, will regenerate`);
+        // Fall through to regeneration if URL is not available
+      } else {
+        return {
+          file_id: quote.latest_pdf_file.file_id,
+          download_url: fileWithUrl.url,
+          filename: quote.latest_pdf_file.original_filename,
+          file_size: quote.latest_pdf_file.size_bytes,
+          generated_at: quote.pdf_last_generated_at?.toISOString() || new Date().toISOString(),
+          regenerated: false, // Indicates cached PDF
+        };
+      }
+    }
+
+    this.logger.log(`Generating new PDF for quote ${quoteId} (include_cost_breakdown: ${includeCostBreakdown}, force: ${forceRegenerate})...`);
+
+    // 4. Delete old PDF if exists (CRITICAL: Prevents accumulation)
+    if (quote.latest_pdf_file_id && quote.latest_pdf_file) {
+      try {
+        await this.filesService.delete(tenantId, quote.latest_pdf_file.file_id, userId);
+        this.logger.log(`Deleted old PDF ${quote.latest_pdf_file.file_id} for quote ${quoteId}`);
+      } catch (error) {
+        this.logger.warn(`Failed to delete old PDF ${quote.latest_pdf_file.file_id}: ${error.message}`);
+        // Continue even if deletion fails
+      }
+    }
+
+    // 5. Calculate pricing
     await this.pricingService.calculateQuoteFinancials(quoteId);
 
-    // 3. Generate simple HTML
-    const html = this.generateSimpleHtml(quote);
+    // 6. Generate simple HTML
+    const html = this.generateSimpleHtml(quote, includeCostBreakdown);
 
-    // 4. Convert to PDF
+    // 7. Convert to PDF
     const pdfBuffer = await this.htmlToPdf(html);
 
-    // 5. Upload to file storage
+    // 8. Calculate content hash for future change detection
+    const contentHash = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
+
+    // 9. Upload to file storage
     const filename = `${quote.quote_number}.pdf`;
 
     // Create fake Multer file object
@@ -126,7 +218,18 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
       entity_id: quoteId,
     });
 
-    this.logger.log(`PDF generated successfully for quote ${quoteId} (${pdfBuffer.length} bytes)`);
+    // 10. Update quote with new PDF metadata (CRITICAL: Links PDF to quote)
+    await this.prisma.quote.update({
+      where: { id: quoteId },
+      data: {
+        latest_pdf_file_id: uploadedFile.file.id, // Use internal database ID, not public file_id
+        pdf_content_hash: contentHash,
+        pdf_last_generated_at: new Date(),
+        pdf_generation_params: { include_cost_breakdown: includeCostBreakdown },
+      },
+    });
+
+    this.logger.log(`Generated new PDF ${uploadedFile.file_id} for quote ${quoteId} (${pdfBuffer.length} bytes, hash: ${contentHash.substring(0, 16)}...)`);
 
     return {
       file_id: uploadedFile.file_id,
@@ -134,8 +237,76 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
       filename: filename,
       file_size: pdfBuffer.length,
       generated_at: new Date().toISOString(),
-      regenerated: true,
+      regenerated: true, // Indicates new PDF
     };
+  }
+
+  /**
+   * Determine if PDF needs to be regenerated
+   *
+   * PDF regeneration is needed if:
+   * 1. No PDF exists yet (latest_pdf_file_id is null)
+   * 2. Force regenerate flag is set
+   * 3. Generation parameters changed (e.g., cost breakdown toggle)
+   * 4. Quote content changed (updated_at > pdf_last_generated_at)
+   * 5. Quote version changed after last PDF generation
+   *
+   * @param quote - Quote with PDF metadata and relations
+   * @param includeCostBreakdown - Current cost breakdown parameter
+   * @param forceRegenerate - Force regeneration flag
+   * @returns True if PDF needs regeneration
+   */
+  private async shouldRegeneratePdf(
+    quote: any,
+    includeCostBreakdown: boolean,
+    forceRegenerate: boolean,
+  ): Promise<boolean> {
+    // 1. No PDF exists yet
+    if (!quote.latest_pdf_file_id) {
+      this.logger.debug(`Regeneration needed: No PDF exists for quote ${quote.id}`);
+      return true;
+    }
+
+    // 2. Force regenerate flag was passed
+    if (forceRegenerate) {
+      this.logger.debug(`Regeneration needed: Force regenerate flag set for quote ${quote.id}`);
+      return true;
+    }
+
+    // 3. Generation params changed (e.g., cost breakdown toggle)
+    const storedParams = quote.pdf_generation_params || {};
+    if (storedParams.include_cost_breakdown !== includeCostBreakdown) {
+      this.logger.debug(
+        `Regeneration needed: Generation params changed for quote ${quote.id} (cost_breakdown: ${storedParams.include_cost_breakdown} -> ${includeCostBreakdown})`,
+      );
+      return true;
+    }
+
+    // 4. Quote content changed (detect via updated_at vs pdf_last_generated_at)
+    if (quote.pdf_last_generated_at && quote.updated_at > quote.pdf_last_generated_at) {
+      this.logger.debug(
+        `Regeneration needed: Quote ${quote.id} modified after last PDF generation (updated: ${quote.updated_at.toISOString()}, pdf: ${quote.pdf_last_generated_at.toISOString()})`,
+      );
+      return true;
+    }
+
+    // 5. Check if new version was created after last PDF generation
+    const latestVersion = await this.prisma.quote_version.findFirst({
+      where: { quote_id: quote.id },
+      orderBy: { created_at: 'desc' },
+      select: { created_at: true },
+    });
+
+    if (latestVersion && quote.pdf_last_generated_at && latestVersion.created_at > quote.pdf_last_generated_at) {
+      this.logger.debug(
+        `Regeneration needed: New version created for quote ${quote.id} after last PDF generation`,
+      );
+      return true;
+    }
+
+    // PDF is still valid, no regeneration needed
+    this.logger.debug(`PDF cache valid for quote ${quote.id}, using existing PDF`);
+    return false;
   }
 
   /**
@@ -396,6 +567,16 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
         groups: {
           orderBy: { order_index: 'asc' },
         },
+        attachments: {
+          include: {
+            file: true,
+            qr_code_file: true,
+          },
+          orderBy: [
+            { attachment_type: 'asc' },
+            { order_index: 'asc' },
+          ],
+        },
       },
     });
 
@@ -411,9 +592,10 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
    * TODO: Replace with proper template system in future iterations
    *
    * @param quote - Complete quote data
+   * @param includeCostBreakdown - Whether to include cost breakdown (vendor costs, profit margins)
    * @returns HTML string
    */
-  private generateSimpleHtml(quote: any): string {
+  private generateSimpleHtml(quote: any, includeCostBreakdown: boolean = false): string {
     const items = quote.items || [];
     const itemsHtml = items
       .map(

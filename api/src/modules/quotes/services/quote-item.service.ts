@@ -128,6 +128,21 @@ export class QuoteItemService {
           subcontract_cost_per_unit: new Decimal(dto.subcontract_cost_per_unit || 0),
           other_cost_per_unit: new Decimal(dto.other_cost_per_unit || 0),
           total_cost: new Decimal(itemTotalCost),
+          custom_profit_percent: dto.custom_profit_percent !== undefined
+            ? (dto.custom_profit_percent !== null ? new Decimal(dto.custom_profit_percent) : null)
+            : null,
+          custom_overhead_percent: dto.custom_overhead_percent !== undefined
+            ? (dto.custom_overhead_percent !== null ? new Decimal(dto.custom_overhead_percent) : null)
+            : null,
+          custom_contingency_percent: dto.custom_contingency_percent !== undefined
+            ? (dto.custom_contingency_percent !== null ? new Decimal(dto.custom_contingency_percent) : null)
+            : null,
+          custom_discount_percentage: dto.custom_discount_percentage !== undefined
+            ? (dto.custom_discount_percentage !== null ? new Decimal(dto.custom_discount_percentage) : null)
+            : null,
+          custom_discount_amount: dto.custom_discount_amount !== undefined
+            ? (dto.custom_discount_amount !== null ? new Decimal(dto.custom_discount_amount) : null)
+            : null,
           order_index: orderIndex,
         },
         include: {
@@ -421,6 +436,43 @@ export class QuoteItemService {
         updateData.subcontract_cost_per_unit = new Decimal(dto.subcontract_cost_per_unit);
       if (dto.other_cost_per_unit !== undefined)
         updateData.other_cost_per_unit = new Decimal(dto.other_cost_per_unit);
+      if (dto.quote_group_id !== undefined) {
+        // Validate group exists if provided and belongs to this quote
+        if (dto.quote_group_id) {
+          const group = await tx.quote_group.findFirst({
+            where: {
+              id: dto.quote_group_id,
+              quote_id: quoteId,
+            },
+          });
+          if (!group) {
+            throw new NotFoundException('Quote group not found');
+          }
+        }
+        updateData.quote_group_id = dto.quote_group_id;
+      }
+
+      // Handle custom margin fields (null means 0%, not "use default")
+      if (dto.custom_profit_percent !== undefined)
+        updateData.custom_profit_percent = dto.custom_profit_percent !== null
+          ? new Decimal(dto.custom_profit_percent)
+          : null;
+      if (dto.custom_overhead_percent !== undefined)
+        updateData.custom_overhead_percent = dto.custom_overhead_percent !== null
+          ? new Decimal(dto.custom_overhead_percent)
+          : null;
+      if (dto.custom_contingency_percent !== undefined)
+        updateData.custom_contingency_percent = dto.custom_contingency_percent !== null
+          ? new Decimal(dto.custom_contingency_percent)
+          : null;
+      if (dto.custom_discount_percentage !== undefined)
+        updateData.custom_discount_percentage = dto.custom_discount_percentage !== null
+          ? new Decimal(dto.custom_discount_percentage)
+          : null;
+      if (dto.custom_discount_amount !== undefined)
+        updateData.custom_discount_amount = dto.custom_discount_amount !== null
+          ? new Decimal(dto.custom_discount_amount)
+          : null;
 
       // Recalculate total_cost
       const quantity = dto.quantity || Number(item.quantity);

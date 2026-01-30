@@ -8,7 +8,7 @@ import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { QuoteVersionService } from './quote-version.service';
 import { QuotePricingService } from './quote-pricing.service';
-import { CreateGroupDto, UpdateGroupDto } from '../dto/group';
+import { CreateGroupDto, UpdateGroupDto, ReorderGroupsDto } from '../dto/group';
 import { Decimal } from '@prisma/client/runtime/library';
 import { v4 as uuid } from 'uuid';
 
@@ -409,7 +409,7 @@ export class QuoteGroupService {
 
     const sourceGroup = await this.findOne(tenantId, quoteId, groupId);
 
-    return await this.prisma.$transaction(async (tx) => {
+    const newGroupId = await this.prisma.$transaction(async (tx) => {
       // Increment order_index of groups below
       await tx.quote_group.updateMany({
         where: {
@@ -480,7 +480,50 @@ export class QuoteGroupService {
 
       this.logger.log(`Quote group duplicated: ${groupId} → ${newGroup.id}`);
 
-      return this.findOne(tenantId, quoteId, newGroup.id);
+      return newGroup.id;
     });
+
+    // Fetch and return the complete group after transaction commits
+    return this.findOne(tenantId, quoteId, newGroupId);
+  }
+
+  /**
+   * Reorder quote groups
+   * DOES NOT create a version - this is a cosmetic change
+   *
+   * @param tenantId - Tenant UUID
+   * @param quoteId - Quote UUID
+   * @param dto - Reorder groups DTO
+   */
+  async reorder(
+    tenantId: string,
+    quoteId: string,
+    dto: ReorderGroupsDto,
+  ): Promise<void> {
+    // Validate quote exists
+    const quote = await this.prisma.quote.findFirst({
+      where: { id: quoteId, tenant_id: tenantId },
+    });
+
+    if (!quote) {
+      throw new NotFoundException('Quote not found');
+    }
+
+    // Batch update order_index for all groups
+    await this.prisma.$transaction(
+      dto.groups.map((group) =>
+        this.prisma.quote_group.updateMany({
+          where: {
+            id: group.group_id,
+            quote_id: quoteId,
+          },
+          data: {
+            order_index: group.order_index,
+          },
+        }),
+      ),
+    );
+
+    this.logger.log(`Reordered ${dto.groups.length} groups for quote: ${quoteId}`);
   }
 }

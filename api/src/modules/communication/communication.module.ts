@@ -5,6 +5,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 // Core modules
 import { PrismaModule } from '../../core/database/prisma.module';
 import { EncryptionModule } from '../../core/encryption/encryption.module';
+import { FilesModule } from '../files/files.module';
 
 // Services
 import { JsonSchemaValidatorService } from './services/json-schema-validator.service';
@@ -70,6 +71,7 @@ import {
   imports: [
     PrismaModule,
     EncryptionModule,
+    FilesModule,
 
     // Rate limiting configuration
     ThrottlerModule.forRoot([

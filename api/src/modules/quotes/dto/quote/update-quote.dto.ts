@@ -68,6 +68,26 @@ export class UpdateQuoteDto {
   custom_overhead_percent?: number;
 
   @ApiPropertyOptional({
+    example: 5.0,
+    description: 'Custom contingency percentage',
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  custom_contingency_percent?: number;
+
+  @ApiPropertyOptional({
+    example: 8.5,
+    description: 'Custom tax rate for this quote (overrides tenant sales tax rate)',
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  custom_tax_rate?: number;
+
+  @ApiPropertyOptional({
     example: true,
     description: 'Show line item details to customer',
   })
@@ -85,34 +105,25 @@ export class UpdateQuoteDto {
 
   @ApiPropertyOptional({
     example: 'Customer requested detailed breakdown',
-    description: 'Internal notes (not visible to customer)',
+    description: 'Private notes (internal use only, not visible to customer)',
   })
   @IsString()
   @IsOptional()
-  internal_notes?: string;
+  private_notes?: string;
 
   @ApiPropertyOptional({
-    example: 'Please review the attached specifications',
-    description: 'Notes visible to customer',
+    example: 'Payment due within 30 days. Late fees apply after 30 days.',
+    description: 'Custom terms and conditions for this quote',
   })
   @IsString()
   @IsOptional()
-  customer_notes?: string;
+  custom_terms?: string;
 
   @ApiPropertyOptional({
-    example: 'Net 30',
-    description: 'Payment terms',
+    example: '50% deposit required to begin work. Remaining balance due upon completion.',
+    description: 'Custom payment instructions for this quote',
   })
   @IsString()
   @IsOptional()
-  @Length(1, 100)
-  payment_terms?: string;
-
-  @ApiPropertyOptional({
-    example: '50% deposit, 50% on completion',
-    description: 'Payment schedule description',
-  })
-  @IsString()
-  @IsOptional()
-  payment_schedule?: string;
+  custom_payment_instructions?: string;
 }

@@ -38,6 +38,7 @@ export class QuoteDashboardService {
    * @param dateFrom - Start date
    * @param dateTo - End date
    * @param compareToPrevious - Compare to previous period
+   * @param statusFilter - Optional status filter
    * @returns Dashboard overview metrics
    */
   async getOverview(
@@ -45,20 +46,29 @@ export class QuoteDashboardService {
     dateFrom: Date,
     dateTo: Date,
     compareToPrevious: boolean,
+    statusFilter?: string,
   ) {
     this.logger.log(
-      `Getting dashboard overview for tenant ${tenantId} (${dateFrom.toISOString()} to ${dateTo.toISOString()})`,
+      `Getting dashboard overview for tenant ${tenantId} (${dateFrom.toISOString()} to ${dateTo.toISOString()})${statusFilter ? `, status: ${statusFilter}` : ''}`,
     );
 
-    // Get all quotes in date range
-    const quotes = await this.prisma.quote.findMany({
-      where: {
-        tenant_id: tenantId,
-        created_at: {
-          gte: dateFrom,
-          lte: dateTo,
-        },
+    // Build where clause with optional status filter
+    const whereClause: any = {
+      tenant_id: tenantId,
+      is_archived: false,
+      created_at: {
+        gte: dateFrom,
+        lte: dateTo,
       },
+    };
+
+    if (statusFilter) {
+      whereClause.status = statusFilter;
+    }
+
+    // Get all quotes in date range (with optional status filter)
+    const quotes = await this.prisma.quote.findMany({
+      where: whereClause,
       select: {
         id: true,
         status: true,
@@ -68,8 +78,46 @@ export class QuoteDashboardService {
     });
 
     const totalQuotes = quotes.length;
-    const totalRevenue = quotes.reduce((sum, q) => sum + (parseFloat(q.total?.toString() || '0')), 0);
-    const avgQuoteValue = totalQuotes > 0 ? totalRevenue / totalQuotes : 0;
+
+    // DEBUG: Log all quotes fetched
+    this.logger.debug(`[DASHBOARD] Fetched ${totalQuotes} quotes for tenant ${tenantId}`);
+    quotes.forEach(q => {
+      this.logger.debug(`[DASHBOARD] Quote ${q.id}: status=${q.status}, total=${q.total}`);
+    });
+
+    // Total Generated = sum of sent/read/approved/denied/expired/lost quotes (NOT drafts)
+    const generatedQuotes = quotes.filter((q) => q.status !== 'draft');
+    const totalGenerated = generatedQuotes.reduce((sum, q) => sum + (parseFloat(q.total?.toString() || '0')), 0);
+
+    // Total Revenue = sum of APPROVED, STARTED, and CONCLUDED quotes (actual revenue)
+    const approvedQuotes = quotes.filter((q) => ['approved', 'started', 'concluded'].includes(q.status));
+    const totalRevenue = approvedQuotes.reduce((sum, q) => sum + (parseFloat(q.total?.toString() || '0')), 0);
+
+    // Average quote value (excluding drafts)
+    const avgQuoteValue = generatedQuotes.length > 0 ? totalGenerated / generatedQuotes.length : 0;
+
+    // Amount Sent = sum of quotes with any status except draft, pending_approval, ready
+    const sentStatuses = ['sent', 'delivered', 'read', 'opened', 'downloaded', 'approved', 'started', 'concluded', 'denied', 'lost', 'email_failed'];
+    const sentQuotes = quotes.filter((q) => sentStatuses.includes(q.status));
+    const amountSent = sentQuotes.reduce((sum, q) => sum + (parseFloat(q.total?.toString() || '0')), 0);
+
+    // DEBUG: Log sent calculation
+    this.logger.debug(`[DASHBOARD] Sent quotes count: ${sentQuotes.length}, amount_sent: ${amountSent}`);
+    sentQuotes.forEach(q => {
+      this.logger.debug(`[DASHBOARD] Sent quote ${q.id}: status=${q.status}, total=${q.total}`);
+    });
+
+    // Amount Lost = sum of quotes with status = lost
+    const lostQuotes = quotes.filter((q) => q.status === 'lost');
+    const amountLost = lostQuotes.reduce((sum, q) => sum + (parseFloat(q.total?.toString() || '0')), 0);
+
+    // Amount Denied = sum of quotes with status = denied
+    const deniedQuotes = quotes.filter((q) => q.status === 'denied');
+    const amountDenied = deniedQuotes.reduce((sum, q) => sum + (parseFloat(q.total?.toString() || '0')), 0);
+
+    // Amount Pending Approval = sum of quotes with status = pending_approval
+    const pendingApprovalQuotes = quotes.filter((q) => q.status === 'pending_approval');
+    const amountPendingApproval = pendingApprovalQuotes.reduce((sum, q) => sum + (parseFloat(q.total?.toString() || '0')), 0);
 
     // Group by status
     const statusGroups = quotes.reduce((acc, quote) => {
@@ -90,9 +138,9 @@ export class QuoteDashboardService {
       avg_value: data.count > 0 ? data.total_revenue / data.count : 0,
     }));
 
-    // Calculate conversion rate (approved / sent)
-    const sentCount = quotes.filter((q) => ['sent', 'read', 'approved'].includes(q.status)).length;
-    const approvedCount = quotes.filter((q) => q.status === 'approved').length;
+    // Calculate conversion rate (approved+started+concluded / sent)
+    const sentCount = sentQuotes.length;
+    const approvedCount = quotes.filter((q) => ['approved', 'started', 'concluded'].includes(q.status)).length;
     const conversionRate = sentCount > 0 ? (approvedCount / sentCount) * 100 : 0;
 
     let velocityComparison: {
@@ -111,6 +159,7 @@ export class QuoteDashboardService {
       const previousQuotes = await this.prisma.quote.count({
         where: {
           tenant_id: tenantId,
+          is_archived: false,
           created_at: {
             gte: previousDateFrom,
             lte: previousDateTo,
@@ -135,8 +184,13 @@ export class QuoteDashboardService {
 
     return {
       total_quotes: totalQuotes,
+      total_generated: totalGenerated,
       total_revenue: totalRevenue,
       avg_quote_value: avgQuoteValue,
+      amount_sent: amountSent,
+      amount_lost: amountLost,
+      amount_denied: amountDenied,
+      amount_pending_approval: amountPendingApproval,
       conversion_rate: conversionRate,
       by_status: byStatus,
       velocity_comparison: velocityComparison,
@@ -163,6 +217,7 @@ export class QuoteDashboardService {
     const quotes = await this.prisma.quote.findMany({
       where: {
         tenant_id: tenantId,
+        is_archived: false,
         created_at: {
           gte: dateFrom,
           lte: dateTo,
@@ -208,7 +263,7 @@ export class QuoteDashboardService {
       const group = grouped.get(dateKey);
       group.count++;
       group.total_value += parseFloat(quote.total?.toString() || '0');
-      if (quote.status === 'approved') group.approved_count++;
+      if (['approved', 'started', 'concluded'].includes(quote.status)) group.approved_count++;
       if (quote.status === 'denied' || quote.status === 'lost') group.rejected_count++;
     });
 
@@ -236,6 +291,7 @@ export class QuoteDashboardService {
       where: {
         quote: {
           tenant_id: tenantId,
+          is_archived: false,
           created_at: {
             gte: dateFrom,
             lte: dateTo,
@@ -295,12 +351,13 @@ export class QuoteDashboardService {
     const quotes = await this.prisma.quote.findMany({
       where: {
         tenant_id: tenantId,
+        is_archived: false,
         created_at: {
           gte: dateFrom,
           lte: dateTo,
         },
         status: {
-          in: ['approved', 'denied', 'lost'],
+          in: ['approved', 'started', 'concluded', 'denied', 'lost'],
         },
       },
       select: {
@@ -309,7 +366,7 @@ export class QuoteDashboardService {
       },
     });
 
-    const wins = quotes.filter((q) => q.status === 'approved');
+    const wins = quotes.filter((q) => ['approved', 'started', 'concluded'].includes(q.status));
     const losses = quotes.filter((q) => q.status === 'denied' || q.status === 'lost');
 
     const totalWins = wins.length;
@@ -359,6 +416,7 @@ export class QuoteDashboardService {
     const quotes = await this.prisma.quote.findMany({
       where: {
         tenant_id: tenantId,
+        is_archived: false,
         created_at: {
           gte: dateFrom,
           lte: dateTo,
@@ -372,7 +430,13 @@ export class QuoteDashboardService {
 
     const statusOrder = ['sent', 'read', 'approved'];
     const statusCounts = statusOrder.map((status) => {
-      const quotesInStatus = quotes.filter((q) => q.status === status);
+      let quotesInStatus;
+      if (status === 'approved') {
+        // Include started and concluded in the approved stage
+        quotesInStatus = quotes.filter((q) => ['approved', 'started', 'concluded'].includes(q.status));
+      } else {
+        quotesInStatus = quotes.filter((q) => q.status === status);
+      }
       return {
         stage: status.charAt(0).toUpperCase() + status.slice(1),
         count: quotesInStatus.length,
@@ -416,6 +480,7 @@ export class QuoteDashboardService {
     const quotes = await this.prisma.quote.findMany({
       where: {
         tenant_id: tenantId,
+        is_archived: false,
         created_at: {
           gte: dateFrom,
           lte: dateTo,
@@ -449,7 +514,7 @@ export class QuoteDashboardService {
       }
       acc[vendorId].quote_count++;
       acc[vendorId].total_revenue += parseFloat(quote.total?.toString() || '0');
-      if (quote.status === 'approved') acc[vendorId].approved_count++;
+      if (['approved', 'started', 'concluded'].includes(quote.status)) acc[vendorId].approved_count++;
       return acc;
     }, {} as Record<string, any>);
 
@@ -482,6 +547,7 @@ export class QuoteDashboardService {
       where: {
         quote: {
           tenant_id: tenantId,
+          is_archived: false,
           created_at: {
             gte: dateFrom,
             lte: dateTo,

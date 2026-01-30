@@ -13,7 +13,7 @@ import {
   UpdateUnitDto,
   ListUnitsDto,
 } from '../dto/unit-measurement';
-import { randomBytes } from 'crypto';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class UnitMeasurementService {
@@ -26,9 +26,7 @@ export class UnitMeasurementService {
    * Generate UUID v4
    */
   private generateUUID(): string {
-    return randomBytes(16)
-      .toString('hex')
-      .replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
+    return randomUUID();
   }
 
   /**

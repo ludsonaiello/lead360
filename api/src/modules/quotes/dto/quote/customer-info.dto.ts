@@ -4,6 +4,7 @@ import {
   IsEmail,
   IsOptional,
   Length,
+  MaxLength,
   Matches,
 } from 'class-validator';
 
@@ -49,6 +50,6 @@ export class CustomerInfoDto {
   })
   @IsString()
   @IsOptional()
-  @Length(1, 200)
+  @MaxLength(200)
   company_name?: string;
 }

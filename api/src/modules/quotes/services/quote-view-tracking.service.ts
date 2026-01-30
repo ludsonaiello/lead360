@@ -73,19 +73,82 @@ export class QuoteViewTrackingService {
       `Logged view for quote ${quoteId} via token ${token} from IP ${ipAddress} (${deviceType})`,
     );
 
-    // 4. Check if this is the first view (sent → read status change)
+    // 4. Check if this is the first view (sent/delivered/opened → read status change)
     const viewCount = await this.prisma.quote_view_log.count({
       where: { quote_id: quoteId },
     });
 
-    if (viewCount === 1 && publicAccess.quote.status === 'sent') {
+    if (viewCount === 1 && ['sent', 'delivered', 'opened'].includes(publicAccess.quote.status)) {
       // First view detected, update status to 'read'
       await this.prisma.quote.update({
         where: { id: quoteId },
         data: { status: 'read' },
       });
 
-      this.logger.log(`Quote ${quoteId} status changed from 'sent' to 'read' (first view)`);
+      this.logger.log(`Quote ${quoteId} status changed from '${publicAccess.quote.status}' to 'read' (first public URL view)`);
+    }
+  }
+
+  /**
+   * Log a quote download (PDF)
+   *
+   * @param token - Public access token
+   * @param ipAddress - Client IP
+   * @param userAgent - Browser User-Agent
+   * @param fileId - File ID of downloaded PDF (optional)
+   */
+  async logDownload(
+    token: string,
+    ipAddress: string,
+    userAgent: string,
+    fileId: string | null | undefined,
+  ): Promise<void> {
+    // 1. Get quote_id from token
+    const publicAccess = await this.prisma.quote_public_access.findUnique({
+      where: { access_token: token },
+      include: { quote: true },
+    });
+
+    if (!publicAccess) {
+      this.logger.warn(`Download log attempt with invalid token: ${token}`);
+      return; // Silently fail for invalid tokens
+    }
+
+    const quoteId = publicAccess.quote_id;
+
+    // 2. Detect device type
+    const deviceType = this.detectDeviceType(userAgent);
+
+    // 3. Create download log
+    await this.prisma.quote_download_log.create({
+      data: {
+        id: crypto.randomUUID(),
+        quote_id: quoteId,
+        public_token: token,
+        ip_address: ipAddress,
+        device_type: deviceType,
+        file_id: fileId || null,
+        download_type: 'pdf',
+      },
+    });
+
+    this.logger.log(
+      `Logged PDF download for quote ${quoteId} via token ${token} from IP ${ipAddress} (${deviceType})`,
+    );
+
+    // 4. Check if this is the first download (read/opened → downloaded status change)
+    const downloadCount = await this.prisma.quote_download_log.count({
+      where: { quote_id: quoteId },
+    });
+
+    if (downloadCount === 1 && ['read', 'opened'].includes(publicAccess.quote.status)) {
+      // First download detected, update status to 'downloaded'
+      await this.prisma.quote.update({
+        where: { id: quoteId },
+        data: { status: 'downloaded' },
+      });
+
+      this.logger.log(`Quote ${quoteId} status changed from '${publicAccess.quote.status}' to 'downloaded' (first PDF download)`);
     }
   }
 
@@ -109,18 +172,26 @@ export class QuoteViewTrackingService {
       throw new Error(`Quote ${quoteId} not found for tenant ${tenantId}`);
     }
 
-    // Get all view logs for this quote
-    const viewLogs = await this.prisma.quote_view_log.findMany({
-      where: { quote_id: quoteId },
-      orderBy: { viewed_at: 'asc' },
-    });
+    // Get all view logs and download logs for this quote
+    const [viewLogs, downloadLogs] = await Promise.all([
+      this.prisma.quote_view_log.findMany({
+        where: { quote_id: quoteId },
+        orderBy: { viewed_at: 'asc' },
+      }),
+      this.prisma.quote_download_log.findMany({
+        where: { quote_id: quoteId },
+        orderBy: { downloaded_at: 'asc' },
+      }),
+    ]);
 
     const totalViews = viewLogs.length;
+    const totalDownloads = downloadLogs.length;
 
-    if (totalViews === 0) {
-      // No views yet, return empty analytics
+    if (totalViews === 0 && totalDownloads === 0) {
+      // No activity yet, return empty analytics
       return {
         quote_id: quoteId,
+        quote_status: quote.status, // Current quote status
         total_views: 0,
         unique_viewers: 0,
         average_duration_seconds: null,
@@ -134,17 +205,29 @@ export class QuoteViewTrackingService {
         },
         first_viewed_at: null,
         last_viewed_at: null,
+        total_downloads: 0,
+        downloads_by_date: [],
+        downloads_by_device: {
+          desktop: 0,
+          mobile: 0,
+          tablet: 0,
+          unknown: 0,
+        },
+        first_downloaded_at: null,
+        last_downloaded_at: null,
       };
     }
 
-    // Calculate unique viewers (distinct IP addresses)
-    const uniqueIps = new Set(viewLogs.map((log) => log.ip_address));
+    // Calculate unique viewers (distinct IP addresses) - only if we have views
+    const uniqueIps = totalViews > 0 ? new Set(viewLogs.map((log) => log.ip_address)) : new Set();
     const uniqueViewers = uniqueIps.size;
 
-    // Calculate average duration
-    const durationsWithValues = viewLogs
-      .filter((log) => log.view_duration_seconds !== null)
-      .map((log) => log.view_duration_seconds as number);
+    // Calculate average duration - only if we have views
+    const durationsWithValues = totalViews > 0
+      ? viewLogs
+          .filter((log) => log.view_duration_seconds !== null)
+          .map((log) => log.view_duration_seconds as number)
+      : [];
 
     const averageDuration =
       durationsWithValues.length > 0
@@ -160,10 +243,12 @@ export class QuoteViewTrackingService {
 
     // Group views by date
     const viewsByDateMap = new Map<string, number>();
-    viewLogs.forEach((log) => {
-      const date = log.viewed_at.toISOString().split('T')[0]; // YYYY-MM-DD
-      viewsByDateMap.set(date, (viewsByDateMap.get(date) || 0) + 1);
-    });
+    if (totalViews > 0) {
+      viewLogs.forEach((log) => {
+        const date = log.viewed_at.toISOString().split('T')[0]; // YYYY-MM-DD
+        viewsByDateMap.set(date, (viewsByDateMap.get(date) || 0) + 1);
+      });
+    }
 
     const viewsByDate = Array.from(viewsByDateMap.entries())
       .map(([date, count]) => ({ date, count }))
@@ -171,18 +256,44 @@ export class QuoteViewTrackingService {
 
     // Group views by device type
     const viewsByDevice = {
-      desktop: viewLogs.filter((log) => log.device_type === 'desktop').length,
-      mobile: viewLogs.filter((log) => log.device_type === 'mobile').length,
-      tablet: viewLogs.filter((log) => log.device_type === 'tablet').length,
-      unknown: viewLogs.filter((log) => log.device_type === 'unknown').length,
+      desktop: totalViews > 0 ? viewLogs.filter((log) => log.device_type === 'desktop').length : 0,
+      mobile: totalViews > 0 ? viewLogs.filter((log) => log.device_type === 'mobile').length : 0,
+      tablet: totalViews > 0 ? viewLogs.filter((log) => log.device_type === 'tablet').length : 0,
+      unknown: totalViews > 0 ? viewLogs.filter((log) => log.device_type === 'unknown').length : 0,
     };
 
     // First and last viewed times
     const firstViewedAt = viewLogs[0]?.viewed_at.toISOString() || null;
     const lastViewedAt = viewLogs[viewLogs.length - 1]?.viewed_at.toISOString() || null;
 
+    // Group downloads by date
+    const downloadsByDateMap = new Map<string, number>();
+    if (totalDownloads > 0) {
+      downloadLogs.forEach((log) => {
+        const date = log.downloaded_at.toISOString().split('T')[0]; // YYYY-MM-DD
+        downloadsByDateMap.set(date, (downloadsByDateMap.get(date) || 0) + 1);
+      });
+    }
+
+    const downloadsByDate = Array.from(downloadsByDateMap.entries())
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    // Group downloads by device type
+    const downloadsByDevice = {
+      desktop: totalDownloads > 0 ? downloadLogs.filter((log) => log.device_type === 'desktop').length : 0,
+      mobile: totalDownloads > 0 ? downloadLogs.filter((log) => log.device_type === 'mobile').length : 0,
+      tablet: totalDownloads > 0 ? downloadLogs.filter((log) => log.device_type === 'tablet').length : 0,
+      unknown: totalDownloads > 0 ? downloadLogs.filter((log) => log.device_type === 'unknown').length : 0,
+    };
+
+    // First and last download times
+    const firstDownloadedAt = downloadLogs[0]?.downloaded_at.toISOString() || null;
+    const lastDownloadedAt = downloadLogs[downloadLogs.length - 1]?.downloaded_at.toISOString() || null;
+
     return {
       quote_id: quoteId,
+      quote_status: quote.status, // Current quote status (draft, ready, sent, delivered, read, opened, approved, etc.)
       total_views: totalViews,
       unique_viewers: uniqueViewers,
       average_duration_seconds: averageDuration,
@@ -191,6 +302,11 @@ export class QuoteViewTrackingService {
       views_by_device: viewsByDevice,
       first_viewed_at: firstViewedAt,
       last_viewed_at: lastViewedAt,
+      total_downloads: totalDownloads,
+      downloads_by_date: downloadsByDate,
+      downloads_by_device: downloadsByDevice,
+      first_downloaded_at: firstDownloadedAt,
+      last_downloaded_at: lastDownloadedAt,
     };
   }
 

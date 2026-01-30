@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString, IsNumber } from 'class-validator';
 
 /**
  * Public-facing quote response DTO
@@ -32,7 +33,7 @@ export class PublicQuoteResponseDto {
   @ApiProperty({
     description: 'Quote status',
     example: 'sent',
-    enum: ['draft', 'ready', 'sent', 'read', 'approved', 'rejected', 'expired', 'cancelled'],
+    enum: ['draft', 'pending_approval', 'ready', 'sent', 'delivered', 'read', 'opened', 'downloaded', 'approved', 'started', 'concluded', 'denied', 'lost', 'email_failed'],
   })
   status: string;
 
@@ -88,22 +89,26 @@ export class PublicQuoteResponseDto {
     description: 'Customer information',
   })
   customer?: {
+    id: string;
     first_name: string;
     last_name: string;
-    email?: string;
-    phone?: string;
-    company_name?: string;
+    emails: { id: string; email: string; is_primary: boolean }[];
+    phones: { id: string; phone: string; phone_type: string; is_primary: boolean }[];
   };
 
   @ApiPropertyOptional({
     description: 'Jobsite address information',
   })
   jobsite_address?: {
-    street_address: string;
+    id: string;
+    address_line1: string;
+    address_line2?: string;
     city: string;
     state: string;
     zip_code: string;
-    country?: string;
+    latitude: number;
+    longitude: number;
+    google_place_id?: string;
   };
 
   @ApiPropertyOptional({
@@ -114,6 +119,13 @@ export class PublicQuoteResponseDto {
     phone?: string;
     email?: string;
     website?: string;
+    address_line1?: string;
+    address_line2?: string;
+    city?: string;
+    state?: string;
+    zip_code?: string;
+    signature_file_id?: string;
+    signature_url?: string;
   };
 
   @ApiProperty({
@@ -123,13 +135,32 @@ export class PublicQuoteResponseDto {
   items: PublicQuoteItemDto[];
 
   @ApiPropertyOptional({
-    description: 'Company branding (logo, colors)',
+    description: 'Company branding (logo, colors, contact info)',
   })
   branding?: {
     company_name: string;
+    logo_file_id?: string;
     logo_url?: string;
     primary_color?: string;
     secondary_color?: string;
+    accent_color?: string;
+    phone?: string;
+    email?: string;
+    website?: string;
+    address?: {
+      line1: string;
+      line2?: string;
+      city: string;
+      state: string;
+      zip_code: string;
+      country: string;
+    };
+    social_media?: {
+      instagram?: string;
+      facebook?: string;
+      tiktok?: string;
+      youtube?: string;
+    };
   };
 
   @ApiPropertyOptional({
@@ -143,10 +174,14 @@ export class PublicQuoteResponseDto {
   })
   attachments?: {
     id: string;
-    filename: string;
-    url: string;
-    mime_type: string;
-    file_size: number;
+    file_id?: string;
+    title?: string;
+    attachment_type: string;
+    filename?: string;
+    url?: string;
+    mime_type?: string;
+    file_size?: number;
+    order_index: number;
   }[];
 
   @ApiPropertyOptional({
@@ -158,6 +193,59 @@ export class PublicQuoteResponseDto {
     description: 'Terms and conditions',
   })
   terms_and_conditions?: string;
+
+  @ApiPropertyOptional({
+    description: 'Custom payment instructions',
+  })
+  payment_instructions?: string;
+
+  @ApiPropertyOptional({
+    description: 'PO number',
+  })
+  po_number?: string;
+
+  @ApiPropertyOptional({
+    description: 'Discount rules applied to this quote',
+    type: 'array',
+  })
+  discount_rules?: {
+    id: string;
+    name: string;
+    discount_type: string;
+    discount_value: number;
+    applies_to_item_id?: string;
+    order_index: number;
+  }[];
+
+  @ApiPropertyOptional({
+    description: 'Draw schedule entries',
+    type: 'array',
+  })
+  draw_schedule?: {
+    id: string;
+    draw_number: number;
+    name: string;
+    description: string;
+    calculation_type: string; // 'percentage' or 'fixed_amount'
+    value: number; // The raw value (percentage or fixed amount)
+    percentage: number; // Calculated percentage
+    amount: number; // Calculated amount
+    order_index: number;
+  }[];
+
+  @ApiPropertyOptional({
+    description: 'PDF information',
+  })
+  pdf?: {
+    file_id: string;
+    url: string;
+    content_hash?: string;
+    last_generated_at?: string;
+    generation_params?: any;
+    filename: string;
+    mime_type: string;
+    file_size: number;
+  };
 }
 
 export class PublicQuoteItemDto {
@@ -192,28 +280,58 @@ export class PublicQuoteItemDto {
   unit: string;
 
   @ApiProperty({
-    description: 'Price per unit',
-    example: 450.00,
+    description: 'Material cost per unit',
+    example: 100.00,
   })
-  unit_price: number;
+  material_cost_per_unit: number;
 
   @ApiProperty({
-    description: 'Total price for this item (quantity * unit_price)',
-    example: 450.00,
+    description: 'Labor cost per unit',
+    example: 150.00,
   })
-  total_price: number;
+  labor_cost_per_unit: number;
 
-  @ApiPropertyOptional({
-    description: 'Tax amount for this item',
-    example: 45.00,
+  @ApiProperty({
+    description: 'Equipment cost per unit',
+    example: 50.00,
   })
-  tax_amount?: number;
+  equipment_cost_per_unit: number;
 
-  @ApiPropertyOptional({
-    description: 'Discount amount for this item',
+  @ApiProperty({
+    description: 'Subcontract cost per unit',
     example: 0.00,
   })
-  discount_amount?: number;
+  subcontract_cost_per_unit: number;
+
+  @ApiProperty({
+    description: 'Other cost per unit',
+    example: 0.00,
+  })
+  other_cost_per_unit: number;
+
+  @ApiProperty({
+    description: 'Total cost for this item',
+    example: 300.00,
+  })
+  total_cost: number;
+
+  @ApiPropertyOptional({
+    description: 'Custom markup percentage',
+    example: 25.5,
+  })
+  custom_markup_percent?: number;
+
+  @ApiPropertyOptional({
+    description: 'Custom discount amount',
+    example: 50.00,
+  })
+  custom_discount_amount?: number;
+
+  @ApiPropertyOptional({
+    description: 'Custom tax rate',
+    example: 8.5,
+  })
+  custom_tax_rate?: number;
 
   @ApiPropertyOptional({
     description: 'Group this item belongs to',
@@ -221,6 +339,7 @@ export class PublicQuoteItemDto {
   group?: {
     id: string;
     name: string;
+    description?: string;
     display_order: number;
   };
 
@@ -252,11 +371,25 @@ export class LogViewDto {
     description: 'Referrer URL (where the visitor came from)',
     example: 'https://google.com',
   })
+  @IsOptional()
+  @IsString()
   referrer_url?: string;
 
   @ApiPropertyOptional({
     description: 'Time spent viewing the quote (in seconds)',
     example: 120,
   })
+  @IsOptional()
+  @IsNumber()
   duration_seconds?: number;
+}
+
+export class LogDownloadDto {
+  @ApiPropertyOptional({
+    description: 'File ID of the PDF being downloaded',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @IsOptional()
+  @IsString()
+  file_id?: string;
 }

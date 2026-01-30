@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsDateString, IsBoolean } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsDateString, IsBoolean, IsString } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 
 /**
  * GetDashboardOverviewDto
@@ -27,13 +27,27 @@ export class GetDashboardOverviewDto {
   date_to?: string;
 
   @ApiProperty({
+    description: 'Filter by quote status',
+    example: 'sent',
+    required: false,
+    enum: ['draft', 'pending_approval', 'ready', 'sent', 'delivered', 'read', 'opened', 'downloaded', 'approved', 'started', 'concluded', 'denied', 'lost', 'email_failed'],
+  })
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  @ApiProperty({
     description: 'Compare to previous period',
     example: true,
     required: false,
     default: false,
   })
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
   @IsBoolean()
   compare_to_previous?: boolean = false;
 }
@@ -85,11 +99,26 @@ export class DashboardOverviewResponseDto {
   @ApiProperty({ description: 'Total number of quotes', example: 150 })
   total_quotes: number;
 
-  @ApiProperty({ description: 'Total revenue (all quotes)', example: 450000.00 })
+  @ApiProperty({ description: 'Total amount generated (sent/read quotes, excluding drafts)', example: 450000.00 })
+  total_generated: number;
+
+  @ApiProperty({ description: 'Total revenue (approved quotes only)', example: 189000.00 })
   total_revenue: number;
 
-  @ApiProperty({ description: 'Average quote value', example: 3000.00 })
+  @ApiProperty({ description: 'Average quote value (excluding drafts)', example: 3000.00 })
   avg_quote_value: number;
+
+  @ApiProperty({ description: 'Total amount sent (status >= sent, excluding drafts)', example: 380000.00 })
+  amount_sent: number;
+
+  @ApiProperty({ description: 'Total amount lost (status = lost)', example: 45000.00 })
+  amount_lost: number;
+
+  @ApiProperty({ description: 'Total amount denied (status = denied)', example: 32000.00 })
+  amount_denied: number;
+
+  @ApiProperty({ description: 'Total amount pending approval (status = pending_approval)', example: 28000.00 })
+  amount_pending_approval: number;
 
   @ApiProperty({ description: 'Conversion rate (approved / sent)', example: 42.5 })
   conversion_rate: number;

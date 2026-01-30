@@ -264,3 +264,5 @@
 2026/01/15 04:30:04 [error] 2535560#2535560: *1318669 access forbidden by rule, client: 74.248.130.235, server: lead360.app, request: "GET /.env HTTP/1.1", host: "lead360.app"
 2026/01/15 04:30:04 [error] 2535560#2535560: *1318669 access forbidden by rule, client: 74.248.130.235, server: lead360.app, request: "GET /.env HTTP/1.1", host: "lead360.app"
 2026/01/19 11:50:00 [error] 3154713#3154713: *1795523 access forbidden by rule, client: 31.184.236.37, server: lead360.app, request: "GET /.env HTTP/1.1", host: "lead360.app"
+2026/01/29 11:25:37 [error] 502817#502817: *146283 access forbidden by rule, client: 34.10.64.2, server: lead360.app, request: "GET /.env/.env.bak HTTP/1.1", host: "lead360.app"
+2026/01/29 11:25:48 [error] 502810#502810: *146331 access forbidden by rule, client: 34.10.64.2, server: lead360.app, request: "GET /.aws/credentials HTTP/1.1", host: "lead360.app"

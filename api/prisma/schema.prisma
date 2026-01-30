@@ -84,6 +84,7 @@ model file {
   vendor_signatures                                           vendor[]           @relation("vendor_signature")
   quote_attachments                                           quote_attachment[] @relation("attachment_file")
   quote_attachment_qr_codes                                   quote_attachment[] @relation("attachment_qr_code")
+  quotes_as_latest_pdf                                        quote[]            @relation("quote_latest_pdf")
 
   @@index([file_id])
   @@index([tenant_id, category])
@@ -347,6 +348,8 @@ model tenant {
   profitability_thresholds                Json?
   business_size                           String?                 @db.VarChar(20)
   active_quote_template_id                String?                 @db.VarChar(36)
+  show_line_items_by_default              Boolean                 @default(true)
+  show_cost_breakdown_by_default          Boolean                 @default(false)
   audit_log                               audit_log[]
   file_file_tenant_idTotenant             file[]                  @relation("file_tenant_idTotenant")
   file_tenant_logo_file_idTofile          file?                   @relation("tenant_logo_file_idTofile", fields: [logo_file_id], references: [file_id])
@@ -1364,7 +1367,7 @@ model vendor {
   latitude            Decimal   @db.Decimal(10, 8)
   longitude           Decimal   @db.Decimal(11, 8)
   google_place_id     String?   @db.VarChar(255)
-  signature_file_id   String    @db.VarChar(36)
+  signature_file_id   String?   @db.VarChar(36)
   is_active           Boolean   @default(true)
   is_default          Boolean   @default(false)
   created_by_user_id  String?   @db.VarChar(36)
@@ -1372,7 +1375,7 @@ model vendor {
   updated_at          DateTime  @updatedAt
 
   tenant              tenant    @relation("vendor_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
-  signature_file      file      @relation("vendor_signature", fields: [signature_file_id], references: [file_id], onDelete: Restrict)
+  signature_file      file?     @relation("vendor_signature", fields: [signature_file_id], references: [file_id], onDelete: Restrict)
   created_by_user     user?     @relation("vendor_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
   quotes              quote[]
 
@@ -1453,6 +1456,7 @@ model quote {
   custom_profit_percent       Decimal?      @db.Decimal(5, 2)
   custom_overhead_percent     Decimal?      @db.Decimal(5, 2)
   custom_contingency_percent  Decimal?      @db.Decimal(5, 2)
+  custom_tax_rate             Decimal?      @db.Decimal(5, 2)
   custom_terms                String?       @db.Text
   custom_payment_instructions String?       @db.Text
   expiration_days             Int?
@@ -1467,6 +1471,10 @@ model quote {
   created_by_user_id          String?       @db.VarChar(36)
   created_at                  DateTime      @default(now())
   updated_at                  DateTime      @updatedAt
+  latest_pdf_file_id          String?       @db.VarChar(36)
+  pdf_content_hash            String?       @db.VarChar(64)
+  pdf_last_generated_at       DateTime?
+  pdf_generation_params       Json?
 
   tenant                      tenant        @relation("quote_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
   lead                        lead?         @relation("quote_lead", fields: [lead_id], references: [id], onDelete: SetNull)
@@ -1474,6 +1482,7 @@ model quote {
   jobsite_address             quote_jobsite_address @relation(fields: [jobsite_address_id], references: [id], onDelete: Restrict)
   active_template             quote_template? @relation(fields: [active_template_id], references: [id], onDelete: SetNull)
   created_by_user             user?         @relation("quote_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  latest_pdf_file             file?  @relation("quote_latest_pdf", fields: [latest_pdf_file_id], references: [id], onDelete: SetNull)
 
   versions                    quote_version[]
   items                       quote_item[]
@@ -1483,6 +1492,7 @@ model quote {
   tag_assignments             quote_tag_assignment[]
   attachments                 quote_attachment[]
   view_logs                   quote_view_log[]
+  download_logs               quote_download_log[]
   draw_schedule               draw_schedule_entry[]
   public_access               quote_public_access[]
 
@@ -1494,6 +1504,7 @@ model quote {
   @@index([tenant_id, expires_at])
   @@index([tenant_id, is_archived])
   @@index([status])
+  @@index([latest_pdf_file_id])
   @@map("quote")
 }
 
@@ -1535,6 +1546,7 @@ model quote_item {
   quote_id                  String    @db.VarChar(36)
   quote_group_id            String?   @db.VarChar(36)
   item_library_id           String?   @db.VarChar(36)
+  quote_bundle_id           String?   @db.VarChar(36)
   title                     String    @db.VarChar(200)
   description               String?   @db.Text
   quantity                  Decimal   @db.Decimal(10, 2)
@@ -1545,10 +1557,12 @@ model quote_item {
   equipment_cost_per_unit   Decimal   @default(0) @db.Decimal(10, 2)
   subcontract_cost_per_unit Decimal   @default(0) @db.Decimal(10, 2)
   other_cost_per_unit       Decimal   @default(0) @db.Decimal(10, 2)
-  total_cost                Decimal   @default(0) @db.Decimal(12, 2)
-  custom_markup_percent     Decimal?  @db.Decimal(5, 2)
-  custom_discount_amount    Decimal?  @db.Decimal(10, 2)
-  custom_tax_rate           Decimal?  @db.Decimal(5, 2)
+  total_cost                  Decimal   @default(0) @db.Decimal(12, 2)
+  custom_profit_percent       Decimal?  @db.Decimal(5, 2)
+  custom_overhead_percent     Decimal?  @db.Decimal(5, 2)
+  custom_contingency_percent  Decimal?  @db.Decimal(5, 2)
+  custom_discount_percentage  Decimal?  @db.Decimal(5, 2)
+  custom_discount_amount      Decimal?  @db.Decimal(10, 2)
   private_notes             String?   @db.Text
   save_to_library           Boolean   @default(false)
   warranty_tier_id          String?   @db.VarChar(36)
@@ -1559,16 +1573,19 @@ model quote_item {
   quote_group               quote_group? @relation(fields: [quote_group_id], references: [id], onDelete: SetNull)
   unit_measurement          unit_measurement @relation(fields: [unit_measurement_id], references: [id], onDelete: Restrict)
   warranty_tier             quote_warranty_tier? @relation(fields: [warranty_tier_id], references: [id], onDelete: SetNull)
+  source_bundle             quote_bundle? @relation("quote_item_source_bundle", fields: [quote_bundle_id], references: [id], onDelete: SetNull)
 
   @@index([quote_id, order_index])
   @@index([quote_id, quote_group_id])
   @@index([item_library_id])
+  @@index([quote_bundle_id])
   @@map("quote_item")
 }
 
 model quote_approval {
   id                String          @id @db.VarChar(36)
   quote_id          String          @db.VarChar(36)
+  workflow_id       String          @db.VarChar(36)
   approval_level    Int
   approver_user_id  String          @db.VarChar(36)
   status            approval_status @default(pending)
@@ -1579,6 +1596,8 @@ model quote_approval {
   quote             quote           @relation(fields: [quote_id], references: [id], onDelete: Cascade)
   approver_user     user            @relation("quote_approval_approver", fields: [approver_user_id], references: [id], onDelete: Restrict)
 
+  @@index([quote_id, workflow_id])
+  @@index([workflow_id])
   @@index([quote_id, approval_level])
   @@index([approver_user_id, status])
   @@map("quote_approval")
@@ -1651,6 +1670,23 @@ model quote_view_log {
   @@index([quote_id, viewed_at])
   @@index([public_token])
   @@map("quote_view_log")
+}
+
+model quote_download_log {
+  id                String       @id @db.VarChar(36)
+  quote_id          String       @db.VarChar(36)
+  public_token      String       @db.VarChar(32)
+  downloaded_at     DateTime     @default(now())
+  ip_address        String?      @db.VarChar(45)
+  device_type       device_type?
+  file_id           String?      @db.VarChar(36)
+  download_type     String       @default("pdf") @db.VarChar(20)
+
+  quote             quote        @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+
+  @@index([quote_id, downloaded_at])
+  @@index([public_token])
+  @@map("quote_download_log")
 }
 
 model draw_schedule_entry {
@@ -1729,6 +1765,7 @@ model quote_bundle {
   tenant             tenant    @relation("quote_bundle_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
   created_by_user    user?     @relation("quote_bundle_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
   items              quote_bundle_item[]
+  quote_items        quote_item[] @relation("quote_item_source_bundle")
 
   @@index([tenant_id, is_active])
   @@index([tenant_id, name])
@@ -1783,6 +1820,8 @@ enum communication_status {
   delivered
   failed
   bounced
+  opened
+  clicked
 }
 
 enum email_template_category {
@@ -1814,10 +1853,16 @@ enum quote_status {
   pending_approval
   ready
   sent
+  delivered
   read
+  opened
+  downloaded
   approved
+  started
+  concluded
   denied
   lost
+  email_failed
 }
 
 enum attachment_type {

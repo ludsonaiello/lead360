@@ -16,6 +16,11 @@ export enum FileCategory {
 }
 
 export class UploadFileDto {
+  // File field from multipart/form-data - handled by @UploadedFile() decorator
+  // Added here to prevent validation error from forbidNonWhitelisted
+  @IsOptional()
+  file?: any;
+
   @ApiProperty({
     description: 'File category',
     enum: FileCategory,

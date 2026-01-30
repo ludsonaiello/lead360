@@ -42,7 +42,7 @@ export class ThresholdLevelDto {
 export class UpdateApprovalThresholdsDto {
   @ApiProperty({
     description:
-      'Array of approval thresholds (1-5 levels, amounts must be ascending)',
+      'Array of approval thresholds (0-5 levels, amounts must be ascending). Empty array = disable approvals (all quotes auto-approved)',
     type: [ThresholdLevelDto],
     example: [
       { level: 1, amount: 10000.0, approver_role: 'Manager' },
@@ -50,7 +50,7 @@ export class UpdateApprovalThresholdsDto {
     ],
   })
   @IsArray()
-  @ArrayMinSize(1, { message: 'thresholds must have at least 1 level' })
+  @ArrayMinSize(0, { message: 'thresholds must be an array (use empty array to disable approvals)' })
   @ArrayMaxSize(5, { message: 'thresholds can have maximum 5 levels' })
   @ValidateNested({ each: true })
   @Type(() => ThresholdLevelDto)

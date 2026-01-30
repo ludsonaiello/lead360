@@ -36,7 +36,7 @@ export class GeneratePublicUrlDto {
 export class PublicUrlResponseDto {
   @ApiProperty({
     description: 'The generated public URL',
-    example: 'https://tenant.lead360.app/quotes/abc123def456',
+    example: 'https://tenant.lead360.app/public/quotes/abc123def456',
   })
   public_url: string;
 

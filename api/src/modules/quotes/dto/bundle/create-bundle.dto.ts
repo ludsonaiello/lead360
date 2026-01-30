@@ -19,15 +19,22 @@ export enum DiscountType {
 }
 
 export class BundleItemDto {
-  @ApiPropertyOptional({ example: '550e8400-e29b-41d4-a716' })
+  @ApiPropertyOptional({
+    example: '550e8400-e29b-41d4-a716',
+    description: 'Library item ID - if provided, will auto-populate title, costs, and unit from library'
+  })
   @IsUUID()
   @IsOptional()
-  item_library_id?: string;
+  library_item_id?: string;
 
-  @ApiProperty({ example: 'Kitchen Cabinet Installation' })
+  @ApiPropertyOptional({
+    example: 'Kitchen Cabinet Installation',
+    description: 'Required if library_item_id is not provided'
+  })
   @IsString()
   @Length(1, 200)
-  title: string;
+  @IsOptional()
+  title?: string;
 
   @ApiPropertyOptional({ example: 'Standard kitchen cabinets' })
   @IsString()
@@ -39,39 +46,55 @@ export class BundleItemDto {
   @Min(0.01)
   quantity: number;
 
-  @ApiProperty({ example: '550e8400-e29b-41d4-a716' })
+  @ApiPropertyOptional({
+    example: '550e8400-e29b-41d4-a716',
+    description: 'Required if library_item_id is not provided'
+  })
   @IsUUID()
-  unit_measurement_id: string;
+  @IsOptional()
+  unit_measurement_id?: string;
 
-  @ApiProperty({ example: 50.0 })
+  @ApiPropertyOptional({
+    example: 50.0,
+    description: 'Required if library_item_id is not provided'
+  })
   @IsNumber()
   @Min(0)
-  material_cost_per_unit: number;
+  @IsOptional()
+  material_cost_per_unit?: number;
 
-  @ApiProperty({ example: 100.0 })
+  @ApiPropertyOptional({
+    example: 100.0,
+    description: 'Required if library_item_id is not provided'
+  })
   @IsNumber()
   @Min(0)
-  labor_cost_per_unit: number;
+  @IsOptional()
+  labor_cost_per_unit?: number;
 
-  @ApiProperty({ example: 0 })
+  @ApiPropertyOptional({ example: 0 })
   @IsNumber()
   @Min(0)
-  equipment_cost_per_unit: number;
+  @IsOptional()
+  equipment_cost_per_unit?: number;
 
-  @ApiProperty({ example: 0 })
+  @ApiPropertyOptional({ example: 0 })
   @IsNumber()
   @Min(0)
-  subcontract_cost_per_unit: number;
+  @IsOptional()
+  subcontract_cost_per_unit?: number;
 
-  @ApiProperty({ example: 0 })
+  @ApiPropertyOptional({ example: 0 })
   @IsNumber()
   @Min(0)
-  other_cost_per_unit: number;
+  @IsOptional()
+  other_cost_per_unit?: number;
 
-  @ApiProperty({ example: 0 })
+  @ApiPropertyOptional({ example: 0 })
   @IsNumber()
   @Min(0)
-  order_index: number;
+  @IsOptional()
+  order_index?: number;
 }
 
 export class CreateBundleDto {

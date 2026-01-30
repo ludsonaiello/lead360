@@ -7,6 +7,7 @@
  */
 
 import apiClient from './axios';
+import type { AxiosProgressEvent } from 'axios';
 import type {
   File,
   FileFilters,
@@ -51,17 +52,18 @@ export async function uploadFile(
     formData.append('entity_id', options.entity_id);
   }
 
-  const response = await apiClient.post<UploadResponse>('/files/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-    onUploadProgress: (progressEvent) => {
+  // Don't pass headers at all - let axios handle Content-Type with boundary automatically
+  // and let the interceptor add Authorization header
+  const config: any = {
+    onUploadProgress: (progressEvent: AxiosProgressEvent) => {
       if (options.onProgress && progressEvent.total) {
         const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
         options.onProgress(progress);
       }
     },
-  });
+  };
+
+  const response = await apiClient.post<UploadResponse>('/files/upload', formData, config);
 
   return response.data;
 }
@@ -317,10 +319,9 @@ export function getApiBaseUrl(): string {
 
 /**
  * Build absolute file URL from relative path
- * Backend returns paths like: /public/{tenant_id}/files/{file_id}.pdf
- * But actual serving path is: /uploads/public/{tenant_id}/files/{file_id}.pdf
+ * Backend now returns full absolute URLs with tenant subdomains
  *
- * @param relativePath - Relative path from API response or storage_path
+ * @param relativePath - Can be absolute URL or relative path
  * @returns Absolute URL
  */
 export function buildFileUrl(relativePath: string | null | undefined): string {
@@ -329,29 +330,31 @@ export function buildFileUrl(relativePath: string | null | undefined): string {
     return '';
   }
 
-  // If it's already an absolute URL, return as-is
-  if (relativePath.startsWith('http')) {
-    return relativePath;
+  // Trim whitespace
+  const cleanPath = relativePath.trim();
+
+  // If it's already an absolute URL (starts with http:// or https://), return as-is
+  if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
+    return cleanPath;
   }
 
-  // Get app base URL (where files are served from app server, NOT API server)
+  // For relative paths, build URL with app base
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.lead360.app';
-
-  let cleanPath = relativePath;
 
   // If it's a full storage path like /var/www/lead360.app/app/uploads/public/...
   // Extract everything after 'uploads/public/'
   if (cleanPath.includes('/uploads/public/')) {
     const parts = cleanPath.split('/uploads/public/');
-    cleanPath = `/uploads/public/${parts[1]}`;
+    const finalPath = `/uploads/public/${parts[1]}`;
+    return `${appUrl}${finalPath}`;
   }
   // If backend returns /public/{tenant_id}/... we need to change it to /uploads/public/{tenant_id}/...
   else if (cleanPath.startsWith('/public/')) {
-    cleanPath = `/uploads${cleanPath}`;
+    return `${appUrl}/uploads${cleanPath}`;
   }
   // Ensure path starts with /
   else if (!cleanPath.startsWith('/')) {
-    cleanPath = `/${cleanPath}`;
+    return `${appUrl}/${cleanPath}`;
   }
 
   return `${appUrl}${cleanPath}`;

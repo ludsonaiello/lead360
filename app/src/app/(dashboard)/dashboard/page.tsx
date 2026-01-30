@@ -5,6 +5,7 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { Card, CardHeader, CardContent, CardFooter, StatCard } from '@/components/dashboard/Card';
 import { Button } from '@/components/ui/Button';
@@ -14,9 +15,48 @@ import {
   ArrowUpRight, ArrowDownRight, MoreVertical, Star, Activity
 } from 'lucide-react';
 import Link from 'next/link';
+import { PendingApprovalsWidget } from '@/components/quotes/PendingApprovalsWidget';
+import { QuoteStatusBadge } from '@/components/quotes/QuoteStatusBadge';
+import { getDashboardOverview, getRecentQuotes, formatMoney, formatPercentageChange, getCustomerName, getLocation, type DashboardOverview, type RecentQuote } from '@/lib/api/quotes-dashboard';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [quoteStats, setQuoteStats] = useState<DashboardOverview | null>(null);
+  const [recentQuotes, setRecentQuotes] = useState<RecentQuote[]>([]);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [loadingQuotes, setLoadingQuotes] = useState(true);
+
+  // Fetch quote dashboard stats
+  useEffect(() => {
+    const fetchQuoteStats = async () => {
+      try {
+        const data = await getDashboardOverview();
+        setQuoteStats(data);
+      } catch (error) {
+        console.error('Failed to fetch quote statistics:', error);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+
+    fetchQuoteStats();
+  }, []);
+
+  // Fetch recent quotes
+  useEffect(() => {
+    const fetchRecentQuotes = async () => {
+      try {
+        const data = await getRecentQuotes(5);
+        setRecentQuotes(data);
+      } catch (error) {
+        console.error('Failed to fetch recent quotes:', error);
+      } finally {
+        setLoadingQuotes(false);
+      }
+    };
+
+    fetchRecentQuotes();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -44,28 +84,56 @@ export default function DashboardPage() {
       {/* Key Metrics - 4 column grid */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Total Revenue"
-          value="$45,231.89"
-          change={{ value: '+20.1% from last month', trend: 'up' }}
+          title="Quote Revenue"
+          value={loadingStats ? '...' : quoteStats ? formatMoney(quoteStats.total_revenue) : '$0'}
+          change={
+            quoteStats
+              ? {
+                  value: `Last 30 days`,
+                  trend: 'neutral' as const,
+                }
+              : undefined
+          }
           icon={<DollarSign className="w-6 h-6" />}
         />
         <StatCard
-          title="Active Customers"
-          value="2,451"
-          change={{ value: '+180 this month', trend: 'up' }}
-          icon={<Users className="w-6 h-6" />}
-        />
-        <StatCard
-          title="Pending Quotes"
-          value="124"
-          change={{ value: '-12% from last week', trend: 'down' }}
+          title="Total Quotes"
+          value={loadingStats ? '...' : quoteStats ? quoteStats.total_quotes.toString() : '0'}
+          change={
+            quoteStats
+              ? {
+                  value: `${quoteStats.by_status.reduce((sum, s) => sum + s.count, 0)} total`,
+                  trend: 'neutral' as const,
+                }
+              : undefined
+          }
           icon={<FileText className="w-6 h-6" />}
         />
         <StatCard
-          title="Conversion Rate"
-          value="23.5%"
-          change={{ value: '+2.4% from last month', trend: 'up' }}
+          title="Avg Quote Value"
+          value={loadingStats ? '...' : quoteStats ? formatMoney(quoteStats.avg_quote_value) : '$0'}
+          change={
+            quoteStats
+              ? {
+                  value: `${quoteStats.total_quotes} quotes`,
+                  trend: 'neutral' as const,
+                }
+              : undefined
+          }
           icon={<TrendingUp className="w-6 h-6" />}
+        />
+        <StatCard
+          title="Conversion Rate"
+          value={loadingStats ? '...' : quoteStats ? `${quoteStats.conversion_rate.toFixed(1)}%` : '0%'}
+          change={
+            quoteStats
+              ? {
+                  value: 'Last 30 days',
+                  trend: 'neutral' as const,
+                }
+              : undefined
+          }
+          icon={<CheckCircle className="w-6 h-6" />}
         />
       </div>
 
@@ -73,13 +141,13 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left Column - Recent Activity & Tasks (2/3 width) */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Recent Leads */}
+          {/* Recent Quotes */}
           <Card>
             <CardHeader
-              title="Recent Leads"
-              description="Your newest potential customers"
+              title="Recent Quotes"
+              description="Latest quotes with customer and vendor details"
               action={
-                <Link href="/leads" className="text-sm font-bold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300">
+                <Link href="/quotes" className="text-sm font-bold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300">
                   View all
                 </Link>
               }
@@ -90,10 +158,13 @@ export default function DashboardPage() {
                   <thead className="bg-gray-50 dark:bg-gray-900/50 border-b-2 border-gray-200 dark:border-gray-700">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                        Quote
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                         Customer
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                        Service
+                        Location
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                         Value
@@ -107,50 +178,65 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {[
-                      { name: 'John Smith', service: 'HVAC Installation', value: '$4,500', status: 'new', time: '5 min ago' },
-                      { name: 'Sarah Johnson', service: 'Plumbing Repair', value: '$850', status: 'contacted', time: '1 hour ago' },
-                      { name: 'Mike Davis', service: 'Electrical Upgrade', value: '$2,300', status: 'quoted', time: '3 hours ago' },
-                      { name: 'Emma Wilson', service: 'AC Maintenance', value: '$350', status: 'new', time: '5 hours ago' },
-                    ].map((lead, index) => (
-                      <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/20 flex items-center justify-center">
-                              <span className="text-sm font-bold text-brand-600 dark:text-brand-400">
-                                {lead.name.charAt(0)}
-                              </span>
-                            </div>
-                            <div>
-                              <div className="text-sm font-bold text-gray-900 dark:text-gray-100">{lead.name}</div>
-                              <div className="text-xs font-medium text-gray-500 dark:text-gray-500">{lead.time}</div>
-                            </div>
+                    {loadingQuotes ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-8 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand-600"></div>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Loading quotes...</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{lead.service}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-bold text-gray-900 dark:text-gray-100">{lead.value}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
-                            lead.status === 'new'
-                              ? 'bg-info-50 dark:bg-info-900/20 text-info-700 dark:text-info-400'
-                              : lead.status === 'contacted'
-                              ? 'bg-warning-50 dark:bg-warning-900/20 text-warning-700 dark:text-warning-400'
-                              : 'bg-success-50 dark:bg-success-900/20 text-success-700 dark:text-success-400'
-                          }`}>
-                            {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button className="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300">
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
+                      </tr>
+                    ) : recentQuotes.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-600 dark:text-gray-400">
+                          No quotes yet
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      recentQuotes.map((quote) => (
+                        <tr key={quote.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <Link
+                                href={`/quotes/${quote.id}`}
+                                className="text-sm font-bold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300"
+                              >
+                                {quote.quote_number}
+                              </Link>
+                              <div className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate max-w-xs">
+                                {quote.title}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {getCustomerName(quote)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-700 dark:text-gray-300">
+                              {getLocation(quote)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                              {formatMoney(quote.total)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <QuoteStatusBadge status={quote.status as any} />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <Link href={`/quotes/${quote.id}`}>
+                              <button className="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300">
+                                <ArrowRight className="w-4 h-4" />
+                              </button>
+                            </Link>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -238,6 +324,9 @@ export default function DashboardPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Pending Approvals Widget - Sprint 4 */}
+          <PendingApprovalsWidget autoRefreshInterval={30000} />
 
           {/* Quick Actions */}
           <Card>

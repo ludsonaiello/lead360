@@ -13,7 +13,7 @@ import {
 } from '../../leads/services/google-maps.service';
 import { FilesService } from '../../files/files.service';
 import { CreateVendorDto, UpdateVendorDto, ListVendorsDto } from '../dto/vendor';
-import { randomBytes } from 'crypto';
+import { randomUUID } from 'crypto';
 import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
@@ -26,10 +26,10 @@ export class VendorService {
   ) {}
 
   /**
-   * Generate UUID v4
+   * Generate UUID v4 using Node's built-in crypto.randomUUID()
    */
   private generateUUID(): string {
-    return randomBytes(16).toString('hex').replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
+    return randomUUID();
   }
 
   /**
@@ -44,15 +44,23 @@ export class VendorService {
       throw new ConflictException('Email already in use');
     }
 
-    // 2. Validate signature file exists and belongs to tenant
-    const signatureFile = await this.prisma.file.findFirst({
-      where: {
-        file_id: dto.signature_file_id,
-        tenant_id: tenantId,
-      },
-    });
-    if (!signatureFile) {
-      throw new NotFoundException('Signature file not found');
+    // 2. Validate signature file exists and belongs to tenant (if provided)
+    // Ignore placeholder values from frontend
+    const hasValidSignature =
+      dto.signature_file_id &&
+      dto.signature_file_id !== 'placeholder-file-id' &&
+      dto.signature_file_id.trim() !== '';
+
+    if (hasValidSignature) {
+      const signatureFile = await this.prisma.file.findFirst({
+        where: {
+          file_id: dto.signature_file_id,
+          tenant_id: tenantId,
+        },
+      });
+      if (!signatureFile) {
+        throw new NotFoundException('Signature file not found');
+      }
     }
 
     // 3. Validate address with Google Maps
@@ -93,7 +101,7 @@ export class VendorService {
         latitude: new Decimal(validatedAddress.latitude),
         longitude: new Decimal(validatedAddress.longitude),
         google_place_id: validatedAddress.google_place_id,
-        signature_file_id: dto.signature_file_id,
+        signature_file_id: hasValidSignature ? dto.signature_file_id : undefined,
         is_default: dto.is_default || false,
         created_by_user_id: userId,
       },
@@ -208,8 +216,13 @@ export class VendorService {
       }
     }
 
-    // Validate signature file if being changed
-    if (dto.signature_file_id) {
+    // Validate signature file if being changed (ignore placeholder values)
+    const hasValidSignatureUpdate =
+      dto.signature_file_id &&
+      dto.signature_file_id !== 'placeholder-file-id' &&
+      dto.signature_file_id.trim() !== '';
+
+    if (hasValidSignatureUpdate) {
       const signatureFile = await this.prisma.file.findFirst({
         where: {
           file_id: dto.signature_file_id,
@@ -257,9 +270,19 @@ export class VendorService {
       ...(dto.name && { name: dto.name }),
       ...(dto.email && { email: dto.email }),
       ...(dto.phone && { phone: dto.phone }),
-      ...(dto.signature_file_id && { signature_file_id: dto.signature_file_id }),
       ...(dto.is_default !== undefined && { is_default: dto.is_default }),
+      ...(dto.is_active !== undefined && { is_active: dto.is_active }),
     };
+
+    // Handle signature_file_id:
+    // - If valid file ID provided: update to that value
+    // - If placeholder/empty provided: set to null (remove signature)
+    // - If undefined: don't update (keep existing value)
+    if (dto.signature_file_id !== undefined) {
+      updateData.signature_file_id = hasValidSignatureUpdate
+        ? dto.signature_file_id
+        : null;
+    }
 
     if (validatedAddress) {
       updateData.address_line1 = validatedAddress.address_line1;

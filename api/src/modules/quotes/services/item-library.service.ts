@@ -26,6 +26,28 @@ export class ItemLibraryService {
   ) {}
 
   /**
+   * Helper method to format library item response with computed total_cost_per_unit
+   */
+  private formatLibraryItem(item: any): any {
+    const materialCost = Number(item.material_cost_per_unit);
+    const laborCost = Number(item.labor_cost_per_unit);
+    const equipmentCost = Number(item.equipment_cost_per_unit);
+    const subcontractCost = Number(item.subcontract_cost_per_unit);
+    const otherCost = Number(item.other_cost_per_unit);
+
+    return {
+      ...item,
+      default_quantity: Number(item.default_quantity),
+      material_cost_per_unit: materialCost,
+      labor_cost_per_unit: laborCost,
+      equipment_cost_per_unit: equipmentCost,
+      subcontract_cost_per_unit: subcontractCost,
+      other_cost_per_unit: otherCost,
+      total_cost_per_unit: materialCost + laborCost + equipmentCost + subcontractCost + otherCost,
+    };
+  }
+
+  /**
    * Create library item
    * Validates unit, sets default_quantity
    *
@@ -99,15 +121,7 @@ export class ItemLibraryService {
 
     this.logger.log(`Library item created: ${libraryItem.id}`);
 
-    return {
-      ...libraryItem,
-      default_quantity: Number(libraryItem.default_quantity),
-      material_cost_per_unit: Number(libraryItem.material_cost_per_unit),
-      labor_cost_per_unit: Number(libraryItem.labor_cost_per_unit),
-      equipment_cost_per_unit: Number(libraryItem.equipment_cost_per_unit),
-      subcontract_cost_per_unit: Number(libraryItem.subcontract_cost_per_unit),
-      other_cost_per_unit: Number(libraryItem.other_cost_per_unit),
-    };
+    return this.formatLibraryItem(libraryItem);
   }
 
   /**
@@ -166,15 +180,7 @@ export class ItemLibraryService {
     ]);
 
     return {
-      data: items.map((item) => ({
-        ...item,
-        default_quantity: Number(item.default_quantity),
-        material_cost_per_unit: Number(item.material_cost_per_unit),
-        labor_cost_per_unit: Number(item.labor_cost_per_unit),
-        equipment_cost_per_unit: Number(item.equipment_cost_per_unit),
-        subcontract_cost_per_unit: Number(item.subcontract_cost_per_unit),
-        other_cost_per_unit: Number(item.other_cost_per_unit),
-      })),
+      data: items.map((item) => this.formatLibraryItem(item)),
       meta: {
         page,
         limit,
@@ -206,15 +212,7 @@ export class ItemLibraryService {
       throw new NotFoundException('Library item not found');
     }
 
-    return {
-      ...item,
-      default_quantity: Number(item.default_quantity),
-      material_cost_per_unit: Number(item.material_cost_per_unit),
-      labor_cost_per_unit: Number(item.labor_cost_per_unit),
-      equipment_cost_per_unit: Number(item.equipment_cost_per_unit),
-      subcontract_cost_per_unit: Number(item.subcontract_cost_per_unit),
-      other_cost_per_unit: Number(item.other_cost_per_unit),
-    };
+    return this.formatLibraryItem(item);
   }
 
   /**
@@ -290,15 +288,7 @@ export class ItemLibraryService {
 
     this.logger.log(`Library item updated: ${itemId}`);
 
-    return {
-      ...updatedItem,
-      default_quantity: Number(updatedItem.default_quantity),
-      material_cost_per_unit: Number(updatedItem.material_cost_per_unit),
-      labor_cost_per_unit: Number(updatedItem.labor_cost_per_unit),
-      equipment_cost_per_unit: Number(updatedItem.equipment_cost_per_unit),
-      subcontract_cost_per_unit: Number(updatedItem.subcontract_cost_per_unit),
-      other_cost_per_unit: Number(updatedItem.other_cost_per_unit),
-    };
+    return this.formatLibraryItem(updatedItem);
   }
 
   /**
@@ -372,15 +362,7 @@ export class ItemLibraryService {
 
     this.logger.log(`Library item marked inactive: ${itemId}`);
 
-    return {
-      ...updatedItem,
-      default_quantity: Number(updatedItem.default_quantity),
-      material_cost_per_unit: Number(updatedItem.material_cost_per_unit),
-      labor_cost_per_unit: Number(updatedItem.labor_cost_per_unit),
-      equipment_cost_per_unit: Number(updatedItem.equipment_cost_per_unit),
-      subcontract_cost_per_unit: Number(updatedItem.subcontract_cost_per_unit),
-      other_cost_per_unit: Number(updatedItem.other_cost_per_unit),
-    };
+    return this.formatLibraryItem(updatedItem);
   }
 
   /**
@@ -510,15 +492,7 @@ export class ItemLibraryService {
 
       this.logger.log(`Bulk import: ${createdItems.length} library items created`);
 
-      return createdItems.map((item) => ({
-        ...item,
-        default_quantity: Number(item.default_quantity),
-        material_cost_per_unit: Number(item.material_cost_per_unit),
-        labor_cost_per_unit: Number(item.labor_cost_per_unit),
-        equipment_cost_per_unit: Number(item.equipment_cost_per_unit),
-        subcontract_cost_per_unit: Number(item.subcontract_cost_per_unit),
-        other_cost_per_unit: Number(item.other_cost_per_unit),
-      }));
+      return createdItems.map((item) => this.formatLibraryItem(item));
     });
   }
 }

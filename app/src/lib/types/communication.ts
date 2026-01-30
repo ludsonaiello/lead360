@@ -140,7 +140,7 @@ export interface CommunicationEvent {
   channel: 'email' | 'sms' | 'whatsapp' | 'call';
   direction: 'outbound' | 'inbound';
   provider_id: string;
-  status: 'pending' | 'sent' | 'delivered' | 'failed' | 'bounced';
+  status: 'pending' | 'sent' | 'delivered' | 'failed' | 'bounced' | 'opened' | 'clicked';
 
   // Email-specific fields
   to_email?: string | null;
@@ -484,7 +484,7 @@ export interface GetTemplatesParams {
 
 export interface GetCommunicationHistoryParams {
   channel?: 'email' | 'sms' | 'whatsapp';
-  status?: 'pending' | 'sent' | 'delivered' | 'failed' | 'bounced';
+  status?: 'pending' | 'sent' | 'delivered' | 'failed' | 'bounced' | 'opened' | 'clicked';
   to_email?: string;
   to_phone?: string;
   related_entity_type?: string;

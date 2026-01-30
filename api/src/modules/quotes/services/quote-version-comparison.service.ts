@@ -497,6 +497,9 @@ export class QuoteVersionComparisonService {
       // 6. Recreate draw schedule
       if (snapshot.draw_schedule && snapshot.draw_schedule.length > 0) {
         for (const draw of snapshot.draw_schedule) {
+          // Handle both old field names (percentage/amount) and new field name (value)
+          const drawValue = draw.value ?? draw.percentage ?? draw.amount ?? 0;
+
           await tx.draw_schedule_entry.create({
             data: {
               id: uuid(),
@@ -504,7 +507,7 @@ export class QuoteVersionComparisonService {
               draw_number: draw.draw_number,
               description: draw.description,
               calculation_type: draw.calculation_type,
-              value: new Decimal(draw.percentage || draw.amount),
+              value: new Decimal(drawValue),
               order_index: draw.order_index,
             },
           });

@@ -759,3 +759,164 @@ export const createWebhookKeySchema = z.object({
 });
 
 export type CreateWebhookKeyFormData = z.infer<typeof createWebhookKeySchema>;
+
+// ==========================================
+// QUOTES MODULE VALIDATION SCHEMAS
+// ==========================================
+
+/**
+ * Quote address validation
+ */
+export const quoteAddressSchema = z.object({
+  address_line1: z.string().min(1, 'Address is required').max(255),
+  address_line2: z.string().max(255).optional().or(z.literal('')),
+  city: z.string().max(100).optional().or(z.literal('')),
+  state: stateCodeSchema.optional().or(z.literal('')),
+  zip_code: zipCodeSchema,
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+});
+
+export type QuoteAddressFormData = z.infer<typeof quoteAddressSchema>;
+
+/**
+ * Create quote validation
+ */
+export const createQuoteSchema = z.object({
+  lead_id: z.string().uuid('Invalid lead ID'),
+  vendor_id: z.string().uuid('Invalid vendor ID'),
+  title: z.string().min(1, 'Title is required').max(200),
+  jobsite_address: quoteAddressSchema,
+  po_number: z.string().max(100).optional().or(z.literal('')),
+  expiration_days: z.number().int().min(1).optional(),
+  use_default_settings: z.boolean().optional(),
+  custom_profit_percent: z.number().min(0).max(100).optional(),
+  custom_overhead_percent: z.number().min(0).max(100).optional(),
+  private_notes: z.string().max(5000).optional().or(z.literal('')),
+});
+
+export type CreateQuoteFormData = z.infer<typeof createQuoteSchema>;
+
+/**
+ * Create quote with new customer validation
+ */
+export const createQuoteWithCustomerSchema = z.object({
+  customer: z.object({
+    first_name: nameSchema,
+    last_name: nameSchema,
+    email: emailSchema,
+    phone: leadPhoneSchema,
+    company_name: z.string().max(200).optional().or(z.literal('')),
+  }),
+  vendor_id: z.string().uuid('Invalid vendor ID'),
+  title: z.string().min(1, 'Title is required').max(200),
+  jobsite_address: quoteAddressSchema,
+  po_number: z.string().max(100).optional().or(z.literal('')),
+  expiration_days: z.number().int().min(1).optional(),
+});
+
+export type CreateQuoteWithCustomerFormData = z.infer<typeof createQuoteWithCustomerSchema>;
+
+/**
+ * Update quote validation
+ */
+export const updateQuoteSchema = z.object({
+  vendor_id: z.string().uuid().optional(),
+  title: z.string().min(1).max(200).optional(),
+  po_number: z.string().max(100).optional().or(z.literal('')),
+  expiration_date: z.string().optional(),
+  custom_profit_percent: z.number().min(0).max(100).optional(),
+  custom_overhead_percent: z.number().min(0).max(100).optional(),
+  show_line_items: z.boolean().optional(),
+  show_cost_breakdown: z.boolean().optional(),
+  internal_notes: z.string().max(5000).optional().or(z.literal('')),
+  customer_notes: z.string().max(5000).optional().or(z.literal('')),
+  payment_terms: z.string().max(500).optional().or(z.literal('')),
+  payment_schedule: z.string().max(1000).optional().or(z.literal('')),
+});
+
+export type UpdateQuoteFormData = z.infer<typeof updateQuoteSchema>;
+
+/**
+ * Create vendor validation
+ */
+export const createVendorSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(200),
+  email: emailSchema,
+  phone: leadPhoneSchema,
+  address_line1: z.string().min(1, 'Address is required').max(255),
+  address_line2: z.string().max(255).optional().or(z.literal('')),
+  city: z.string().max(100).optional().or(z.literal('')),
+  state: stateCodeSchema.optional().or(z.literal('')),
+  zip_code: zipCodeSchema,
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+  signature_file_id: z.string().uuid('Invalid file ID'),
+  is_default: z.boolean().optional(),
+});
+
+export type CreateVendorFormData = z.infer<typeof createVendorSchema>;
+
+/**
+ * Quote settings validation
+ */
+export const quoteSettingsSchema = z.object({
+  default_profit_percent: z.number().min(0, 'Profit must be at least 0%').max(100, 'Profit cannot exceed 100%'),
+  default_overhead_percent: z.number().min(0, 'Overhead must be at least 0%').max(100, 'Overhead cannot exceed 100%'),
+  default_tax_percent: z.number().min(0, 'Tax must be at least 0%').max(100, 'Tax cannot exceed 100%'),
+  default_expiration_days: z.number().int().min(1, 'Expiration days must be at least 1'),
+  quote_number_format: z.string().min(1, 'Quote number format is required'),
+  require_approval: z.boolean(),
+  approval_thresholds: z.array(
+    z.object({
+      level: z.number().int().min(1),
+      min_amount: z.number().min(0),
+      max_amount: z.number().min(0).nullable(),
+      approver_user_id: z.string().uuid(),
+      profitability_threshold_percent: z.number().min(0).max(100),
+    })
+  ).optional(),
+});
+
+export type QuoteSettingsFormData = z.infer<typeof quoteSettingsSchema>;
+
+// ==========================================
+// QUOTE ITEMS VALIDATION SCHEMAS
+// ==========================================
+
+/**
+ * Create quote item validation
+ */
+export const createQuoteItemSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(200),
+  description: z.string().max(2000).optional().or(z.literal('')),
+  quantity: z.number().min(0.01, 'Quantity must be greater than 0'),
+  unit_measurement_id: z.string().uuid('Invalid unit measurement'),
+  material_cost_per_unit: z.number().min(0),
+  labor_cost_per_unit: z.number().min(0),
+  equipment_cost_per_unit: z.number().min(0),
+  subcontract_cost_per_unit: z.number().min(0),
+  other_cost_per_unit: z.number().min(0),
+  quote_group_id: z.string().uuid().optional(),
+  warranty_tier_id: z.string().uuid().optional(),
+});
+
+export type CreateQuoteItemFormData = z.infer<typeof createQuoteItemSchema>;
+
+/**
+ * Update quote item validation
+ */
+export const updateQuoteItemSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().max(2000).optional().or(z.literal('')),
+  quantity: z.number().min(0.01).optional(),
+  unit_measurement_id: z.string().uuid().optional(),
+  material_cost_per_unit: z.number().min(0).optional(),
+  labor_cost_per_unit: z.number().min(0).optional(),
+  equipment_cost_per_unit: z.number().min(0).optional(),
+  subcontract_cost_per_unit: z.number().min(0).optional(),
+  other_cost_per_unit: z.number().min(0).optional(),
+  warranty_tier_id: z.string().uuid().optional(),
+});
+
+export type UpdateQuoteItemFormData = z.infer<typeof updateQuoteItemSchema>;

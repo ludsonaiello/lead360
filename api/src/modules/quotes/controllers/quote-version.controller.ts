@@ -57,26 +57,6 @@ export class QuoteVersionController {
     return this.versionService.getVersionHistory(quoteId);
   }
 
-  @Get('quotes/:quoteId/versions/:versionId')
-  @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Field')
-  @ApiOperation({
-    summary: 'Get specific version by UUID (includes full snapshot)',
-  })
-  @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
-  @ApiParam({ name: 'versionId', description: 'Version UUID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Version details with parsed snapshot',
-  })
-  @ApiResponse({ status: 404, description: 'Version not found' })
-  async getVersion(
-    @Request() req,
-    @Param('quoteId', ParseUUIDPipe) quoteId: string,
-    @Param('versionId', ParseUUIDPipe) versionId: string,
-  ) {
-    return this.versionService.getVersion(versionId);
-  }
-
   @Get('quotes/:quoteId/versions/compare')
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Field')
   @ApiOperation({
@@ -115,6 +95,26 @@ export class QuoteVersionController {
       toVersion,
       req.user.tenant_id,
     );
+  }
+
+  @Get('quotes/:quoteId/versions/:versionId')
+  @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Field')
+  @ApiOperation({
+    summary: 'Get specific version by UUID (includes full snapshot)',
+  })
+  @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
+  @ApiParam({ name: 'versionId', description: 'Version UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Version details with parsed snapshot',
+  })
+  @ApiResponse({ status: 404, description: 'Version not found' })
+  async getVersion(
+    @Request() req,
+    @Param('quoteId', ParseUUIDPipe) quoteId: string,
+    @Param('versionId', ParseUUIDPipe) versionId: string,
+  ) {
+    return this.versionService.getVersion(versionId);
   }
 
   @Post('quotes/:quoteId/versions/:versionNumber/restore')

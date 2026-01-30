@@ -39,6 +39,9 @@ import { QuoteEmailService } from './services/quote-email.service';
 import { QuoteDashboardService } from './services/quote-dashboard.service';
 import { QuoteSearchService } from './services/quote-search.service';
 import { ChangeOrderService } from './services/change-order.service';
+import { QuoteAttachmentService } from './services/quote-attachment.service';
+import { QuoteTagService } from './services/quote-tag.service';
+import { WarrantyTierService } from './services/warranty-tier.service';
 
 // Controllers (Dev 2)
 import { VendorController } from './controllers/vendor.controller';
@@ -74,6 +77,10 @@ import { QuoteDashboardController } from './controllers/quote-dashboard.controll
 import { QuoteAdminController } from './controllers/quote-admin.controller';
 import { QuoteSearchController } from './controllers/quote-search.controller';
 import { ChangeOrderController } from './controllers/change-order.controller';
+import { QuoteAttachmentController } from './controllers/quote-attachment.controller';
+import { QuoteEmailController } from './controllers/quote-email.controller';
+import { QuoteTagController } from './controllers/quote-tag.controller';
+import { WarrantyTierController } from './controllers/warranty-tier.controller';
 
 @Module({
   imports: [
@@ -104,7 +111,7 @@ import { ChangeOrderController } from './controllers/change-order.controller';
     QuoteApprovalController, // 8 endpoints
     QuoteVersionController, // 6 endpoints
     QuoteProfitabilityController, // 2 endpoints
-    // Dev 5 controllers (37 endpoints total)
+    // Dev 5 controllers (44 endpoints total)
     QuotePublicController, // 3 endpoints (public access)
     QuotePdfController, // 2 endpoints (PDF generation)
     QuoteAnalyticsController, // 5 endpoints (view tracking & public access)
@@ -112,6 +119,10 @@ import { ChangeOrderController } from './controllers/change-order.controller';
     QuoteAdminController, // 6 endpoints (admin dashboard)
     QuoteSearchController, // 4 endpoints (advanced search)
     ChangeOrderController, // 6 endpoints (change orders)
+    QuoteAttachmentController, // 6 endpoints (attachments)
+    QuoteEmailController, // 1 endpoint (email delivery)
+    QuoteTagController, // 8 endpoints (tags)
+    WarrantyTierController, // 5 endpoints (warranty tiers)
   ],
   providers: [
     // Dev 2 services
@@ -144,6 +155,9 @@ import { ChangeOrderController } from './controllers/change-order.controller';
     QuoteDashboardService,
     QuoteSearchService,
     ChangeOrderService,
+    QuoteAttachmentService,
+    QuoteTagService,
+    WarrantyTierService,
   ],
   exports: [
     // Dev 2 services

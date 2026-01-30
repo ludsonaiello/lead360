@@ -5,6 +5,8 @@ import { QuotePublicAccessService } from './quote-public-access.service';
 import { QuoteVersionService } from './quote-version.service';
 import { SendQuoteEmailDto, SendQuoteEmailResponseDto } from '../dto/email/send-quote-email.dto';
 import { SendQuoteSmsDto, SendQuoteSmsResponseDto } from '../dto/email/send-quote-sms.dto';
+import { SendEmailService } from '../../communication/services/send-email.service';
+import { EmailTemplatesService } from '../../communication/services/email-templates.service';
 
 /**
  * QuoteEmailService
@@ -14,7 +16,7 @@ import { SendQuoteSmsDto, SendQuoteSmsResponseDto } from '../dto/email/send-quot
  * Key Features:
  * - PDF attachment preparation
  * - Public URL generation
- * - Communication Module integration
+ * - Communication Module integration (SendEmailService)
  * - Status automation (ready → sent)
  * - Audit logging
  *
@@ -29,8 +31,8 @@ export class QuoteEmailService {
     private readonly pdfService: QuotePdfGeneratorService,
     private readonly publicAccessService: QuotePublicAccessService,
     private readonly versionService: QuoteVersionService,
-    // TODO: Inject SendEmailService when ready
-    // private readonly sendEmailService: SendEmailService, // From Communication Module
+    private readonly sendEmailService: SendEmailService,
+    private readonly emailTemplatesService: EmailTemplatesService,
   ) {}
 
   /**
@@ -66,6 +68,7 @@ export class QuoteEmailService {
           },
         },
         tenant: true,
+        vendor: true,
       },
     });
 
@@ -73,9 +76,11 @@ export class QuoteEmailService {
       throw new NotFoundException(`Quote ${quoteId} not found`);
     }
 
-    if (quote.status !== 'ready') {
+    // Allow sending quotes in ready, sent, delivered, read, opened, or email_failed status (resending is allowed)
+    const allowedStatuses = ['ready', 'sent', 'delivered', 'read', 'opened', 'email_failed'];
+    if (!allowedStatuses.includes(quote.status)) {
       throw new BadRequestException(
-        `Quote must be in 'ready' status to send. Current status: ${quote.status}`,
+        `Quote must be in 'ready', 'sent', 'delivered', 'read', 'opened', or 'email_failed' status to send. Current status: ${quote.status}`,
       );
     }
 
@@ -86,35 +91,87 @@ export class QuoteEmailService {
       throw new BadRequestException('No recipient email found. Please provide recipient_email.');
     }
 
-    // 3. Generate PDF if needed
+    // 3. Generate PDF for backend storage (NOT attached to email - public URL used instead)
     this.logger.log(`Generating PDF for quote ${quoteId}...`);
     const pdfResult = await this.pdfService.generatePdf(tenantId, quoteId, userId);
 
-    // 4. Generate public URL if needed
+    // 4. Generate public URL if needed (skip status change - will be done after email is sent)
     this.logger.log(`Generating public URL for quote ${quoteId}...`);
     const publicUrlResult = await this.publicAccessService.generatePublicUrl(
       tenantId,
       quoteId,
       {},
       userId,
+      true, // skipStatusChange = true (status will be updated after successful email send)
     );
 
-    // 5. TODO: Send email via Communication Module
-    // For now, we just log that email would be sent
-    this.logger.log(
-      `Email would be sent to ${recipientEmail} with PDF ${pdfResult.file_id} and public URL ${publicUrlResult.public_url}`,
+    // 5. Send email via Communication Module
+    this.logger.log(`Sending quote email to ${recipientEmail}...`);
+
+    // Format quote total as currency
+    const formatCurrency = (amount: number): string => {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+      }).format(amount);
+    };
+
+    // Render email template
+    const customerName = quote.lead
+      ? `${quote.lead.first_name} ${quote.lead.last_name}`.trim()
+      : 'Customer';
+
+    const rendered = await this.emailTemplatesService.renderTemplate(
+      tenantId,
+      'send-quote',
+      {
+        quote_number: quote.quote_number,
+        customer_name: customerName,
+        company_name: quote.tenant.company_name,
+        quote_title: quote.title,
+        quote_total: formatCurrency(parseFloat(quote.total.toString())),
+        public_url: publicUrlResult.public_url,
+        vendor_name: quote.vendor?.name || '',
+        vendor_email: quote.vendor?.email || '',
+        vendor_phone: quote.vendor?.phone || '',
+        custom_message: dto.custom_message || '',
+      },
     );
 
-    // 6. Update quote status to 'sent' (already done by public URL generation)
-    // Status automation happens in publicAccessService.generatePublicUrl
+    // Send raw email WITHOUT PDF attachment (only public URL in email body)
+    const emailResult = await this.sendEmailService.sendRaw(
+      tenantId,
+      {
+        to: recipientEmail,
+        cc: dto.cc_emails,
+        subject: dto.custom_subject || rendered.subject, // Use custom subject if provided
+        html_body: rendered.html_body,
+        text_body: rendered.text_body ?? undefined,
+        // No attachments - public URL is in email body instead
+        related_entity_type: 'quote',
+        related_entity_id: quoteId,
+      },
+      userId,
+    );
+
+    this.logger.log(`Quote email queued successfully (communication event ID: ${emailResult.communication_event_id})`);
+
+    // 6. Update quote status to 'sent' if currently 'ready'
+    if (quote.status === 'ready') {
+      await this.prisma.quote.update({
+        where: { id: quoteId },
+        data: { status: 'sent' },
+      });
+      this.logger.log(`Quote ${quoteId} status changed from 'ready' to 'sent' (email sent)`);
+    }
 
     // 7. Return success response
     return {
       success: true,
-      message: `Quote email prepared successfully (email integration pending)`,
+      message: 'Quote email sent successfully',
       public_url: publicUrlResult.public_url,
       pdf_file_id: pdfResult.file_id,
-      email_id: 'pending-integration',
+      email_id: emailResult.communication_event_id,
     };
   }
 

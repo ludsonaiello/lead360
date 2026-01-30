@@ -6,7 +6,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { User, LoginData, RegisterData } from '@/lib/types/auth';
 import * as authApi from '@/lib/api/auth';
 import { isAuthenticated, isTokenExpiringSoon, clearTokens } from '@/lib/utils/token';
@@ -33,6 +33,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   /**
    * Fetch current user profile
@@ -69,23 +70,62 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   /**
+   * Check if current route is public (no auth required)
+   */
+  const isPublicRoute = pathname?.startsWith('/public') || pathname?.startsWith('/login') || pathname?.startsWith('/register') || pathname?.startsWith('/forgot-password') || pathname?.startsWith('/reset-password');
+
+  console.log('[AUTH CONTEXT] Route check:', {
+    pathname,
+    isPublicRoute,
+    timestamp: new Date().toISOString()
+  });
+
+  /**
    * Initialize auth state on mount
+   * Skip for public routes
    */
   useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
+    console.log('[AUTH CONTEXT] Init useEffect triggered:', {
+      isPublicRoute,
+      pathname,
+      timestamp: new Date().toISOString()
+    });
+
+    if (!isPublicRoute) {
+      console.log('[AUTH CONTEXT] >>> FETCHING USER (protected route)');
+      fetchUser();
+    } else {
+      console.log('[AUTH CONTEXT] >>> SKIPPING AUTH - PUBLIC ROUTE DETECTED <<<');
+      setIsLoading(false);
+    }
+  }, [fetchUser, isPublicRoute]);
 
   /**
    * Auto token refresh
    * Check every minute if token needs refresh
+   * Skip for public routes
    */
   useEffect(() => {
+    console.log('[AUTH CONTEXT] Token refresh useEffect:', {
+      isPublicRoute,
+      pathname,
+      timestamp: new Date().toISOString()
+    });
+
+    if (isPublicRoute) {
+      console.log('[AUTH CONTEXT] >>> SKIPPING TOKEN REFRESH - PUBLIC ROUTE <<<');
+      return; // No auth logic on public routes
+    }
+
+    console.log('[AUTH CONTEXT] Setting up token refresh interval (protected route)');
+
     const interval = setInterval(async () => {
       if (isAuthenticated() && isTokenExpiringSoon(5)) {
         try {
           await authApi.refresh();
         } catch (error) {
-          console.error('Token refresh failed:', error);
+          console.error('[AUTH CONTEXT] !!! TOKEN REFRESH FAILED, REDIRECTING TO LOGIN !!!');
+          console.error(error);
           // Token refresh failed, logout user
           clearTokens();
           setUser(null);
@@ -95,17 +135,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }, 60000); // Check every minute
 
     return () => clearInterval(interval);
-  }, [router]);
+  }, [router, isPublicRoute]);
 
   /**
    * Login user
    */
   const login = async (data: LoginData) => {
     try {
+      console.log('[AUTH CONTEXT] Login started');
       const response = await authApi.login(data);
       setUser(response.user);
+      console.log('[AUTH CONTEXT] Login successful, redirecting to /dashboard');
       router.push('/dashboard');
     } catch (error) {
+      console.error('[AUTH CONTEXT] Login failed:', error);
       throw error;
     }
   };
@@ -115,11 +158,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
    */
   const logout = async () => {
     try {
+      console.log('[AUTH CONTEXT] !!! LOGOUT STARTED - WILL REDIRECT TO /login !!!');
       await authApi.logout();
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('[AUTH CONTEXT] Logout error:', error);
     } finally {
       setUser(null);
+      console.log('[AUTH CONTEXT] !!! REDIRECTING TO /login !!!');
       router.push('/login');
     }
   };
@@ -129,11 +174,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
    */
   const logoutAll = async () => {
     try {
+      console.log('[AUTH CONTEXT] !!! LOGOUT ALL STARTED - WILL REDIRECT TO /login !!!');
       await authApi.logoutAll();
     } catch (error) {
-      console.error('Logout all error:', error);
+      console.error('[AUTH CONTEXT] Logout all error:', error);
     } finally {
       setUser(null);
+      console.log('[AUTH CONTEXT] !!! REDIRECTING TO /login !!!');
       router.push('/login');
     }
   };

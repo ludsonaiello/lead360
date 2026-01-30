@@ -14,7 +14,7 @@ import {
   UpdateApprovalThresholdsDto,
 } from '../dto/approval';
 import { v4 as uuid } from 'uuid';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 interface ApprovalThreshold {
   level: number;
@@ -87,13 +87,48 @@ export class ApprovalWorkflowService {
     );
 
     if (requiredLevels.length === 0) {
-      throw new BadRequestException(
-        'No approval thresholds configured for this tenant',
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { approval_thresholds: true },
+      });
+
+      const hasThresholds = tenant?.approval_thresholds && (tenant.approval_thresholds as any).length > 0;
+
+      if (!hasThresholds) {
+        // No approval thresholds configured = approval workflow disabled
+        // Auto-approve all quotes
+        this.logger.log(
+          `No approval thresholds configured for tenant ${tenantId} - auto-approving quote ${quoteId}`,
+        );
+
+        return {
+          message: 'Approval workflow disabled - automatically approved',
+          quote_total: Number(quote.total),
+          approval_workflow_enabled: false,
+          auto_approved: true,
+        };
+      }
+
+      // Quote is below minimum threshold - auto-approve it
+      const minThreshold = (tenant.approval_thresholds as any)[0]?.amount || 0;
+
+      this.logger.log(
+        `Quote ${quoteId} total ($${quote.total}) is below approval threshold ($${minThreshold}) - auto-approving`,
       );
+
+      return {
+        message: 'Quote total is below approval threshold - automatically approved',
+        quote_total: Number(quote.total),
+        minimum_threshold: minThreshold,
+        auto_approved: true,
+      };
     }
 
     // Transaction: Create approvals + update status
     return await this.prisma.$transaction(async (tx) => {
+      // Generate new workflow_id for this submission
+      const workflowId = uuid();
+
       // Create approval records
       const approvals = await Promise.all(
         requiredLevels.map(async (level) => {
@@ -108,6 +143,7 @@ export class ApprovalWorkflowService {
             data: {
               id: uuid(),
               quote_id: quoteId,
+              workflow_id: workflowId,
               approval_level: level.level,
               approver_user_id: approver.id,
               status: 'pending',
@@ -217,11 +253,11 @@ export class ApprovalWorkflowService {
       throw new BadRequestException('Approval already decided');
     }
 
-    // Check previous levels approved (sequential approval)
+    // Check previous levels approved (sequential approval within same workflow)
     if (approval.approval_level > 1) {
       const previousLevel = await this.prisma.quote_approval.findFirst({
         where: {
-          quote_id: approval.quote_id,
+          workflow_id: approval.workflow_id, // Same workflow only
           approval_level: approval.approval_level - 1,
         },
       });
@@ -255,9 +291,12 @@ export class ApprovalWorkflowService {
         },
       });
 
-      // Check if all approvals complete
+      // Check if all approvals complete for this workflow
       const allApprovals = await tx.quote_approval.findMany({
-        where: { quote_id: approval.quote_id },
+        where: {
+          quote_id: approval.quote_id,
+          workflow_id: approval.workflow_id, // Only check current workflow
+        },
       });
 
       const allApproved = allApprovals.every((a) => a.status === 'approved');
@@ -386,10 +425,11 @@ export class ApprovalWorkflowService {
         },
       });
 
-      // Mark all other approvals as rejected (workflow terminated)
+      // Mark all other approvals in this workflow as rejected (workflow terminated)
       await tx.quote_approval.updateMany({
         where: {
           quote_id: approval.quote_id,
+          workflow_id: approval.workflow_id, // Only affect current workflow
           id: { not: approvalId },
           status: 'pending',
         },
@@ -437,46 +477,74 @@ export class ApprovalWorkflowService {
 
   /**
    * Get approval status for quote
-   * Returns all approvals with progress
+   * Returns current workflow approvals with progress
    *
    * @param quoteId - Quote UUID
    * @param tenantId - Tenant UUID
-   * @returns Approval status with progress
+   * @returns Approval status with progress for current workflow
    */
   async getApprovals(quoteId: string, tenantId: string): Promise<any> {
     const quote = await this.prisma.quote.findFirst({
       where: { id: quoteId, tenant_id: tenantId },
-      include: {
-        approvals: {
-          include: {
-            approver_user: {
-              select: {
-                id: true,
-                first_name: true,
-                last_name: true,
-                email: true,
-              },
-            },
-          },
-          orderBy: { approval_level: 'asc' },
-        },
-      },
     });
 
     if (!quote) {
       throw new NotFoundException('Quote not found');
     }
 
-    const completedCount = quote.approvals.filter(
+    // Get current workflow_id (most recent approval)
+    const latestApproval = await this.prisma.quote_approval.findFirst({
+      where: { quote_id: quoteId },
+      orderBy: { created_at: 'desc' },
+      select: { workflow_id: true },
+    });
+
+    if (!latestApproval) {
+      // No approvals yet
+      return {
+        quote_id: quoteId,
+        status: quote.status,
+        workflow_id: null,
+        approvals: [],
+        progress: {
+          completed: 0,
+          total: 0,
+          percentage: 0,
+        },
+      };
+    }
+
+    // Get all approvals for current workflow
+    const approvals = await this.prisma.quote_approval.findMany({
+      where: {
+        quote_id: quoteId,
+        workflow_id: latestApproval.workflow_id,
+      },
+      include: {
+        approver_user: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { approval_level: 'asc' },
+    });
+
+    const completedCount = approvals.filter(
       (a) => a.status === 'approved',
     ).length;
-    const totalCount = quote.approvals.length;
+    const totalCount = approvals.length;
 
     return {
       quote_id: quoteId,
       status: quote.status,
-      approvals: quote.approvals.map((approval) => ({
+      workflow_id: latestApproval.workflow_id,
+      approvals: approvals.map((approval) => ({
         id: approval.id,
+        workflow_id: approval.workflow_id,
         level: approval.approval_level,
         approver: {
           id: approval.approver_user.id,
@@ -493,6 +561,118 @@ export class ApprovalWorkflowService {
         total: totalCount,
         percentage: totalCount > 0 ? (completedCount / totalCount) * 100 : 0,
       },
+    };
+  }
+
+  /**
+   * Get approval history for quote
+   * Returns ALL workflows with complete audit trail
+   *
+   * @param quoteId - Quote UUID
+   * @param tenantId - Tenant UUID
+   * @returns Complete approval history grouped by workflow
+   */
+  async getApprovalHistory(quoteId: string, tenantId: string): Promise<any> {
+    const quote = await this.prisma.quote.findFirst({
+      where: { id: quoteId, tenant_id: tenantId },
+    });
+
+    if (!quote) {
+      throw new NotFoundException('Quote not found');
+    }
+
+    // Get all approvals for this quote, grouped by workflow
+    const allApprovals = await this.prisma.quote_approval.findMany({
+      where: { quote_id: quoteId },
+      include: {
+        approver_user: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: [{ created_at: 'asc' }, { approval_level: 'asc' }],
+    });
+
+    if (allApprovals.length === 0) {
+      return {
+        quote_id: quoteId,
+        workflows: [],
+        total_workflows: 0,
+        current_workflow_id: null,
+      };
+    }
+
+    // Group approvals by workflow_id
+    const workflowMap = new Map<string, any[]>();
+    allApprovals.forEach((approval) => {
+      if (!workflowMap.has(approval.workflow_id)) {
+        workflowMap.set(approval.workflow_id, []);
+      }
+      workflowMap.get(approval.workflow_id)!.push(approval);
+    });
+
+    // Get current workflow_id (most recent)
+    const currentWorkflowId = allApprovals[allApprovals.length - 1].workflow_id;
+
+    // Transform into workflow objects
+    const workflows = Array.from(workflowMap.entries()).map(
+      ([workflowId, approvals]) => {
+        const submittedAt = approvals[0].created_at;
+
+        // Determine overall workflow status
+        let workflowStatus: 'pending' | 'approved' | 'rejected';
+        if (approvals.some((a) => a.status === 'rejected')) {
+          workflowStatus = 'rejected';
+        } else if (approvals.every((a) => a.status === 'approved')) {
+          workflowStatus = 'approved';
+        } else {
+          workflowStatus = 'pending';
+        }
+
+        return {
+          workflow_id: workflowId,
+          submitted_at: submittedAt,
+          status: workflowStatus,
+          is_current: workflowId === currentWorkflowId,
+          approvals: approvals.map((approval) => ({
+            id: approval.id,
+            level: approval.approval_level,
+            approver: {
+              id: approval.approver_user.id,
+              name: `${approval.approver_user.first_name} ${approval.approver_user.last_name}`,
+              email: approval.approver_user.email,
+            },
+            status: approval.status,
+            comments: approval.comments,
+            decided_at: approval.decided_at,
+            created_at: approval.created_at,
+          })),
+          progress: {
+            completed: approvals.filter((a) => a.status === 'approved').length,
+            total: approvals.length,
+            percentage:
+              (approvals.filter((a) => a.status === 'approved').length /
+                approvals.length) *
+              100,
+          },
+        };
+      },
+    );
+
+    // Sort workflows by submission date (newest first)
+    workflows.sort(
+      (a, b) => b.submitted_at.getTime() - a.submitted_at.getTime(),
+    );
+
+    return {
+      quote_id: quoteId,
+      workflows,
+      total_workflows: workflows.length,
+      current_workflow_id: currentWorkflowId,
     };
   }
 
@@ -521,6 +701,13 @@ export class ApprovalWorkflowService {
             title: true,
             total: true,
             created_at: true,
+            created_by_user: {
+              select: {
+                id: true,
+                first_name: true,
+                last_name: true,
+              },
+            },
             lead: {
               select: {
                 id: true,
@@ -531,23 +718,25 @@ export class ApprovalWorkflowService {
           },
         },
       },
-      orderBy: { created_at: 'asc' },
+      orderBy: { approval_level: 'asc' },
     });
 
     return {
       pending_approvals: approvals.map((approval) => ({
         approval_id: approval.id,
-        approval_level: approval.approval_level,
-        quote: {
-          id: approval.quote.id,
-          quote_number: approval.quote.quote_number,
-          title: approval.quote.title,
-          total: Number(approval.quote.total),
-          customer_name: approval.quote.lead
-            ? `${approval.quote.lead.first_name} ${approval.quote.lead.last_name}`
-            : 'Unknown',
+        workflow_id: approval.workflow_id,
+        quote_id: approval.quote.id,
+        quote_number: approval.quote.quote_number,
+        quote_title: approval.quote.title,
+        quote_total: Number(approval.quote.total),
+        level: approval.approval_level,
+        submitted_at: approval.created_at.toISOString(),
+        submitted_by: {
+          id: approval.quote.created_by_user?.id || 'unknown',
+          name: approval.quote.created_by_user
+            ? `${approval.quote.created_by_user.first_name} ${approval.quote.created_by_user.last_name}`
+            : 'Unknown User',
         },
-        created_at: approval.created_at,
       })),
       count: approvals.length,
     };
@@ -573,9 +762,6 @@ export class ApprovalWorkflowService {
   ): Promise<any> {
     const quote = await this.prisma.quote.findFirst({
       where: { id: quoteId, tenant_id: tenantId },
-      include: {
-        approvals: true,
-      },
     });
 
     if (!quote) {
@@ -586,12 +772,24 @@ export class ApprovalWorkflowService {
       throw new BadRequestException('Quote is not pending approval');
     }
 
+    // Get current workflow_id
+    const latestApproval = await this.prisma.quote_approval.findFirst({
+      where: { quote_id: quoteId },
+      orderBy: { created_at: 'desc' },
+      select: { workflow_id: true },
+    });
+
+    if (!latestApproval) {
+      throw new BadRequestException('No approval workflow found');
+    }
+
     // Transaction: Mark all approvals as approved
     return await this.prisma.$transaction(async (tx) => {
-      // Mark all pending approvals as approved
+      // Mark all pending approvals in current workflow as approved
       await tx.quote_approval.updateMany({
         where: {
           quote_id: quoteId,
+          workflow_id: latestApproval.workflow_id, // Only current workflow
           status: 'pending',
         },
         data: {
@@ -641,6 +839,27 @@ export class ApprovalWorkflowService {
     dto: UpdateApprovalThresholdsDto,
     tenantId: string,
   ): Promise<any> {
+    // If empty array, disable approval workflow (set to null)
+    if (dto.thresholds.length === 0) {
+      await this.prisma.tenant.update({
+        where: { id: tenantId },
+        data: {
+          approval_thresholds: Prisma.JsonNull,
+        },
+      });
+
+      this.logger.log(
+        `Approval workflow disabled for tenant: ${tenantId} (empty thresholds)`,
+      );
+
+      return {
+        message: 'Approval workflow disabled - all quotes will be auto-approved',
+        thresholds: [],
+        approval_workflow_enabled: false,
+        updated_at: new Date(),
+      };
+    }
+
     // Validate amounts are ascending
     const sortedThresholds = [...dto.thresholds].sort(
       (a, b) => a.amount - b.amount,
@@ -664,7 +883,9 @@ export class ApprovalWorkflowService {
     this.logger.log(`Approval thresholds updated for tenant: ${tenantId}`);
 
     return {
+      message: 'Approval thresholds configured successfully',
       thresholds: dto.thresholds,
+      approval_workflow_enabled: true,
       updated_at: new Date(),
     };
   }

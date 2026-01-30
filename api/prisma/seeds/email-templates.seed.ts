@@ -168,6 +168,195 @@ Dashboard URL: {{tenant_dashboard_url}}
       description: 'SMTP test email with system variables',
       is_system: true,
     },
+    {
+      id: randomBytes(16).toString('hex'),
+      tenant_id: null,
+      template_key: 'send-quote',
+      subject: 'Quote {{quote_number}} from {{company_name}}',
+      html_body: `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background-color: #0066cc; color: white; padding: 20px; text-align: center; }
+    .content { padding: 20px; background-color: #f9f9f9; }
+    .quote-details { background-color: white; padding: 15px; margin: 15px 0; border-left: 4px solid #0066cc; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #0066cc; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0; }
+    .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+    .custom-message { background-color: #fffbcc; padding: 15px; margin: 15px 0; border-left: 4px solid #ffcc00; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Quote Ready for Review</h1>
+    </div>
+
+    <div class="content">
+      <p>Hello {{customer_name}},</p>
+
+      <p>Thank you for your interest in our services. We have prepared a detailed quote for your project:</p>
+
+      <div class="quote-details">
+        <h2>{{quote_title}}</h2>
+        <p><strong>Quote Number:</strong> {{quote_number}}</p>
+        <p><strong>Total Amount:</strong> {{quote_total}}</p>
+      </div>
+
+      {{#if custom_message}}
+      <div class="custom-message">
+        <p><strong>Message from {{vendor_name}}:</strong></p>
+        <p style="white-space: pre-line;">{{custom_message}}</p>
+      </div>
+      {{/if}}
+
+      <p>You can view and review your quote online by clicking the button below:</p>
+
+      <div style="text-align: center;">
+        <a href="{{public_url}}" class="button">View Quote Online</a>
+      </div>
+
+      <p style="background-color: #e6f3ff; padding: 12px; border-radius: 4px; font-size: 14px;">
+        <strong>📱 View Anytime:</strong> Your quote is available online 24/7. Click the link above to view, download, or share it on any device.
+      </p>
+
+      <p>If you have any questions or would like to discuss this quote, please don't hesitate to contact us:</p>
+
+      <p>
+        <strong>{{vendor_name}}</strong><br>
+        Email: {{vendor_email}}<br>
+        Phone: {{vendor_phone}}
+      </p>
+
+      <p>We look forward to working with you!</p>
+
+      <p>Best regards,<br>
+      {{company_name}}</p>
+    </div>
+
+    <div class="footer">
+      <p>This is an automated message from {{company_name}}. Please do not reply directly to this email.</p>
+    </div>
+  </div>
+</body>
+</html>
+      `,
+      text_body: `
+Quote {{quote_number}} from {{company_name}}
+
+Hello {{customer_name}},
+
+Thank you for your interest in our services. We have prepared a detailed quote for your project:
+
+{{quote_title}}
+Quote Number: {{quote_number}}
+Total Amount: {{quote_total}}
+
+{{#if custom_message}}
+Message from {{vendor_name}}:
+{{custom_message}}
+{{/if}}
+
+View your quote online: {{public_url}}
+
+Your quote is available online 24/7. Click the link above to view, download, or share it on any device.
+
+If you have any questions, please contact:
+{{vendor_name}}
+Email: {{vendor_email}}
+Phone: {{vendor_phone}}
+
+Best regards,
+{{company_name}}
+      `,
+      variables: ['quote_number', 'customer_name', 'company_name', 'quote_title', 'quote_total', 'public_url', 'vendor_name', 'vendor_email', 'vendor_phone', 'custom_message'],
+      variable_schema: {
+        quote_number: {
+          name: 'quote_number',
+          type: 'string',
+          category: 'quote',
+          description: 'Unique quote number',
+          example: 'Q-2026-001',
+          required: true,
+        },
+        customer_name: {
+          name: 'customer_name',
+          type: 'string',
+          category: 'customer',
+          description: 'Customer full name',
+          example: 'John Smith',
+          required: true,
+        },
+        company_name: {
+          name: 'company_name',
+          type: 'string',
+          category: 'tenant',
+          description: 'Company/business name',
+          example: 'Acme Roofing Co.',
+          required: true,
+        },
+        quote_title: {
+          name: 'quote_title',
+          type: 'string',
+          category: 'quote',
+          description: 'Quote title/description',
+          example: 'Roof Replacement - Main Building',
+          required: true,
+        },
+        quote_total: {
+          name: 'quote_total',
+          type: 'string',
+          category: 'quote',
+          description: 'Formatted quote total amount',
+          example: '$15,250.00',
+          required: true,
+        },
+        public_url: {
+          name: 'public_url',
+          type: 'url',
+          category: 'quote',
+          description: 'Public URL to view quote online',
+          example: 'https://acme.lead360.app/quotes/abc123token',
+          required: true,
+        },
+        vendor_name: {
+          name: 'vendor_name',
+          type: 'string',
+          category: 'vendor',
+          description: 'Vendor/estimator name',
+          example: 'Mike Johnson',
+          required: false,
+        },
+        vendor_email: {
+          name: 'vendor_email',
+          type: 'email',
+          category: 'vendor',
+          description: 'Vendor email address',
+          example: 'mike@acmeroofing.com',
+          required: false,
+        },
+        vendor_phone: {
+          name: 'vendor_phone',
+          type: 'string',
+          category: 'vendor',
+          description: 'Vendor phone number',
+          example: '(555) 123-4567',
+          required: false,
+        },
+        custom_message: {
+          name: 'custom_message',
+          type: 'string',
+          category: 'quote',
+          description: 'Optional custom message from user',
+          example: 'Looking forward to working with you on this project!',
+          required: false,
+        },
+      },
+      description: 'Send quote to customer with PDF attachment',
+      is_system: true,
+    },
   ];
 
   for (const template of templates) {

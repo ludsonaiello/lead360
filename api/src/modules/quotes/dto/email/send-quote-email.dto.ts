@@ -29,6 +29,16 @@ export class SendQuoteEmailDto {
   @IsString()
   @MaxLength(1000)
   custom_message?: string;
+
+  @ApiPropertyOptional({
+    description: 'Custom email subject (defaults to "Quote {number} - {title}")',
+    example: 'Your Custom Quote from ACME Corp',
+    maxLength: 200,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  custom_subject?: string;
 }
 
 export class SendQuoteEmailResponseDto {

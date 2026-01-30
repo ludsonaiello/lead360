@@ -52,6 +52,7 @@ export class QuotePublicAccessService {
     quoteId: string,
     dto: GeneratePublicUrlDto,
     userId: string,
+    skipStatusChange: boolean = false,
   ): Promise<PublicUrlResponseDto> {
     return await this.prisma.$transaction(async (tx) => {
       // 1. Validate quote exists and belongs to tenant
@@ -70,9 +71,9 @@ export class QuotePublicAccessService {
       }
 
       // 2. Validate quote status (must be ready or sent to generate public URL)
-      if (!['ready', 'sent', 'read'].includes(quote.status)) {
+      if (!['ready', 'sent', 'delivered', 'read', 'opened', 'email_failed'].includes(quote.status)) {
         throw new BadRequestException(
-          `Quote must be in 'ready', 'sent', or 'read' status to generate public URL. Current status: ${quote.status}`,
+          `Quote must be in 'ready', 'sent', 'delivered', 'read', 'opened', or 'email_failed' status to generate public URL. Current status: ${quote.status}`,
         );
       }
 
@@ -122,8 +123,8 @@ export class QuotePublicAccessService {
         },
       });
 
-      // 7. Auto-change status: ready → sent (if quote is currently 'ready')
-      if (quote.status === 'ready') {
+      // 7. Auto-change status: ready → sent (if quote is currently 'ready' and not skipped)
+      if (!skipStatusChange && quote.status === 'ready') {
         // Update status to 'sent'
         await tx.quote.update({
           where: { id: quoteId },
@@ -255,6 +256,62 @@ export class QuotePublicAccessService {
   }
 
   /**
+   * Get active public access information for a quote
+   *
+   * @param tenantId - Tenant ID
+   * @param quoteId - Quote UUID
+   * @returns Public access information or null if not active
+   */
+  async getPublicAccessStatus(
+    tenantId: string,
+    quoteId: string,
+  ): Promise<PublicUrlResponseDto | null> {
+    // 1. Validate quote belongs to tenant
+    const quote = await this.prisma.quote.findFirst({
+      where: {
+        id: quoteId,
+        tenant_id: tenantId,
+      },
+      include: {
+        tenant: true,
+      },
+    });
+
+    if (!quote) {
+      throw new NotFoundException(`Quote ${quoteId} not found`);
+    }
+
+    // 2. Get active public access record
+    const publicAccess = await this.prisma.quote_public_access.findFirst({
+      where: {
+        quote_id: quoteId,
+        is_active: true,
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
+
+    if (!publicAccess) {
+      return null;
+    }
+
+    // 3. Build public URL
+    const tenantSubdomain = quote.tenant.subdomain || quote.tenant.id;
+    const publicUrl = this.buildPublicUrl(tenantSubdomain, publicAccess.access_token);
+
+    // 4. Return response
+    return {
+      public_url: publicUrl,
+      access_token: publicAccess.access_token,
+      has_password: !!publicAccess.password_hash,
+      password_hint: publicAccess.password_hint || undefined,
+      expires_at: publicAccess.expires_at?.toISOString(),
+      created_at: publicAccess.created_at.toISOString(),
+    };
+  }
+
+  /**
    * Deactivate public URL (revoke access)
    *
    * @param tenantId - Tenant ID
@@ -349,9 +406,31 @@ export class QuotePublicAccessService {
       include: {
         quote: {
           include: {
-            tenant: true,
-            lead: true,
-            vendor: true,
+            tenant: {
+              include: {
+                file_tenant_logo_file_idTofile: true,
+                tenant_address: {
+                  where: {
+                    is_default: true,
+                  },
+                },
+              },
+            },
+            lead: {
+              select: {
+                id: true,
+                first_name: true,
+                last_name: true,
+                emails: true,
+                phones: true,
+              },
+            },
+            vendor: {
+              include: {
+                signature_file: true,
+              },
+            },
+            jobsite_address: true,
             items: {
               include: {
                 quote_group: true,
@@ -365,6 +444,19 @@ export class QuotePublicAccessService {
             groups: {
               orderBy: { order_index: 'asc' },
             },
+            discount_rules: {
+              orderBy: { order_index: 'asc' },
+            },
+            draw_schedule: {
+              orderBy: { draw_number: 'asc' },
+            },
+            attachments: {
+              include: {
+                file: true, // Include file details for filename, mime_type, file_size
+              },
+              orderBy: { order_index: 'asc' },
+            },
+            latest_pdf_file: true,
           },
         },
       },
@@ -383,8 +475,8 @@ export class QuotePublicAccessService {
       throw new ForbiddenException('This link has expired');
     }
 
-    // Check quote status (only show sent/read quotes publicly)
-    if (!['sent', 'read', 'approved'].includes(publicAccess.quote.status)) {
+    // Check quote status (only show sent/delivered/read/opened/downloaded/approved/started/concluded/email_failed quotes publicly)
+    if (!['sent', 'delivered', 'read', 'opened', 'downloaded', 'approved', 'started', 'concluded', 'email_failed'].includes(publicAccess.quote.status)) {
       throw new ForbiddenException('This quote is not available for public viewing');
     }
 
@@ -418,6 +510,6 @@ export class QuotePublicAccessService {
    * @returns Full URL
    */
   private buildPublicUrl(tenantSlug: string, token: string): string {
-    return `https://${tenantSlug}.lead360.app/quotes/${token}`;
+    return `https://${tenantSlug}.lead360.app/public/quotes/${token}`;
   }
 }

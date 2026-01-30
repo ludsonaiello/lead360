@@ -3,7 +3,7 @@ import { ApiProperty } from '@nestjs/swagger';
 /**
  * ViewAnalyticsDto
  *
- * Analytics data for quote views
+ * Analytics data for quote views and downloads
  */
 export class ViewAnalyticsDto {
   @ApiProperty({
@@ -11,6 +11,13 @@ export class ViewAnalyticsDto {
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
   quote_id: string;
+
+  @ApiProperty({
+    description: 'Current quote status',
+    example: 'read',
+    enum: ['draft', 'pending_approval', 'ready', 'sent', 'delivered', 'read', 'opened', 'downloaded', 'approved', 'started', 'concluded', 'denied', 'lost', 'email_failed'],
+  })
+  quote_status: string;
 
   @ApiProperty({
     description: 'Total number of views',
@@ -76,4 +83,50 @@ export class ViewAnalyticsDto {
     nullable: true,
   })
   last_viewed_at: string | null;
+
+  @ApiProperty({
+    description: 'Total number of PDF downloads',
+    example: 8,
+  })
+  total_downloads: number;
+
+  @ApiProperty({
+    description: 'Downloads grouped by date',
+    example: [
+      { date: '2024-01-20', count: 3 },
+      { date: '2024-01-21', count: 5 },
+    ],
+    type: 'array',
+  })
+  downloads_by_date: { date: string; count: number }[];
+
+  @ApiProperty({
+    description: 'Downloads grouped by device type',
+    example: {
+      desktop: 6,
+      mobile: 2,
+      tablet: 0,
+      unknown: 0,
+    },
+  })
+  downloads_by_device: {
+    desktop: number;
+    mobile: number;
+    tablet: number;
+    unknown: number;
+  };
+
+  @ApiProperty({
+    description: 'Date of first PDF download',
+    example: '2024-01-20T11:15:00.000Z',
+    nullable: true,
+  })
+  first_downloaded_at: string | null;
+
+  @ApiProperty({
+    description: 'Date of most recent PDF download',
+    example: '2024-01-21T16:30:00.000Z',
+    nullable: true,
+  })
+  last_downloaded_at: string | null;
 }

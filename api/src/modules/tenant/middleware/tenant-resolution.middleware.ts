@@ -194,6 +194,8 @@ export class TenantResolutionMiddleware implements NestMiddleware {
       '/tenants/check-subdomain', // Without global prefix
       '/api/v1/admin', // Admin endpoints
       '/admin', // Admin endpoints without global prefix
+      '/api/v1/public/', // Public quote access (NO AUTH)
+      '/public/', // Public endpoints without global prefix
       '/health', // Health check
       '/api/docs', // Swagger docs
       '/api/v1/health', // Health with prefix

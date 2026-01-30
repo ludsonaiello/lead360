@@ -10,4 +10,13 @@ export class GeneratePdfDto {
   @IsOptional()
   @IsBoolean()
   force_regenerate?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Whether to include cost breakdown (vendor costs, profit margins) in PDF',
+    example: false,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  include_cost_breakdown?: boolean;
 }

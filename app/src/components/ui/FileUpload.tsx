@@ -95,9 +95,15 @@ export const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(
         const fileExtension = `.${file.name.split('.').pop()}`;
         const mimeType = file.type;
 
-        const isValid = acceptedTypes.some(
-          (type) => type === mimeType || type === fileExtension || type === '*'
-        );
+        const isValid = acceptedTypes.some((type) => {
+          // Handle wildcard types (e.g., "image/*")
+          if (type.includes('/*')) {
+            const prefix = type.split('/*')[0];
+            return mimeType.startsWith(prefix + '/');
+          }
+          // Handle exact match or file extension
+          return type === mimeType || type === fileExtension || type === '*';
+        });
 
         if (!isValid) {
           return `File type not accepted. Allowed: ${accept}`;

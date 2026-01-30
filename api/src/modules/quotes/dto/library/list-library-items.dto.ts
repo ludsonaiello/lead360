@@ -8,7 +8,7 @@ import {
   Min,
   Max,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 export class ListLibraryItemsDto {
   @ApiPropertyOptional({
@@ -41,8 +41,12 @@ export class ListLibraryItemsDto {
   })
   @IsBoolean()
   @IsOptional()
-  @Type(() => Boolean)
-  is_active?: boolean = true;
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  is_active?: boolean;
 
   @ApiPropertyOptional({
     example: 'drywall',

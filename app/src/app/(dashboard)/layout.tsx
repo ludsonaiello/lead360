@@ -19,8 +19,21 @@ export default function ProtectedLayout({
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
+  console.log('[DASHBOARD LAYOUT] Render:', {
+    isAuthenticated,
+    isLoading,
+    timestamp: new Date().toISOString()
+  });
+
   useEffect(() => {
+    console.log('[DASHBOARD LAYOUT] useEffect triggered:', {
+      isLoading,
+      isAuthenticated,
+      timestamp: new Date().toISOString()
+    });
+
     if (!isLoading && !isAuthenticated) {
+      console.log('[DASHBOARD LAYOUT] !!! REDIRECTING TO /login - NOT AUTHENTICATED !!!');
       router.push('/login');
     }
   }, [isAuthenticated, isLoading, router]);

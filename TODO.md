@@ -861,3 +861,17 @@ Track these throughout development:
 - Use checkboxes to track progress
 - Add blockers/risks in notes section
 - Keep this file in git for version control
+
+
+
+
+[ ] ADD SMS TO QUOTES
+[ ] BUndle items, quando altera o preço do item na biblioteca de items precisa emitir alerta para atualizar o preço nos bundles se usado lá. Frontend alerta pendente.
+[ ] Permitir envio de mensagens entre quote view e backend/quote/lead para evitar uso de SMS e ligações. 
+[ ] Pensar na possibilidade de incluir assinatura digital e exigir senha obrigatória para abrir visualização do orçamento. 
+[ ] Bundle Customization in UI Before adding bundle to quote, let user: Adjust quantities, Remove specific items, Override prices, Currently: Add first, edit after
+[ ] Add viewed status to quote, when they open the web view.
+[ ] add downloaded status when they download the pdf. 
+[ ] add quotes and projects and financial on each lead/customer. 
+[ ] add tracking system to SMTP - future.
+[ ] Check lead status, make auto email to follow up if lead refuse turns lost but can turn to a lead back again later with a new request or manually or when creating a quote. 

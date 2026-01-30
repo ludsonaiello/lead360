@@ -35,10 +35,15 @@ import {
   Mail,
   MessageSquare,
   Send,
+  Calculator,
+  Library,
+  ShoppingCart,
+  Package,
 } from 'lucide-react';
 import ProtectedMenuItem from '@/components/rbac/shared/ProtectedMenuItem';
 import { useAuth } from '@/contexts/AuthContext';
 import { useImpersonation } from '@/contexts/ImpersonationContext';
+import { getPendingApprovals } from '@/lib/api/quote-approvals';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -52,6 +57,7 @@ interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   permission?: string; // Optional permission required to view this menu item
+  badge?: number; // Optional badge count (for dynamic counts like pending approvals)
 }
 
 interface NavGroup {
@@ -65,6 +71,19 @@ const navigation: (NavItem | NavGroup)[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Leads', href: '/leads', icon: UserPlus, permission: 'leads:view' },
   { name: 'Customers', href: '/customers', icon: Users, permission: 'users:view' },
+  {
+    name: 'Quotes',
+    icon: Calculator,
+    permission: 'quotes:view',
+    items: [
+      { name: 'All Quotes', href: '/quotes', icon: FileText, permission: 'quotes:view' },
+      { name: 'Approvals', href: '/approvals', icon: Shield, permission: 'quotes:view' },
+      { name: 'Library', href: '/library/items', icon: Library, permission: 'quotes:view' },
+      { name: 'Bundles', href: '/library/bundles', icon: Package, permission: 'quotes:view' },
+      { name: 'Vendors', href: '/vendors', icon: ShoppingCart, permission: 'quotes:view' },
+      { name: 'Quote Settings', href: '/settings/quotes', icon: Settings, permission: 'quotes:edit' },
+    ],
+  },
   {
     name: 'Communications',
     icon: Mail,
@@ -143,6 +162,9 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
   const showTenantMenu = !isPlatformAdmin || isImpersonating;
   const showAdminMenu = isPlatformAdmin && !isImpersonating;
 
+  // Pending approvals count
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
+
   // State for expanded groups - auto-expand based on active route
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
     const expanded = new Set<string>();
@@ -175,6 +197,31 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
     setExpandedGroups(newExpanded);
   }, [pathname]);
 
+  // Fetch pending approvals count
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      try {
+        const response = await getPendingApprovals();
+        setPendingApprovalsCount(response.count || 0);
+      } catch (error) {
+        console.error('[SIDEBAR] Failed to fetch pending approvals:', error);
+        setPendingApprovalsCount(0);
+      }
+    };
+
+    // Only fetch pending approvals if:
+    // 1. User is in tenant menu (not platform admin or is impersonating)
+    // 2. User is NOT an Admin (Admins don't need approval workflow, but Owners do)
+    const isAdmin = user?.roles?.some((role: any) => role.name === 'Admin') || false;
+
+    if (showTenantMenu && !isAdmin) {
+      fetchPendingCount();
+      // Refresh count every 30 seconds
+      const interval = setInterval(fetchPendingCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [showTenantMenu, user]);
+
   const toggleGroup = (groupName: string) => {
     const newExpanded = new Set(expandedGroups);
     if (newExpanded.has(groupName)) {
@@ -200,13 +247,17 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
     const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
     const Icon = item.icon;
 
+    // Get badge count for Approvals menu item (hide for Admin users)
+    const isAdmin = user?.roles?.some((role: any) => role.name === 'Admin') || false;
+    const badgeCount = (item.href === '/approvals' && !isAdmin) ? pendingApprovalsCount : 0;
+
     const linkContent = (
       <Link
         href={item.href}
         className={`
           group flex gap-x-3 rounded-lg p-3 text-sm font-semibold leading-6
           transition-all duration-200 relative
-          ${collapsed ? 'justify-center' : ''}
+          ${collapsed ? 'justify-center' : 'justify-between'}
           ${
             isActive
               ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400'
@@ -215,15 +266,23 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
         `}
         title={collapsed ? item.name : ''}
       >
-        <Icon
-          className={`h-6 w-6 shrink-0 ${
-            isActive ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-brand-600 dark:group-hover:text-brand-400'
-          }`}
-        />
-        {!collapsed && <span>{item.name}</span>}
+        <div className="flex items-center gap-x-3">
+          <Icon
+            className={`h-6 w-6 shrink-0 ${
+              isActive ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-brand-600 dark:group-hover:text-brand-400'
+            }`}
+          />
+          {!collapsed && <span>{item.name}</span>}
+        </div>
+        {!collapsed && badgeCount > 0 && (
+          <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+            {badgeCount}
+          </span>
+        )}
         {collapsed && (
           <span className="absolute left-full ml-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
             {item.name}
+            {badgeCount > 0 && ` (${badgeCount})`}
           </span>
         )}
       </Link>
@@ -320,13 +379,17 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
       const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
       const Icon = item.icon;
 
+      // Get badge count for Approvals menu item (hide for Admin users)
+      const isAdmin = user?.roles?.some((role: any) => role.name === 'Admin') || false;
+      const badgeCount = (item.href === '/approvals' && !isAdmin) ? pendingApprovalsCount : 0;
+
       const linkContent = (
         <Link
           href={item.href}
           onClick={onClose}
           className={`
             group flex gap-x-3 rounded-lg p-3 text-sm font-semibold leading-6
-            transition-all duration-200
+            transition-all duration-200 justify-between
             ${
               isActive
                 ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400'
@@ -334,12 +397,19 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
             }
           `}
         >
-          <Icon
-            className={`h-6 w-6 shrink-0 ${
-              isActive ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-brand-600 dark:group-hover:text-brand-400'
-            }`}
-          />
-          {item.name}
+          <div className="flex items-center gap-x-3">
+            <Icon
+              className={`h-6 w-6 shrink-0 ${
+                isActive ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-brand-600 dark:group-hover:text-brand-400'
+              }`}
+            />
+            {item.name}
+          </div>
+          {badgeCount > 0 && (
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+              {badgeCount}
+            </span>
+          )}
         </Link>
       );
 
@@ -399,13 +469,17 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
               const isActive = pathname === childItem.href || pathname.startsWith(childItem.href + '/');
               const ChildIcon = childItem.icon;
 
+              // Get badge count for Approvals menu item (hide for Admin users)
+              const isAdminRole = user?.roles?.some((role: any) => role.name === 'Admin') || false;
+              const badgeCount = (childItem.href === '/approvals' && !isAdminRole) ? pendingApprovalsCount : 0;
+
               const linkContent = (
                 <Link
                   href={childItem.href}
                   onClick={onClose}
                   className={`
                     group flex gap-x-3 rounded-lg p-3 text-sm font-semibold leading-6
-                    transition-all duration-200
+                    transition-all duration-200 justify-between
                     ${
                       isActive
                         ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400'
@@ -413,12 +487,19 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
                     }
                   `}
                 >
-                  <ChildIcon
-                    className={`h-6 w-6 shrink-0 ${
-                      isActive ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-brand-600 dark:group-hover:text-brand-400'
-                    }`}
-                  />
-                  {childItem.name}
+                  <div className="flex items-center gap-x-3">
+                    <ChildIcon
+                      className={`h-6 w-6 shrink-0 ${
+                        isActive ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-brand-600 dark:group-hover:text-brand-400'
+                      }`}
+                    />
+                    {childItem.name}
+                  </div>
+                  {badgeCount > 0 && (
+                    <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                      {badgeCount}
+                    </span>
+                  )}
                 </Link>
               );
 

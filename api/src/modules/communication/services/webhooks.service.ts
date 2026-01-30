@@ -627,40 +627,237 @@ export class WebhooksService {
     });
     this.logger.debug(`[BREVO EVENT] Created webhook_event: ${webhookEventId}`);
 
-    // Update status
-    const statusMap: Record<string, string> = {
-      delivered: 'delivered',
-      hard_bounce: 'bounced',
-      soft_bounce: 'bounced',
-      blocked: 'failed',
-      request: 'sent',
-      click: 'delivered', // Don't change status on click
-      open: 'delivered', // Don't change status on open
+    // Prepare update data based on event type
+    const updateData: any = {};
+    let newStatus: string | undefined;
+
+    switch (eventType) {
+      case 'request':
+      case 'sent':
+        newStatus = 'sent';
+        break;
+
+      case 'delivered':
+        newStatus = 'delivered';
+        // Only set delivered_at if not already set (keep first delivery timestamp)
+        if (!commEvent.delivered_at) {
+          updateData.delivered_at = new Date();
+        }
+
+        // Update quote status to 'delivered'
+        await this.updateQuoteStatusFromEmailEvent(
+          commEvent,
+          'delivered',
+          ['sent'],
+          'Email delivered',
+        );
+        break;
+
+      case 'deferred':
+      case 'delayed':
+        // Email delayed - keep current status (usually 'sent')
+        // Don't change status, just log it
+        this.logger.log(`[BREVO EVENT] Email delayed for recipient: ${commEvent.to_email}`);
+        break;
+
+      case 'hard_bounce':
+      case 'soft_bounce':
+        newStatus = 'bounced';
+        // Only set bounced_at if not already set (keep first bounce timestamp)
+        if (!commEvent.bounced_at) {
+          updateData.bounced_at = new Date();
+        }
+        // Only set error_message if not already set (keep first error)
+        if (!commEvent.error_message) {
+          updateData.error_message = event.reason || event.error || 'Email bounced';
+        }
+
+        // Update quote status to 'email_failed'
+        await this.updateQuoteStatusFromEmailEvent(
+          commEvent,
+          'email_failed',
+          ['sent', 'delivered', 'read', 'opened'],
+          `Email bounced: ${event.reason || event.error || 'Unknown reason'}`,
+        );
+        break;
+
+      case 'blocked':
+      case 'invalid_email':
+      case 'error':
+        newStatus = 'failed';
+        // Only set error_message if not already set (keep first error)
+        if (!commEvent.error_message) {
+          updateData.error_message = event.reason || event.error || 'Email failed';
+        }
+
+        // Update quote status to 'email_failed'
+        await this.updateQuoteStatusFromEmailEvent(
+          commEvent,
+          'email_failed',
+          ['sent', 'delivered', 'read', 'opened'],
+          `Email failed: ${event.reason || event.error || 'Unknown reason'}`,
+        );
+        break;
+
+      case 'open':
+      case 'opened':
+      case 'unique_opened':
+        // Update status to 'opened'
+        newStatus = 'opened';
+        // Only set opened_at if not already set (keep first open timestamp)
+        if (!commEvent.opened_at) {
+          updateData.opened_at = new Date();
+          this.logger.log(`[BREVO EVENT] Email opened by recipient (first time): ${commEvent.to_email}`);
+        } else {
+          this.logger.debug(`[BREVO EVENT] Email opened again by recipient (keeping first timestamp): ${commEvent.to_email}`);
+        }
+
+        // Update quote status to 'read'
+        await this.updateQuoteStatusFromEmailEvent(
+          commEvent,
+          'read',
+          ['sent', 'delivered'],
+          'Email opened',
+        );
+        break;
+
+      case 'click':
+      case 'clicked':
+        // Update status to 'clicked'
+        newStatus = 'clicked';
+        // Only set clicked_at if not already set (keep first click timestamp)
+        if (!commEvent.clicked_at) {
+          updateData.clicked_at = new Date();
+          this.logger.log(`[BREVO EVENT] Email link clicked by recipient (first time): ${commEvent.to_email}`);
+        } else {
+          this.logger.debug(`[BREVO EVENT] Email link clicked again by recipient (keeping first timestamp): ${commEvent.to_email}`);
+        }
+
+        // Don't update quote status on link click - let the public view tracking handle it
+        // Status will be updated to 'read' when the public URL is actually viewed
+        this.logger.debug(`[BREVO EVENT] Email link clicked - quote status will be updated when public URL is viewed`);
+        break;
+
+      case 'unsubscribe':
+      case 'unsubscribed':
+        // Track unsubscribe but don't change email status
+        this.logger.log(`[BREVO EVENT] Recipient unsubscribed: ${commEvent.to_email}`);
+        break;
+
+      default:
+        this.logger.warn(`[BREVO EVENT] Unknown event type: ${eventType}`);
+    }
+
+    // Define status hierarchy (lower number = earlier in lifecycle)
+    const statusHierarchy: Record<string, number> = {
+      pending: 1,
+      sent: 2,
+      delivered: 3,
+      opened: 4,
+      clicked: 5,
+      failed: 99,    // Terminal state
+      bounced: 99,   // Terminal state
     };
 
-    const newStatus = statusMap[eventType];
+    // Apply status update only if it's a forward progression
     if (newStatus) {
-      this.logger.debug(`[BREVO EVENT] Updating communication_event status from ${commEvent.status} to ${newStatus}`);
+      const currentStatusLevel = statusHierarchy[commEvent.status] || 0;
+      const newStatusLevel = statusHierarchy[newStatus] || 0;
+
+      if (newStatusLevel > currentStatusLevel) {
+        // Status is progressing forward - allow update
+        updateData.status = newStatus;
+        this.logger.debug(
+          `[BREVO EVENT] Updating communication_event status from ${commEvent.status} to ${newStatus}`,
+        );
+      } else if (newStatusLevel === currentStatusLevel) {
+        // Same status - ignore but log
+        this.logger.debug(
+          `[BREVO EVENT] Ignoring duplicate status update: ${newStatus} (current: ${commEvent.status})`,
+        );
+      } else {
+        // Status would go backwards - ignore and log warning
+        this.logger.warn(
+          `[BREVO EVENT] Ignoring backwards status update from ${commEvent.status} to ${newStatus} for message ${messageId}`,
+        );
+      }
+    }
+
+    // Update communication event (always update timestamps even if status doesn't change)
+    if (Object.keys(updateData).length > 0) {
       await this.prisma.communication_event.update({
         where: { id: commEvent.id },
-        data: {
-          status: newStatus as any,
-          delivered_at: eventType === 'delivered' ? new Date() : undefined,
-          bounced_at:
-            eventType === 'hard_bounce' ||
-            eventType === 'soft_bounce' ||
-            eventType === 'blocked'
-              ? new Date()
-              : undefined,
-          error_message: event.reason,
-        },
+        data: updateData,
       });
-      this.logger.log(`[BREVO EVENT] ✅ Status updated successfully: ${eventType} -> ${newStatus} for message ${messageId}`);
+      this.logger.log(`[BREVO EVENT] ✅ Updated communication_event for ${eventType}: ${messageId}`);
     } else {
-      this.logger.debug(`[BREVO EVENT] No status update for event type: ${eventType}`);
+      this.logger.debug(`[BREVO EVENT] No updates needed for event type: ${eventType}`);
     }
 
     return { status: 'processed', event_type: eventType, message_id: messageId, new_status: newStatus };
+  }
+
+  /**
+   * Update quote status based on email event
+   * @param commEvent - Communication event
+   * @param newQuoteStatus - New quote status to set
+   * @param allowedCurrentStatuses - Only update if quote is in one of these statuses
+   * @param reason - Reason for status change (for logging)
+   */
+  private async updateQuoteStatusFromEmailEvent(
+    commEvent: any,
+    newQuoteStatus: string,
+    allowedCurrentStatuses: string[],
+    reason: string,
+  ): Promise<void> {
+    // Only process if this email is related to a quote
+    if (
+      commEvent.related_entity_type !== 'quote' ||
+      !commEvent.related_entity_id ||
+      !commEvent.tenant_id
+    ) {
+      return;
+    }
+
+    try {
+      // Fetch the quote
+      const quote = await this.prisma.quote.findFirst({
+        where: {
+          id: commEvent.related_entity_id,
+          tenant_id: commEvent.tenant_id,
+        },
+      });
+
+      if (!quote) {
+        this.logger.warn(
+          `[QUOTE STATUS UPDATE] Quote not found: ${commEvent.related_entity_id}`,
+        );
+        return;
+      }
+
+      // Check if quote is in an allowed status to be updated
+      if (!allowedCurrentStatuses.includes(quote.status)) {
+        this.logger.debug(
+          `[QUOTE STATUS UPDATE] Quote ${quote.id} status is '${quote.status}', not updating (allowed: ${allowedCurrentStatuses.join(', ')})`,
+        );
+        return;
+      }
+
+      // Update quote status
+      await this.prisma.quote.update({
+        where: { id: quote.id },
+        data: { status: newQuoteStatus as any },
+      });
+
+      this.logger.log(
+        `[QUOTE STATUS UPDATE] ✅ Quote ${quote.id} status changed: ${quote.status} → ${newQuoteStatus} (${reason})`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[QUOTE STATUS UPDATE] Failed to update quote ${commEvent.related_entity_id}:`,
+        error,
+      );
+    }
   }
 
   /**

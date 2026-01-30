@@ -27,7 +27,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { QuoteGroupService } from '../services/quote-group.service';
-import { CreateGroupDto, UpdateGroupDto } from '../dto/group';
+import { CreateGroupDto, UpdateGroupDto, ReorderGroupsDto } from '../dto/group';
 
 @ApiTags('Quotes - Groups')
 @ApiBearerAuth()
@@ -86,6 +86,21 @@ export class QuoteGroupController {
     @Param('groupId', ParseUUIDPipe) groupId: string,
   ) {
     return this.quoteGroupService.findOne(req.user.tenant_id, quoteId, groupId);
+  }
+
+  @Patch('reorder')
+  @Roles('Owner', 'Admin', 'Manager', 'Sales')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Reorder groups (no version created - cosmetic only)' })
+  @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
+  @ApiResponse({ status: 204, description: 'Groups reordered successfully' })
+  @ApiResponse({ status: 404, description: 'Quote not found' })
+  async reorder(
+    @Request() req,
+    @Param('quoteId', ParseUUIDPipe) quoteId: string,
+    @Body() dto: ReorderGroupsDto,
+  ) {
+    await this.quoteGroupService.reorder(req.user.tenant_id, quoteId, dto);
   }
 
   @Patch(':groupId')

@@ -67,7 +67,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
           </label>
         )}
 
-        <Listbox value={value} onChange={onChange} disabled={disabled}>
+        <Listbox value={value || ''} onChange={onChange} disabled={disabled}>
           {({ open }) => (
             <div className="relative">
               <Listbox.Button

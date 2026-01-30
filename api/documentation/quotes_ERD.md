@@ -47,6 +47,8 @@ sent sent
 delivered delivered
 failed failed
 bounced bounced
+opened opened
+clicked clicked
         }
     
 
@@ -82,10 +84,16 @@ all_users all_users
 pending_approval pending_approval
 ready ready
 sent sent
+delivered delivered
 read read
+opened opened
+downloaded downloaded
 approved approved
+started started
+concluded concluded
 denied denied
 lost lost
+email_failed email_failed
         }
     
 
@@ -386,6 +394,8 @@ unknown unknown
     Json approval_thresholds "❓"
     Json profitability_thresholds "❓"
     String business_size "❓"
+    Boolean show_line_items_by_default 
+    Boolean show_cost_breakdown_by_default 
     }
   
 
@@ -1066,6 +1076,7 @@ unknown unknown
     Decimal custom_profit_percent "❓"
     Decimal custom_overhead_percent "❓"
     Decimal custom_contingency_percent "❓"
+    Decimal custom_tax_rate "❓"
     String custom_terms "❓"
     String custom_payment_instructions "❓"
     Int expiration_days "❓"
@@ -1078,6 +1089,9 @@ unknown unknown
     Boolean is_archived 
     DateTime created_at 
     DateTime updated_at 
+    String pdf_content_hash "❓"
+    DateTime pdf_last_generated_at "❓"
+    Json pdf_generation_params "❓"
     }
   
 
@@ -1113,9 +1127,11 @@ unknown unknown
     Decimal subcontract_cost_per_unit 
     Decimal other_cost_per_unit 
     Decimal total_cost 
-    Decimal custom_markup_percent "❓"
+    Decimal custom_profit_percent "❓"
+    Decimal custom_overhead_percent "❓"
+    Decimal custom_contingency_percent "❓"
+    Decimal custom_discount_percentage "❓"
     Decimal custom_discount_amount "❓"
-    Decimal custom_tax_rate "❓"
     String private_notes "❓"
     Boolean save_to_library 
     DateTime created_at 
@@ -1125,6 +1141,7 @@ unknown unknown
 
   "quote_approval" {
     String id "🗝️"
+    String workflow_id 
     Int approval_level 
     approval_status status 
     String comments "❓"
@@ -1169,6 +1186,17 @@ unknown unknown
     Int view_duration_seconds "❓"
     device_type device_type "❓"
     String referrer_url "❓"
+    }
+  
+
+  "quote_download_log" {
+    String id "🗝️"
+    String public_token 
+    DateTime downloaded_at 
+    String ip_address "❓"
+    device_type device_type "❓"
+    String file_id "❓"
+    String download_type 
     }
   
 
@@ -1326,7 +1354,7 @@ unknown unknown
     "quote_template" }o--|o "tenant" : "tenant"
     "quote_template" }o--|o "user" : "created_by_user"
     "vendor" }o--|| "tenant" : "tenant"
-    "vendor" }o--|| "file" : "signature_file"
+    "vendor" }o--|o "file" : "signature_file"
     "vendor" }o--|o "user" : "created_by_user"
     "quote_tag" }o--|| "tenant" : "tenant"
     "quote_warranty_tier" |o--|| "warranty_price_type" : "enum:price_type"
@@ -1339,6 +1367,7 @@ unknown unknown
     "quote" }o--|| quote_jobsite_address : "jobsite_address"
     "quote" }o--|o quote_template : "active_template"
     "quote" }o--|o "user" : "created_by_user"
+    "quote" }o--|o "file" : "latest_pdf_file"
     "quote_version" }o--|| quote : "quote"
     "quote_version" }o--|o "user" : "changed_by_user"
     "quote_group" }o--|| quote : "quote"
@@ -1346,6 +1375,7 @@ unknown unknown
     "quote_item" }o--|o quote_group : "quote_group"
     "quote_item" }o--|| unit_measurement : "unit_measurement"
     "quote_item" }o--|o quote_warranty_tier : "warranty_tier"
+    "quote_item" }o--|o quote_bundle : "source_bundle"
     "quote_approval" |o--|| "approval_status" : "enum:status"
     "quote_approval" }o--|| quote : "quote"
     "quote_approval" }o--|| "user" : "approver_user"
@@ -1361,6 +1391,8 @@ unknown unknown
     "quote_attachment" }o--|o "file" : "qr_code_file"
     "quote_view_log" |o--|o "device_type" : "enum:device_type"
     "quote_view_log" }o--|| quote : "quote"
+    "quote_download_log" |o--|o "device_type" : "enum:device_type"
+    "quote_download_log" }o--|| quote : "quote"
     "draw_schedule_entry" |o--|| "draw_calculation_type" : "enum:calculation_type"
     "draw_schedule_entry" }o--|| quote : "quote"
     "quote_public_access" }o--|| quote : "quote"

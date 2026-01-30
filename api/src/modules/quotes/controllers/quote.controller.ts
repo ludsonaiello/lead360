@@ -20,6 +20,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -34,6 +35,10 @@ import {
   UpdateJobsiteAddressDto,
   ListQuotesDto,
 } from '../dto/quote';
+import {
+  AddBundleToQuoteDto,
+  AddBundleToQuoteResponseDto,
+} from '../dto/bundle';
 
 @ApiTags('Quotes - Main')
 @ApiBearerAuth()
@@ -116,11 +121,24 @@ export class QuoteController {
   @Get('statistics')
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({
-    summary: 'Get quote statistics (counts, revenue, conversion rate)',
+    summary: 'Get quote statistics (counts, revenue, conversion rate, amounts by status)',
   })
   @ApiResponse({ status: 200, description: 'Statistics retrieved successfully' })
-  async getStatistics(@Request() req) {
-    return this.quoteService.getStatistics(req.user.tenant_id);
+  @ApiQuery({ name: 'created_from', required: false, description: 'Start date filter (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'created_to', required: false, description: 'End date filter (YYYY-MM-DD)' })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: 'Filter by quote status',
+    enum: ['draft', 'pending_approval', 'ready', 'sent', 'delivered', 'read', 'opened', 'approved', 'denied', 'lost', 'email_failed'],
+  })
+  async getStatistics(
+    @Request() req,
+    @Query('created_from') createdFrom?: string,
+    @Query('created_to') createdTo?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.quoteService.getStatistics(req.user.tenant_id, createdFrom, createdTo, status);
   }
 
   @Get(':id')
@@ -205,6 +223,37 @@ export class QuoteController {
   @ApiResponse({ status: 404, description: 'Source quote not found' })
   async clone(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.quoteService.clone(req.user.tenant_id, id, req.user.id);
+  }
+
+  @Post(':quoteId/bundles/:bundleId')
+  @Roles('Owner', 'Admin', 'Manager', 'Sales')
+  @ApiOperation({
+    summary: 'Add bundle to quote',
+    description: 'Applies a bundle template to a quote by creating quote items from bundle items. Optionally creates a group and applies bundle discount.',
+  })
+  @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
+  @ApiParam({ name: 'bundleId', description: 'Bundle UUID' })
+  @ApiResponse({
+    status: 201,
+    description: 'Bundle added to quote successfully',
+    type: AddBundleToQuoteResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Quote or bundle not found' })
+  @ApiResponse({ status: 400, description: 'Bundle is inactive or quote is approved' })
+  async addBundle(
+    @Request() req,
+    @Param('quoteId', ParseUUIDPipe) quoteId: string,
+    @Param('bundleId', ParseUUIDPipe) bundleId: string,
+    @Body() dto: AddBundleToQuoteDto,
+  ): Promise<AddBundleToQuoteResponseDto> {
+    this.logger.log(`Adding bundle ${bundleId} to quote ${quoteId}`);
+    return this.quoteService.addBundle(
+      req.user.tenant_id,
+      req.user.id,
+      quoteId,
+      bundleId,
+      dto,
+    );
   }
 
   @Delete(':id')

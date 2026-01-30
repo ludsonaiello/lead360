@@ -145,12 +145,12 @@ export class QuoteApprovalController {
   @Get('quotes/:quoteId/approvals')
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Field')
   @ApiOperation({
-    summary: 'Get approval status for quote (list all approvals with progress)',
+    summary: 'Get current approval status for quote (current workflow only)',
   })
   @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
   @ApiResponse({
     status: 200,
-    description: 'Approval status with progress percentage',
+    description: 'Current approval workflow status with progress percentage',
   })
   @ApiResponse({ status: 404, description: 'Quote not found' })
   async getApprovals(
@@ -158,6 +158,28 @@ export class QuoteApprovalController {
     @Param('quoteId', ParseUUIDPipe) quoteId: string,
   ) {
     return this.approvalWorkflowService.getApprovals(
+      quoteId,
+      req.user.tenant_id,
+    );
+  }
+
+  @Get('quotes/:quoteId/approvals/history')
+  @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Field')
+  @ApiOperation({
+    summary: 'Get complete approval history for quote (all workflows with full audit trail)',
+    description: 'Returns all approval workflows for this quote, including rejected and completed workflows. Each workflow represents a submission for approval.',
+  })
+  @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Complete approval history with all workflows',
+  })
+  @ApiResponse({ status: 404, description: 'Quote not found' })
+  async getApprovalHistory(
+    @Request() req,
+    @Param('quoteId', ParseUUIDPipe) quoteId: string,
+  ) {
+    return this.approvalWorkflowService.getApprovalHistory(
       quoteId,
       req.user.tenant_id,
     );

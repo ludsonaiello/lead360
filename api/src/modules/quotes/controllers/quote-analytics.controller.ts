@@ -55,11 +55,35 @@ export class QuoteAnalyticsController {
     @Request() req,
   ): Promise<PublicUrlResponseDto> {
     const tenantId = req.user.tenant_id;
-    const userId = req.user.user_id;
+    const userId = req.user.id;
 
     this.logger.log(`Generating public URL for quote ${id} (tenant: ${tenantId})`);
 
     return await this.publicAccessService.generatePublicUrl(tenantId, id, dto, userId);
+  }
+
+  @Get(':id/public-access/status')
+  @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Employee')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get public access status for quote' })
+  @ApiParam({ name: 'id', description: 'Quote UUID' })
+  @ApiResponse({ status: 200, description: 'Public access information returned', type: PublicUrlResponseDto })
+  @ApiResponse({ status: 404, description: 'Quote not found or no active public access' })
+  async getPublicAccessStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req,
+  ): Promise<PublicUrlResponseDto | { has_public_access: boolean }> {
+    const tenantId = req.user.tenant_id;
+
+    this.logger.log(`Getting public access status for quote ${id} (tenant: ${tenantId})`);
+
+    const status = await this.publicAccessService.getPublicAccessStatus(tenantId, id);
+
+    if (!status) {
+      return { has_public_access: false };
+    }
+
+    return status;
   }
 
   @Delete(':id/public-access')

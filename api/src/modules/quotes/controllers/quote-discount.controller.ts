@@ -104,6 +104,35 @@ export class QuoteDiscountController {
     );
   }
 
+  @Patch('reorder')
+  @Roles('Owner', 'Admin', 'Manager')
+  @ApiOperation({
+    summary:
+      'Reorder discount rules (order affects totals - percentage discounts compound)',
+  })
+  @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Discount rules reordered successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Quote not found' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot modify approved quote',
+  })
+  async reorder(
+    @Request() req,
+    @Param('quoteId', ParseUUIDPipe) quoteId: string,
+    @Body() dto: ReorderDiscountRulesDto,
+  ) {
+    return this.discountRuleService.reorder(
+      quoteId,
+      dto,
+      req.user.tenant_id,
+      req.user.id,
+    );
+  }
+
   @Patch(':ruleId')
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({ summary: 'Update discount rule' })
@@ -156,35 +185,6 @@ export class QuoteDiscountController {
     await this.discountRuleService.delete(
       quoteId,
       ruleId,
-      req.user.tenant_id,
-      req.user.id,
-    );
-  }
-
-  @Patch('reorder')
-  @Roles('Owner', 'Admin', 'Manager')
-  @ApiOperation({
-    summary:
-      'Reorder discount rules (order affects totals - percentage discounts compound)',
-  })
-  @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Discount rules reordered successfully',
-  })
-  @ApiResponse({ status: 404, description: 'Quote not found' })
-  @ApiResponse({
-    status: 400,
-    description: 'Cannot modify approved quote',
-  })
-  async reorder(
-    @Request() req,
-    @Param('quoteId', ParseUUIDPipe) quoteId: string,
-    @Body() dto: ReorderDiscountRulesDto,
-  ) {
-    return this.discountRuleService.reorder(
-      quoteId,
-      dto,
       req.user.tenant_id,
       req.user.id,
     );

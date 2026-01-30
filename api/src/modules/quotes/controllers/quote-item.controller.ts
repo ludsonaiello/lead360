@@ -128,6 +128,21 @@ export class QuoteItemController {
     return this.quoteItemService.findOne(req.user.tenant_id, quoteId, itemId);
   }
 
+  @Patch('reorder')
+  @Roles('Owner', 'Admin', 'Manager', 'Sales')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Reorder items (no version created - cosmetic only)' })
+  @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
+  @ApiResponse({ status: 204, description: 'Items reordered successfully' })
+  @ApiResponse({ status: 404, description: 'Quote not found' })
+  async reorder(
+    @Request() req,
+    @Param('quoteId', ParseUUIDPipe) quoteId: string,
+    @Body() dto: ReorderItemsDto,
+  ) {
+    await this.quoteItemService.reorder(req.user.tenant_id, quoteId, dto);
+  }
+
   @Patch(':itemId')
   @Roles('Owner', 'Admin', 'Manager', 'Sales')
   @ApiOperation({ summary: 'Update item (creates version +0.1)' })
@@ -192,21 +207,6 @@ export class QuoteItemController {
       itemId,
       req.user.id,
     );
-  }
-
-  @Patch('reorder')
-  @Roles('Owner', 'Admin', 'Manager', 'Sales')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Reorder items (no version created - cosmetic only)' })
-  @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
-  @ApiResponse({ status: 204, description: 'Items reordered successfully' })
-  @ApiResponse({ status: 404, description: 'Quote not found' })
-  async reorder(
-    @Request() req,
-    @Param('quoteId', ParseUUIDPipe) quoteId: string,
-    @Body() dto: ReorderItemsDto,
-  ) {
-    await this.quoteItemService.reorder(req.user.tenant_id, quoteId, dto);
   }
 
   @Patch(':itemId/move-to-group')

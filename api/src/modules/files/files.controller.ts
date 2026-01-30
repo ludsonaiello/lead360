@@ -13,6 +13,7 @@ import {
   HttpStatus,
   UploadedFile,
   UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -82,6 +83,23 @@ export class FilesController {
     @UploadedFile() file: Express.Multer.File,
     @Body() uploadDto: UploadFileDto,
   ) {
+    // Debug: Check if file was extracted
+    console.log('[FilesController] Upload details:', {
+      hasFile: !!file,
+      fileDetails: file ? {
+        fieldname: file.fieldname,
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size
+      } : 'NO FILE',
+      contentType: req.headers['content-type'],
+      body: uploadDto,
+    });
+
+    if (!file) {
+      throw new BadRequestException('No file uploaded. The file field is missing from the multipart request.');
+    }
+
     return this.filesService.uploadFile(req.user.tenant_id, req.user.id, file, uploadDto);
   }
 
@@ -144,11 +162,14 @@ export class FilesController {
   }
 
   @Get(':id')
+  @Public() // Allow public access for files in public quotes (logo, signature, attachments, PDF)
   @ApiOperation({ summary: 'Get a single file by ID' })
   @ApiParam({ name: 'id', description: 'File ID (file_id)' })
   @ApiResponse({ status: 200, description: 'File retrieved successfully' })
   async findOne(@Request() req, @Param('id') id: string) {
-    return this.filesService.findOne(req.user.tenant_id, id);
+    // Allow public access (no tenant filtering) or authenticated access (with tenant filtering)
+    const tenantId = req.user?.tenant_id || null;
+    return this.filesService.findOne(tenantId, id);
   }
 
   @Delete(':id')

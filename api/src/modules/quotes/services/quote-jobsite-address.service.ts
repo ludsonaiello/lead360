@@ -64,7 +64,6 @@ export class QuoteJobsiteAddressService {
           city: validatedAddress.city,
           state: validatedAddress.state,
           zip_code: validatedAddress.zip_code,
-          country: validatedAddress.country || 'US',
           latitude: new Decimal(validatedAddress.latitude),
           longitude: new Decimal(validatedAddress.longitude),
           google_place_id: validatedAddress.google_place_id || null,

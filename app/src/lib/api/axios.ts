@@ -122,13 +122,25 @@ apiClient.interceptors.response.use(
 
     // Handle 401 Unauthorized - Token expired or invalid
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+      console.log('[AXIOS INTERCEPTOR] 401 Error detected:', {
+        url: originalRequest.url,
+        timestamp: new Date().toISOString()
+      });
+
       // Avoid refresh for login/register/public endpoints
-      const publicEndpoints = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/forgot-password', '/auth/reset-password', '/auth/activate', '/public/share'];
+      const publicEndpoints = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/forgot-password', '/auth/reset-password', '/auth/activate', '/public/share', '/public/quotes'];
       const isPublicEndpoint = publicEndpoints.some((endpoint) =>
         originalRequest.url?.includes(endpoint)
       );
 
+      console.log('[AXIOS INTERCEPTOR] Public endpoint check:', {
+        url: originalRequest.url,
+        isPublicEndpoint,
+        timestamp: new Date().toISOString()
+      });
+
       if (isPublicEndpoint) {
+        console.log('[AXIOS INTERCEPTOR] Public endpoint - skipping token refresh');
         return Promise.reject(error);
       }
 
@@ -141,10 +153,18 @@ apiClient.interceptors.response.use(
         try {
           const refreshToken = getRefreshToken();
 
+          console.log('[AXIOS INTERCEPTOR] Attempting token refresh:', {
+            hasRefreshToken: !!refreshToken,
+            timestamp: new Date().toISOString()
+          });
+
           if (!refreshToken) {
             // No refresh token, redirect to login
+            console.log('[AXIOS INTERCEPTOR] !!! NO REFRESH TOKEN - REDIRECTING TO /login !!!');
+            console.log('[AXIOS INTERCEPTOR] Current pathname:', typeof window !== 'undefined' ? window.location.pathname : 'SSR');
             clearTokens();
             if (typeof window !== 'undefined') {
+              console.log('[AXIOS INTERCEPTOR] !!! window.location.href = "/login?session_expired=true" !!!');
               window.location.href = '/login?session_expired=true';
             }
             return Promise.reject(error);
@@ -178,10 +198,14 @@ apiClient.interceptors.response.use(
           return apiClient(originalRequest);
         } catch (refreshError) {
           // Refresh failed, clear tokens and redirect to login
+          console.error('[AXIOS INTERCEPTOR] !!! TOKEN REFRESH FAILED !!!');
+          console.error('[AXIOS INTERCEPTOR] Error:', refreshError);
           isRefreshing = false;
           clearTokens();
 
           if (typeof window !== 'undefined') {
+            console.log('[AXIOS INTERCEPTOR] !!! window.location.href = "/login?session_expired=true" !!!');
+            console.log('[AXIOS INTERCEPTOR] Current pathname:', window.location.pathname);
             window.location.href = '/login?session_expired=true';
           }
 

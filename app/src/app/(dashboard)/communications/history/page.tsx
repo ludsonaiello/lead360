@@ -57,6 +57,8 @@ export default function CommunicationHistoryPage() {
     { value: 'pending', label: 'Pending' },
     { value: 'sent', label: 'Sent' },
     { value: 'delivered', label: 'Delivered' },
+    { value: 'opened', label: 'Opened' },
+    { value: 'clicked', label: 'Clicked' },
     { value: 'failed', label: 'Failed' },
     { value: 'bounced', label: 'Bounced' },
   ];

@@ -11,7 +11,7 @@ import {
   UpdateTemplateDto,
   ListTemplatesDto,
 } from '../dto/template';
-import { randomBytes } from 'crypto';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class QuoteTemplateService {
@@ -24,9 +24,7 @@ export class QuoteTemplateService {
    * Generate UUID v4
    */
   private generateUUID(): string {
-    return randomBytes(16)
-      .toString('hex')
-      .replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
+    return randomUUID();
   }
 
   /**

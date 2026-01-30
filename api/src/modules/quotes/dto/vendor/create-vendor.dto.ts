@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsNumber,
   Length,
+  MaxLength,
   Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -32,7 +33,7 @@ export class CreateVendorDto {
   @ApiPropertyOptional({ example: 'Suite 100' })
   @IsString()
   @IsOptional()
-  @Length(1, 255)
+  @MaxLength(255)
   address_line2?: string;
 
   @ApiPropertyOptional({ example: 'Boston' })
@@ -62,9 +63,10 @@ export class CreateVendorDto {
   @IsOptional()
   longitude?: number;
 
-  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
+  @ApiPropertyOptional({ example: '550e8400-e29b-41d4-a716-446655440000' })
   @IsString()
-  signature_file_id: string;
+  @IsOptional()
+  signature_file_id?: string;
 
   @ApiPropertyOptional({ example: false })
   @IsBoolean()

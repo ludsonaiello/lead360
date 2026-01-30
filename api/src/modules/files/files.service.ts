@@ -371,12 +371,14 @@ export class FilesService {
 
   /**
    * Find one file by ID
+   * @param tenantId - Tenant ID for authenticated requests, null for public access
+   * @param fileId - File ID
    */
-  async findOne(tenantId: string, fileId: string) {
+  async findOne(tenantId: string | null, fileId: string) {
     const file = await this.prisma.file.findFirst({
       where: {
         file_id: fileId,
-        tenant_id: tenantId, // CRITICAL: Tenant isolation
+        ...(tenantId && { tenant_id: tenantId }), // Filter by tenant only if authenticated
         is_trashed: false, // Don't show trashed files
       },
     });
@@ -385,8 +387,16 @@ export class FilesService {
       throw new NotFoundException('File not found');
     }
 
-    // Get URL from storage
-    const fileInfo = await this.fileStorage.getFileInfo(tenantId, fileId);
+    // Security check: If not authenticated, verify file is part of active public quote
+    if (!tenantId) {
+      const isPublic = await this.isFilePubliclyAccessible(file.id);
+      if (!isPublic) {
+        throw new NotFoundException('File not found'); // Don't reveal it exists
+      }
+    }
+
+    // Get URL from storage (use file's tenant_id for storage lookup)
+    const fileInfo = await this.fileStorage.getFileInfo(file.tenant_id, fileId);
 
     return {
       id: file.id,
@@ -586,12 +596,22 @@ export class FilesService {
 
   /**
    * Find orphan files (files not attached to any entity)
+   *
+   * Orphan detection excludes files that are:
+   * - Linked to quotes as latest PDF (quote.latest_pdf_file_id)
+   * - Have entity_id set (attached to an entity)
+   * - Created within the last 30 days
+   * - Already trashed
    */
   async findOrphans(tenantId: string) {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+    // Get all file IDs that are linked as latest PDFs in quotes (exclude from orphan detection)
+    const linkedPdfFileIds = await this.getLinkedPdfFileIds(tenantId);
+
     // Find files where entity_id is null and created > 30 days ago
+    // EXCLUDE files that are linked as latest PDFs
     const orphans = await this.prisma.file.findMany({
       where: {
         tenant_id: tenantId,
@@ -600,6 +620,9 @@ export class FilesService {
           lte: thirtyDaysAgo,
         },
         is_trashed: false,
+        id: {
+          notIn: linkedPdfFileIds.length > 0 ? linkedPdfFileIds : undefined, // ✅ CRITICAL: Exclude linked PDFs from orphan detection
+        },
       },
       orderBy: { created_at: 'asc' },
       select: {
@@ -788,6 +811,36 @@ export class FilesService {
       message: `${trashedFiles.length} trashed files permanently deleted`,
       count: trashedFiles.length,
     };
+  }
+
+  /**
+   * Get all file IDs that are linked as latest PDFs in quotes
+   *
+   * These files must NOT be marked as orphans even if they have no entity_id,
+   * because they are actively referenced by quotes.
+   *
+   * @param tenantId - Tenant ID
+   * @returns Array of file IDs that are linked as latest PDFs
+   */
+  private async getLinkedPdfFileIds(tenantId: string): Promise<string[]> {
+    const quotes = await this.prisma.quote.findMany({
+      where: {
+        tenant_id: tenantId,
+        latest_pdf_file_id: { not: null },
+      },
+      select: {
+        latest_pdf_file_id: true,
+      },
+    });
+
+    // Filter out nulls and return unique file IDs
+    const fileIds = quotes
+      .map((q) => q.latest_pdf_file_id)
+      .filter((id): id is string => id !== null);
+
+    this.logger.debug(`Found ${fileIds.length} linked PDF files for tenant ${tenantId} (excluded from orphan detection)`);
+
+    return fileIds;
   }
 
   /**
@@ -1742,5 +1795,84 @@ export class FilesService {
         .sort((a, b) => b.count - a.count)
         .slice(0, 10), // Top 10 MIME types
     };
+  }
+
+  /**
+   * Check if a file is publicly accessible (part of an active public quote)
+   * Files are public if they are:
+   * - Tenant logo
+   * - Vendor signature
+   * - Quote PDF
+   * - Quote attachment
+   * AND the quote has an active public access token
+   */
+  private async isFilePubliclyAccessible(fileId: string): Promise<boolean> {
+    // Check if file is a tenant logo with active public quotes
+    const tenantLogo = await this.prisma.tenant.findFirst({
+      where: {
+        logo_file_id: fileId,
+        quotes: {
+          some: {
+            public_access: {
+              some: {
+                is_active: true,
+                OR: [
+                  { expires_at: null },
+                  { expires_at: { gt: new Date() } },
+                ],
+              },
+            },
+          },
+        },
+      },
+    });
+    if (tenantLogo) return true;
+
+    // Check if file is a vendor signature with active public quotes
+    const vendorSignature = await this.prisma.vendor.findFirst({
+      where: {
+        signature_file_id: fileId,
+        quotes: {
+          some: {
+            public_access: {
+              some: {
+                is_active: true,
+                OR: [
+                  { expires_at: null },
+                  { expires_at: { gt: new Date() } },
+                ],
+              },
+            },
+          },
+        },
+      },
+    });
+    if (vendorSignature) return true;
+
+    // Check if file is a quote PDF or attachment
+    const quoteFile = await this.prisma.quote.findFirst({
+      where: {
+        OR: [
+          { latest_pdf_file_id: fileId },
+          {
+            attachments: {
+              some: { file_id: fileId },
+            },
+          },
+        ],
+        public_access: {
+          some: {
+            is_active: true,
+            OR: [
+              { expires_at: null },
+              { expires_at: { gt: new Date() } },
+            ],
+          },
+        },
+      },
+    });
+    if (quoteFile) return true;
+
+    return false;
   }
 }

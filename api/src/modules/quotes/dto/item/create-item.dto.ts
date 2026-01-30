@@ -7,6 +7,7 @@ import {
   IsUUID,
   Length,
   Min,
+  Max,
 } from 'class-validator';
 
 export class CreateItemDto {
@@ -93,6 +94,55 @@ export class CreateItemDto {
   @IsOptional()
   @IsUUID()
   quote_group_id?: string;
+
+  @ApiPropertyOptional({
+    example: 15.0,
+    description: 'Custom profit percentage for this item (overrides quote-level)',
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  custom_profit_percent?: number;
+
+  @ApiPropertyOptional({
+    example: 10.0,
+    description: 'Custom overhead percentage for this item (overrides quote-level)',
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  custom_overhead_percent?: number;
+
+  @ApiPropertyOptional({
+    example: 5.0,
+    description: 'Custom contingency percentage for this item (overrides quote-level)',
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  custom_contingency_percent?: number;
+
+  @ApiPropertyOptional({
+    example: 10.0,
+    description: 'Custom discount percentage for this item',
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  custom_discount_percentage?: number;
+
+  @ApiPropertyOptional({
+    example: 50.0,
+    description: 'Custom fixed discount amount for this item',
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  custom_discount_amount?: number;
 
   @ApiPropertyOptional({
     example: true,

@@ -11,6 +11,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
 
+  // Trust proxy (Nginx) - required for correct IP address from X-Forwarded-For
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', true);
+
   // Add raw body parsing middleware for webhook signature verification
   // This must be added BEFORE the JSON body parser
   app.use(

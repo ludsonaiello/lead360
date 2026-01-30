@@ -30,7 +30,7 @@ export class QuoteVersionService {
         id: uuid(),
         quote_id: quoteId,
         version_number: new Decimal(1.0),
-        change_description: 'Initial version',
+        change_summary: 'Initial version',
         snapshot_data: JSON.stringify(snapshot),
       },
     });
@@ -78,7 +78,7 @@ export class QuoteVersionService {
         id: uuid(),
         quote_id: quoteId,
         version_number: new Decimal(newVersion),
-        change_description: changeDescription,
+        change_summary: changeDescription,
         snapshot_data: JSON.stringify(snapshot),
       },
     });
@@ -117,9 +117,9 @@ export class QuoteVersionService {
         vendor: {
           select: {
             id: true,
-            business_name: true,
-            contact_email: true,
-            contact_phone: true,
+            name: true,
+            email: true,
+            phone: true,
           },
         },
         lead: {
@@ -127,7 +127,6 @@ export class QuoteVersionService {
             id: true,
             first_name: true,
             last_name: true,
-            company_name: true,
           },
         },
         items: {

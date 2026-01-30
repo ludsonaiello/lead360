@@ -200,20 +200,23 @@ export interface UpdateLeadStatusDto {
   lost_reason?: string;
 }
 
+export interface LeadListItem {
+  id: string;
+  first_name: string;
+  last_name: string;
+  status: string;
+  source: string;
+  created_at: string;
+  updated_at?: string;
+  emails: LeadEmail[];
+  phones: LeadPhone[];
+  addresses: LeadAddress[];
+  service_requests: ServiceRequest[];
+  company_name?: string;
+}
+
 export interface ListLeadsResponse {
-  data: Array<{
-    id: string;
-    first_name: string;
-    last_name: string;
-    status: string;
-    source: string;
-    created_at: string;
-    updated_at?: string;
-    emails: LeadEmail[];
-    phones: LeadPhone[];
-    addresses: LeadAddress[];
-    service_requests: ServiceRequest[];
-  }>;
+  data: LeadListItem[];
   meta: {
     page: number;
     limit: number;

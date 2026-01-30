@@ -8,9 +8,11 @@ import {
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { LeadsService } from '../../leads/services/leads.service';
+import { AddressType } from '../../leads/dto/lead.dto';
 import { QuoteNumberGeneratorService } from './quote-number-generator.service';
 import { QuoteJobsiteAddressService } from './quote-jobsite-address.service';
 import { QuoteVersionService } from './quote-version.service';
+import { QuotePricingService } from './quote-pricing.service';
 import {
   CreateQuoteFromLeadDto,
   CreateQuoteWithCustomerDto,
@@ -21,6 +23,10 @@ import {
   ListQuotesDto,
   QuoteStatus,
 } from '../dto/quote';
+import {
+  AddBundleToQuoteDto,
+  AddBundleToQuoteResponseDto,
+} from '../dto/bundle';
 import { Decimal } from '@prisma/client/runtime/library';
 import { v4 as uuid } from 'uuid';
 
@@ -35,6 +41,7 @@ export class QuoteService {
     private readonly quoteNumberService: QuoteNumberGeneratorService,
     private readonly jobsiteAddressService: QuoteJobsiteAddressService,
     private readonly versionService: QuoteVersionService,
+    private readonly pricingService: QuotePricingService,
   ) {}
 
   /**
@@ -60,7 +67,7 @@ export class QuoteService {
       throw new NotFoundException(`Lead not found: ${leadId}`);
     }
 
-    return await this.prisma.$transaction(async (tx) => {
+    const createdQuoteId = await this.prisma.$transaction(async (tx) => {
       // 1. Validate and create jobsite address
       const address = await this.jobsiteAddressService.createAndValidate(
         tenantId,
@@ -84,8 +91,10 @@ export class QuoteService {
       // 3. Generate quote number
       const quoteNumber = await this.quoteNumberService.generate(tenantId, tx);
 
-      // 4. Set expiration days (default 30)
+      // 4. Set expiration days (default 30) and calculate expiration date
       const expirationDays = dto.expiration_days || 30;
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + expirationDays);
 
       // 5. Create quote
       const quote = await tx.quote.create({
@@ -101,6 +110,7 @@ export class QuoteService {
           status: QuoteStatus.DRAFT,
           active_version_number: new Decimal(1.0),
           expiration_days: expirationDays,
+          expires_at: expiresAt,
           custom_profit_percent: dto.custom_profit_percent
             ? new Decimal(dto.custom_profit_percent)
             : null,
@@ -119,12 +129,7 @@ export class QuoteService {
       // 6. Create initial version (v1.0)
       await this.versionService.createInitialVersion(quote.id, quote, tx);
 
-      // 7. Update lead status to "prospect"
-      await this.leadsService.updateStatus(tenantId, leadId, userId, {
-        status: 'prospect',
-      });
-
-      // 8. Log audit trail
+      // 7. Log audit trail
       await this.auditLogger.logTenantChange({
         action: 'created',
         entityType: 'quote',
@@ -140,8 +145,11 @@ export class QuoteService {
         `Quote created from lead: ${quoteNumber} for tenant: ${tenantId}`,
       );
 
-      return this.findOne(tenantId, quote.id);
+      return quote.id;
     });
+
+    // Fetch and return the complete quote after transaction commits
+    return this.findOne(tenantId, createdQuoteId);
   }
 
   /**
@@ -158,14 +166,24 @@ export class QuoteService {
     userId: string,
     dto: CreateQuoteWithCustomerDto,
   ): Promise<any> {
-    return await this.prisma.$transaction(async (tx) => {
-      // 1. Create lead via LeadsService
+    const createdQuoteId = await this.prisma.$transaction(async (tx) => {
+      // 1. Create lead via LeadsService (using jobsite address as primary address)
       const lead = await this.leadsService.create(tenantId, userId, {
         first_name: dto.customer.first_name,
         last_name: dto.customer.last_name,
         emails: [{ email: dto.customer.email, is_primary: true }],
         phones: [{ phone: dto.customer.phone, is_primary: true }],
-        addresses: [],
+        addresses: [{
+          address_line1: dto.jobsite_address.address_line1,
+          address_line2: dto.jobsite_address.address_line2,
+          city: dto.jobsite_address.city,
+          state: dto.jobsite_address.state,
+          zip_code: dto.jobsite_address.zip_code,
+          latitude: dto.jobsite_address.latitude,
+          longitude: dto.jobsite_address.longitude,
+          address_type: AddressType.SERVICE,
+          is_primary: true,
+        }],
         source: 'manual',
       });
 
@@ -192,8 +210,10 @@ export class QuoteService {
       // 4. Generate quote number
       const quoteNumber = await this.quoteNumberService.generate(tenantId, tx);
 
-      // 5. Set expiration days (default 30)
+      // 5. Set expiration days (default 30) and calculate expiration date
       const expirationDays = dto.expiration_days || 30;
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + expirationDays);
 
       // 6. Create quote
       const quote = await tx.quote.create({
@@ -209,6 +229,7 @@ export class QuoteService {
           status: QuoteStatus.DRAFT,
           active_version_number: new Decimal(1.0),
           expiration_days: expirationDays,
+          expires_at: expiresAt,
           custom_profit_percent: dto.custom_profit_percent
             ? new Decimal(dto.custom_profit_percent)
             : null,
@@ -243,8 +264,11 @@ export class QuoteService {
         `Quote created with new customer: ${quoteNumber} for tenant: ${tenantId}`,
       );
 
-      return this.findOne(tenantId, quote.id);
+      return quote.id;
     });
+
+    // Fetch and return the complete quote after transaction commits
+    return this.findOne(tenantId, createdQuoteId);
   }
 
   /**
@@ -267,7 +291,7 @@ export class QuoteService {
       throw new NotFoundException(`Lead not found: ${dto.lead_id}`);
     }
 
-    return await this.prisma.$transaction(async (tx) => {
+    const createdQuoteId = await this.prisma.$transaction(async (tx) => {
       // 1. Validate and create jobsite address
       const address = await this.jobsiteAddressService.createAndValidate(
         tenantId,
@@ -291,8 +315,10 @@ export class QuoteService {
       // 3. Generate quote number
       const quoteNumber = await this.quoteNumberService.generate(tenantId, tx);
 
-      // 4. Set expiration days (default 30)
+      // 4. Set expiration days (default 30) and calculate expiration date
       const expirationDays = dto.expiration_days || 30;
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + expirationDays);
 
       // 5. Create quote
       const quote = await tx.quote.create({
@@ -308,6 +334,7 @@ export class QuoteService {
           status: QuoteStatus.DRAFT,
           active_version_number: new Decimal(1.0),
           expiration_days: expirationDays,
+          expires_at: expiresAt,
           custom_profit_percent: dto.custom_profit_percent
             ? new Decimal(dto.custom_profit_percent)
             : null,
@@ -326,12 +353,7 @@ export class QuoteService {
       // 6. Create initial version
       await this.versionService.createInitialVersion(quote.id, quote, tx);
 
-      // 7. Update lead status to prospect
-      await this.leadsService.updateStatus(tenantId, dto.lead_id, userId, {
-        status: 'prospect',
-      });
-
-      // 8. Log audit trail
+      // 7. Log audit trail
       await this.auditLogger.logTenantChange({
         action: 'created',
         entityType: 'quote',
@@ -347,8 +369,11 @@ export class QuoteService {
         `Quote created: ${quoteNumber} for tenant: ${tenantId}`,
       );
 
-      return this.findOne(tenantId, quote.id);
+      return quote.id;
     });
+
+    // Fetch and return the complete quote after transaction commits
+    return this.findOne(tenantId, createdQuoteId);
   }
 
   /**
@@ -395,10 +420,16 @@ export class QuoteService {
     if (created_from || created_to) {
       where.created_at = {};
       if (created_from) {
-        where.created_at.gte = new Date(created_from);
+        // Start of day (00:00:00.000)
+        const fromDate = new Date(created_from);
+        fromDate.setHours(0, 0, 0, 0);
+        where.created_at.gte = fromDate;
       }
       if (created_to) {
-        where.created_at.lte = new Date(created_to);
+        // End of day (23:59:59.999)
+        const toDate = new Date(created_to);
+        toDate.setHours(23, 59, 59, 999);
+        where.created_at.lte = toDate;
       }
     }
 
@@ -411,7 +442,6 @@ export class QuoteService {
             OR: [
               { first_name: { contains: search } },
               { last_name: { contains: search } },
-              { company_name: { contains: search } },
             ],
           },
         },
@@ -602,7 +632,7 @@ export class QuoteService {
       throw new BadRequestException('Cannot edit approved quote');
     }
 
-    return await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       // Validate vendor if provided
       if (dto.vendor_id) {
         const vendor = await tx.vendor.findFirst({
@@ -621,30 +651,44 @@ export class QuoteService {
       // Build update data
       const updateData: any = {};
 
-      if (dto.vendor_id) updateData.vendor_id = dto.vendor_id;
+      if (dto.vendor_id) {
+        updateData.vendor = {
+          connect: { id: dto.vendor_id },
+        };
+      }
       if (dto.title) updateData.title = dto.title;
       if (dto.po_number !== undefined) updateData.po_number = dto.po_number;
-      if (dto.expiration_date) updateData.expiration_date = new Date(dto.expiration_date);
+      if (dto.expiration_date) updateData.expires_at = new Date(dto.expiration_date);
       if (dto.custom_profit_percent !== undefined)
-        updateData.custom_profit_percent = dto.custom_profit_percent
-          ? new Decimal(dto.custom_profit_percent)
-          : null;
+        updateData.custom_profit_percent =
+          dto.custom_profit_percent !== null
+            ? new Decimal(dto.custom_profit_percent)
+            : null;
       if (dto.custom_overhead_percent !== undefined)
-        updateData.custom_overhead_percent = dto.custom_overhead_percent
-          ? new Decimal(dto.custom_overhead_percent)
-          : null;
+        updateData.custom_overhead_percent =
+          dto.custom_overhead_percent !== null
+            ? new Decimal(dto.custom_overhead_percent)
+            : null;
+      if (dto.custom_contingency_percent !== undefined)
+        updateData.custom_contingency_percent =
+          dto.custom_contingency_percent !== null
+            ? new Decimal(dto.custom_contingency_percent)
+            : null;
+      if (dto.custom_tax_rate !== undefined)
+        updateData.custom_tax_rate =
+          dto.custom_tax_rate !== null
+            ? new Decimal(dto.custom_tax_rate)
+            : null;
       if (dto.show_line_items !== undefined)
         updateData.show_line_items = dto.show_line_items;
       if (dto.show_cost_breakdown !== undefined)
         updateData.show_cost_breakdown = dto.show_cost_breakdown;
-      if (dto.internal_notes !== undefined)
-        updateData.internal_notes = dto.internal_notes;
-      if (dto.customer_notes !== undefined)
-        updateData.customer_notes = dto.customer_notes;
-      if (dto.payment_terms !== undefined)
-        updateData.payment_terms = dto.payment_terms;
-      if (dto.payment_schedule !== undefined)
-        updateData.payment_schedule = dto.payment_schedule;
+      if (dto.private_notes !== undefined)
+        updateData.private_notes = dto.private_notes;
+      if (dto.custom_terms !== undefined)
+        updateData.custom_terms = dto.custom_terms;
+      if (dto.custom_payment_instructions !== undefined)
+        updateData.custom_payment_instructions = dto.custom_payment_instructions;
 
       // Update quote
       const updatedQuote = await tx.quote.update({
@@ -674,9 +718,10 @@ export class QuoteService {
       });
 
       this.logger.log(`Quote updated: ${quoteId}`);
-
-      return this.findOne(tenantId, quoteId);
     });
+
+    // Fetch and return the complete quote after transaction commits
+    return this.findOne(tenantId, quoteId);
   }
 
   /**
@@ -699,13 +744,20 @@ export class QuoteService {
 
     // Validate status transitions
     const validTransitions: Record<string, string[]> = {
-      draft: ['ready'],
+      draft: ['pending_approval', 'ready'],
+      pending_approval: ['ready', 'draft'],
       ready: ['sent', 'draft'],
-      sent: ['read', 'ready'],
-      read: ['approved', 'denied', 'lost', 'sent'],
-      approved: [], // Cannot change from approved
+      sent: ['delivered', 'read', 'opened', 'downloaded', 'approved', 'denied', 'lost'],
+      delivered: ['opened', 'read', 'downloaded', 'approved', 'denied', 'lost'],
+      opened: ['read', 'downloaded', 'approved', 'denied', 'lost'],
+      read: ['downloaded', 'approved', 'denied', 'lost'],
+      downloaded: ['approved', 'denied', 'lost'],
+      approved: ['started', 'concluded'],
+      started: ['concluded'],
+      concluded: [], // Final status - project complete
       denied: ['draft'], // Can reopen
       lost: ['draft'], // Can reopen
+      email_failed: ['sent'], // Can retry
     };
 
     const allowedStatuses = validTransitions[quote.status] || [];
@@ -721,7 +773,7 @@ export class QuoteService {
       await this.validateReadyStatus(quote);
     }
 
-    return await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       // Update quote status
       const updatedQuote = await tx.quote.update({
         where: { id: quoteId },
@@ -750,9 +802,42 @@ export class QuoteService {
       });
 
       this.logger.log(`Quote status updated: ${quoteId} → ${dto.status}`);
-
-      return this.findOne(tenantId, quoteId);
     });
+
+    // Auto-update lead status based on quote progression
+    if (quote.lead_id) {
+      const wonStatuses = ['approved', 'started', 'concluded'];
+      const activeStatuses = ['sent', 'delivered', 'read', 'opened', 'downloaded', 'email_failed'];
+
+      try {
+        // Convert to customer when quote is won
+        if (wonStatuses.includes(dto.status)) {
+          await this.leadsService.updateStatus(tenantId, quote.lead_id, userId, {
+            status: 'customer',
+          });
+          this.logger.log(
+            `Lead ${quote.lead_id} automatically converted to customer (quote ${quoteId} → ${dto.status})`,
+          );
+        }
+        // Convert to prospect when quote becomes active (sent, etc.)
+        else if (activeStatuses.includes(dto.status)) {
+          await this.leadsService.updateStatus(tenantId, quote.lead_id, userId, {
+            status: 'prospect',
+          });
+          this.logger.log(
+            `Lead ${quote.lead_id} automatically converted to prospect (quote ${quoteId} → ${dto.status})`,
+          );
+        }
+      } catch (error) {
+        // Don't fail quote status update if lead update fails
+        this.logger.error(
+          `Failed to auto-update lead ${quote.lead_id} status: ${error.message}`,
+        );
+      }
+    }
+
+    // Fetch and return the complete quote after transaction commits
+    return this.findOne(tenantId, quoteId);
   }
 
   /**
@@ -808,7 +893,7 @@ export class QuoteService {
       throw new BadRequestException('Cannot edit approved quote');
     }
 
-    return await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       // Update and validate address
       await this.jobsiteAddressService.updateAndValidate(
         tenantId,
@@ -839,9 +924,10 @@ export class QuoteService {
       });
 
       this.logger.log(`Quote jobsite address updated: ${quoteId}`);
-
-      return this.findOne(tenantId, quoteId);
     });
+
+    // Fetch and return the complete quote after transaction commits
+    return this.findOne(tenantId, quoteId);
   }
 
   /**
@@ -894,7 +980,7 @@ export class QuoteService {
       throw new NotFoundException('Source quote not found');
     }
 
-    return await this.prisma.$transaction(async (tx) => {
+    const clonedQuoteId = await this.prisma.$transaction(async (tx) => {
       // 1. Clone jobsite address
       const newAddress = await this.jobsiteAddressService.clone(
         tenantId,
@@ -905,7 +991,11 @@ export class QuoteService {
       // 2. Generate new quote number
       const newQuoteNumber = await this.quoteNumberService.generate(tenantId, tx);
 
-      // 3. Create new quote
+      // 3. Calculate new expiration date based on expiration_days
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + (sourceQuote.expiration_days || 30));
+
+      // 4. Create new quote
       const newQuote = await tx.quote.create({
         data: {
           id: uuid(),
@@ -919,6 +1009,7 @@ export class QuoteService {
           status: QuoteStatus.DRAFT,
           active_version_number: new Decimal(1.0),
           expiration_days: sourceQuote.expiration_days,
+          expires_at: expiresAt,
           custom_profit_percent: sourceQuote.custom_profit_percent
             ? new Decimal(sourceQuote.custom_profit_percent)
             : null,
@@ -1041,8 +1132,11 @@ export class QuoteService {
 
       this.logger.log(`Quote cloned: ${sourceQuote.quote_number} → ${newQuoteNumber}`);
 
-      return this.findOne(tenantId, newQuote.id);
+      return newQuote.id;
     });
+
+    // Fetch and return the complete quote after transaction commits
+    return this.findOne(tenantId, clonedQuoteId);
   }
 
   /**
@@ -1091,28 +1185,274 @@ export class QuoteService {
   }
 
   /**
+   * Add bundle to quote
+   * Creates quote group (optional) and converts bundle items to quote items
+   * Optionally applies bundle discount as quote discount rule
+   *
+   * @param tenantId - Tenant UUID
+   * @param userId - User UUID
+   * @param quoteId - Quote UUID
+   * @param bundleId - Bundle UUID
+   * @param dto - Add bundle DTO
+   * @returns Response with created items count and IDs
+   */
+  async addBundle(
+    tenantId: string,
+    userId: string,
+    quoteId: string,
+    bundleId: string,
+    dto: AddBundleToQuoteDto,
+  ): Promise<AddBundleToQuoteResponseDto> {
+    // Step 1: Validate quote exists and is editable
+    const quote = await this.prisma.quote.findFirst({
+      where: { id: quoteId, tenant_id: tenantId },
+      select: { id: true, status: true, quote_number: true },
+    });
+
+    if (!quote) {
+      throw new NotFoundException('Quote not found');
+    }
+
+    if (quote.status === 'approved') {
+      throw new BadRequestException('Cannot add bundle to approved quote');
+    }
+
+    // Step 2: Validate bundle exists and is active
+    const bundle = await this.prisma.quote_bundle.findFirst({
+      where: { id: bundleId, tenant_id: tenantId },
+      include: {
+        items: {
+          orderBy: { order_index: 'asc' },
+          include: {
+            unit_measurement: {
+              select: { id: true, name: true, abbreviation: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!bundle) {
+      throw new NotFoundException('Bundle not found');
+    }
+
+    if (!bundle.is_active) {
+      throw new BadRequestException('Cannot add inactive bundle to quote');
+    }
+
+    if (bundle.items.length === 0) {
+      throw new BadRequestException('Bundle has no items');
+    }
+
+    // Step 3: Execute in transaction
+    return await this.prisma.$transaction(async (tx) => {
+      let quoteGroupId: string | undefined;
+      let discountRuleId: string | undefined;
+
+      // Step 3a: Create quote group (if requested)
+      if (dto.create_group !== false) {
+        // Get max order_index for groups
+        const maxGroupIndex = await tx.quote_group.findFirst({
+          where: { quote_id: quoteId },
+          orderBy: { order_index: 'desc' },
+          select: { order_index: true },
+        });
+
+        const groupOrderIndex = maxGroupIndex ? maxGroupIndex.order_index + 1 : 0;
+
+        const group = await tx.quote_group.create({
+          data: {
+            id: uuid(),
+            quote_id: quoteId,
+            name: dto.group_name || bundle.name,
+            description: bundle.description,
+            order_index: groupOrderIndex,
+          },
+        });
+
+        quoteGroupId = group.id;
+      }
+
+      // Step 3b: Get max order_index for items
+      const maxItemIndex = await tx.quote_item.findFirst({
+        where: { quote_id: quoteId },
+        orderBy: { order_index: 'desc' },
+        select: { order_index: true },
+      });
+
+      let nextItemOrderIndex = maxItemIndex ? maxItemIndex.order_index + 1 : 1;
+
+      // Step 3c: Convert bundle items to quote items
+      const quoteItemsData = bundle.items.map((bundleItem) => {
+        const totalCostPerUnit =
+          Number(bundleItem.material_cost_per_unit) +
+          Number(bundleItem.labor_cost_per_unit) +
+          Number(bundleItem.equipment_cost_per_unit) +
+          Number(bundleItem.subcontract_cost_per_unit) +
+          Number(bundleItem.other_cost_per_unit);
+
+        const totalCost = totalCostPerUnit * Number(bundleItem.quantity);
+
+        const itemData = {
+          id: uuid(),
+          quote_id: quoteId,
+          quote_group_id: quoteGroupId || null,
+          item_library_id: bundleItem.item_library_id,
+          quote_bundle_id: bundleId,  // Track source bundle
+          title: bundleItem.title,
+          description: bundleItem.description,
+          quantity: bundleItem.quantity,
+          unit_measurement_id: bundleItem.unit_measurement_id,
+          material_cost_per_unit: bundleItem.material_cost_per_unit,
+          labor_cost_per_unit: bundleItem.labor_cost_per_unit,
+          equipment_cost_per_unit: bundleItem.equipment_cost_per_unit,
+          subcontract_cost_per_unit: bundleItem.subcontract_cost_per_unit,
+          other_cost_per_unit: bundleItem.other_cost_per_unit,
+          total_cost: new Decimal(totalCost),
+          order_index: nextItemOrderIndex++,
+          // Note: Custom margins NOT copied from bundle - user can set manually
+          custom_profit_percent: null,
+          custom_overhead_percent: null,
+          custom_contingency_percent: null,
+          custom_discount_percentage: null,
+          custom_discount_amount: null,
+        };
+
+        return itemData;
+      });
+
+      await tx.quote_item.createMany({
+        data: quoteItemsData,
+      });
+
+      // Step 3d: Apply bundle discount (if requested and exists)
+      if (
+        dto.apply_discount !== false &&
+        bundle.discount_type &&
+        bundle.discount_value
+      ) {
+        // Get max order_index for discount rules
+        const maxDiscountIndex = await tx.quote_discount_rule.findFirst({
+          where: { quote_id: quoteId },
+          orderBy: { order_index: 'desc' },
+          select: { order_index: true },
+        });
+
+        const discountOrderIndex = maxDiscountIndex
+          ? maxDiscountIndex.order_index + 1
+          : 0;
+
+        const discountRule = await tx.quote_discount_rule.create({
+          data: {
+            id: uuid(),
+            quote_id: quoteId,
+            rule_type: bundle.discount_type,
+            value: bundle.discount_value,
+            reason: `Bundle discount: ${bundle.name}`,
+            apply_to: 'subtotal',
+            order_index: discountOrderIndex,
+          },
+        });
+
+        discountRuleId = discountRule.id;
+      }
+
+      // Step 3e: Recalculate quote totals
+      await this.pricingService.updateQuoteFinancials(quoteId, tx);
+
+      // Step 3f: Create version snapshot (increment by 0.1)
+      await this.versionService.createVersion(
+        quoteId,
+        0.1,
+        `Added bundle: ${bundle.name} (${bundle.items.length} items)`,
+        userId,
+        tx,
+      );
+
+      // Step 3g: Audit log
+      await this.auditLogger.logTenantChange({
+        action: 'updated',
+        entityType: 'quote',
+        entityId: quoteId,
+        tenantId,
+        actorUserId: userId,
+        description: `Bundle "${bundle.name}" added to quote ${quote.quote_number} (${bundle.items.length} items)`,
+      });
+
+      return {
+        success: true,
+        message: `Bundle '${bundle.name}' added to quote`,
+        quote_group_id: quoteGroupId,
+        items_created: bundle.items.length,
+        discount_applied:
+          dto.apply_discount !== false && !!discountRuleId,
+        discount_rule_id: discountRuleId,
+      };
+    });
+  }
+
+  /**
    * Get quote statistics for tenant
    *
    * @param tenantId - Tenant UUID
+   * @param createdFrom - Optional start date filter
+   * @param createdTo - Optional end date filter
+   * @param status - Optional status filter
    * @returns Aggregated statistics
    */
-  async getStatistics(tenantId: string): Promise<any> {
-    const [totalQuotes, byStatus, revenue] = await Promise.all([
-      this.prisma.quote.count({
-        where: { tenant_id: tenantId, is_archived: false },
-      }),
+  async getStatistics(
+    tenantId: string,
+    createdFrom?: string,
+    createdTo?: string,
+    status?: string,
+  ): Promise<any> {
+    // Build where clause with optional date filters
+    const where: any = {
+      tenant_id: tenantId,
+      is_archived: false,
+    };
+
+    if (createdFrom || createdTo) {
+      where.created_at = {};
+      if (createdFrom) {
+        // Start of day (00:00:00.000)
+        const fromDate = new Date(createdFrom);
+        fromDate.setHours(0, 0, 0, 0);
+        where.created_at.gte = fromDate;
+      }
+      if (createdTo) {
+        // End of day (23:59:59.999)
+        const toDate = new Date(createdTo);
+        toDate.setHours(23, 59, 59, 999);
+        where.created_at.lte = toDate;
+      }
+    }
+
+    // Add status filter if provided
+    if (status) {
+      where.status = status;
+    }
+
+    const [totalQuotes, byStatus, revenue, allQuotes] = await Promise.all([
+      this.prisma.quote.count({ where }),
       this.prisma.quote.groupBy({
         by: ['status'],
-        where: { tenant_id: tenantId, is_archived: false },
+        where,
         _count: { id: true },
       }),
       this.prisma.quote.aggregate({
         where: {
-          tenant_id: tenantId,
-          is_archived: false,
-          status: QuoteStatus.APPROVED,
+          ...where,
+          status: { in: [QuoteStatus.APPROVED, QuoteStatus.STARTED, QuoteStatus.CONCLUDED] },
         },
         _sum: { total: true },
+      }),
+      this.prisma.quote.findMany({
+        where,
+        select: {
+          status: true,
+          total: true,
+        },
       }),
     ]);
 
@@ -1121,15 +1461,61 @@ export class QuoteService {
       return acc;
     }, {} as Record<string, number>);
 
-    const approvedCount = statusCounts[QuoteStatus.APPROVED] || 0;
-    const sentCount = statusCounts[QuoteStatus.SENT] || 0;
+    // Calculate conversion rate: successful quotes / all quotes that were sent
+    const approvedCount =
+      (statusCounts[QuoteStatus.APPROVED] || 0) +
+      (statusCounts[QuoteStatus.STARTED] || 0) +
+      (statusCounts[QuoteStatus.CONCLUDED] || 0);
+
+    // Count all quotes that have been sent (any status >= sent)
+    const sentCount =
+      (statusCounts[QuoteStatus.SENT] || 0) +
+      (statusCounts[QuoteStatus.DELIVERED] || 0) +
+      (statusCounts[QuoteStatus.READ] || 0) +
+      (statusCounts[QuoteStatus.OPENED] || 0) +
+      (statusCounts[QuoteStatus.DOWNLOADED] || 0) +
+      (statusCounts[QuoteStatus.APPROVED] || 0) +
+      (statusCounts[QuoteStatus.STARTED] || 0) +
+      (statusCounts[QuoteStatus.CONCLUDED] || 0) +
+      (statusCounts[QuoteStatus.DENIED] || 0) +
+      (statusCounts[QuoteStatus.LOST] || 0) +
+      (statusCounts[QuoteStatus.EMAIL_FAILED] || 0);
+
     const conversionRate =
       sentCount > 0 ? (approvedCount / sentCount) * 100 : 0;
+
+    // Calculate new metrics
+    const sentStatuses = ['sent', 'delivered', 'read', 'opened', 'downloaded', 'approved', 'started', 'concluded', 'denied', 'lost', 'email_failed'];
+    const amountSent = allQuotes
+      .filter((q) => sentStatuses.includes(q.status))
+      .reduce((sum, q) => sum + Number(q.total || 0), 0);
+
+    const amountLost = allQuotes
+      .filter((q) => q.status === 'lost')
+      .reduce((sum, q) => sum + Number(q.total || 0), 0);
+
+    const amountDenied = allQuotes
+      .filter((q) => q.status === 'denied')
+      .reduce((sum, q) => sum + Number(q.total || 0), 0);
+
+    const amountPendingApproval = allQuotes
+      .filter((q) => q.status === 'pending_approval')
+      .reduce((sum, q) => sum + Number(q.total || 0), 0);
+
+    // Average quote value (excluding drafts)
+    const generatedQuotes = allQuotes.filter((q) => q.status !== 'draft');
+    const totalGenerated = generatedQuotes.reduce((sum, q) => sum + Number(q.total || 0), 0);
+    const avgQuoteValue = generatedQuotes.length > 0 ? totalGenerated / generatedQuotes.length : 0;
 
     return {
       total_quotes: totalQuotes,
       by_status: statusCounts,
       total_revenue: revenue._sum.total ? Number(revenue._sum.total) : 0,
+      avg_quote_value: Math.round(avgQuoteValue * 100) / 100,
+      amount_sent: Math.round(amountSent * 100) / 100,
+      amount_lost: Math.round(amountLost * 100) / 100,
+      amount_denied: Math.round(amountDenied * 100) / 100,
+      amount_pending_approval: Math.round(amountPendingApproval * 100) / 100,
       conversion_rate: Math.round(conversionRate * 100) / 100,
     };
   }

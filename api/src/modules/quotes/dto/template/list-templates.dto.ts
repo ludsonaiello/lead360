@@ -1,18 +1,26 @@
 import { IsBoolean, IsOptional, IsNumber, Min, Max, IsUUID } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ListTemplatesDto {
   @ApiPropertyOptional({ example: true })
   @IsBoolean()
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
   is_active?: boolean;
 
   @ApiPropertyOptional({ example: true, description: 'Filter global templates only (admin use)' })
   @IsBoolean()
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
   is_global?: boolean;
 
   @ApiPropertyOptional({ example: '550e8400-e29b-41d4-a716', description: 'Filter by tenant ID (admin use)' })
