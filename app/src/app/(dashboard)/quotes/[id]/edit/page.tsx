@@ -150,12 +150,14 @@ export default function QuoteEditPage() {
         vendor_id: vendorId,
       };
 
+      const isChangeOrder = quote?.parent_quote_id != null;
       await updateQuote(quoteId, dto);
-      setSuccessMessage('Quote updated successfully');
+      setSuccessMessage(`${isChangeOrder ? 'Change order' : 'Quote'} updated successfully`);
       setMessageModalOpen(true);
       setTimeout(() => router.push(`/quotes/${quoteId}`), 1500);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to update quote');
+      const isChangeOrder = quote?.parent_quote_id != null;
+      setErrorMessage(err.message || `Failed to update ${isChangeOrder ? 'change order' : 'quote'}`);
       setMessageModalOpen(true);
       setSaving(false);
     }
@@ -184,6 +186,9 @@ export default function QuoteEditPage() {
     return null;
   }
 
+  // Check if this is a change order (has parent_quote_id)
+  const isChangeOrder = quote.parent_quote_id != null;
+
   const editable = isQuoteEditable(quote.status);
 
   return (
@@ -193,14 +198,14 @@ export default function QuoteEditPage() {
         <Link href={`/quotes/${quoteId}`}>
           <Button variant="ghost" size="sm" className="mb-4">
             <ArrowLeft className="w-4 h-4" />
-            Back to Quote
+            {isChangeOrder ? 'Back to Change Order' : 'Back to Quote'}
           </Button>
         </Link>
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-              Edit Quote
+              {isChangeOrder ? 'Edit Change Order' : 'Edit Quote'}
             </h1>
             <p className="text-lg text-gray-600 dark:text-gray-400 mt-1">
               {quote.quote_number}
@@ -217,8 +222,8 @@ export default function QuoteEditPage() {
           <div className="text-sm text-blue-900 dark:text-blue-100">
             <p className="font-semibold mb-1">Editing Basic Information</p>
             <p>
-              You can only edit basic quote information here. To edit items, groups, or other
-              details, go to the quote detail page.
+              You can only edit basic {isChangeOrder ? 'change order' : 'quote'} information here. To edit items, groups, or other
+              details, go to the {isChangeOrder ? 'change order' : 'quote'} detail page.
             </p>
           </div>
         </div>
@@ -230,10 +235,10 @@ export default function QuoteEditPage() {
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-red-900 dark:text-red-100">
-              <p className="font-semibold mb-1">Quote Cannot Be Edited</p>
+              <p className="font-semibold mb-1">{isChangeOrder ? 'Change Order' : 'Quote'} Cannot Be Edited</p>
               <p>
-                Quotes with status "{quote.status}" cannot be edited. Only draft, pending, ready,
-                sent, and viewed quotes can be modified.
+                {isChangeOrder ? 'Change orders' : 'Quotes'} with status "{quote.status}" cannot be edited. Only draft, pending, ready,
+                sent, and viewed {isChangeOrder ? 'change orders' : 'quotes'} can be modified.
               </p>
             </div>
           </div>
@@ -250,7 +255,7 @@ export default function QuoteEditPage() {
           <div className="space-y-4">
             <Input
               label="Title"
-              placeholder="Quote title"
+              placeholder={isChangeOrder ? 'Change order title' : 'Quote title'}
               value={formData.title || ''}
               onChange={(e) => {
                 setFormData({ ...formData, title: e.target.value });

@@ -8,6 +8,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useRBAC } from '@/contexts/RBACContext';
 import { Button } from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import { Modal, ModalActions, ModalContent } from '@/components/ui/Modal';
@@ -30,6 +31,7 @@ import { ApprovalActionsCard } from '@/components/quotes/ApprovalActionsCard';
 import { ApprovalHistoryTimeline } from '@/components/quotes/ApprovalHistoryTimeline';
 import { VersionTimelineCard } from '@/components/quotes/VersionTimelineCard';
 import { ChangeOrderList } from '@/components/quotes/ChangeOrderList';
+import { ChangeOrderHistoryTimeline } from '@/components/quotes/ChangeOrderHistoryTimeline';
 // Sprint 5: Attachments, PDF, Email, Public Access components
 import { AttachmentsSection } from '@/components/quotes/attachments/AttachmentsSection';
 import { PDFActionsMenu } from '@/components/quotes/pdf/PDFActionsMenu';
@@ -39,6 +41,7 @@ import { PublicURLCard } from '@/components/quotes/public-access/PublicURLCard';
 import { PublicURLModal } from '@/components/quotes/public-access/PublicURLModal';
 import { ViewAnalyticsModal } from '@/components/quotes/public-access/ViewAnalyticsModal';
 import { ViewHistoryTable } from '@/components/quotes/public-access/ViewHistoryTable';
+import TagAssignment from '@/components/quotes/tags/TagAssignment';
 import {
   getQuoteById,
   deleteQuote,
@@ -117,6 +120,7 @@ export default function QuoteDetailPage() {
   const router = useRouter();
   const params = useParams();
   const quoteId = params.id as string;
+  const { canPerform } = useRBAC();
 
   // State - Quote
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -232,13 +236,17 @@ export default function QuoteDetailPage() {
     return quoteTotal >= minThreshold;
   };
 
-  // Tabs configuration
+  // Check if this is a change order (has parent_quote_id)
+  const isChangeOrder = quote && quote.parent_quote_id != null;
+
+  // Tabs configuration - hide "Change Orders" tab when viewing a change order
   const tabs: TabItem[] = [
     { id: 'details', label: 'Details', ...(FileText && { icon: FileText }) },
     { id: 'items', label: 'Items', ...(List && { icon: List }) },
     { id: 'approvals', label: 'Approvals', ...(Shield && { icon: Shield }) },
     { id: 'versions', label: 'Versions', ...(History && { icon: History }) },
-    { id: 'change-orders', label: 'Change Orders', ...(FileEdit && { icon: FileEdit }) },
+    // Don't show "Change Orders" tab when viewing a change order (can't have nested change orders)
+    ...(!isChangeOrder ? [{ id: 'change-orders', label: 'Change Orders', ...(FileEdit && { icon: FileEdit }) }] : []),
     { id: 'attachments', label: 'Attachments', ...(Paperclip && { icon: Paperclip }) },
     { id: 'emails', label: 'Emails', ...(Mail && { icon: Mail }) },
     { id: 'notes', label: 'Notes', ...(MessageSquare && { icon: MessageSquare }) },
@@ -820,10 +828,10 @@ export default function QuoteDetailPage() {
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Header */}
       <div className="mb-6">
-        <Link href="/quotes">
+        <Link href={isChangeOrder ? `/quotes/${quote.parent_quote_id}` : '/quotes'}>
           <Button variant="ghost" size="sm" className="mb-4">
             <ArrowLeft className="w-4 h-4" />
-            Back to Quotes
+            {isChangeOrder ? 'Back to Quote' : 'Back to Quotes'}
           </Button>
         </Link>
 
@@ -933,6 +941,11 @@ export default function QuoteDetailPage() {
         )}
       </div>
 
+      {/* Sprint 6: Tag Assignment */}
+      <div className="mb-6">
+        <TagAssignment quoteId={quote.id} initialTags={[]} />
+      </div>
+
       {/* Status Management Card - Show when actionable status changes needed (Internal Approval Workflow Only) */}
       {(quote.status === 'draft' || approvalStatus?.status === 'pending_approval') && (
         <Card className="mb-6 p-6">
@@ -940,13 +953,13 @@ export default function QuoteDetailPage() {
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
                 <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                Quote Status & Actions
+                {isChangeOrder ? 'Change Order Status & Actions' : 'Quote Status & Actions'}
               </h3>
 
               {quote.status === 'draft' && !approvalStatus && (
                 <div className="space-y-2">
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    This quote is in <strong>draft</strong> status.
+                    This {isChangeOrder ? 'change order' : 'quote'} is in <strong>draft</strong> status.
                   </p>
                   {quote.total > 0 && !approvalThresholdsLoading && (
                     <div className="text-sm">
@@ -955,14 +968,14 @@ export default function QuoteDetailPage() {
                       </p>
                       <p className="text-gray-600 dark:text-gray-400 mt-1">
                         {isApprovalRequired()
-                          ? 'This quote requires approval before it can be sent to the customer.'
-                          : 'This quote can be marked as ready to send directly (no approval required).'}
+                          ? `This ${isChangeOrder ? 'change order' : 'quote'} requires approval before it can be sent to the customer.`
+                          : `This ${isChangeOrder ? 'change order' : 'quote'} can be marked as ready to send directly (no approval required).`}
                       </p>
                     </div>
                   )}
                   {quote.total === 0 && (
                     <p className="text-gray-600 dark:text-gray-400">
-                      Add items to this quote to continue.
+                      Add items to this {isChangeOrder ? 'change order' : 'quote'} to continue.
                     </p>
                   )}
                   {approvalThresholdsLoading && (
@@ -976,7 +989,7 @@ export default function QuoteDetailPage() {
               {approvalStatus?.status === 'pending_approval' && (
                 <div className="space-y-2">
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    This quote is pending approval ({approvalStatus.progress.completed}/{approvalStatus.progress.total} levels approved)
+                    This {isChangeOrder ? 'change order' : 'quote'} is pending approval ({approvalStatus.progress.completed}/{approvalStatus.progress.total} levels approved)
                   </p>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
@@ -1014,7 +1027,7 @@ export default function QuoteDetailPage() {
                         className="whitespace-nowrap"
                       >
                         <Shield className="w-4 h-4" />
-                        Submit for Approval
+                        {isChangeOrder ? 'Submit Change Order for Approval' : 'Submit for Approval'}
                       </Button>
                     </div>
                   ) : (
@@ -1033,7 +1046,7 @@ export default function QuoteDetailPage() {
                       className="whitespace-nowrap"
                     >
                       <CheckCircle2 className="w-4 h-4" />
-                      Mark as Ready
+                      {isChangeOrder ? 'Mark Change Order as Ready' : 'Mark as Ready'}
                     </Button>
                   )}
                 </>
@@ -1097,7 +1110,7 @@ export default function QuoteDetailPage() {
           <div className="flex items-center gap-3">
             <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Quote Summary
+              {isChangeOrder ? 'Change Order Summary' : 'Quote Summary'}
             </h2>
           </div>
           <div className="flex items-center gap-4">
@@ -1269,6 +1282,83 @@ export default function QuoteDetailPage() {
           </div>
         )}
       </Card>
+
+      {/* Project Totals Card - Only show for parent quotes with approved change orders */}
+      {!isChangeOrder && quote.approved_change_orders_count && quote.approved_change_orders_count > 0 && (
+        <Card className="mb-6 border-2 border-green-200 dark:border-green-800">
+          <div className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <FileEdit className="w-6 h-6 text-green-600 dark:text-green-400" />
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Project Totals (Including Approved Change Orders)
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {quote.approved_change_orders_count} approved change order{quote.approved_change_orders_count !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left: Breakdown */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-700">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Original Quote:</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {formatMoney(quote.total)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center text-green-600 dark:text-green-400">
+                  <span className="text-sm">Approved Change Orders:</span>
+                  <span className="font-medium">
+                    +{formatMoney(quote.approved_change_orders_total || 0)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center pt-3 border-t-2 border-green-600 dark:border-green-400">
+                  <span className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                    Revised Project Total:
+                  </span>
+                  <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                    {formatMoney(quote.total_with_change_orders || quote.total)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right: Approved Change Orders List */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                  Approved Change Orders
+                </h3>
+                <div className="space-y-2">
+                  {quote.change_orders
+                    ?.filter(co => co.status === 'approved')
+                    .map(co => (
+                      <Link
+                        key={co.id}
+                        href={`/quotes/${co.id}`}
+                        className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">
+                            {co.quote_number}
+                          </p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                            {co.title}
+                          </p>
+                        </div>
+                        <span className="text-sm font-medium text-green-600 dark:text-green-400 ml-3">
+                          +{formatMoney(co.total)}
+                        </span>
+                      </Link>
+                    ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Tabs */}
       <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} className="mb-6" />
@@ -1536,10 +1626,10 @@ export default function QuoteDetailPage() {
                 <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
-                    Quote is Locked
+                    {isChangeOrder ? 'Change Order is Locked' : 'Quote is Locked'}
                   </p>
                   <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">
-                    This quote has been sent and cannot be edited. Items are view-only.
+                    This {isChangeOrder ? 'change order' : 'quote'} has been sent and cannot be edited. Items are view-only.
                   </p>
                 </div>
               </div>
@@ -1642,7 +1732,7 @@ export default function QuoteDetailPage() {
                       No Items Yet
                     </h3>
                     <p className="text-gray-600 dark:text-gray-400 mb-6">
-                      Add items to this quote to get started
+                      Add items to this {isChangeOrder ? 'change order' : 'quote'} to get started
                     </p>
                     <Link href={`/quotes/${quote.id}/items/new`}>
                       <Button>
@@ -1726,8 +1816,8 @@ export default function QuoteDetailPage() {
           <ChangeOrderList
             quoteId={quote.id}
             quoteStatus={quote.status}
-            canCreateChangeOrder={currentUserRole === 'Admin' || currentUserRole === 'Owner'}
-            canApproveChangeOrder={currentUserRole === 'Manager' || currentUserRole === 'Admin' || currentUserRole === 'Owner'}
+            canCreateChangeOrder={canPerform('quotes', 'create')}
+            canApproveChangeOrder={canPerform('quotes', 'approve')}
             onChangeOrderCreated={async () => {
               await loadQuote();
             }}
@@ -1736,6 +1826,10 @@ export default function QuoteDetailPage() {
               await loadItemsAndGroups();
               await loadVersions();
             }}
+          />
+          <ChangeOrderHistoryTimeline
+            parentQuoteId={quote.id}
+            parentQuoteNumber={quote.quote_number}
           />
         </div>
       )}
@@ -1939,7 +2033,7 @@ export default function QuoteDetailPage() {
       <Modal
         isOpen={skipApprovalModalOpen}
         onClose={() => !skipApprovalLoading && setSkipApprovalModalOpen(false)}
-        title="Skip Approval & Mark as Ready"
+        title={isChangeOrder ? "Skip Approval & Mark Change Order as Ready" : "Skip Approval & Mark as Ready"}
         size="md"
       >
         <ModalContent>
@@ -1947,16 +2041,16 @@ export default function QuoteDetailPage() {
             <AlertCircle className="w-6 h-6 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-gray-900 dark:text-gray-100 font-medium mb-2">
-                Mark this quote as ready without approval?
+                Mark this {isChangeOrder ? 'change order' : 'quote'} as ready without approval?
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Quote: {quote?.quote_number} - {quote?.title}
+                {isChangeOrder ? 'Change Order' : 'Quote'}: {quote?.quote_number} - {quote?.title}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
                 Total: {quote && formatMoney(quote.total)}
               </p>
               <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-3 font-medium">
-                ⚠️ This will only work if approval workflow is not required for this quote amount.
+                ⚠️ This will only work if approval workflow is not required for this {isChangeOrder ? 'change order' : 'quote'} amount.
               </p>
             </div>
           </div>
@@ -1975,7 +2069,7 @@ export default function QuoteDetailPage() {
             loading={skipApprovalLoading}
           >
             <CheckCircle2 className="w-4 h-4" />
-            Mark as Ready
+            {isChangeOrder ? 'Mark Change Order as Ready' : 'Mark as Ready'}
           </Button>
         </ModalActions>
       </Modal>

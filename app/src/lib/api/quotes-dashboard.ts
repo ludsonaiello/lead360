@@ -70,8 +70,8 @@ export const getLocation = (quote: RecentQuote): string => {
 export const getDashboardOverview = async (params?: {
   date_from?: string;
   date_to?: string;
-}): Promise<DashboardOverview> => {
-  const response = await apiClient.get<DashboardOverview>('/quotes/dashboard/overview', {
+}): Promise<DashboardOverviewResponse> => {
+  const response = await apiClient.get<DashboardOverviewResponse>('/quotes/dashboard/overview', {
     params,
   });
   return response.data;
@@ -109,4 +109,114 @@ export const formatMoney = (amount: number): string => {
 export const formatPercentageChange = (value: number): string => {
   const sign = value >= 0 ? '+' : '';
   return `${sign}${value.toFixed(1)}%`;
+};
+
+// ===== SPRINT 6: Additional Dashboard Analytics Endpoints =====
+
+import type {
+  DashboardOverviewResponse,
+  QuotesOverTimeResponse,
+  TopItemsResponse,
+  WinLossAnalysisResponse,
+  ConversionFunnelResponse,
+  RevenueByVendorResponse,
+  AvgPricingByTaskResponse,
+  ExportDashboardDto,
+  ExportDashboardResponse,
+} from '../types/quotes';
+
+/**
+ * Get quotes over time with interval breakdown
+ */
+export const getQuotesOverTime = async (params?: {
+  date_from?: string;
+  date_to?: string;
+  interval?: 'day' | 'week' | 'month';
+}): Promise<QuotesOverTimeResponse> => {
+  const response = await apiClient.get<QuotesOverTimeResponse>(
+    '/quotes/dashboard/quotes-over-time',
+    { params }
+  );
+  return response.data;
+};
+
+/**
+ * Get top items by usage and revenue
+ */
+export const getTopItems = async (params?: {
+  date_from?: string;
+  date_to?: string;
+  limit?: number;
+}): Promise<TopItemsResponse> => {
+  const response = await apiClient.get<TopItemsResponse>('/quotes/dashboard/top-items', {
+    params,
+  });
+  return response.data;
+};
+
+/**
+ * Get win/loss analysis
+ */
+export const getWinLossAnalysis = async (params?: {
+  date_from?: string;
+  date_to?: string;
+}): Promise<WinLossAnalysisResponse> => {
+  const response = await apiClient.get<WinLossAnalysisResponse>(
+    '/quotes/dashboard/win-loss-analysis',
+    { params }
+  );
+  return response.data;
+};
+
+/**
+ * Get conversion funnel data
+ */
+export const getConversionFunnel = async (params?: {
+  date_from?: string;
+  date_to?: string;
+}): Promise<ConversionFunnelResponse> => {
+  const response = await apiClient.get<ConversionFunnelResponse>(
+    '/quotes/dashboard/conversion-funnel',
+    { params }
+  );
+  return response.data;
+};
+
+/**
+ * Get revenue breakdown by vendor
+ */
+export const getRevenueByVendor = async (params?: {
+  date_from?: string;
+  date_to?: string;
+}): Promise<RevenueByVendorResponse> => {
+  const response = await apiClient.get<RevenueByVendorResponse>(
+    '/quotes/dashboard/revenue-by-vendor',
+    { params }
+  );
+  return response.data;
+};
+
+/**
+ * Get average pricing benchmarks by task
+ */
+export const getAvgPricingByTask = async (params?: {
+  date_from?: string;
+  date_to?: string;
+}): Promise<AvgPricingByTaskResponse> => {
+  const response = await apiClient.get<AvgPricingByTaskResponse>(
+    '/quotes/dashboard/avg-pricing-by-task',
+    { params }
+  );
+  return response.data;
+};
+
+/**
+ * Export dashboard data in specified format
+ */
+export const exportDashboard = async (dto: ExportDashboardDto): Promise<ExportDashboardResponse> => {
+  const response = await apiClient.post<ExportDashboardResponse>(
+    '/quotes/dashboard/export',
+    dto
+  );
+  return response.data;
 };

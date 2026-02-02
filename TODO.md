@@ -875,3 +875,6 @@ Track these throughout development:
 [ ] add quotes and projects and financial on each lead/customer. 
 [ ] add tracking system to SMTP - future.
 [ ] Check lead status, make auto email to follow up if lead refuse turns lost but can turn to a lead back again later with a new request or manually or when creating a quote. 
+[ ] SELECT CUSTOMER ADDRESS EXISTING IF THEY HAVE INSTEAD OF ADDING A NEW ONE WHILE CREATING A QUOTE.
+[ ] Incluir garantia item library
+[ ] Incluir garantia global no quote. 

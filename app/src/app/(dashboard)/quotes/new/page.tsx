@@ -78,6 +78,8 @@ export default function CreateQuotePage() {
     latitude?: number;
     longitude?: number;
   } | null>(null);
+  const [addressMode, setAddressMode] = useState<'existing' | 'new'>('existing');
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -117,7 +119,10 @@ export default function CreateQuotePage() {
     }
 
     if (step === 3) {
-      if (!addressData || !addressData.address_line1 || !addressData.zip_code) {
+      // Check if address is selected (either existing or new)
+      if (addressMode === 'existing' && !selectedAddressId) {
+        newErrors.address = 'Please select an address from the list';
+      } else if (addressMode === 'new' && (!addressData || !addressData.address_line1 || !addressData.zip_code)) {
         newErrors.address = 'Please enter a complete address';
       }
     }
@@ -226,6 +231,38 @@ export default function CreateQuotePage() {
     setLeadId(id);
     setLeadData(data);
     setErrors({ ...errors, lead: '' });
+
+    // Reset address selection when changing lead
+    setSelectedAddressId(null);
+    setAddressData(null);
+
+    // Set address mode based on whether lead has addresses
+    if (data && 'addresses' in data && data.addresses && data.addresses.length > 0) {
+      setAddressMode('existing');
+    } else {
+      setAddressMode('new');
+    }
+  };
+
+  const handleExistingAddressSelect = (addressId: string) => {
+    setSelectedAddressId(addressId);
+
+    // Find the address from leadData
+    if (leadData && 'addresses' in leadData && leadData.addresses) {
+      const address = leadData.addresses.find((a) => a.id === addressId);
+      if (address) {
+        setAddressData({
+          address_line1: address.address_line1,
+          address_line2: address.address_line2 || undefined,
+          city: address.city,
+          state: address.state,
+          zip_code: address.zip_code,
+          latitude: parseFloat(address.latitude),
+          longitude: parseFloat(address.longitude),
+        });
+        setErrors({ ...errors, address: '' });
+      }
+    }
   };
 
   const handleVendorChange = (id: string | null, data: VendorSummary | null) => {
@@ -473,27 +510,137 @@ export default function CreateQuotePage() {
 
         {/* Step 3: Jobsite Address */}
         {currentStep === 3 && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               Jobsite Address
             </h2>
-            <AddressAutocomplete
-              onSelect={handleAddressSelect}
-              error={errors.address}
-              required
-            />
 
-            {addressData && (
-              <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-lg">
-                <p className="text-sm font-semibold text-green-900 dark:text-green-100 mb-2">
-                  Selected Address:
-                </p>
-                <p className="text-sm text-green-700 dark:text-green-300">
-                  {addressData.address_line1}
-                  {addressData.address_line2 && <>, {addressData.address_line2}</>}
-                  <br />
-                  {addressData.city}, {addressData.state} {addressData.zip_code}
-                </p>
+            {/* Show address mode selector only if customer has existing addresses */}
+            {leadData && 'addresses' in leadData && leadData.addresses && leadData.addresses.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="addressMode"
+                      checked={addressMode === 'existing'}
+                      onChange={() => {
+                        setAddressMode('existing');
+                        setAddressData(null);
+                        setSelectedAddressId(null);
+                      }}
+                      className="w-4 h-4 text-blue-600 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      Use Existing Address
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="addressMode"
+                      checked={addressMode === 'new'}
+                      onChange={() => {
+                        setAddressMode('new');
+                        setAddressData(null);
+                        setSelectedAddressId(null);
+                      }}
+                      className="w-4 h-4 text-blue-600 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      Add New Address
+                    </span>
+                  </label>
+                </div>
+
+                {/* Existing addresses list */}
+                {addressMode === 'existing' && (
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      Select Address <span className="text-red-500">*</span>
+                    </label>
+                    <div className="space-y-2">
+                      {leadData.addresses.map((address) => (
+                        <label
+                          key={address.id}
+                          className={`
+                            block p-4 border-2 rounded-lg cursor-pointer transition-all
+                            ${
+                              selectedAddressId === address.id
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700'
+                            }
+                          `}
+                        >
+                          <input
+                            type="radio"
+                            name="existingAddress"
+                            checked={selectedAddressId === address.id}
+                            onChange={() => handleExistingAddressSelect(address.id)}
+                            className="sr-only"
+                          />
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <MapPin className="w-4 h-4 text-gray-500" />
+                                <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                                  {address.address_line1}
+                                  {address.address_line2 && `, ${address.address_line2}`}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600 dark:text-gray-400 ml-6">
+                                {address.city}, {address.state} {address.zip_code}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1 ml-6">
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                                  {address.address_type}
+                                </span>
+                                {address.is_primary && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                                    Primary
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {selectedAddressId === address.id && (
+                              <Check className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            )}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                    {errors.address && (
+                      <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                        {errors.address}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* New address form */}
+            {addressMode === 'new' && (
+              <div>
+                <AddressAutocomplete
+                  onSelect={handleAddressSelect}
+                  error={errors.address}
+                  required
+                />
+
+                {addressData && (
+                  <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-lg">
+                    <p className="text-sm font-semibold text-green-900 dark:text-green-100 mb-2">
+                      Selected Address:
+                    </p>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      {addressData.address_line1}
+                      {addressData.address_line2 && <>, {addressData.address_line2}</>}
+                      <br />
+                      {addressData.city}, {addressData.state} {addressData.zip_code}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -611,12 +758,24 @@ export default function CreateQuotePage() {
                 </Button>
               </div>
               {addressData && (
-                <div className="text-sm text-gray-700 dark:text-gray-300">
-                  <p>{addressData.address_line1}</p>
-                  {addressData.address_line2 && <p>{addressData.address_line2}</p>}
-                  <p>
-                    {addressData.city}, {addressData.state} {addressData.zip_code}
-                  </p>
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                    <p>{addressData.address_line1}</p>
+                    {addressData.address_line2 && <p>{addressData.address_line2}</p>}
+                    <p>
+                      {addressData.city}, {addressData.state} {addressData.zip_code}
+                    </p>
+                  </div>
+                  {addressMode === 'existing' && selectedAddressId && (
+                    <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold">
+                      Using existing customer address
+                    </p>
+                  )}
+                  {addressMode === 'new' && (
+                    <p className="text-xs text-green-600 dark:text-green-400 font-semibold">
+                      New address (will be added to customer)
+                    </p>
+                  )}
                 </div>
               )}
             </div>

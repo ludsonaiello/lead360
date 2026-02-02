@@ -54,10 +54,18 @@ export class QuoteDashboardController {
 
   /**
    * Parse date range with defaults (last 30 days)
+   * Sets dateFrom to start of day (00:00:00.000) and dateTo to end of day (23:59:59.999)
    */
   private parseDateRange(dateFrom?: string, dateTo?: string): { from: Date; to: Date } {
     const to = dateTo ? new Date(dateTo) : new Date();
     const from = dateFrom ? new Date(dateFrom) : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // Set from to start of day (00:00:00.000)
+    from.setHours(0, 0, 0, 0);
+
+    // Set to to end of day (23:59:59.999)
+    to.setHours(23, 59, 59, 999);
+
     return { from, to };
   }
 

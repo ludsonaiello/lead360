@@ -39,6 +39,8 @@ import {
   Library,
   ShoppingCart,
   Package,
+  BarChart3,
+  Tags,
 } from 'lucide-react';
 import ProtectedMenuItem from '@/components/rbac/shared/ProtectedMenuItem';
 import { useAuth } from '@/contexts/AuthContext';
@@ -77,10 +79,13 @@ const navigation: (NavItem | NavGroup)[] = [
     permission: 'quotes:view',
     items: [
       { name: 'All Quotes', href: '/quotes', icon: FileText, permission: 'quotes:view' },
+      { name: 'Dashboard', href: '/quotes/dashboard', icon: BarChart3, permission: 'quotes:view' },
       { name: 'Approvals', href: '/approvals', icon: Shield, permission: 'quotes:view' },
       { name: 'Library', href: '/library/items', icon: Library, permission: 'quotes:view' },
       { name: 'Bundles', href: '/library/bundles', icon: Package, permission: 'quotes:view' },
       { name: 'Vendors', href: '/vendors', icon: ShoppingCart, permission: 'quotes:view' },
+      { name: 'Tags', href: '/settings/tags', icon: Tags, permission: 'quotes:view' },
+      { name: 'Warranty Tiers', href: '/settings/warranty-tiers', icon: Shield, permission: 'quotes:view' },
       { name: 'Quote Settings', href: '/settings/quotes', icon: Settings, permission: 'quotes:edit' },
     ],
   },

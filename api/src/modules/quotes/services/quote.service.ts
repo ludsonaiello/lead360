@@ -467,6 +467,16 @@ export class QuoteService {
             },
           },
           jobsite_address: true,
+          change_orders: {
+            select: {
+              id: true,
+              quote_number: true,
+              title: true,
+              status: true,
+              total: true,
+              created_at: true,
+            },
+          },
         },
         skip,
         take: limit,
@@ -476,20 +486,39 @@ export class QuoteService {
     ]);
 
     return {
-      data: quotes.map((quote) => ({
-        ...quote,
-        active_version_number: Number(quote.active_version_number),
-        custom_profit_percent: quote.custom_profit_percent
-          ? Number(quote.custom_profit_percent)
-          : null,
-        custom_overhead_percent: quote.custom_overhead_percent
-          ? Number(quote.custom_overhead_percent)
-          : null,
-        subtotal: Number(quote.subtotal),
-        tax_amount: Number(quote.tax_amount),
-        discount_amount: Number(quote.discount_amount),
-        total: Number(quote.total),
-      })),
+      data: quotes.map((quote) => {
+        // Calculate total with approved change orders
+        const approvedChangeOrders = (quote as any).change_orders?.filter(
+          (co: any) => co.status === 'approved'
+        ) || [];
+
+        const approvedChangeOrdersTotal = approvedChangeOrders.reduce(
+          (sum: number, co: any) => sum + Number(co.total || 0),
+          0
+        );
+
+        const totalWithChangeOrders = Number(quote.total) + approvedChangeOrdersTotal;
+
+        return {
+          ...quote,
+          active_version_number: Number(quote.active_version_number),
+          custom_profit_percent: quote.custom_profit_percent
+            ? Number(quote.custom_profit_percent)
+            : null,
+          custom_overhead_percent: quote.custom_overhead_percent
+            ? Number(quote.custom_overhead_percent)
+            : null,
+          subtotal: Number(quote.subtotal),
+          tax_amount: Number(quote.tax_amount),
+          discount_amount: Number(quote.discount_amount),
+          total: Number(quote.total),
+          // NEW: Total including approved change orders
+          total_with_change_orders: totalWithChangeOrders,
+          approved_change_orders_total: approvedChangeOrdersTotal,
+          approved_change_orders_count: approvedChangeOrders.length,
+          change_orders: undefined, // Don't return full change orders in list
+        };
+      }),
       meta: {
         page,
         limit,
@@ -554,12 +583,35 @@ export class QuoteService {
             quote_tag: true,
           },
         },
+        change_orders: {
+          select: {
+            id: true,
+            quote_number: true,
+            title: true,
+            status: true,
+            total: true,
+            created_at: true,
+            updated_at: true,
+          },
+        },
       },
     });
 
     if (!quote) {
       throw new NotFoundException('Quote not found');
     }
+
+    // Calculate total with approved change orders
+    const approvedChangeOrders = (quote as any).change_orders?.filter(
+      (co: any) => co.status === 'approved'
+    ) || [];
+
+    const approvedChangeOrdersTotal = approvedChangeOrders.reduce(
+      (sum: number, co: any) => sum + Number(co.total || 0),
+      0
+    );
+
+    const totalWithChangeOrders = Number(quote.total) + approvedChangeOrdersTotal;
 
     // Convert Decimal fields to numbers
     return {
@@ -575,6 +627,10 @@ export class QuoteService {
       tax_amount: Number(quote.tax_amount),
       discount_amount: Number(quote.discount_amount),
       total: Number(quote.total),
+      // NEW: Total including approved change orders
+      total_with_change_orders: totalWithChangeOrders,
+      approved_change_orders_total: approvedChangeOrdersTotal,
+      approved_change_orders_count: approvedChangeOrders.length,
       jobsite_address: (quote as any).jobsite_address
         ? {
             ...(quote as any).jobsite_address,
@@ -599,6 +655,10 @@ export class QuoteService {
       draw_schedule: (quote as any).draw_schedule?.map((draw) => ({
         ...draw,
         value: Number(draw.value),
+      })) || [],
+      change_orders: (quote as any).change_orders?.map((co: any) => ({
+        ...co,
+        total: Number(co.total),
       })) || [],
     };
   }
@@ -931,7 +991,15 @@ export class QuoteService {
   }
 
   /**
-   * Soft delete quote (archive)
+   * Hard delete quote (permanent deletion)
+   *
+   * Deletes the quote and all related records via cascade:
+   * - versions, items, groups, approvals, discount_rules
+   * - tag_assignments, attachments, view_logs, download_logs
+   * - draw_schedule, public_access
+   *
+   * IMPORTANT: Cannot delete parent quotes that have change orders
+   * (foreign key constraint: onDelete: Restrict)
    *
    * @param tenantId - Tenant UUID
    * @param quoteId - Quote UUID
@@ -940,15 +1008,27 @@ export class QuoteService {
   async delete(tenantId: string, quoteId: string, userId: string): Promise<void> {
     const quote = await this.prisma.quote.findFirst({
       where: { id: quoteId, tenant_id: tenantId },
+      include: {
+        change_orders: {
+          select: { id: true, quote_number: true },
+        },
+      },
     });
 
     if (!quote) {
       throw new NotFoundException('Quote not found');
     }
 
-    await this.prisma.quote.update({
+    // Prevent deletion of parent quotes with change orders
+    if (quote.change_orders && quote.change_orders.length > 0) {
+      throw new BadRequestException(
+        `Cannot delete quote ${quote.quote_number} because it has ${quote.change_orders.length} change order(s). Delete the change orders first.`,
+      );
+    }
+
+    // Hard delete the quote (cascade will delete related records)
+    await this.prisma.quote.delete({
       where: { id: quoteId },
-      data: { is_archived: true },
     });
 
     await this.auditLogger.logTenantChange({
@@ -959,10 +1039,10 @@ export class QuoteService {
       actorUserId: userId,
       before: quote,
       after: {} as any,
-      description: `Quote archived: ${quote.quote_number}`,
+      description: `Quote permanently deleted: ${quote.quote_number}`,
     });
 
-    this.logger.log(`Quote archived: ${quoteId}`);
+    this.logger.log(`Quote permanently deleted: ${quoteId} (${quote.quote_number})`);
   }
 
   /**

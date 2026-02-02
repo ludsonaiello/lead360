@@ -1,56 +1,82 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsOptional, IsNumber, IsUUID, ValidateNested, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
+import { JobsiteAddressDto } from '../quote/jobsite-address.dto';
 
 /**
  * CreateChangeOrderDto
  *
- * Request to create a change order
+ * Request to create a change order from an approved parent quote
  */
 export class CreateChangeOrderDto {
-  @ApiProperty({ description: 'Change order title', example: 'Additional work - upgraded materials' })
+  @ApiProperty({
+    description: 'Change order title',
+    example: 'Additional foundation repairs',
+  })
   @IsString()
   title: string;
 
-  @ApiProperty({ description: 'Description of changes', example: 'Customer requested premium materials', required: false })
+  @ApiPropertyOptional({
+    description: 'Detailed description of changes',
+    example: 'Customer requested upgraded materials for deck',
+  })
   @IsOptional()
   @IsString()
   description?: string;
-}
 
-/**
- * ChangeOrderDto
- *
- * Change order response (quote object)
- */
-export class ChangeOrderDto {
-  @ApiProperty({ description: 'Change order ID', example: '123e4567-e89b-12d3-a456-426614174000' })
-  id: string;
+  @ApiPropertyOptional({
+    description: 'Override jobsite address (defaults to parent quote address)',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => JobsiteAddressDto)
+  jobsite_address?: JobsiteAddressDto;
 
-  @ApiProperty({ description: 'Quote number (CO- prefix)', example: 'CO-2024-001' })
-  quote_number: string;
+  @ApiPropertyOptional({
+    description: 'Override vendor (defaults to parent quote vendor)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @IsOptional()
+  @IsUUID()
+  vendor_id?: string;
 
-  @ApiProperty({ description: 'Title', example: 'Additional work' })
-  title: string;
+  @ApiPropertyOptional({
+    description: 'Expiration days (defaults to 30)',
+    example: 30,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(365)
+  expiration_days?: number;
 
-  @ApiProperty({ description: 'Status', example: 'draft' })
-  status: string;
+  @ApiPropertyOptional({
+    description: 'Custom profit percentage (overrides parent quote setting)',
+    example: 20.0,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  custom_profit_percent?: number;
 
-  @ApiProperty({ description: 'Total amount', example: 5000.00 })
-  total: number;
+  @ApiPropertyOptional({
+    description: 'Custom overhead percentage (overrides parent quote setting)',
+    example: 15.0,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  custom_overhead_percent?: number;
 
-  @ApiProperty({ description: 'Created at', example: '2024-01-20T10:30:00.000Z' })
-  created_at: string;
-}
-
-/**
- * ListChangeOrdersResponseDto
- *
- * List of change orders for a parent quote
- */
-export class ListChangeOrdersResponseDto {
-  @ApiProperty({ description: 'Change orders', type: [ChangeOrderDto] })
-  change_orders: ChangeOrderDto[];
-
-  @ApiProperty({ description: 'Total count', example: 3 })
-  total_count: number;
+  @ApiPropertyOptional({
+    description: 'Custom contingency percentage (overrides parent quote setting)',
+    example: 5.0,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  custom_contingency_percent?: number;
 }

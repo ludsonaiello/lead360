@@ -1,150 +1,94 @@
 // Lead360 - Change Orders API Client
 // Change order endpoints for approved quotes
 // Base URL: /api/v1 (configured in axios.ts)
+//
+// IMPORTANT: Types match backend DTOs exactly.
+// Backend source: /api/src/modules/quotes/dto/change-order/
+// Change orders are stored in the quote table with parent_quote_id FK.
+// Status uses the quote_status enum (not a separate change order status).
 
 import { apiClient } from './axios';
+import type {
+  QuoteStatus,
+  CreateChangeOrderDto,
+  ApproveChangeOrderDto,
+  RejectChangeOrderDto,
+  ChangeOrderResponseDto,
+  ChangeOrderSummaryDto,
+  ListChangeOrdersResponseDto,
+  ParentQuoteTotalsDto,
+  ChangeOrderHistoryEvent,
+  ChangeOrderHistoryResponse,
+} from '../types/quotes';
 
-// ========== TYPES ==========
-
-/**
- * Change order status
- */
-export type ChangeOrderStatus = 'pending' | 'approved' | 'rejected';
-
-/**
- * Change order object
- */
-export interface ChangeOrder {
-  id: string;
-  change_order_number: string;
-  parent_quote_id: string;
-  child_quote_id: string;  // New quote created for the changes
-  title: string;
-  description: string | null;
-  status: ChangeOrderStatus;
-  amount_change: number;  // Difference from parent quote
-  new_total: number;  // Parent total + amount_change
-  created_at: string;
-  approved_at: string | null;
-  approved_by: {
-    id: string;
-    name: string;
-  } | null;
-  rejected_at: string | null;
-  rejected_by: {
-    id: string;
-    name: string;
-  } | null;
-  rejection_reason: string | null;
-}
+// ========== STATUS CONSTANTS ==========
 
 /**
- * Change orders list response
+ * Pending statuses (change order is still in progress, not yet approved/denied)
+ * Backend uses these to calculate pending_count and pending_change_orders_total
  */
-export interface ChangeOrdersResponse {
-  change_orders: ChangeOrder[];
-  total_count: number;
-}
+export const PENDING_STATUSES: QuoteStatus[] = [
+  'draft',
+  'pending_approval',
+  'ready',
+  'sent',
+  'delivered',
+  'read',
+  'opened',
+  'downloaded',
+];
 
 /**
- * Total impact of all change orders
+ * Statuses that allow approval
+ * Backend validates: ready, sent, delivered, read, opened, downloaded
  */
-export interface TotalImpact {
-  original_total: number;
-  total_approved_changes: number;
-  total_pending_changes: number;
-  net_change: number;  // approved only
-  new_total: number;  // original + net_change
-  change_orders_count: {
-    approved: number;
-    pending: number;
-    rejected: number;
-    total: number;
-  };
-}
+export const APPROVABLE_STATUSES: QuoteStatus[] = [
+  'ready',
+  'sent',
+  'delivered',
+  'read',
+  'opened',
+  'downloaded',
+];
 
 /**
- * Change order history entry
+ * Valid parent quote statuses for creating change orders
+ * Backend validates: approved, started, concluded
  */
-export interface ChangeOrderHistoryEntry {
-  change_order_id: string;
-  change_order_number: string;
-  title: string;
-  status: ChangeOrderStatus;
-  amount_change: number;
-  created_at: string;
-  approved_at: string | null;
-  created_by: {
-    id: string;
-    name: string;
-  };
-}
+export const VALID_PARENT_STATUSES: QuoteStatus[] = [
+  'approved',
+  'started',
+  'concluded',
+];
 
-/**
- * Change order history timeline
- */
-export interface ChangeOrderHistory {
-  parent_quote_id: string;
-  parent_quote_number: string;
-  history: ChangeOrderHistoryEntry[];
-}
+// ========== TYPE ALIASES ==========
+// Using types from quotes.ts for consistency
 
-/**
- * Create change order request body
- * Note: Only title and description - items are added separately
- */
-export interface CreateChangeOrderDto {
-  title: string;
-  description?: string;
-}
-
-/**
- * Create change order response
- */
-export interface CreateChangeOrderResponse {
-  change_order: ChangeOrder;
-  child_quote: {
-    id: string;
-    quote_number: string;
-  };
-  message: string;
-}
-
-/**
- * Approve change order response
- */
-export interface ApproveChangeOrderResponse {
-  change_order: ChangeOrder;
-  parent_quote_updated: boolean;
-  message: string;
-}
-
-/**
- * Link to project request body
- */
-export interface LinkToProjectDto {
-  project_id: string;
-}
+export type ChangeOrderResponse = ChangeOrderResponseDto;
+export type ChangeOrderSummary = ChangeOrderSummaryDto;
+export type ListChangeOrdersResponse = ListChangeOrdersResponseDto;
+export type ParentQuoteTotals = ParentQuoteTotalsDto;
 
 // ========== API FUNCTIONS ==========
 
 /**
  * Create change order for approved quote
  * @endpoint POST /quotes/:parentQuoteId/change-orders
- * @permission quotes:create_change_order
- * @param parentQuoteId Parent quote UUID (must be approved)
- * @param dto Change order creation data (title, description only)
- * @returns Created change order and child quote info
- * @throws 400 - Parent quote must be approved
+ * @roles Owner, Admin, Manager, Sales
+ * @param parentQuoteId Parent quote UUID (must be approved, started, or concluded)
+ * @param dto Change order creation data
+ * @returns Created change order with parent context (ChangeOrderResponseDto)
+ * @throws 400 - Parent quote must be approved, started, or concluded
  * @throws 404 - Parent quote not found
- * @note Creates new child quote for the changes - add items separately using quote item endpoints
- * @note Child quote inherits parent's settings and customer info
+ * @note Creates new child quote - add items separately using quote item endpoints
+ * @note Child quote inherits parent's customer, vendor, jobsite (unless overridden)
+ * @note Status starts as 'draft'
  */
 export const createChangeOrder = async (
   parentQuoteId: string,
   dto: CreateChangeOrderDto
-): Promise<CreateChangeOrderResponse> => {
-  const { data } = await apiClient.post<CreateChangeOrderResponse>(
+): Promise<ChangeOrderResponse> => {
+  const { data } = await apiClient.post<ChangeOrderResponse>(
     `/quotes/${parentQuoteId}/change-orders`,
     dto
   );
@@ -152,35 +96,37 @@ export const createChangeOrder = async (
 };
 
 /**
- * Get all change orders for a quote
+ * List all change orders for a parent quote
  * @endpoint GET /quotes/:parentQuoteId/change-orders
- * @permission quotes:view
+ * @roles Owner, Admin, Manager, Sales, Field
  * @param parentQuoteId Parent quote UUID
- * @returns List of change orders with counts
- * @throws 404 - Quote not found
- * @note Returns empty array if no change orders exist
+ * @returns Change orders list with summary statistics
+ * @throws 404 - Parent quote not found
+ * @note Returns empty change_orders array if no change orders exist
  */
 export const getChangeOrders = async (
   parentQuoteId: string
-): Promise<ChangeOrdersResponse> => {
-  const { data } = await apiClient.get<ChangeOrdersResponse>(
+): Promise<ListChangeOrdersResponse> => {
+  const { data } = await apiClient.get<ListChangeOrdersResponse>(
     `/quotes/${parentQuoteId}/change-orders`
   );
   return data;
 };
 
 /**
- * Get total impact of all change orders
- * @endpoint GET /quotes/:parentQuoteId/change-orders/total-impact
- * @permission quotes:view
- * @param parentQuoteId Parent quote UUID
- * @returns Aggregate financial impact and counts
- * @throws 404 - Quote not found
- * @note Only approved change orders affect net_change and new_total
+ * Get parent quote totals with aggregated change order impact
+ * @endpoint GET /quotes/:quoteId/with-change-orders
+ * @roles Owner, Admin, Manager, Sales, Field
+ * @param quoteId Parent quote UUID
+ * @returns Parent totals with approved/pending breakdown
+ * @throws 404 - Parent quote not found
+ * @note revised_total = original_total + approved_change_orders_total
  */
-export const getTotalImpact = async (parentQuoteId: string): Promise<TotalImpact> => {
-  const { data } = await apiClient.get<TotalImpact>(
-    `/quotes/${parentQuoteId}/change-orders/total-impact`
+export const getParentQuoteTotals = async (
+  quoteId: string
+): Promise<ParentQuoteTotals> => {
+  const { data } = await apiClient.get<ParentQuoteTotals>(
+    `/quotes/${quoteId}/with-change-orders`
   );
   return data;
 };
@@ -188,19 +134,46 @@ export const getTotalImpact = async (parentQuoteId: string): Promise<TotalImpact
 /**
  * Approve change order
  * @endpoint POST /change-orders/:id/approve
- * @permission quotes:approve_change_order
+ * @roles Owner, Admin, Manager
  * @param changeOrderId Change order UUID
- * @returns Approved change order and update status
- * @throws 400 - Change order already processed
+ * @param dto Optional approval notes
+ * @returns Approved change order with parent context (status will be 'approved')
+ * @throws 400 - Change order not in approvable status (must be ready/sent/delivered/read/opened/downloaded)
+ * @throws 400 - Not a change order (no parent_quote_id)
  * @throws 404 - Change order not found
- * @note Approving merges child quote changes into parent quote
- * @note Creates new version of parent quote
+ * @note Creates version snapshot and audit log entry
  */
 export const approveChangeOrder = async (
-  changeOrderId: string
-): Promise<ApproveChangeOrderResponse> => {
-  const { data } = await apiClient.post<ApproveChangeOrderResponse>(
-    `/change-orders/${changeOrderId}/approve`
+  changeOrderId: string,
+  dto?: ApproveChangeOrderDto
+): Promise<ChangeOrderResponse> => {
+  const { data } = await apiClient.post<ChangeOrderResponse>(
+    `/change-orders/${changeOrderId}/approve`,
+    dto || {}
+  );
+  return data;
+};
+
+/**
+ * Reject change order
+ * @endpoint POST /change-orders/:id/reject
+ * @roles Owner, Admin, Manager
+ * @param changeOrderId Change order UUID
+ * @param dto Rejection reason (required, min 10 characters)
+ * @returns Rejected change order (status will be 'denied')
+ * @throws 400 - Not a change order (no parent_quote_id)
+ * @throws 400 - Rejection reason missing or too short (min 10 chars)
+ * @throws 404 - Change order not found
+ * @note Backend sets status to 'denied' (not 'rejected')
+ * @note Rejection reason stored in audit log metadata, NOT on quote record
+ */
+export const rejectChangeOrder = async (
+  changeOrderId: string,
+  dto: RejectChangeOrderDto
+): Promise<ChangeOrderResponse> => {
+  const { data } = await apiClient.post<ChangeOrderResponse>(
+    `/change-orders/${changeOrderId}/reject`,
+    dto
   );
   return data;
 };
@@ -208,38 +181,33 @@ export const approveChangeOrder = async (
 /**
  * Get change order history timeline
  * @endpoint GET /quotes/:parentQuoteId/change-orders/history
- * @permission quotes:view
+ * @roles Owner, Admin, Manager, Sales, Field
  * @param parentQuoteId Parent quote UUID
- * @returns Chronological timeline of all change orders
- * @throws 404 - Quote not found
- * @note Returns timeline sorted by created_at (oldest first)
+ * @returns Chronological timeline of change order events (oldest first)
+ * @throws 404 - Parent quote not found
  */
 export const getChangeOrderHistory = async (
   parentQuoteId: string
-): Promise<ChangeOrderHistory> => {
-  const { data } = await apiClient.get<ChangeOrderHistory>(
+): Promise<ChangeOrderHistoryResponse> => {
+  const { data } = await apiClient.get<ChangeOrderHistoryResponse>(
     `/quotes/${parentQuoteId}/change-orders/history`
   );
   return data;
 };
 
 /**
- * Link change order to project (placeholder)
+ * Link change order to project (placeholder - not yet implemented)
  * @endpoint POST /change-orders/:id/link-to-project
- * @permission quotes:link_to_project
+ * @roles Owner, Admin, Manager
  * @param changeOrderId Change order UUID
- * @param dto Project link data
- * @returns Success response
- * @throws 404 - Change order not found
- * @note This is a placeholder for future project integration
+ * @returns Placeholder message
+ * @note This endpoint is a placeholder for future project integration
  */
 export const linkToProject = async (
-  changeOrderId: string,
-  dto: LinkToProjectDto
-): Promise<{ success: boolean; message: string }> => {
-  const { data } = await apiClient.post<{ success: boolean; message: string }>(
-    `/change-orders/${changeOrderId}/link-to-project`,
-    dto
+  changeOrderId: string
+): Promise<{ message: string; planned_for: string }> => {
+  const { data } = await apiClient.post<{ message: string; planned_for: string }>(
+    `/change-orders/${changeOrderId}/link-to-project`
   );
   return data;
 };
@@ -248,43 +216,99 @@ export const linkToProject = async (
 
 /**
  * Check if change order can be edited
- * Returns true if status is 'pending'
+ * Editable when in draft or pre-send statuses
  */
-export const canEditChangeOrder = (changeOrder: ChangeOrder): boolean => {
-  return changeOrder.status === 'pending';
+export const canEditChangeOrder = (status: string): boolean => {
+  return ['draft', 'pending_approval', 'ready'].includes(status);
 };
 
 /**
  * Check if change order can be approved
- * Returns true if status is 'pending'
+ * Backend validates: ready, sent, delivered, read, opened, downloaded
  */
-export const canApproveChangeOrder = (changeOrder: ChangeOrder): boolean => {
-  return changeOrder.status === 'pending';
+export const canApproveChangeOrder = (status: string): boolean => {
+  return APPROVABLE_STATUSES.includes(status as QuoteStatus);
 };
 
 /**
- * Get change order status label
+ * Check if change order is in a pending state (not yet finalized)
  */
-export const getStatusLabel = (status: ChangeOrderStatus): string => {
-  const labels: Record<ChangeOrderStatus, string> = {
-    pending: 'Pending Approval',
+export const isPendingStatus = (status: string): boolean => {
+  return PENDING_STATUSES.includes(status as QuoteStatus);
+};
+
+/**
+ * Check if change order is finalized (approved or denied)
+ */
+export const isFinalizedStatus = (status: string): boolean => {
+  return status === 'approved' || status === 'denied';
+};
+
+/**
+ * Check if parent quote can have change orders created
+ * Backend validates: approved, started, concluded
+ */
+export const canCreateChangeOrderForParent = (parentStatus: string): boolean => {
+  return VALID_PARENT_STATUSES.includes(parentStatus as QuoteStatus);
+};
+
+/**
+ * Get change order status label for display
+ */
+export const getStatusLabel = (status: string): string => {
+  const labels: Record<string, string> = {
+    draft: 'Draft',
+    pending_approval: 'Pending Approval',
+    ready: 'Ready',
+    sent: 'Sent',
+    delivered: 'Delivered',
+    read: 'Read',
+    opened: 'Opened',
+    downloaded: 'Downloaded',
     approved: 'Approved',
-    rejected: 'Rejected',
+    denied: 'Denied',
+    started: 'Started',
+    concluded: 'Concluded',
   };
-  return labels[status];
+  return labels[status] || status;
 };
 
 /**
- * Get change order status color class
- * For badge styling
+ * Get change order status color class for badge styling
  */
-export const getStatusColorClass = (status: ChangeOrderStatus): string => {
-  const colors: Record<ChangeOrderStatus, string> = {
-    pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200',
+export const getStatusColorClass = (status: string): string => {
+  const colors: Record<string, string> = {
+    draft: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-200',
+    pending_approval: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200',
+    ready: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200',
+    sent: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-200',
+    delivered: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-200',
+    read: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-200',
+    opened: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-200',
+    downloaded: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-200',
     approved: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200',
-    rejected: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200',
+    denied: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200',
+    started: 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-200',
+    concluded: 'bg-teal-100 text-teal-800 dark:bg-teal-900/20 dark:text-teal-200',
   };
-  return colors[status];
+  return colors[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-200';
+};
+
+/**
+ * Get status badge variant for Badge component
+ */
+export const getStatusBadgeVariant = (status: string): string => {
+  if (status === 'approved') return 'success';
+  if (status === 'denied') return 'danger';
+  if (isPendingStatus(status)) return 'warning';
+  return 'gray';
+};
+
+/**
+ * Format money amount for display
+ */
+export const formatMoney = (amount: number): string => {
+  return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 /**
@@ -306,15 +330,14 @@ export const getChangeDirectionText = (amount: number): string => {
 };
 
 /**
- * Calculate percentage change
- * Returns percentage change from original total
+ * Calculate percentage change from original total
  */
 export const calculatePercentageChange = (
   originalTotal: number,
-  amountChange: number
+  changeAmount: number
 ): number => {
   if (originalTotal === 0) return 0;
-  return (amountChange / originalTotal) * 100;
+  return (changeAmount / originalTotal) * 100;
 };
 
 /**
@@ -327,24 +350,30 @@ export const formatPercentageChange = (percentage: number): string => {
 };
 
 /**
- * Group change orders by status
+ * Group change order summaries by status category
  */
-export const groupByStatus = (
-  changeOrders: ChangeOrder[]
-): Record<ChangeOrderStatus, ChangeOrder[]> => {
+export const groupByStatusCategory = (
+  changeOrders: ChangeOrderSummary[]
+): { pending: ChangeOrderSummary[]; approved: ChangeOrderSummary[]; denied: ChangeOrderSummary[] } => {
   return changeOrders.reduce(
     (acc, co) => {
-      acc[co.status].push(co);
+      if (co.status === 'approved') {
+        acc.approved.push(co);
+      } else if (co.status === 'denied') {
+        acc.denied.push(co);
+      } else {
+        acc.pending.push(co);
+      }
       return acc;
     },
-    { pending: [], approved: [], rejected: [] } as Record<ChangeOrderStatus, ChangeOrder[]>
+    { pending: [] as ChangeOrderSummary[], approved: [] as ChangeOrderSummary[], denied: [] as ChangeOrderSummary[] }
   );
 };
 
 /**
- * Get most recent change order
+ * Get most recent change order from a list
  */
-export const getMostRecent = (changeOrders: ChangeOrder[]): ChangeOrder | null => {
+export const getMostRecent = (changeOrders: ChangeOrderSummary[]): ChangeOrderSummary | null => {
   if (changeOrders.length === 0) return null;
   return changeOrders.reduce((latest, co) =>
     new Date(co.created_at) > new Date(latest.created_at) ? co : latest

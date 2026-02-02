@@ -15,6 +15,7 @@ import { QuoteStatusBadge } from '@/components/quotes/QuoteStatusBadge';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
 import { QuoteStatsWidget } from '@/components/quotes/QuoteStatsWidget';
 import { QuoteFilters } from '@/components/quotes/QuoteFilters';
+import AdvancedSearchModal from '@/components/quotes/search/AdvancedSearchModal';
 import {
   getQuotes,
   getQuoteStatistics,
@@ -35,6 +36,7 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  Filter,
 } from 'lucide-react';
 import type {
   QuoteSummary,
@@ -70,6 +72,7 @@ export default function QuotesPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [messageModalOpen, setMessageModalOpen] = useState(false);
+  const [advancedSearchOpen, setAdvancedSearchOpen] = useState(false);
 
   // Load quotes and stats
   useEffect(() => {
@@ -92,7 +95,14 @@ export default function QuotesPage() {
     try {
       setLoading(true);
       const response = await getQuotes(filters);
-      setQuotes(response?.data || []);
+
+      // Filter out change orders (quote_number starts with "CO-")
+      // Change orders should only appear within their parent quote's detail page
+      const regularQuotes = (response?.data || []).filter(
+        (quote) => !quote.quote_number?.startsWith('CO-')
+      );
+
+      setQuotes(regularQuotes);
       const total = response?.meta?.total || 0;
       setTotalQuotes(total);
       // Calculate total pages based on total quotes and items per page
@@ -234,13 +244,22 @@ export default function QuotesPage() {
       </div>
 
       {/* Search Bar */}
-      <div className="mb-4">
-        <Input
-          placeholder="Search quotes by number, title, or customer name..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          leftIcon={<Search className="w-5 h-5" />}
-        />
+      <div className="mb-4 flex gap-2">
+        <div className="flex-1">
+          <Input
+            placeholder="Search quotes by number, title, or customer name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            leftIcon={<Search className="w-5 h-5" />}
+          />
+        </div>
+        <Button
+          variant="secondary"
+          onClick={() => setAdvancedSearchOpen(true)}
+        >
+          <Filter className="w-4 h-4" />
+          Advanced Search
+        </Button>
       </div>
 
       {/* Filters */}
@@ -641,6 +660,19 @@ export default function QuotesPage() {
           </ModalActions>
         )}
       </Modal>
+
+      {/* Advanced Search Modal */}
+      <AdvancedSearchModal
+        isOpen={advancedSearchOpen}
+        onClose={() => setAdvancedSearchOpen(false)}
+        onResults={(results) => {
+          // Show search results count message
+          showSuccess(`Found ${results.pagination.total} quote(s) matching your search criteria`);
+          setAdvancedSearchOpen(false);
+          // Note: Advanced search is independent - it shows results in the modal itself
+          // To integrate with the main list, we'd need to convert search filters to quote list filters
+        }}
+      />
     </div>
   );
 }

@@ -1362,6 +1362,7 @@ unknown unknown
     "quote_jobsite_address" }o--|| "tenant" : "tenant"
     "quote" |o--|| "quote_status" : "enum:status"
     "quote" }o--|| "tenant" : "tenant"
+    "quote" |o--|o quote : "parent_quote"
     "quote" }o--|o lead : "lead"
     "quote" }o--|o vendor : "vendor"
     "quote" }o--|| quote_jobsite_address : "jobsite_address"

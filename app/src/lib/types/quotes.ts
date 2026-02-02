@@ -12,6 +12,7 @@ export interface Quote {
   lead_id: string;
   vendor_id: string;
   jobsite_address_id: string;
+  parent_quote_id?: string | null; // Change Order: If NOT NULL, this is a change order
   po_number?: string | null;
   private_notes?: string | null;
   use_default_settings: boolean;
@@ -28,6 +29,10 @@ export interface Quote {
   tax_amount: number;
   discount_amount: number;
   total: number;
+  // NEW: Change Order calculated fields (always present from backend)
+  total_with_change_orders?: number; // Original total + approved COs total
+  approved_change_orders_total?: number; // Sum of approved COs only
+  approved_change_orders_count?: number; // Count of approved COs
   is_archived: boolean;
   created_at: string;
   updated_at: string;
@@ -41,6 +46,16 @@ export interface Quote {
   draw_schedule?: any[];
   attachments?: any[];
   tag_assignments?: any[];
+  // NEW: Change orders array (only on GET /quotes/:id, not on list)
+  change_orders?: Array<{
+    id: string;
+    quote_number: string; // "CO-2026-0001"
+    title: string;
+    status: QuoteStatus;
+    total: number;
+    created_at: string;
+    updated_at: string;
+  }>;
 }
 
 export type QuoteStatus =
@@ -1193,4 +1208,363 @@ export interface ViewHistoryResponse {
     total: number;
     total_pages: number;
   };
+}
+
+// ========== SPRINT 6: DASHBOARD ANALYTICS, SEARCH, & TAGS ==========
+// NOTE: These types match ACTUAL API responses (tested 2026-01-30)
+// DO NOT modify existing types above - these are ADDITIONS ONLY
+// See: /documentation/frontend/SPRINT6_API_TESTING_RESULTS.md
+
+// Dashboard Overview (extends QuoteStatistics with additional API fields)
+export interface DashboardOverviewResponse {
+  total_quotes: number;
+  total_generated: number;
+  total_revenue: number;
+  avg_quote_value: number;
+  amount_sent: number;
+  amount_lost: number;
+  amount_denied: number;
+  amount_pending_approval: number;
+  conversion_rate: number;
+  by_status: Array<{
+    status: string;
+    count: number;
+    total_revenue: number;
+    avg_value: number;
+  }>;
+  velocity_comparison: {
+    current: number;
+    previous: number;
+    change_percent: number;
+    trend: string;
+  };
+  date_from: string;
+  date_to: string;
+}
+
+export interface QuotesOverTimeResponse {
+  data: Array<{
+    date: string;
+    count: number;
+    total_value: number;
+    approved_count: number;
+    rejected_count: number;
+  }>;
+  interval: string;
+  date_from: string;
+  date_to: string;
+}
+
+export interface TopItemsResponse {
+  top_items: Array<{
+    title: string;
+    usage_count: number;
+    total_revenue: number;
+    avg_price: number;
+    library_item_id: string | null;
+  }>;
+  date_from: string;
+  date_to: string;
+}
+
+export interface WinLossAnalysisResponse {
+  total_wins: number;
+  total_losses: number;
+  win_rate: number;
+  win_revenue: number;
+  loss_revenue: number;
+  loss_reasons: string[];
+  date_from: string;
+  date_to: string;
+}
+
+export interface ConversionFunnelResponse {
+  funnel: Array<{
+    stage: string;
+    count: number;
+    total_value: number;
+    conversion_to_next: number | null;
+    drop_off_rate: number | null;
+  }>;
+  overall_conversion_rate: number;
+  date_from: string;
+  date_to: string;
+}
+
+export interface RevenueByVendorResponse {
+  vendors: Array<{
+    vendor_id: string;
+    vendor_name: string;
+    quote_count: number;
+    total_revenue: number;
+    avg_quote_value: number;
+    approval_rate: number;
+  }>;
+  date_from: string;
+  date_to: string;
+}
+
+export interface AvgPricingByTaskResponse {
+  benchmarks: Array<{
+    task_title: string;
+    usage_count: number;
+    avg_price: number;
+    min_price: number;
+    max_price: number;
+    median_price: number;
+    library_item_id: string | null;
+  }>;
+  date_from: string;
+  date_to: string;
+}
+
+export interface ExportDashboardDto {
+  format: 'csv' | 'xlsx' | 'pdf';
+  date_from?: string;
+  date_to?: string;
+  sections: string[]; // REQUIRED: min 1 element
+}
+
+export interface ExportDashboardResponse {
+  file_id: string;
+  download_url: string;
+  filename: string;
+  file_size: number;
+  format: string;
+  generated_at: string;
+  expires_at: string;
+}
+
+// Search Types
+export interface QuoteSearchFilters {
+  customer_name?: string;
+  quote_number?: string;
+  status?: string[]; // MUST be array
+  vendor_id?: string;
+  min_amount?: number;
+  max_amount?: number;
+  date_from?: string;
+  date_to?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface QuoteSearchResponse {
+  results: Array<{
+    id: string;
+    quote_number: string;
+    title: string;
+    status: string;
+    total: number;
+    customer_name: string;
+    city: string;
+    created_at: string;
+  }>;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    total_pages: number;
+  };
+}
+
+export interface SearchSuggestion {
+  value: string;
+  type: 'quote_number' | 'customer' | 'item';
+  usage_count: number;
+}
+
+export interface SearchSuggestionsResponse {
+  suggestions: SearchSuggestion[];
+}
+
+export interface SavedSearch {
+  id: string;
+  name: string;
+  criteria: QuoteSearchFilters; // API uses "criteria" not "filters"
+  created_at: string;
+}
+
+export interface SavedSearchesResponse {
+  saved_searches: SavedSearch[];
+}
+
+export interface CreateSavedSearchDto {
+  name: string;
+  criteria: QuoteSearchFilters; // API uses "criteria" not "filters"
+}
+
+// Tag Types
+export interface QuoteTag {
+  id: string;
+  name: string;
+  color: string; // Hex format: #RRGGBB
+  is_active: boolean;
+  usage_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateQuoteTagDto {
+  name: string;
+  color: string; // Hex format: #RRGGBB
+}
+
+export interface UpdateQuoteTagDto {
+  name?: string;
+  color?: string;
+  is_active?: boolean;
+}
+
+export interface AssignTagsDto {
+  tag_ids: string[]; // Replaces ALL tags on quote
+}
+
+// ========== CHANGE ORDER TYPES (Sprint 6) ==========
+// Source: api/documentation/change_order_REST_API.md
+// All types match backend DTOs exactly - NO guessing
+
+/**
+ * Jobsite Address DTO (nested in CreateChangeOrderDto)
+ * Source: api/src/modules/quotes/dto/quote/jobsite-address.dto.ts
+ */
+export interface JobsiteAddressDto {
+  address_line1: string; // Required, 1-255 chars
+  address_line2?: string; // Optional, 1-255 chars
+  city?: string; // Optional, 1-100 chars
+  state?: string; // Optional, exactly 2 chars
+  zip_code: string; // Required, regex: /^\d{5}(-\d{4})?$/
+  latitude?: number; // Optional
+  longitude?: number; // Optional
+}
+
+/**
+ * Create Change Order DTO - Request body for POST /quotes/:parentQuoteId/change-orders
+ * Source: api/src/modules/quotes/dto/change-order/create-change-order.dto.ts
+ * Total fields: 8 (1 required, 7 optional)
+ */
+export interface CreateChangeOrderDto {
+  title: string; // Required
+  description?: string; // Optional
+  jobsite_address?: JobsiteAddressDto; // Optional - override parent quote address
+  vendor_id?: string; // Optional UUID - override parent quote vendor
+  expiration_days?: number; // Optional 1-365, defaults to 30
+  custom_profit_percent?: number; // Optional 0-100
+  custom_overhead_percent?: number; // Optional 0-100
+  custom_contingency_percent?: number; // Optional 0-100
+}
+
+/**
+ * Change Order Response DTO - Response from create/approve/reject endpoints
+ * Source: api/src/modules/quotes/dto/change-order/change-order-response.dto.ts
+ * Total fields: 14 (13 always present, approved_at conditional)
+ */
+export interface ChangeOrderResponseDto {
+  id: string; // Change order UUID
+  quote_number: string; // CO-YYYY-#### format
+  title: string;
+  status: QuoteStatus; // Uses same 14-value enum as regular quotes
+  parent_quote_id: string; // Parent quote UUID
+  parent_quote_number: string; // Parent quote number (QR-YYYY-####)
+  parent_original_total: number; // Parent quote total (float)
+  subtotal: number; // CO subtotal (float)
+  tax_amount: number; // CO tax (float)
+  discount_amount: number; // CO discount (float)
+  total: number; // CO total (float)
+  created_at: string; // ISO 8601
+  updated_at: string; // ISO 8601
+  approved_at?: string; // ISO 8601, only present when status === 'approved'
+}
+
+/**
+ * Change Order Summary DTO - Lightweight version for lists
+ * Source: api/src/modules/quotes/dto/change-order/change-order-summary.dto.ts
+ * Used in ListChangeOrdersResponseDto and ParentQuoteTotalsDto arrays
+ * Total fields: 7 (6 always present, approved_at conditional)
+ */
+export interface ChangeOrderSummaryDto {
+  id: string;
+  quote_number: string; // CO-YYYY-#### format
+  title: string;
+  status: QuoteStatus; // Same 14 values as ChangeOrderResponseDto
+  total: number; // Float
+  created_at: string; // ISO 8601
+  approved_at?: string; // ISO 8601, only when status === 'approved'
+}
+
+/**
+ * Parent Quote Totals DTO - Response from GET /quotes/:quoteId/with-change-orders
+ * Source: api/src/modules/quotes/dto/change-order/parent-quote-totals.dto.ts
+ * Total fields: 9 (all always present)
+ */
+export interface ParentQuoteTotalsDto {
+  parent_quote_id: string;
+  parent_quote_number: string;
+  original_total: number; // Parent quote total before any COs (float)
+  approved_change_orders_total: number; // Sum of approved CO totals (float)
+  pending_change_orders_total: number; // Sum of pending CO totals (float)
+  revised_total: number; // original_total + approved_change_orders_total (float)
+  approved_co_count: number; // Count of approved COs (integer)
+  pending_co_count: number; // Count of pending COs (integer)
+  change_orders: ChangeOrderSummaryDto[]; // ALL COs (approved, pending, AND rejected)
+}
+
+/**
+ * List Change Orders Response DTO - Response from GET /quotes/:parentQuoteId/change-orders
+ * Source: api/src/modules/quotes/dto/change-order/list-change-orders-response.dto.ts
+ * Total fields: 4 top-level (with nested summary object)
+ */
+export interface ListChangeOrdersResponseDto {
+  parent_quote_id: string;
+  parent_quote_number: string;
+  change_orders: ChangeOrderSummaryDto[]; // Sorted by created_at descending
+  summary: {
+    total_count: number; // All change orders
+    approved_count: number; // status === 'approved'
+    pending_count: number; // draft, pending_approval, ready, sent, delivered, read, opened, downloaded
+    rejected_count: number; // status === 'denied'
+  };
+}
+
+/**
+ * Approve Change Order DTO - Request body for POST /change-orders/:id/approve
+ * Source: api/src/modules/quotes/dto/change-order/approve-change-order.dto.ts
+ * Total fields: 1 (optional) - empty {} is valid
+ */
+export interface ApproveChangeOrderDto {
+  notes?: string; // Optional approval notes (stored in audit log and version)
+}
+
+/**
+ * Reject Change Order DTO - Request body for POST /change-orders/:id/reject
+ * Source: api/src/modules/quotes/dto/change-order/reject-change-order.dto.ts
+ * Total fields: 1 (required)
+ */
+export interface RejectChangeOrderDto {
+  reason: string; // Required, min 10 characters
+}
+
+/**
+ * Change Order History Event - Timeline event object
+ * Source: api/documentation/change_order_REST_API.md (Endpoint 7 inline schema)
+ */
+export interface ChangeOrderHistoryEvent {
+  id: string; // Change order UUID
+  event_type: 'change_order_created' | 'change_order_approved' | 'change_order_rejected';
+  change_order_number: string; // CO-YYYY-####
+  description: string; // CO title
+  amount: number; // CO total (float)
+  timestamp: string; // ISO 8601 (from created_at)
+  status: QuoteStatus; // Current CO status
+}
+
+/**
+ * Change Order History Response - Response from GET /quotes/:parentQuoteId/change-orders/history
+ * Source: api/documentation/change_order_REST_API.md (Endpoint 7)
+ */
+export interface ChangeOrderHistoryResponse {
+  timeline: ChangeOrderHistoryEvent[]; // Sorted by timestamp ascending (oldest first)
+  parent_quote_id: string;
+  parent_quote_number: string;
+  total_events: number;
 }

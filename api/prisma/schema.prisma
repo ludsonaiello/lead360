@@ -1472,11 +1472,13 @@ model quote {
   created_at                  DateTime      @default(now())
   updated_at                  DateTime      @updatedAt
   latest_pdf_file_id          String?       @db.VarChar(36)
+  parent_quote_id             String?       @db.VarChar(36)
   pdf_content_hash            String?       @db.VarChar(64)
   pdf_last_generated_at       DateTime?
   pdf_generation_params       Json?
 
   tenant                      tenant        @relation("quote_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  parent_quote                quote?        @relation("change_order_parent", fields: [parent_quote_id], references: [id], onDelete: Restrict)
   lead                        lead?         @relation("quote_lead", fields: [lead_id], references: [id], onDelete: SetNull)
   vendor                      vendor?       @relation(fields: [vendor_id], references: [id], onDelete: SetNull)
   jobsite_address             quote_jobsite_address @relation(fields: [jobsite_address_id], references: [id], onDelete: Restrict)
@@ -1495,6 +1497,7 @@ model quote {
   download_logs               quote_download_log[]
   draw_schedule               draw_schedule_entry[]
   public_access               quote_public_access[]
+  change_orders               quote[]       @relation("change_order_parent")
 
   @@unique([tenant_id, quote_number])
   @@index([tenant_id, status])
@@ -1503,6 +1506,7 @@ model quote {
   @@index([tenant_id, lead_id])
   @@index([tenant_id, expires_at])
   @@index([tenant_id, is_archived])
+  @@index([tenant_id, parent_quote_id])
   @@index([status])
   @@index([latest_pdf_file_id])
   @@map("quote")

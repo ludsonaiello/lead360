@@ -155,18 +155,77 @@ export class QuotePricingService {
       `Updating quote ${quoteId} financials - Subtotal: ${financials.subtotalBeforeDiscounts}, Discount: ${financials.discountAmount}, Tax: ${financials.taxAmount}, Total: ${financials.total}`,
     );
 
-    // Update quote with new values
-    const updatedQuote = await prisma.quote.update({
-      where: { id: quoteId },
-      data: {
-        subtotal: new Decimal(financials.subtotalBeforeDiscounts),
-        discount_amount: new Decimal(financials.discountAmount),
-        tax_amount: new Decimal(financials.taxAmount),
-        total: new Decimal(financials.total),
+    // Update quote with new values (with retry logic for deadlocks)
+    const updatedQuote = await this.retryOnDeadlock(
+      async () => {
+        return prisma.quote.update({
+          where: { id: quoteId },
+          data: {
+            subtotal: new Decimal(financials.subtotalBeforeDiscounts),
+            discount_amount: new Decimal(financials.discountAmount),
+            tax_amount: new Decimal(financials.taxAmount),
+            total: new Decimal(financials.total),
+          },
+        });
       },
-    });
+      3, // max 3 retries
+      100, // 100ms delay between retries
+    );
 
     return updatedQuote;
+  }
+
+  /**
+   * Retry helper for handling database deadlocks
+   *
+   * @param operation - Async operation to retry
+   * @param maxRetries - Maximum number of retries (default: 3)
+   * @param delayMs - Delay between retries in ms (default: 100)
+   * @returns Result of the operation
+   */
+  private async retryOnDeadlock<T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 3,
+    delayMs: number = 100,
+  ): Promise<T> {
+    let lastError: any;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        lastError = error;
+
+        // Check if this is a deadlock error (Prisma error code P2034)
+        const isDeadlock =
+          error.code === 'P2034' ||
+          (error.message &&
+            error.message.includes('write conflict or a deadlock'));
+
+        if (!isDeadlock || attempt === maxRetries) {
+          // Not a deadlock or we've exhausted retries - throw the error
+          throw error;
+        }
+
+        // Deadlock detected - log and retry after delay
+        this.logger.warn(
+          `Deadlock detected on attempt ${attempt}/${maxRetries}, retrying after ${delayMs}ms...`,
+        );
+
+        // Wait before retrying (exponential backoff)
+        await this.delay(delayMs * attempt);
+      }
+    }
+
+    // Should never reach here, but throw last error just in case
+    throw lastError;
+  }
+
+  /**
+   * Helper to delay execution
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**

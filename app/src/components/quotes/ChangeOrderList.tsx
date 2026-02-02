@@ -17,20 +17,27 @@ import {
   Eye,
   TrendingUp,
   TrendingDown,
+  Trash2,
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
 import { CreateChangeOrderModal } from './CreateChangeOrderModal';
+import { ApproveChangeOrderModal } from './ApproveChangeOrderModal';
+import { RejectChangeOrderModal } from './RejectChangeOrderModal';
 import {
   getChangeOrders,
-  getTotalImpact,
-  approveChangeOrder,
-  type ChangeOrder,
-  type TotalImpact,
+  getParentQuoteTotals,
+  type ChangeOrderSummary,
+  type ParentQuoteTotals,
   getStatusLabel,
+  getStatusBadgeVariant,
+  canApproveChangeOrder as canApproveStatus,
+  canCreateChangeOrderForParent,
 } from '@/lib/api/change-orders';
+import { deleteQuote } from '@/lib/api/quotes';
 import toast from 'react-hot-toast';
 
 interface ChangeOrderListProps {
@@ -52,32 +59,37 @@ export function ChangeOrderList({
   onChangeOrderApproved,
   className = '',
 }: ChangeOrderListProps) {
-  const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>([]);
-  const [totalImpact, setTotalImpact] = useState<TotalImpact | null>(null);
+  const [changeOrders, setChangeOrders] = useState<ChangeOrderSummary[]>([]);
+  const [totals, setTotals] = useState<ParentQuoteTotals | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedChangeOrder, setSelectedChangeOrder] = useState<ChangeOrderSummary | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  // Check if quote is approved
-  const isApproved = quoteStatus === 'approved' || quoteStatus === 'sent';
+  // Check if parent quote can have change orders (approved, started, or concluded)
+  const canHaveChangeOrders = canCreateChangeOrderForParent(quoteStatus);
 
   // Fetch change orders
   useEffect(() => {
-    if (isApproved) {
+    if (canHaveChangeOrders) {
       fetchChangeOrders();
     } else {
       setLoading(false);
     }
-  }, [quoteId, isApproved]);
+  }, [quoteId, canHaveChangeOrders]);
 
   const fetchChangeOrders = async () => {
     setLoading(true);
     try {
-      const [ordersData, impactData] = await Promise.all([
+      const [ordersData, totalsData] = await Promise.all([
         getChangeOrders(quoteId),
-        getTotalImpact(quoteId),
+        getParentQuoteTotals(quoteId),
       ]);
       setChangeOrders(ordersData.change_orders);
-      setTotalImpact(impactData);
+      setTotals(totalsData);
     } catch (error: any) {
       console.error('Failed to fetch change orders:', error);
       toast.error('Could not fetch change orders');
@@ -86,21 +98,57 @@ export function ChangeOrderList({
     }
   };
 
-  // Handle approve
-  const handleApprove = async (changeOrderId: string) => {
+  // Handle approve modal
+  const handleOpenApproveModal = (changeOrder: ChangeOrderSummary) => {
+    setSelectedChangeOrder(changeOrder);
+    setShowApproveModal(true);
+  };
+
+  // Handle reject modal
+  const handleOpenRejectModal = (changeOrder: ChangeOrderSummary) => {
+    setSelectedChangeOrder(changeOrder);
+    setShowRejectModal(true);
+  };
+
+  // Handle delete modal
+  const handleOpenDeleteModal = (changeOrder: ChangeOrderSummary) => {
+    setSelectedChangeOrder(changeOrder);
+    setShowDeleteModal(true);
+  };
+
+  // Handle delete
+  const handleDelete = async () => {
+    if (!selectedChangeOrder) return;
+
+    setDeleting(true);
     try {
-      await approveChangeOrder(changeOrderId);
-      toast.success('Change order has been approved and merged');
+      await deleteQuote(selectedChangeOrder.id);
+      toast.success(`Change order ${selectedChangeOrder.quote_number} has been deleted`);
+      setShowDeleteModal(false);
+      setSelectedChangeOrder(null);
       fetchChangeOrders();
-      onChangeOrderApproved?.();
+      onChangeOrderApproved?.(); // Refresh parent quote totals
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to approve change order');
+      const message = error.response?.data?.message || 'Failed to delete change order';
+      toast.error(message);
+    } finally {
+      setDeleting(false);
     }
   };
 
+  // Handle modal actions complete
+  const handleModalActionComplete = () => {
+    fetchChangeOrders();
+    onChangeOrderApproved?.();
+    setSelectedChangeOrder(null);
+  };
+
   // Format money
-  const formatMoney = (amount: number): string => {
-    return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatMoney = (amount: number | null | undefined): string => {
+    // Handle null, undefined, NaN, and convert to number
+    const numValue = Number(amount);
+    const value = isNaN(numValue) ? 0 : numValue;
+    return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   // Format relative time
@@ -116,22 +164,8 @@ export function ChangeOrderList({
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  // Get status badge variant
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return 'success';
-      case 'rejected':
-        return 'danger';
-      case 'pending':
-        return 'warning';
-      default:
-        return 'gray';
-    }
-  };
-
-  // Not approved message
-  if (!isApproved) {
+  // Not in valid status message
+  if (!canHaveChangeOrders) {
     return (
       <Card className={`p-6 ${className}`}>
         <div className="text-center py-8">
@@ -184,7 +218,7 @@ export function ChangeOrderList({
         </div>
 
         {/* Total Impact Summary */}
-        {totalImpact && changeOrders.length > 0 && (
+        {totals && changeOrders.length > 0 && (
           <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg border-2 border-blue-200 dark:border-blue-800">
             <h4 className="font-semibold mb-3 text-blue-900 dark:text-blue-100">
               Total Impact
@@ -193,31 +227,31 @@ export function ChangeOrderList({
               <div>
                 <p className="text-gray-600 dark:text-gray-400 text-xs mb-1">Original Total</p>
                 <p className="font-bold text-gray-900 dark:text-gray-100">
-                  {formatMoney(totalImpact.original_total)}
+                  {formatMoney(totals.original_total)}
                 </p>
               </div>
               <div>
                 <p className="text-gray-600 dark:text-gray-400 text-xs mb-1">Approved Changes</p>
                 <p className={`font-bold ${
-                  totalImpact.total_approved_changes >= 0
+                  (totals.approved_change_orders_total ?? 0) >= 0
                     ? 'text-green-600 dark:text-green-400'
                     : 'text-red-600 dark:text-red-400'
                 }`}>
-                  {totalImpact.total_approved_changes >= 0 ? '+' : ''}
-                  {formatMoney(totalImpact.total_approved_changes)}
+                  {(totals.approved_change_orders_total ?? 0) >= 0 ? '+' : ''}
+                  {formatMoney(totals.approved_change_orders_total)}
                 </p>
               </div>
               <div>
                 <p className="text-gray-600 dark:text-gray-400 text-xs mb-1">Pending Changes</p>
                 <p className="font-bold text-yellow-600 dark:text-yellow-400">
-                  {totalImpact.total_pending_changes >= 0 ? '+' : ''}
-                  {formatMoney(totalImpact.total_pending_changes)}
+                  {(totals.pending_change_orders_total ?? 0) >= 0 ? '+' : ''}
+                  {formatMoney(totals.pending_change_orders_total)}
                 </p>
               </div>
               <div>
-                <p className="text-gray-600 dark:text-gray-400 text-xs mb-1">New Total</p>
+                <p className="text-gray-600 dark:text-gray-400 text-xs mb-1">Revised Total</p>
                 <p className="font-bold text-lg text-blue-900 dark:text-blue-100">
-                  {formatMoney(totalImpact.new_total)}
+                  {formatMoney(totals.revised_total)}
                 </p>
               </div>
             </div>
@@ -257,9 +291,9 @@ export function ChangeOrderList({
                       <FileText className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-gray-900 dark:text-gray-100">
-                          {co.change_order_number}
+                          {co.quote_number}
                         </span>
-                        <Badge variant={getStatusBadgeVariant(co.status)}>
+                        <Badge variant={getStatusBadgeVariant(co.status) as any}>
                           {getStatusLabel(co.status)}
                         </Badge>
                       </div>
@@ -268,18 +302,13 @@ export function ChangeOrderList({
                     <p className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
                       {co.title}
                     </p>
-                    {co.description && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                        {co.description}
-                      </p>
-                    )}
 
                     <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
                       <span>{formatRelativeTime(co.created_at)}</span>
-                      {co.approved_at && co.approved_by && (
+                      {co.approved_at && (
                         <>
                           <span>•</span>
-                          <span>Approved by {co.approved_by.name}</span>
+                          <span>Approved {formatRelativeTime(co.approved_at)}</span>
                         </>
                       )}
                     </div>
@@ -288,42 +317,54 @@ export function ChangeOrderList({
                   {/* Amount & Actions */}
                   <div className="flex flex-col items-end gap-2">
                     <div className="flex items-center gap-2">
-                      {co.amount_change >= 0 ? (
+                      {(co.total ?? 0) >= 0 ? (
                         <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
                       ) : (
                         <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400" />
                       )}
                       <p className={`text-lg font-bold ${
-                        co.amount_change >= 0
+                        (co.total ?? 0) >= 0
                           ? 'text-green-600 dark:text-green-400'
                           : 'text-red-600 dark:text-red-400'
                       }`}>
-                        {co.amount_change >= 0 ? '+' : ''}
-                        {formatMoney(co.amount_change)}
+                        {formatMoney(co.total)}
                       </p>
                     </div>
 
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      New total: <span className="font-semibold">{formatMoney(co.new_total)}</span>
-                    </p>
-
                     <div className="flex gap-2 mt-2">
                       <Link
-                        href={`/quotes/${co.child_quote_id}`}
+                        href={`/quotes/${co.id}`}
                         className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
                         title="View Details"
                       >
                         <Eye className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                       </Link>
 
-                      {co.status === 'pending' && canApproveChangeOrder && (
-                        <button
-                          onClick={() => handleApprove(co.id)}
-                          className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
-                          title="Approve"
-                        >
-                          <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
-                        </button>
+                      <button
+                        onClick={() => handleOpenDeleteModal(co)}
+                        className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                      </button>
+
+                      {canApproveStatus(co.status) && canApproveChangeOrder && (
+                        <>
+                          <button
+                            onClick={() => handleOpenApproveModal(co)}
+                            className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+                            title="Approve"
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          </button>
+                          <button
+                            onClick={() => handleOpenRejectModal(co)}
+                            className="p-2 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 hover:bg-yellow-200 dark:hover:bg-yellow-900/50 transition-colors"
+                            title="Reject"
+                          >
+                            <XCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -345,6 +386,53 @@ export function ChangeOrderList({
             fetchChangeOrders();
             onChangeOrderCreated?.();
           }}
+        />
+      )}
+
+      {/* Approve Change Order Modal */}
+      {showApproveModal && selectedChangeOrder && (
+        <ApproveChangeOrderModal
+          isOpen={showApproveModal}
+          onClose={() => {
+            setShowApproveModal(false);
+            setSelectedChangeOrder(null);
+          }}
+          changeOrderId={selectedChangeOrder.id}
+          changeOrderNumber={selectedChangeOrder.quote_number}
+          changeOrderTitle={selectedChangeOrder.title}
+          changeOrderTotal={selectedChangeOrder.total}
+          onApproved={handleModalActionComplete}
+        />
+      )}
+
+      {/* Reject Change Order Modal */}
+      {showRejectModal && selectedChangeOrder && (
+        <RejectChangeOrderModal
+          isOpen={showRejectModal}
+          onClose={() => {
+            setShowRejectModal(false);
+            setSelectedChangeOrder(null);
+          }}
+          changeOrderId={selectedChangeOrder.id}
+          changeOrderNumber={selectedChangeOrder.quote_number}
+          onRejected={handleModalActionComplete}
+        />
+      )}
+
+      {/* Delete Change Order Modal */}
+      {showDeleteModal && selectedChangeOrder && (
+        <DeleteConfirmationModal
+          isOpen={showDeleteModal}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setSelectedChangeOrder(null);
+          }}
+          onConfirm={handleDelete}
+          title="Delete Change Order"
+          message={`Are you sure you want to delete change order ${selectedChangeOrder.quote_number}? This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          isDeleting={deleting}
         />
       )}
     </>
