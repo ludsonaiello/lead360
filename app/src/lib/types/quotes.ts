@@ -1568,3 +1568,58 @@ export interface ChangeOrderHistoryResponse {
   parent_quote_number: string;
   total_events: number;
 }
+
+// ========== QUOTE NOTES TYPES (Sprint 6) ==========
+// Source: api/documentation/quote_notes_REST_API.md
+// Backend fully implemented - these types match the API exactly
+
+/**
+ * Quote Note Response - Single note object
+ * Source: api/documentation/quote_notes_REST_API.md (QuoteNoteResponseDto)
+ * Total fields: 7 (all always present, user can be null)
+ */
+export interface QuoteNote {
+  id: string; // Note UUID
+  quote_id: string; // Quote UUID
+  note_text: string; // Note content (1-5000 chars)
+  is_pinned: boolean; // Whether note is pinned to top
+  user: {
+    // User who created note (null if user deleted)
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+  } | null;
+  created_at: string; // ISO 8601
+  updated_at: string; // ISO 8601
+}
+
+/**
+ * Create Quote Note DTO - Request body for POST /quotes/:id/notes
+ * Source: api/documentation/quote_notes_REST_API.md (CreateQuoteNoteDto)
+ * Total fields: 2 (1 required, 1 optional)
+ */
+export interface CreateQuoteNoteDto {
+  note_text: string; // Required, max 5000 chars
+  is_pinned?: boolean; // Optional, default false
+}
+
+/**
+ * Update Quote Note DTO - Request body for PATCH /quotes/:id/notes/:noteId
+ * Source: api/documentation/quote_notes_REST_API.md (UpdateQuoteNoteDto)
+ * Total fields: 2 (both optional) - at least one must be provided
+ */
+export interface UpdateQuoteNoteDto {
+  note_text?: string; // Optional, max 5000 chars
+  is_pinned?: boolean; // Optional
+}
+
+/**
+ * Quote Notes List Response - Response from GET /quotes/:id/notes
+ * Source: api/documentation/quote_notes_REST_API.md (QuoteNotesListResponseDto)
+ * Notes are sorted: pinned first (by created_at desc), then unpinned (by created_at desc)
+ */
+export interface QuoteNotesListResponse {
+  notes: QuoteNote[];
+  total: number; // Total count of notes for this quote
+}

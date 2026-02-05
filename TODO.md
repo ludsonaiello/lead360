@@ -878,3 +878,4 @@ Track these throughout development:
 [ ] SELECT CUSTOMER ADDRESS EXISTING IF THEY HAVE INSTEAD OF ADDING A NEW ONE WHILE CREATING A QUOTE.
 [ ] Incluir garantia item library
 [ ] Incluir garantia global no quote. 
+[ ] AJUSTAR TEMPLATES DE QUOTES BUILDER OU OUTRA ESTRATÉGIA

@@ -32,6 +32,33 @@ import { QuotesModule } from './modules/quotes/quotes.module';
           host: configService.get('REDIS_HOST') || '127.0.0.1',
           port: configService.get('REDIS_PORT') || 6379,
           password: configService.get('REDIS_PASSWORD'),
+          // Connection retry strategy
+          retryStrategy: (times: number) => {
+            if (times > 10) {
+              // After 10 retries, stop trying and throw error
+              return null;
+            }
+            // Exponential backoff: 50ms, 100ms, 200ms, 400ms, etc. (max 5s)
+            const delay = Math.min(times * 50, 5000);
+            return delay;
+          },
+          // Connection options for stability
+          maxRetriesPerRequest: 3,
+          enableReadyCheck: true,
+          enableOfflineQueue: true,
+          // Reconnect on error
+          reconnectOnError: (err) => {
+            const targetError = 'READONLY';
+            if (err.message.includes(targetError)) {
+              // Only reconnect when connection becomes read-only
+              return true;
+            }
+            return false;
+          },
+          // Connection timeout
+          connectTimeout: 10000, // 10 seconds
+          // Keepalive to detect dead connections
+          keepAlive: 30000, // 30 seconds
         },
       }),
       inject: [ConfigService],

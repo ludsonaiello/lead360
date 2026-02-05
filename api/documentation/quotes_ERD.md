@@ -682,6 +682,22 @@ unknown unknown
     }
   
 
+  "scheduled_report" {
+    String id "🗝️"
+    String name 
+    String report_type 
+    String schedule 
+    Json parameters 
+    String format 
+    Json recipients 
+    Boolean is_active 
+    DateTime next_run_at 
+    DateTime last_run_at "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
   "job" {
     String id "🗝️"
     String job_type 
@@ -998,13 +1014,76 @@ unknown unknown
     String id "🗝️"
     String name 
     String description "❓"
-    String html_content 
+    String template_type 
+    Json visual_structure "❓"
+    String html_content "❓"
+    String css_content "❓"
+    Json tags "❓"
     String thumbnail_url "❓"
+    Boolean is_prebuilt 
     Boolean is_global 
     Boolean is_active 
     Boolean is_default 
     DateTime created_at 
     DateTime updated_at 
+    }
+  
+
+  "quote_template_version" {
+    String id "🗝️"
+    Int version_number 
+    String template_type 
+    Json visual_structure "❓"
+    String html_content "❓"
+    String css_content "❓"
+    String changes_summary "❓"
+    Int render_time_ms "❓"
+    Int pdf_size_kb "❓"
+    DateTime created_at 
+    }
+  
+
+  "template_category" {
+    String id "🗝️"
+    String name 
+    String description "❓"
+    String icon_name "❓"
+    Int sort_order 
+    Boolean is_active 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "template_component" {
+    String id "🗝️"
+    String name 
+    String description "❓"
+    String component_type 
+    Json structure 
+    Json default_props "❓"
+    String html_template 
+    String css_template "❓"
+    String thumbnail_url "❓"
+    String preview_html "❓"
+    String usage_notes "❓"
+    String category 
+    Json tags "❓"
+    Boolean is_global 
+    Boolean is_active 
+    Int sort_order 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "template_usage_log" {
+    String id "🗝️"
+    String event_type 
+    Int render_time_ms "❓"
+    Int pdf_generation_time_ms "❓"
+    Int pdf_size_kb "❓"
+    DateTime created_at 
     }
   
 
@@ -1092,6 +1171,15 @@ unknown unknown
     String pdf_content_hash "❓"
     DateTime pdf_last_generated_at "❓"
     Json pdf_generation_params "❓"
+    }
+  
+
+  "quote_note" {
+    String id "🗝️"
+    String note_text 
+    Boolean is_pinned 
+    DateTime created_at 
+    DateTime updated_at 
     }
   
 
@@ -1315,6 +1403,7 @@ unknown unknown
     "impersonation_session" }o--|| "tenant" : "impersonated_tenant"
     "system_setting" }o--|o "user" : "updated_by_user"
     "export_job" }o--|| "user" : "admin_user"
+    "scheduled_report" }o--|| "user" : "admin_user"
     "job_log" }o--|| "job" : "job"
     "email_queue" |o--|| "job" : "job"
     "lead" }o--|| "tenant" : "tenant"
@@ -1353,6 +1442,15 @@ unknown unknown
     "unit_measurement" }o--|o "tenant" : "tenant"
     "quote_template" }o--|o "tenant" : "tenant"
     "quote_template" }o--|o "user" : "created_by_user"
+    "quote_template" }o--|o template_category : "category"
+    "quote_template" |o--|o quote_template : "source_template"
+    "quote_template_version" }o--|| quote_template : "template"
+    "quote_template_version" }o--|o "user" : "created_by_user"
+    "template_component" }o--|o "tenant" : "tenant"
+    "template_component" }o--|o "user" : "created_by_user"
+    "template_usage_log" }o--|| quote_template : "template"
+    "template_usage_log" }o--|| "tenant" : "tenant"
+    "template_usage_log" }o--|o quote : "quote"
     "vendor" }o--|| "tenant" : "tenant"
     "vendor" }o--|o "file" : "signature_file"
     "vendor" }o--|o "user" : "created_by_user"
@@ -1369,6 +1467,8 @@ unknown unknown
     "quote" }o--|o quote_template : "active_template"
     "quote" }o--|o "user" : "created_by_user"
     "quote" }o--|o "file" : "latest_pdf_file"
+    "quote_note" }o--|| quote : "quote"
+    "quote_note" }o--|o "user" : "user"
     "quote_version" }o--|| quote : "quote"
     "quote_version" }o--|o "user" : "changed_by_user"
     "quote_group" }o--|| quote : "quote"

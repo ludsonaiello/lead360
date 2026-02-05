@@ -1,0 +1,7 @@
+"Quote Number","Tenant","Customer Name","Vendor","Status","Subtotal","Total","Created By","Created At","Expires At"
+"CO-2026-0001","Honeydo4You Contractor","Cinria Andrade","Vendor 2","approved",50765,55841.5,"","2026-02-01T19:03:37.908Z","2026-03-03T19:03:37.906Z"
+"QR-2026-1155","Honeydo4You Contractor","Cinria Andrade","Vend3 Signature","draft",0,0,"Ageu Menezes","2026-01-31T05:14:06.710Z","2026-03-02T05:14:06.708Z"
+"QR-2026-1153","Honeydo4You Contractor","Cinria Andrade","Vendor 2","approved",1958.8,2154.68,"Ageu Menezes","2026-01-30T23:39:51.912Z","2026-03-01T23:39:51.910Z"
+"QR-2026-1152","Honeydo4You Contractor","Michael Rodriguez","Vend3 Signature","draft",1.76,1.93,"Ageu Menezes","2026-01-30T16:38:21.116Z","2026-02-04T16:38:21.114Z"
+"QR-2026-1151","Honeydo4You Contractor","Cliente Quote","Vendor 2","read",4550,5005,"Ageu Menezes","2026-01-30T06:46:46.600Z","2026-01-31T06:46:46.598Z"
+"QR-2026-1150","Honeydo4You Contractor","Cliente Quote","Vendor 2","sent",4550,5005,"Ageu Menezes","2026-01-30T06:31:26.641Z","2026-01-31T06:31:26.639Z"

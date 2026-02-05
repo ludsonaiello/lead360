@@ -387,6 +387,8 @@ model tenant {
   item_libraries                          item_library[]          @relation("item_library_tenant")
   quote_bundles                           quote_bundle[]          @relation("quote_bundle_tenant")
   quote_jobsite_addresses                 quote_jobsite_address[] @relation("quote_jobsite_addresses")
+  template_components                     template_component[]    @relation("template_component_tenant")
+  template_usage_logs                     template_usage_log[]    @relation("template_usage_tenant")
 
   @@index([ein])
   @@index([is_active])
@@ -573,56 +575,60 @@ model tenant_service_area {
 }
 
 model user {
-  id                                            String                  @id @db.VarChar(36)
-  tenant_id                                     String?                 @db.VarChar(36)
-  email                                         String                  @db.VarChar(255)
-  password_hash                                 String                  @db.VarChar(255)
-  first_name                                    String                  @db.VarChar(100)
-  last_name                                     String                  @db.VarChar(100)
-  phone                                         String?                 @db.VarChar(20)
-  is_active                                     Boolean                 @default(false)
-  is_platform_admin                             Boolean                 @default(false)
-  email_verified                                Boolean                 @default(false)
+  id                                            String                   @id @db.VarChar(36)
+  tenant_id                                     String?                  @db.VarChar(36)
+  email                                         String                   @db.VarChar(255)
+  password_hash                                 String                   @db.VarChar(255)
+  first_name                                    String                   @db.VarChar(100)
+  last_name                                     String                   @db.VarChar(100)
+  phone                                         String?                  @db.VarChar(20)
+  is_active                                     Boolean                  @default(false)
+  is_platform_admin                             Boolean                  @default(false)
+  email_verified                                Boolean                  @default(false)
   email_verified_at                             DateTime?
-  activation_token                              String?                 @db.VarChar(255)
+  activation_token                              String?                  @db.VarChar(255)
   activation_token_expires                      DateTime?
-  password_reset_token                          String?                 @db.VarChar(255)
+  password_reset_token                          String?                  @db.VarChar(255)
   password_reset_expires                        DateTime?
   last_login_at                                 DateTime?
-  mfa_enabled                                   Boolean                 @default(false)
-  mfa_secret                                    String?                 @db.VarChar(255)
-  oauth_provider                                String?                 @db.VarChar(50)
-  oauth_provider_id                             String?                 @db.VarChar(255)
-  created_at                                    DateTime                @default(now())
+  mfa_enabled                                   Boolean                  @default(false)
+  mfa_secret                                    String?                  @db.VarChar(255)
+  oauth_provider                                String?                  @db.VarChar(50)
+  oauth_provider_id                             String?                  @db.VarChar(255)
+  created_at                                    DateTime                 @default(now())
   updated_at                                    DateTime
   deleted_at                                    DateTime?
   audit_log                                     audit_log[]
   file                                          file[]
   refresh_token                                 refresh_token[]
-  tenant                                        tenant?                 @relation(fields: [tenant_id], references: [id])
-  user_role_user_role_assigned_by_user_idTouser user_role[]             @relation("user_role_assigned_by_user_idTouser")
-  user_role_user_role_user_idTouser             user_role[]             @relation("user_role_user_idTouser")
+  tenant                                        tenant?                  @relation(fields: [tenant_id], references: [id])
+  user_role_user_role_assigned_by_user_idTouser user_role[]              @relation("user_role_assigned_by_user_idTouser")
+  user_role_user_role_user_idTouser             user_role[]              @relation("user_role_user_idTouser")
   user_signature                                user_signature?
   share_links                                   file_share_link[]
   feature_flags_updated                         feature_flag[]
   maintenance_modes_updated                     maintenance_mode[]
   system_settings_updated                       system_setting[]
-  impersonation_sessions_as_admin               impersonation_session[] @relation("ImpersonatingAdmin")
-  impersonation_sessions_as_target              impersonation_session[] @relation("ImpersonatedUser")
+  impersonation_sessions_as_admin               impersonation_session[]  @relation("ImpersonatingAdmin")
+  impersonation_sessions_as_target              impersonation_session[]  @relation("ImpersonatedUser")
   export_jobs                                   export_job[]
-  leads_created                                 lead[]                  @relation("lead_created_by_user")
-  lead_notes                                    lead_note[]             @relation("lead_note_user")
-  lead_activities                               lead_activity[]         @relation("lead_activity_user")
-  webhook_api_keys_created                      webhook_api_key[]       @relation("webhook_api_key_created_by_user")
-  communication_events                          communication_event[]   @relation("communication_event_user")
-  notifications                                 notification[]          @relation("notification_user")
-  quote_templates_created                       quote_template[]        @relation("quote_template_creator")
-  vendors_created                               vendor[]                @relation("vendor_creator")
-  quotes_created                                quote[]                 @relation("quote_creator")
-  quote_versions_changed                        quote_version[]         @relation("quote_version_changer")
-  quote_approvals                               quote_approval[]        @relation("quote_approval_approver")
-  item_libraries_created                        item_library[]          @relation("item_library_creator")
-  quote_bundles_created                         quote_bundle[]          @relation("quote_bundle_creator")
+  leads_created                                 lead[]                   @relation("lead_created_by_user")
+  lead_notes                                    lead_note[]              @relation("lead_note_user")
+  lead_activities                               lead_activity[]          @relation("lead_activity_user")
+  quote_notes                                   quote_note[]             @relation("quote_note_user")
+  webhook_api_keys_created                      webhook_api_key[]        @relation("webhook_api_key_created_by_user")
+  communication_events                          communication_event[]    @relation("communication_event_user")
+  notifications                                 notification[]           @relation("notification_user")
+  quote_templates_created                       quote_template[]         @relation("quote_template_creator")
+  vendors_created                               vendor[]                 @relation("vendor_creator")
+  quotes_created                                quote[]                  @relation("quote_creator")
+  quote_versions_changed                        quote_version[]          @relation("quote_version_changer")
+  quote_approvals                               quote_approval[]         @relation("quote_approval_approver")
+  item_libraries_created                        item_library[]           @relation("item_library_creator")
+  quote_bundles_created                         quote_bundle[]           @relation("quote_bundle_creator")
+  scheduled_reports                             scheduled_report[]       @relation("scheduled_reports")
+  template_versions_created                     quote_template_version[] @relation("template_version_creator")
+  template_components_created                   template_component[]     @relation("template_component_creator")
 
   @@unique([email, tenant_id])
   @@index([activation_token])
@@ -811,6 +817,27 @@ model export_job {
   @@index([status])
 }
 
+model scheduled_report {
+  id            String    @id @default(uuid()) @db.VarChar(36)
+  admin_user_id String    @db.VarChar(36)
+  name          String    @db.VarChar(100)
+  report_type   String    @db.VarChar(50)
+  schedule      String    @db.VarChar(20)
+  parameters    Json
+  format        String    @db.VarChar(10)
+  recipients    Json
+  is_active     Boolean   @default(true)
+  next_run_at   DateTime
+  last_run_at   DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  admin_user user @relation("scheduled_reports", fields: [admin_user_id], references: [id], onDelete: Cascade)
+
+  @@index([admin_user_id])
+  @@index([is_active, next_run_at])
+}
+
 enum audit_log_actor_type {
   user
   system
@@ -908,31 +935,31 @@ model email_queue {
 // ============================================================================
 
 model lead {
-  id                   String              @id @db.VarChar(36)
-  tenant_id            String              @db.VarChar(36)
-  first_name           String              @db.VarChar(100)
-  last_name            String              @db.VarChar(100)
-  language_spoken      String              @default("EN") @db.VarChar(10)
-  accept_sms           Boolean             @default(false)
-  preferred_communication String           @default("email") @db.VarChar(20)
-  status               String              @default("lead") @db.VarChar(20)
-  source               String              @db.VarChar(20)
-  external_source_id   String?             @db.VarChar(255)
-  created_at           DateTime            @default(now())
-  updated_at           DateTime            @updatedAt
-  created_by_user_id   String?             @db.VarChar(36)
-  lost_reason          String?             @db.Text
-  lost_at              DateTime?
+  id                      String    @id @db.VarChar(36)
+  tenant_id               String    @db.VarChar(36)
+  first_name              String    @db.VarChar(100)
+  last_name               String    @db.VarChar(100)
+  language_spoken         String    @default("EN") @db.VarChar(10)
+  accept_sms              Boolean   @default(false)
+  preferred_communication String    @default("email") @db.VarChar(20)
+  status                  String    @default("lead") @db.VarChar(20)
+  source                  String    @db.VarChar(20)
+  external_source_id      String?   @db.VarChar(255)
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @updatedAt
+  created_by_user_id      String?   @db.VarChar(36)
+  lost_reason             String?   @db.Text
+  lost_at                 DateTime?
 
-  tenant               tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  created_by_user      user?               @relation("lead_created_by_user", fields: [created_by_user_id], references: [id], onDelete: SetNull)
-  emails               lead_email[]
-  phones               lead_phone[]
-  addresses            lead_address[]
-  service_requests     service_request[]
-  notes                lead_note[]
-  activities           lead_activity[]
-  quotes               quote[]                 @relation("quote_lead")
+  tenant           tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by_user  user?             @relation("lead_created_by_user", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  emails           lead_email[]
+  phones           lead_phone[]
+  addresses        lead_address[]
+  service_requests service_request[]
+  notes            lead_note[]
+  activities       lead_activity[]
+  quotes           quote[]           @relation("quote_lead")
 
   @@index([tenant_id, status])
   @@index([tenant_id, created_at(sort: Desc)])
@@ -948,7 +975,7 @@ model lead_email {
   is_primary Boolean  @default(false)
   created_at DateTime @default(now())
 
-  lead       lead     @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  lead lead @relation(fields: [lead_id], references: [id], onDelete: Cascade)
 
   @@index([lead_id])
   @@index([lead_id, is_primary])
@@ -963,7 +990,7 @@ model lead_phone {
   is_primary Boolean  @default(false)
   created_at DateTime @default(now())
 
-  lead       lead     @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  lead lead @relation(fields: [lead_id], references: [id], onDelete: Cascade)
 
   @@index([lead_id])
   @@index([lead_id, is_primary])
@@ -971,22 +998,22 @@ model lead_phone {
 }
 
 model lead_address {
-  id              String            @id @db.VarChar(36)
-  lead_id         String            @db.VarChar(36)
-  address_line1   String            @db.VarChar(255)
-  address_line2   String?           @db.VarChar(255)
-  city            String            @db.VarChar(100)
-  state           String            @db.VarChar(2)
-  zip_code        String            @db.VarChar(10)
-  country         String            @default("US") @db.VarChar(2)
-  latitude        Decimal           @db.Decimal(10, 8)
-  longitude       Decimal           @db.Decimal(11, 8)
-  google_place_id String?           @db.VarChar(255)
-  is_primary      Boolean           @default(false)
-  address_type    String            @default("service") @db.VarChar(20)
-  created_at      DateTime          @default(now())
+  id              String   @id @db.VarChar(36)
+  lead_id         String   @db.VarChar(36)
+  address_line1   String   @db.VarChar(255)
+  address_line2   String?  @db.VarChar(255)
+  city            String   @db.VarChar(100)
+  state           String   @db.VarChar(2)
+  zip_code        String   @db.VarChar(10)
+  country         String   @default("US") @db.VarChar(2)
+  latitude        Decimal  @db.Decimal(10, 8)
+  longitude       Decimal  @db.Decimal(11, 8)
+  google_place_id String?  @db.VarChar(255)
+  is_primary      Boolean  @default(false)
+  address_type    String   @default("service") @db.VarChar(20)
+  created_at      DateTime @default(now())
 
-  lead            lead              @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  lead             lead              @relation(fields: [lead_id], references: [id], onDelete: Cascade)
   service_requests service_request[]
 
   @@index([lead_id])
@@ -996,22 +1023,22 @@ model lead_address {
 }
 
 model service_request {
-  id              String        @id @db.VarChar(36)
-  tenant_id       String        @db.VarChar(36)
-  lead_id         String        @db.VarChar(36)
-  lead_address_id String?       @db.VarChar(36)
-  service_name    String        @db.VarChar(100)
-  service_type    String?       @db.VarChar(100)
-  time_demand     String        @default("flexible") @db.VarChar(20)
-  description     String?       @db.Text
+  id              String   @id @db.VarChar(36)
+  tenant_id       String   @db.VarChar(36)
+  lead_id         String   @db.VarChar(36)
+  lead_address_id String?  @db.VarChar(36)
+  service_name    String   @db.VarChar(100)
+  service_type    String?  @db.VarChar(100)
+  time_demand     String   @default("flexible") @db.VarChar(20)
+  description     String?  @db.Text
   extra_data      Json?
-  status          String        @default("new") @db.VarChar(20)
-  created_at      DateTime      @default(now())
-  updated_at      DateTime      @updatedAt
+  status          String   @default("new") @db.VarChar(20)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
 
-  tenant          tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  lead            lead          @relation(fields: [lead_id], references: [id], onDelete: Cascade)
-  lead_address    lead_address? @relation(fields: [lead_address_id], references: [id], onDelete: SetNull)
+  tenant       tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  lead         lead          @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  lead_address lead_address? @relation(fields: [lead_address_id], references: [id], onDelete: SetNull)
 
   @@index([tenant_id, lead_id])
   @@index([tenant_id, status])
@@ -1028,8 +1055,8 @@ model lead_note {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  lead       lead     @relation(fields: [lead_id], references: [id], onDelete: Cascade)
-  user       user?    @relation("lead_note_user", fields: [user_id], references: [id], onDelete: SetNull)
+  lead lead  @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  user user? @relation("lead_note_user", fields: [user_id], references: [id], onDelete: SetNull)
 
   @@index([lead_id, created_at(sort: Desc)])
   @@index([lead_id, is_pinned(sort: Desc), created_at(sort: Desc)])
@@ -1045,28 +1072,28 @@ model lead_activity {
   metadata      Json?
   created_at    DateTime @default(now())
 
-  lead          lead     @relation(fields: [lead_id], references: [id], onDelete: Cascade)
-  user          user?    @relation("lead_activity_user", fields: [user_id], references: [id], onDelete: SetNull)
+  lead lead  @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  user user? @relation("lead_activity_user", fields: [user_id], references: [id], onDelete: SetNull)
 
   @@index([lead_id, created_at(sort: Desc)])
   @@map("lead_activity")
 }
 
 model webhook_api_key {
-  id                  String    @id @db.VarChar(36)
-  tenant_id           String    @db.VarChar(36)
-  key_name            String    @db.VarChar(100)
-  api_key             String    @unique @db.VarChar(64)
-  api_secret          String    @db.VarChar(128)
-  is_active           Boolean   @default(true)
-  allowed_sources     Json?
-  rate_limit          Int       @default(100)
-  last_used_at        DateTime?
-  created_at          DateTime  @default(now())
-  created_by_user_id  String    @db.VarChar(36)
+  id                 String    @id @db.VarChar(36)
+  tenant_id          String    @db.VarChar(36)
+  key_name           String    @db.VarChar(100)
+  api_key            String    @unique @db.VarChar(64)
+  api_secret         String    @db.VarChar(128)
+  is_active          Boolean   @default(true)
+  allowed_sources    Json?
+  rate_limit         Int       @default(100)
+  last_used_at       DateTime?
+  created_at         DateTime  @default(now())
+  created_by_user_id String    @db.VarChar(36)
 
-  tenant              tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  created_by_user     user      @relation("webhook_api_key_created_by_user", fields: [created_by_user_id], references: [id])
+  tenant          tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by_user user   @relation("webhook_api_key_created_by_user", fields: [created_by_user_id], references: [id])
 
   @@index([api_key])
   @@index([tenant_id, is_active])
@@ -1078,27 +1105,27 @@ model webhook_api_key {
 // ============================================================================
 
 model communication_provider {
-  id                          String   @id @db.VarChar(36)
-  provider_key                String   @unique @db.VarChar(50)
-  provider_name               String   @db.VarChar(100)
+  id                          String                      @id @db.VarChar(36)
+  provider_key                String                      @unique @db.VarChar(50)
+  provider_name               String                      @db.VarChar(100)
   provider_type               communication_provider_type
   credentials_schema          Json
   config_schema               Json?
   default_config              Json?
-  supports_webhooks           Boolean  @default(false)
+  supports_webhooks           Boolean                     @default(false)
   webhook_events              Json?
-  webhook_verification_method String?  @db.VarChar(50)
-  documentation_url           String?  @db.VarChar(500)
-  logo_url                    String?  @db.VarChar(500)
-  is_active                   Boolean  @default(true)
-  is_system                   Boolean  @default(false)
-  created_at                  DateTime @default(now())
-  updated_at                  DateTime @updatedAt
+  webhook_verification_method String?                     @db.VarChar(50)
+  documentation_url           String?                     @db.VarChar(500)
+  logo_url                    String?                     @db.VarChar(500)
+  is_active                   Boolean                     @default(true)
+  is_system                   Boolean                     @default(false)
+  created_at                  DateTime                    @default(now())
+  updated_at                  DateTime                    @updatedAt
 
-  platform_email_configs      platform_email_config[]
-  tenant_email_configs        tenant_email_config[]
-  communication_events        communication_event[]
-  webhook_event_logs          webhook_event[]
+  platform_email_configs platform_email_config[]
+  tenant_email_configs   tenant_email_config[]
+  communication_events   communication_event[]
+  webhook_event_logs     webhook_event[]
 
   @@index([provider_type, is_active])
   @@index([provider_key])
@@ -1107,20 +1134,20 @@ model communication_provider {
 }
 
 model platform_email_config {
-  id              String                  @id @db.VarChar(36)
-  provider_id     String                  @db.VarChar(36)
+  id              String   @id @db.VarChar(36)
+  provider_id     String   @db.VarChar(36)
   credentials     Json
   provider_config Json?
-  from_email      String                  @db.VarChar(255)
-  from_name       String                  @db.VarChar(100)
-  reply_to_email  String?                 @db.VarChar(255)
-  webhook_secret  String?                 @db.VarChar(255)
-  is_active       Boolean                 @default(false)
-  is_verified     Boolean                 @default(false)
-  created_at      DateTime                @default(now())
-  updated_at      DateTime                @updatedAt
+  from_email      String   @db.VarChar(255)
+  from_name       String   @db.VarChar(100)
+  reply_to_email  String?  @db.VarChar(255)
+  webhook_secret  String?  @db.VarChar(255)
+  is_active       Boolean  @default(false)
+  is_verified     Boolean  @default(false)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
 
-  provider        communication_provider  @relation(fields: [provider_id], references: [id])
+  provider communication_provider @relation(fields: [provider_id], references: [id])
 
   @@unique([provider_id])
   @@index([is_active])
@@ -1129,22 +1156,22 @@ model platform_email_config {
 }
 
 model tenant_email_config {
-  id              String                  @id @db.VarChar(36)
-  tenant_id       String                  @db.VarChar(36)
-  provider_id     String                  @db.VarChar(36)
+  id              String   @id @db.VarChar(36)
+  tenant_id       String   @db.VarChar(36)
+  provider_id     String   @db.VarChar(36)
   credentials     Json
   provider_config Json?
-  from_email      String                  @db.VarChar(255)
-  from_name       String                  @db.VarChar(100)
-  reply_to_email  String?                 @db.VarChar(255)
-  webhook_secret  String?                 @db.VarChar(255)
-  is_active       Boolean                 @default(false)
-  is_verified     Boolean                 @default(false)
-  created_at      DateTime                @default(now())
-  updated_at      DateTime                @updatedAt
+  from_email      String   @db.VarChar(255)
+  from_name       String   @db.VarChar(100)
+  reply_to_email  String?  @db.VarChar(255)
+  webhook_secret  String?  @db.VarChar(255)
+  is_active       Boolean  @default(false)
+  is_verified     Boolean  @default(false)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
 
-  tenant          tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  provider        communication_provider  @relation(fields: [provider_id], references: [id])
+  tenant   tenant                 @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  provider communication_provider @relation(fields: [provider_id], references: [id])
 
   @@unique([tenant_id, provider_id])
   @@index([tenant_id, is_active])
@@ -1153,23 +1180,23 @@ model tenant_email_config {
 }
 
 model email_template {
-  id              String                     @id @default(uuid()) @db.VarChar(36)
-  tenant_id       String?                    @db.VarChar(36)
-  template_key    String                     @db.VarChar(100)
-  category        email_template_category    @default(transactional)
-  template_type   email_template_type        @default(tenant)
-  subject         String                     @db.VarChar(500)
-  html_body       String                     @db.Text
-  text_body       String?                    @db.Text
+  id              String                  @id @default(uuid()) @db.VarChar(36)
+  tenant_id       String?                 @db.VarChar(36)
+  template_key    String                  @db.VarChar(100)
+  category        email_template_category @default(transactional)
+  template_type   email_template_type     @default(tenant)
+  subject         String                  @db.VarChar(500)
+  html_body       String                  @db.Text
+  text_body       String?                 @db.Text
   variables       Json
   variable_schema Json?
-  description     String?                    @db.Text
-  is_system       Boolean                    @default(false)
-  is_active       Boolean                    @default(true)
-  created_at      DateTime                   @default(now())
-  updated_at      DateTime                   @updatedAt
+  description     String?                 @db.Text
+  is_system       Boolean                 @default(false)
+  is_active       Boolean                 @default(true)
+  created_at      DateTime                @default(now())
+  updated_at      DateTime                @updatedAt
 
-  tenant          tenant?                    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  tenant tenant? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@unique([tenant_id, template_key], map: "unique_tenant_template_key")
   @@index([tenant_id, is_active])
@@ -1180,43 +1207,43 @@ model email_template {
 }
 
 model communication_event {
-  id                   String                      @id @db.VarChar(36)
-  tenant_id            String?                     @db.VarChar(36)
-  channel              communication_channel
-  direction            communication_direction     @default(outbound)
-  provider_id          String                      @db.VarChar(36)
-  status               communication_status        @default(pending)
-  to_email             String?                     @db.VarChar(255)
-  to_phone             String?                     @db.VarChar(20)
-  cc_emails            Json?
-  bcc_emails           Json?
-  from_email           String?                     @db.VarChar(255)
-  from_name            String?                     @db.VarChar(100)
-  subject              String?                     @db.VarChar(500)
-  html_body            String?                     @db.LongText
-  text_body            String?                     @db.LongText
-  template_key         String?                     @db.VarChar(100)
-  template_variables   Json?
-  attachments          Json?
-  provider_message_id  String?                     @unique @db.VarChar(255)
-  provider_metadata    Json?
-  webhook_signature    String?                     @db.VarChar(255)
-  error_message        String?                     @db.Text
-  sent_at              DateTime?
-  delivered_at         DateTime?
-  opened_at            DateTime?
-  clicked_at           DateTime?
-  bounced_at           DateTime?
-  bounce_type          String?                     @db.VarChar(50)
-  related_entity_type  String?                     @db.VarChar(50)
-  related_entity_id    String?                     @db.VarChar(36)
-  created_at           DateTime                    @default(now())
-  created_by_user_id   String?                     @db.VarChar(36)
+  id                  String                  @id @db.VarChar(36)
+  tenant_id           String?                 @db.VarChar(36)
+  channel             communication_channel
+  direction           communication_direction @default(outbound)
+  provider_id         String                  @db.VarChar(36)
+  status              communication_status    @default(pending)
+  to_email            String?                 @db.VarChar(255)
+  to_phone            String?                 @db.VarChar(20)
+  cc_emails           Json?
+  bcc_emails          Json?
+  from_email          String?                 @db.VarChar(255)
+  from_name           String?                 @db.VarChar(100)
+  subject             String?                 @db.VarChar(500)
+  html_body           String?                 @db.LongText
+  text_body           String?                 @db.LongText
+  template_key        String?                 @db.VarChar(100)
+  template_variables  Json?
+  attachments         Json?
+  provider_message_id String?                 @unique @db.VarChar(255)
+  provider_metadata   Json?
+  webhook_signature   String?                 @db.VarChar(255)
+  error_message       String?                 @db.Text
+  sent_at             DateTime?
+  delivered_at        DateTime?
+  opened_at           DateTime?
+  clicked_at          DateTime?
+  bounced_at          DateTime?
+  bounce_type         String?                 @db.VarChar(50)
+  related_entity_type String?                 @db.VarChar(50)
+  related_entity_id   String?                 @db.VarChar(36)
+  created_at          DateTime                @default(now())
+  created_by_user_id  String?                 @db.VarChar(36)
 
-  tenant               tenant?                     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  provider             communication_provider      @relation(fields: [provider_id], references: [id])
-  created_by_user      user?                       @relation("communication_event_user", fields: [created_by_user_id], references: [id], onDelete: SetNull)
-  webhook_events       webhook_event[]
+  tenant          tenant?                @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  provider        communication_provider @relation(fields: [provider_id], references: [id])
+  created_by_user user?                  @relation("communication_event_user", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  webhook_events  webhook_event[]
 
   @@index([provider_message_id])
   @@index([tenant_id, created_at(sort: Desc)])
@@ -1232,22 +1259,22 @@ model communication_event {
 }
 
 model webhook_event {
-  id                      String                  @id @db.VarChar(36)
-  provider_id             String                  @db.VarChar(36)
-  communication_event_id  String?                 @db.VarChar(36)
-  event_type              String                  @db.VarChar(50)
-  provider_message_id     String?                 @db.VarChar(255)
-  payload                 Json
-  signature               String?                 @db.VarChar(500)
-  signature_verified      Boolean                 @default(false)
-  ip_address              String?                 @db.VarChar(45)
-  processed               Boolean                 @default(false)
-  processed_at            DateTime?
-  error_message           String?                 @db.Text
-  created_at              DateTime                @default(now())
+  id                     String    @id @db.VarChar(36)
+  provider_id            String    @db.VarChar(36)
+  communication_event_id String?   @db.VarChar(36)
+  event_type             String    @db.VarChar(50)
+  provider_message_id    String?   @db.VarChar(255)
+  payload                Json
+  signature              String?   @db.VarChar(500)
+  signature_verified     Boolean   @default(false)
+  ip_address             String?   @db.VarChar(45)
+  processed              Boolean   @default(false)
+  processed_at           DateTime?
+  error_message          String?   @db.Text
+  created_at             DateTime  @default(now())
 
-  provider                communication_provider  @relation(fields: [provider_id], references: [id])
-  communication_event     communication_event?    @relation(fields: [communication_event_id], references: [id], onDelete: SetNull)
+  provider            communication_provider @relation(fields: [provider_id], references: [id])
+  communication_event communication_event?   @relation(fields: [communication_event_id], references: [id], onDelete: SetNull)
 
   @@index([provider_id, created_at(sort: Desc)])
   @@index([provider_message_id])
@@ -1272,8 +1299,8 @@ model notification {
   expires_at          DateTime?
   created_at          DateTime  @default(now())
 
-  tenant              tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  user                user?     @relation("notification_user", fields: [user_id], references: [id], onDelete: Cascade)
+  tenant tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user   user?  @relation("notification_user", fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([tenant_id, user_id, is_read, created_at(sort: Desc)])
   @@index([tenant_id, is_read, created_at(sort: Desc)])
@@ -1284,19 +1311,19 @@ model notification {
 }
 
 model notification_rule {
-  id                  String                          @id @db.VarChar(36)
-  tenant_id           String                          @db.VarChar(36)
-  event_type          String                          @db.VarChar(100)
-  notify_in_app       Boolean                         @default(true)
-  notify_email        Boolean                         @default(false)
-  email_template_key  String?                         @db.VarChar(100)
-  recipient_type      notification_recipient_type     @default(owner)
-  specific_user_ids   Json?
-  is_active           Boolean                         @default(true)
-  created_at          DateTime                        @default(now())
-  updated_at          DateTime                        @updatedAt
+  id                 String                      @id @db.VarChar(36)
+  tenant_id          String                      @db.VarChar(36)
+  event_type         String                      @db.VarChar(100)
+  notify_in_app      Boolean                     @default(true)
+  notify_email       Boolean                     @default(false)
+  email_template_key String?                     @db.VarChar(100)
+  recipient_type     notification_recipient_type @default(owner)
+  specific_user_ids  Json?
+  is_active          Boolean                     @default(true)
+  created_at         DateTime                    @default(now())
+  updated_at         DateTime                    @updatedAt
 
-  tenant              tenant                          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  tenant tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@index([tenant_id, event_type, is_active])
   @@index([tenant_id, is_active])
@@ -1309,16 +1336,16 @@ model notification_rule {
 // ============================================================================
 
 model unit_measurement {
-  id                 String               @id @db.VarChar(36)
-  tenant_id          String?              @db.VarChar(36)
-  name               String               @db.VarChar(100)
-  abbreviation       String               @db.VarChar(20)
-  is_global          Boolean              @default(false)
-  is_active          Boolean              @default(true)
-  created_at         DateTime             @default(now())
-  updated_at         DateTime             @updatedAt
+  id           String   @id @db.VarChar(36)
+  tenant_id    String?  @db.VarChar(36)
+  name         String   @db.VarChar(100)
+  abbreviation String   @db.VarChar(20)
+  is_global    Boolean  @default(false)
+  is_active    Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
 
-  tenant             tenant?              @relation("unit_measurement_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  tenant             tenant?             @relation("unit_measurement_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
   quote_items        quote_item[]
   item_library       item_library[]
   quote_bundle_items quote_bundle_item[]
@@ -1329,55 +1356,195 @@ model unit_measurement {
 }
 
 model quote_template {
-  id                  String    @id @db.VarChar(36)
-  tenant_id           String?   @db.VarChar(36)
-  name                String    @db.VarChar(200)
-  description         String?   @db.Text
-  html_content        String    @db.LongText
-  thumbnail_url       String?   @db.VarChar(500)
-  is_global           Boolean   @default(false)
-  is_active           Boolean   @default(true)
-  is_default          Boolean   @default(false)
-  created_by_user_id  String?   @db.VarChar(36)
-  created_at          DateTime  @default(now())
-  updated_at          DateTime  @updatedAt
+  id          String  @id @db.VarChar(36)
+  tenant_id   String? @db.VarChar(36)
+  name        String  @db.VarChar(200)
+  description String? @db.Text
 
-  tenant              tenant?   @relation("quote_template_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
-  created_by_user     user?     @relation("quote_template_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
-  quotes              quote[]
-  tenants_using       tenant[]  @relation("tenant_active_template")
+  // Template type: visual (component-based) or code (Handlebars HTML)
+  template_type String @default("code") @db.VarChar(20)
+
+  // Visual templates store JSON structure
+  visual_structure Json?
+
+  // Code templates use HTML/CSS
+  html_content String? @db.LongText
+  css_content  String? @db.LongText
+
+  // Organization and metadata
+  category_id   String? @db.VarChar(36)
+  tags          Json?
+  thumbnail_url String? @db.VarChar(500)
+
+  // Pre-built template tracking
+  is_prebuilt        Boolean @default(false)
+  source_template_id String? @db.VarChar(36)
+
+  // Status flags
+  is_global  Boolean @default(false)
+  is_active  Boolean @default(true)
+  is_default Boolean @default(false)
+
+  created_by_user_id String?  @db.VarChar(36)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  tenant          tenant?                  @relation("quote_template_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by_user user?                    @relation("quote_template_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  category        template_category?       @relation("template_category", fields: [category_id], references: [id], onDelete: SetNull)
+  source_template quote_template?          @relation("template_clones", fields: [source_template_id], references: [id], onDelete: SetNull)
+  clones          quote_template[]         @relation("template_clones")
+  quotes          quote[]
+  tenants_using   tenant[]                 @relation("tenant_active_template")
+  versions        quote_template_version[] @relation("template_versions")
+  usage_logs      template_usage_log[]     @relation("template_usage")
 
   @@index([tenant_id])
+  @@index([category_id])
   @@index([is_global, is_active])
   @@index([is_default])
+  @@index([template_type])
+  @@index([is_prebuilt])
   @@map("quote_template")
 }
 
-model vendor {
-  id                  String    @id @db.VarChar(36)
-  tenant_id           String    @db.VarChar(36)
-  name                String    @db.VarChar(200)
-  email               String    @db.VarChar(255)
-  phone               String    @db.VarChar(20)
-  address_line1       String    @db.VarChar(255)
-  address_line2       String?   @db.VarChar(255)
-  city                String    @db.VarChar(100)
-  state               String    @db.VarChar(2)
-  zip_code            String    @db.VarChar(10)
-  latitude            Decimal   @db.Decimal(10, 8)
-  longitude           Decimal   @db.Decimal(11, 8)
-  google_place_id     String?   @db.VarChar(255)
-  signature_file_id   String?   @db.VarChar(36)
-  is_active           Boolean   @default(true)
-  is_default          Boolean   @default(false)
-  created_by_user_id  String?   @db.VarChar(36)
-  created_at          DateTime  @default(now())
-  updated_at          DateTime  @updatedAt
+model quote_template_version {
+  id             String @id @db.VarChar(36)
+  template_id    String @db.VarChar(36)
+  version_number Int
 
-  tenant              tenant    @relation("vendor_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
-  signature_file      file?     @relation("vendor_signature", fields: [signature_file_id], references: [file_id], onDelete: Restrict)
-  created_by_user     user?     @relation("vendor_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
-  quotes              quote[]
+  // Store template type at version level
+  template_type    String @db.VarChar(20)
+  visual_structure Json?
+
+  html_content    String? @db.LongText
+  css_content     String? @db.LongText
+  changes_summary String? @db.VarChar(500)
+
+  // Performance metrics
+  render_time_ms Int?
+  pdf_size_kb    Int?
+
+  created_by_user_id String?  @db.VarChar(36)
+  created_at         DateTime @default(now())
+
+  template        quote_template @relation("template_versions", fields: [template_id], references: [id], onDelete: Cascade)
+  created_by_user user?          @relation("template_version_creator", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+
+  @@index([template_id, version_number])
+  @@map("quote_template_version")
+}
+
+model template_category {
+  id          String   @id @db.VarChar(36)
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  icon_name   String?  @db.VarChar(50)
+  sort_order  Int      @default(0)
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  templates quote_template[] @relation("template_category")
+
+  @@index([sort_order])
+  @@map("template_category")
+}
+
+model template_component {
+  id             String  @id @db.VarChar(36)
+  name           String  @db.VarChar(200)
+  description    String? @db.Text
+  component_type String  @db.VarChar(50)
+
+  // Component definition (JSON structure)
+  structure     Json
+  default_props Json?
+
+  // Rendered outputs
+  html_template String  @db.LongText
+  css_template  String? @db.LongText
+
+  // Preview and documentation
+  thumbnail_url String? @db.VarChar(500)
+  preview_html  String? @db.LongText
+  usage_notes   String? @db.Text
+
+  // Categorization
+  category String @db.VarChar(50)
+  tags     Json?
+
+  // Access control
+  is_global Boolean @default(true)
+  tenant_id String? @db.VarChar(36)
+
+  is_active  Boolean @default(true)
+  sort_order Int     @default(0)
+
+  created_by_user_id String?  @db.VarChar(36)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  tenant          tenant? @relation("template_component_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by_user user?   @relation("template_component_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+
+  @@index([component_type])
+  @@index([category])
+  @@index([tenant_id])
+  @@index([is_global, is_active])
+  @@map("template_component")
+}
+
+model template_usage_log {
+  id          String  @id @db.VarChar(36)
+  template_id String  @db.VarChar(36)
+  tenant_id   String  @db.VarChar(36)
+  quote_id    String? @db.VarChar(36)
+
+  event_type String @db.VarChar(50)
+
+  // Performance tracking
+  render_time_ms         Int?
+  pdf_generation_time_ms Int?
+  pdf_size_kb            Int?
+
+  created_at DateTime @default(now())
+
+  template quote_template @relation("template_usage", fields: [template_id], references: [id], onDelete: Cascade)
+  tenant   tenant         @relation("template_usage_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  quote    quote?         @relation("quote_template_usage", fields: [quote_id], references: [id], onDelete: SetNull)
+
+  @@index([template_id, created_at])
+  @@index([tenant_id, created_at])
+  @@index([event_type, created_at])
+  @@map("template_usage_log")
+}
+
+model vendor {
+  id                 String   @id @db.VarChar(36)
+  tenant_id          String   @db.VarChar(36)
+  name               String   @db.VarChar(200)
+  email              String   @db.VarChar(255)
+  phone              String   @db.VarChar(20)
+  address_line1      String   @db.VarChar(255)
+  address_line2      String?  @db.VarChar(255)
+  city               String   @db.VarChar(100)
+  state              String   @db.VarChar(2)
+  zip_code           String   @db.VarChar(10)
+  latitude           Decimal  @db.Decimal(10, 8)
+  longitude          Decimal  @db.Decimal(11, 8)
+  google_place_id    String?  @db.VarChar(255)
+  signature_file_id  String?  @db.VarChar(36)
+  is_active          Boolean  @default(true)
+  is_default         Boolean  @default(false)
+  created_by_user_id String?  @db.VarChar(36)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  tenant          tenant  @relation("vendor_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  signature_file  file?   @relation("vendor_signature", fields: [signature_file_id], references: [file_id], onDelete: Restrict)
+  created_by_user user?   @relation("vendor_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  quotes          quote[]
 
   @@unique([tenant_id, email])
   @@index([tenant_id, is_active])
@@ -1386,13 +1553,13 @@ model vendor {
 }
 
 model quote_tag {
-  id         String    @id @db.VarChar(36)
-  tenant_id  String    @db.VarChar(36)
-  name       String    @db.VarChar(100)
-  color      String    @db.VarChar(7)
-  is_active  Boolean   @default(true)
-  created_at DateTime  @default(now())
-  updated_at DateTime  @updatedAt
+  id         String   @id @db.VarChar(36)
+  tenant_id  String   @db.VarChar(36)
+  name       String   @db.VarChar(100)
+  color      String   @db.VarChar(7)
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   tenant      tenant                 @relation("quote_tag_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
   assignments quote_tag_assignment[]
@@ -1403,101 +1570,103 @@ model quote_tag {
 }
 
 model quote_warranty_tier {
-  id               String              @id @db.VarChar(36)
-  tenant_id        String              @db.VarChar(36)
-  tier_name        String              @db.VarChar(100)
-  description      String?             @db.Text
-  price_type       warranty_price_type
-  price_value      Decimal             @db.Decimal(10, 2)
-  duration_months  Int
-  is_active        Boolean             @default(true)
-  created_at       DateTime            @default(now())
-  updated_at       DateTime            @updatedAt
+  id              String              @id @db.VarChar(36)
+  tenant_id       String              @db.VarChar(36)
+  tier_name       String              @db.VarChar(100)
+  description     String?             @db.Text
+  price_type      warranty_price_type
+  price_value     Decimal             @db.Decimal(10, 2)
+  duration_months Int
+  is_active       Boolean             @default(true)
+  created_at      DateTime            @default(now())
+  updated_at      DateTime            @updatedAt
 
-  tenant           tenant              @relation("quote_warranty_tier_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
-  quote_items      quote_item[]
+  tenant      tenant       @relation("quote_warranty_tier_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  quote_items quote_item[]
 
   @@index([tenant_id, is_active])
   @@map("quote_warranty_tier")
 }
 
 model quote_jobsite_address {
-  id              String    @id @db.VarChar(36)
-  tenant_id       String    @db.VarChar(36)
-  address_line1   String    @db.VarChar(255)
-  address_line2   String?   @db.VarChar(255)
-  city            String    @db.VarChar(100)
-  state           String    @db.VarChar(2)
-  zip_code        String    @db.VarChar(10)
-  latitude        Decimal   @db.Decimal(10, 8)
-  longitude       Decimal   @db.Decimal(11, 8)
-  google_place_id String?   @db.VarChar(255)
-  created_at      DateTime  @default(now())
+  id              String   @id @db.VarChar(36)
+  tenant_id       String   @db.VarChar(36)
+  address_line1   String   @db.VarChar(255)
+  address_line2   String?  @db.VarChar(255)
+  city            String   @db.VarChar(100)
+  state           String   @db.VarChar(2)
+  zip_code        String   @db.VarChar(10)
+  latitude        Decimal  @db.Decimal(10, 8)
+  longitude       Decimal  @db.Decimal(11, 8)
+  google_place_id String?  @db.VarChar(255)
+  created_at      DateTime @default(now())
 
-  tenant          tenant    @relation("quote_jobsite_addresses", fields: [tenant_id], references: [id], onDelete: Cascade)
-  quotes          quote[]
+  tenant tenant  @relation("quote_jobsite_addresses", fields: [tenant_id], references: [id], onDelete: Cascade)
+  quotes quote[]
 
   @@index([tenant_id, latitude, longitude])
   @@map("quote_jobsite_address")
 }
 
 model quote {
-  id                          String        @id @db.VarChar(36)
-  tenant_id                   String        @db.VarChar(36)
-  quote_number                String        @db.VarChar(50)
-  title                       String        @db.VarChar(200)
-  status                      quote_status  @default(draft)
-  lead_id                     String?       @db.VarChar(36)
-  vendor_id                   String?       @db.VarChar(36)
-  jobsite_address_id          String        @db.VarChar(36)
-  po_number                   String?       @db.VarChar(100)
-  private_notes               String?       @db.Text
-  use_default_settings        Boolean       @default(true)
-  custom_profit_percent       Decimal?      @db.Decimal(5, 2)
-  custom_overhead_percent     Decimal?      @db.Decimal(5, 2)
-  custom_contingency_percent  Decimal?      @db.Decimal(5, 2)
-  custom_tax_rate             Decimal?      @db.Decimal(5, 2)
-  custom_terms                String?       @db.Text
-  custom_payment_instructions String?       @db.Text
+  id                          String       @id @db.VarChar(36)
+  tenant_id                   String       @db.VarChar(36)
+  quote_number                String       @db.VarChar(50)
+  title                       String       @db.VarChar(200)
+  status                      quote_status @default(draft)
+  lead_id                     String?      @db.VarChar(36)
+  vendor_id                   String?      @db.VarChar(36)
+  jobsite_address_id          String       @db.VarChar(36)
+  po_number                   String?      @db.VarChar(100)
+  private_notes               String?      @db.Text
+  use_default_settings        Boolean      @default(true)
+  custom_profit_percent       Decimal?     @db.Decimal(5, 2)
+  custom_overhead_percent     Decimal?     @db.Decimal(5, 2)
+  custom_contingency_percent  Decimal?     @db.Decimal(5, 2)
+  custom_tax_rate             Decimal?     @db.Decimal(5, 2)
+  custom_terms                String?      @db.Text
+  custom_payment_instructions String?      @db.Text
   expiration_days             Int?
   expires_at                  DateTime?
-  active_version_number       Decimal       @default(1.0) @db.Decimal(4, 2)
-  subtotal                    Decimal       @default(0) @db.Decimal(12, 2)
-  tax_amount                  Decimal       @default(0) @db.Decimal(12, 2)
-  discount_amount             Decimal       @default(0) @db.Decimal(12, 2)
-  total                       Decimal       @default(0) @db.Decimal(12, 2)
-  active_template_id          String?       @db.VarChar(36)
-  is_archived                 Boolean       @default(false)
-  created_by_user_id          String?       @db.VarChar(36)
-  created_at                  DateTime      @default(now())
-  updated_at                  DateTime      @updatedAt
-  latest_pdf_file_id          String?       @db.VarChar(36)
-  parent_quote_id             String?       @db.VarChar(36)
-  pdf_content_hash            String?       @db.VarChar(64)
+  active_version_number       Decimal      @default(1.0) @db.Decimal(4, 2)
+  subtotal                    Decimal      @default(0) @db.Decimal(12, 2)
+  tax_amount                  Decimal      @default(0) @db.Decimal(12, 2)
+  discount_amount             Decimal      @default(0) @db.Decimal(12, 2)
+  total                       Decimal      @default(0) @db.Decimal(12, 2)
+  active_template_id          String?      @db.VarChar(36)
+  is_archived                 Boolean      @default(false)
+  created_by_user_id          String?      @db.VarChar(36)
+  created_at                  DateTime     @default(now())
+  updated_at                  DateTime     @updatedAt
+  latest_pdf_file_id          String?      @db.VarChar(36)
+  parent_quote_id             String?      @db.VarChar(36)
+  pdf_content_hash            String?      @db.VarChar(64)
   pdf_last_generated_at       DateTime?
   pdf_generation_params       Json?
 
-  tenant                      tenant        @relation("quote_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
-  parent_quote                quote?        @relation("change_order_parent", fields: [parent_quote_id], references: [id], onDelete: Restrict)
-  lead                        lead?         @relation("quote_lead", fields: [lead_id], references: [id], onDelete: SetNull)
-  vendor                      vendor?       @relation(fields: [vendor_id], references: [id], onDelete: SetNull)
-  jobsite_address             quote_jobsite_address @relation(fields: [jobsite_address_id], references: [id], onDelete: Restrict)
-  active_template             quote_template? @relation(fields: [active_template_id], references: [id], onDelete: SetNull)
-  created_by_user             user?         @relation("quote_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
-  latest_pdf_file             file?  @relation("quote_latest_pdf", fields: [latest_pdf_file_id], references: [id], onDelete: SetNull)
+  tenant          tenant                @relation("quote_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  parent_quote    quote?                @relation("change_order_parent", fields: [parent_quote_id], references: [id], onDelete: Restrict)
+  lead            lead?                 @relation("quote_lead", fields: [lead_id], references: [id], onDelete: SetNull)
+  vendor          vendor?               @relation(fields: [vendor_id], references: [id], onDelete: SetNull)
+  jobsite_address quote_jobsite_address @relation(fields: [jobsite_address_id], references: [id], onDelete: Restrict)
+  active_template quote_template?       @relation(fields: [active_template_id], references: [id], onDelete: SetNull)
+  created_by_user user?                 @relation("quote_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  latest_pdf_file file?                 @relation("quote_latest_pdf", fields: [latest_pdf_file_id], references: [id], onDelete: SetNull)
 
-  versions                    quote_version[]
-  items                       quote_item[]
-  groups                      quote_group[]
-  approvals                   quote_approval[]
-  discount_rules              quote_discount_rule[]
-  tag_assignments             quote_tag_assignment[]
-  attachments                 quote_attachment[]
-  view_logs                   quote_view_log[]
-  download_logs               quote_download_log[]
-  draw_schedule               draw_schedule_entry[]
-  public_access               quote_public_access[]
-  change_orders               quote[]       @relation("change_order_parent")
+  versions            quote_version[]
+  items               quote_item[]
+  groups              quote_group[]
+  approvals           quote_approval[]
+  discount_rules      quote_discount_rule[]
+  tag_assignments     quote_tag_assignment[]
+  attachments         quote_attachment[]
+  view_logs           quote_view_log[]
+  download_logs       quote_download_log[]
+  draw_schedule       draw_schedule_entry[]
+  public_access       quote_public_access[]
+  change_orders       quote[]                @relation("change_order_parent")
+  notes               quote_note[]
+  template_usage_logs template_usage_log[]   @relation("quote_template_usage")
 
   @@unique([tenant_id, quote_number])
   @@index([tenant_id, status])
@@ -1512,17 +1681,34 @@ model quote {
   @@map("quote")
 }
 
-model quote_version {
-  id                  String    @id @db.VarChar(36)
-  quote_id            String    @db.VarChar(36)
-  version_number      Decimal   @db.Decimal(4, 2)
-  snapshot_data       String    @db.LongText
-  change_summary      String?   @db.Text
-  changed_by_user_id  String?   @db.VarChar(36)
-  created_at          DateTime  @default(now())
+model quote_note {
+  id         String   @id @db.VarChar(36)
+  quote_id   String   @db.VarChar(36)
+  user_id    String?  @db.VarChar(36)
+  note_text  String   @db.Text
+  is_pinned  Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  quote               quote     @relation(fields: [quote_id], references: [id], onDelete: Cascade)
-  changed_by_user     user?     @relation("quote_version_changer", fields: [changed_by_user_id], references: [id], onDelete: SetNull)
+  quote quote @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  user  user? @relation("quote_note_user", fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([quote_id, created_at(sort: Desc)])
+  @@index([quote_id, is_pinned(sort: Desc), created_at(sort: Desc)])
+  @@map("quote_note")
+}
+
+model quote_version {
+  id                 String   @id @db.VarChar(36)
+  quote_id           String   @db.VarChar(36)
+  version_number     Decimal  @db.Decimal(4, 2)
+  snapshot_data      String   @db.LongText
+  change_summary     String?  @db.Text
+  changed_by_user_id String?  @db.VarChar(36)
+  created_at         DateTime @default(now())
+
+  quote           quote @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  changed_by_user user? @relation("quote_version_changer", fields: [changed_by_user_id], references: [id], onDelete: SetNull)
 
   @@unique([quote_id, version_number])
   @@index([quote_id, created_at(sort: Desc)])
@@ -1530,54 +1716,54 @@ model quote_version {
 }
 
 model quote_group {
-  id          String    @id @db.VarChar(36)
-  quote_id    String    @db.VarChar(36)
-  name        String    @db.VarChar(200)
-  description String?   @db.Text
-  order_index Int       @default(0)
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @updatedAt
+  id          String   @id @db.VarChar(36)
+  quote_id    String   @db.VarChar(36)
+  name        String   @db.VarChar(200)
+  description String?  @db.Text
+  order_index Int      @default(0)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
 
-  quote       quote     @relation(fields: [quote_id], references: [id], onDelete: Cascade)
-  items       quote_item[]
+  quote quote        @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  items quote_item[]
 
   @@index([quote_id, order_index])
   @@map("quote_group")
 }
 
 model quote_item {
-  id                        String    @id @db.VarChar(36)
-  quote_id                  String    @db.VarChar(36)
-  quote_group_id            String?   @db.VarChar(36)
-  item_library_id           String?   @db.VarChar(36)
-  quote_bundle_id           String?   @db.VarChar(36)
-  title                     String    @db.VarChar(200)
-  description               String?   @db.Text
-  quantity                  Decimal   @db.Decimal(10, 2)
-  unit_measurement_id       String    @db.VarChar(36)
-  order_index               Int       @default(0)
-  material_cost_per_unit    Decimal   @default(0) @db.Decimal(10, 2)
-  labor_cost_per_unit       Decimal   @default(0) @db.Decimal(10, 2)
-  equipment_cost_per_unit   Decimal   @default(0) @db.Decimal(10, 2)
-  subcontract_cost_per_unit Decimal   @default(0) @db.Decimal(10, 2)
-  other_cost_per_unit       Decimal   @default(0) @db.Decimal(10, 2)
-  total_cost                  Decimal   @default(0) @db.Decimal(12, 2)
-  custom_profit_percent       Decimal?  @db.Decimal(5, 2)
-  custom_overhead_percent     Decimal?  @db.Decimal(5, 2)
-  custom_contingency_percent  Decimal?  @db.Decimal(5, 2)
-  custom_discount_percentage  Decimal?  @db.Decimal(5, 2)
-  custom_discount_amount      Decimal?  @db.Decimal(10, 2)
-  private_notes             String?   @db.Text
-  save_to_library           Boolean   @default(false)
-  warranty_tier_id          String?   @db.VarChar(36)
-  created_at                DateTime  @default(now())
-  updated_at                DateTime  @updatedAt
+  id                         String   @id @db.VarChar(36)
+  quote_id                   String   @db.VarChar(36)
+  quote_group_id             String?  @db.VarChar(36)
+  item_library_id            String?  @db.VarChar(36)
+  quote_bundle_id            String?  @db.VarChar(36)
+  title                      String   @db.VarChar(200)
+  description                String?  @db.Text
+  quantity                   Decimal  @db.Decimal(10, 2)
+  unit_measurement_id        String   @db.VarChar(36)
+  order_index                Int      @default(0)
+  material_cost_per_unit     Decimal  @default(0) @db.Decimal(10, 2)
+  labor_cost_per_unit        Decimal  @default(0) @db.Decimal(10, 2)
+  equipment_cost_per_unit    Decimal  @default(0) @db.Decimal(10, 2)
+  subcontract_cost_per_unit  Decimal  @default(0) @db.Decimal(10, 2)
+  other_cost_per_unit        Decimal  @default(0) @db.Decimal(10, 2)
+  total_cost                 Decimal  @default(0) @db.Decimal(12, 2)
+  custom_profit_percent      Decimal? @db.Decimal(5, 2)
+  custom_overhead_percent    Decimal? @db.Decimal(5, 2)
+  custom_contingency_percent Decimal? @db.Decimal(5, 2)
+  custom_discount_percentage Decimal? @db.Decimal(5, 2)
+  custom_discount_amount     Decimal? @db.Decimal(10, 2)
+  private_notes              String?  @db.Text
+  save_to_library            Boolean  @default(false)
+  warranty_tier_id           String?  @db.VarChar(36)
+  created_at                 DateTime @default(now())
+  updated_at                 DateTime @updatedAt
 
-  quote                     quote     @relation(fields: [quote_id], references: [id], onDelete: Cascade)
-  quote_group               quote_group? @relation(fields: [quote_group_id], references: [id], onDelete: SetNull)
-  unit_measurement          unit_measurement @relation(fields: [unit_measurement_id], references: [id], onDelete: Restrict)
-  warranty_tier             quote_warranty_tier? @relation(fields: [warranty_tier_id], references: [id], onDelete: SetNull)
-  source_bundle             quote_bundle? @relation("quote_item_source_bundle", fields: [quote_bundle_id], references: [id], onDelete: SetNull)
+  quote            quote                @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  quote_group      quote_group?         @relation(fields: [quote_group_id], references: [id], onDelete: SetNull)
+  unit_measurement unit_measurement     @relation(fields: [unit_measurement_id], references: [id], onDelete: Restrict)
+  warranty_tier    quote_warranty_tier? @relation(fields: [warranty_tier_id], references: [id], onDelete: SetNull)
+  source_bundle    quote_bundle?        @relation("quote_item_source_bundle", fields: [quote_bundle_id], references: [id], onDelete: SetNull)
 
   @@index([quote_id, order_index])
   @@index([quote_id, quote_group_id])
@@ -1587,18 +1773,18 @@ model quote_item {
 }
 
 model quote_approval {
-  id                String          @id @db.VarChar(36)
-  quote_id          String          @db.VarChar(36)
-  workflow_id       String          @db.VarChar(36)
-  approval_level    Int
-  approver_user_id  String          @db.VarChar(36)
-  status            approval_status @default(pending)
-  comments          String?         @db.Text
-  decided_at        DateTime?
-  created_at        DateTime        @default(now())
+  id               String          @id @db.VarChar(36)
+  quote_id         String          @db.VarChar(36)
+  workflow_id      String          @db.VarChar(36)
+  approval_level   Int
+  approver_user_id String          @db.VarChar(36)
+  status           approval_status @default(pending)
+  comments         String?         @db.Text
+  decided_at       DateTime?
+  created_at       DateTime        @default(now())
 
-  quote             quote           @relation(fields: [quote_id], references: [id], onDelete: Cascade)
-  approver_user     user            @relation("quote_approval_approver", fields: [approver_user_id], references: [id], onDelete: Restrict)
+  quote         quote @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  approver_user user  @relation("quote_approval_approver", fields: [approver_user_id], references: [id], onDelete: Restrict)
 
   @@index([quote_id, workflow_id])
   @@index([workflow_id])
@@ -1608,29 +1794,29 @@ model quote_approval {
 }
 
 model quote_discount_rule {
-  id          String              @id @db.VarChar(36)
-  quote_id    String              @db.VarChar(36)
+  id          String             @id @db.VarChar(36)
+  quote_id    String             @db.VarChar(36)
   rule_type   discount_rule_type
-  value       Decimal             @db.Decimal(10, 2)
-  reason      String              @db.VarChar(255)
-  apply_to    discount_apply_to   @default(subtotal)
-  order_index Int                 @default(0)
-  created_at  DateTime            @default(now())
+  value       Decimal            @db.Decimal(10, 2)
+  reason      String             @db.VarChar(255)
+  apply_to    discount_apply_to  @default(subtotal)
+  order_index Int                @default(0)
+  created_at  DateTime           @default(now())
 
-  quote       quote               @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  quote quote @relation(fields: [quote_id], references: [id], onDelete: Cascade)
 
   @@index([quote_id, order_index])
   @@map("quote_discount_rule")
 }
 
 model quote_tag_assignment {
-  id           String    @id @db.VarChar(36)
-  quote_id     String    @db.VarChar(36)
-  quote_tag_id String    @db.VarChar(36)
-  created_at   DateTime  @default(now())
+  id           String   @id @db.VarChar(36)
+  quote_id     String   @db.VarChar(36)
+  quote_tag_id String   @db.VarChar(36)
+  created_at   DateTime @default(now())
 
-  quote        quote     @relation(fields: [quote_id], references: [id], onDelete: Cascade)
-  quote_tag    quote_tag @relation(fields: [quote_tag_id], references: [id], onDelete: Cascade)
+  quote     quote     @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  quote_tag quote_tag @relation(fields: [quote_tag_id], references: [id], onDelete: Cascade)
 
   @@unique([quote_id, quote_tag_id])
   @@index([quote_id])
@@ -1639,20 +1825,20 @@ model quote_tag_assignment {
 }
 
 model quote_attachment {
-  id               String          @id @db.VarChar(36)
-  quote_id         String          @db.VarChar(36)
-  attachment_type  attachment_type
-  file_id          String?         @db.VarChar(36)
-  url              String?         @db.VarChar(500)
-  title            String?         @db.VarChar(200)
-  qr_code_file_id  String?         @db.VarChar(36)
-  grid_layout      grid_layout?
-  order_index      Int             @default(0)
-  created_at       DateTime        @default(now())
+  id              String          @id @db.VarChar(36)
+  quote_id        String          @db.VarChar(36)
+  attachment_type attachment_type
+  file_id         String?         @db.VarChar(36)
+  url             String?         @db.VarChar(500)
+  title           String?         @db.VarChar(200)
+  qr_code_file_id String?         @db.VarChar(36)
+  grid_layout     grid_layout?
+  order_index     Int             @default(0)
+  created_at      DateTime        @default(now())
 
-  quote            quote           @relation(fields: [quote_id], references: [id], onDelete: Cascade)
-  file             file?           @relation("attachment_file", fields: [file_id], references: [file_id], onDelete: SetNull)
-  qr_code_file     file?           @relation("attachment_qr_code", fields: [qr_code_file_id], references: [file_id], onDelete: SetNull)
+  quote        quote @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  file         file? @relation("attachment_file", fields: [file_id], references: [file_id], onDelete: SetNull)
+  qr_code_file file? @relation("attachment_qr_code", fields: [qr_code_file_id], references: [file_id], onDelete: SetNull)
 
   @@index([quote_id, attachment_type, order_index])
   @@index([file_id])
@@ -1669,7 +1855,7 @@ model quote_view_log {
   device_type           device_type?
   referrer_url          String?      @db.VarChar(500)
 
-  quote                 quote        @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  quote quote @relation(fields: [quote_id], references: [id], onDelete: Cascade)
 
   @@index([quote_id, viewed_at])
   @@index([public_token])
@@ -1677,16 +1863,16 @@ model quote_view_log {
 }
 
 model quote_download_log {
-  id                String       @id @db.VarChar(36)
-  quote_id          String       @db.VarChar(36)
-  public_token      String       @db.VarChar(32)
-  downloaded_at     DateTime     @default(now())
-  ip_address        String?      @db.VarChar(45)
-  device_type       device_type?
-  file_id           String?      @db.VarChar(36)
-  download_type     String       @default("pdf") @db.VarChar(20)
+  id            String       @id @db.VarChar(36)
+  quote_id      String       @db.VarChar(36)
+  public_token  String       @db.VarChar(32)
+  downloaded_at DateTime     @default(now())
+  ip_address    String?      @db.VarChar(45)
+  device_type   device_type?
+  file_id       String?      @db.VarChar(36)
+  download_type String       @default("pdf") @db.VarChar(20)
 
-  quote             quote        @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  quote quote @relation(fields: [quote_id], references: [id], onDelete: Cascade)
 
   @@index([quote_id, downloaded_at])
   @@index([public_token])
@@ -1694,16 +1880,16 @@ model quote_download_log {
 }
 
 model draw_schedule_entry {
-  id                String                 @id @db.VarChar(36)
-  quote_id          String                 @db.VarChar(36)
-  draw_number       Int
-  description       String                 @db.VarChar(255)
-  calculation_type  draw_calculation_type
-  value             Decimal                @db.Decimal(10, 2)
-  order_index       Int                    @default(0)
-  created_at        DateTime               @default(now())
+  id               String                @id @db.VarChar(36)
+  quote_id         String                @db.VarChar(36)
+  draw_number      Int
+  description      String                @db.VarChar(255)
+  calculation_type draw_calculation_type
+  value            Decimal               @db.Decimal(10, 2)
+  order_index      Int                   @default(0)
+  created_at       DateTime              @default(now())
 
-  quote             quote                  @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  quote quote @relation(fields: [quote_id], references: [id], onDelete: Cascade)
 
   @@index([quote_id, order_index])
   @@map("draw_schedule_entry")
@@ -1719,7 +1905,7 @@ model quote_public_access {
   created_at    DateTime  @default(now())
   expires_at    DateTime?
 
-  quote         quote     @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  quote quote @relation(fields: [quote_id], references: [id], onDelete: Cascade)
 
   @@index([quote_id])
   @@map("quote_public_access")
@@ -1744,9 +1930,9 @@ model item_library {
   created_at                DateTime  @default(now())
   updated_at                DateTime  @updatedAt
 
-  tenant                    tenant    @relation("item_library_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
-  unit_measurement          unit_measurement @relation(fields: [unit_measurement_id], references: [id], onDelete: Restrict)
-  created_by_user           user?     @relation("item_library_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  tenant           tenant           @relation("item_library_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  unit_measurement unit_measurement @relation(fields: [unit_measurement_id], references: [id], onDelete: Restrict)
+  created_by_user  user?            @relation("item_library_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
 
   @@index([tenant_id, is_active])
   @@index([tenant_id, title])
@@ -1755,21 +1941,21 @@ model item_library {
 }
 
 model quote_bundle {
-  id                 String    @id @db.VarChar(36)
-  tenant_id          String    @db.VarChar(36)
-  name               String    @db.VarChar(200)
-  description        String?   @db.Text
+  id                 String              @id @db.VarChar(36)
+  tenant_id          String              @db.VarChar(36)
+  name               String              @db.VarChar(200)
+  description        String?             @db.Text
   discount_type      discount_rule_type?
-  discount_value     Decimal?  @db.Decimal(10, 2)
-  is_active          Boolean   @default(true)
-  created_by_user_id String?   @db.VarChar(36)
-  created_at         DateTime  @default(now())
-  updated_at         DateTime  @updatedAt
+  discount_value     Decimal?            @db.Decimal(10, 2)
+  is_active          Boolean             @default(true)
+  created_by_user_id String?             @db.VarChar(36)
+  created_at         DateTime            @default(now())
+  updated_at         DateTime            @updatedAt
 
-  tenant             tenant    @relation("quote_bundle_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
-  created_by_user    user?     @relation("quote_bundle_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
-  items              quote_bundle_item[]
-  quote_items        quote_item[] @relation("quote_item_source_bundle")
+  tenant          tenant              @relation("quote_bundle_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by_user user?               @relation("quote_bundle_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  items           quote_bundle_item[]
+  quote_items     quote_item[]        @relation("quote_item_source_bundle")
 
   @@index([tenant_id, is_active])
   @@index([tenant_id, name])
@@ -1777,23 +1963,23 @@ model quote_bundle {
 }
 
 model quote_bundle_item {
-  id                        String    @id @db.VarChar(36)
-  quote_bundle_id           String    @db.VarChar(36)
-  item_library_id           String?   @db.VarChar(36)
-  title                     String    @db.VarChar(200)
-  description               String?   @db.Text
-  quantity                  Decimal   @db.Decimal(10, 2)
-  unit_measurement_id       String    @db.VarChar(36)
-  material_cost_per_unit    Decimal   @default(0) @db.Decimal(10, 2)
-  labor_cost_per_unit       Decimal   @default(0) @db.Decimal(10, 2)
-  equipment_cost_per_unit   Decimal   @default(0) @db.Decimal(10, 2)
-  subcontract_cost_per_unit Decimal   @default(0) @db.Decimal(10, 2)
-  other_cost_per_unit       Decimal   @default(0) @db.Decimal(10, 2)
-  order_index               Int       @default(0)
-  created_at                DateTime  @default(now())
+  id                        String   @id @db.VarChar(36)
+  quote_bundle_id           String   @db.VarChar(36)
+  item_library_id           String?  @db.VarChar(36)
+  title                     String   @db.VarChar(200)
+  description               String?  @db.Text
+  quantity                  Decimal  @db.Decimal(10, 2)
+  unit_measurement_id       String   @db.VarChar(36)
+  material_cost_per_unit    Decimal  @default(0) @db.Decimal(10, 2)
+  labor_cost_per_unit       Decimal  @default(0) @db.Decimal(10, 2)
+  equipment_cost_per_unit   Decimal  @default(0) @db.Decimal(10, 2)
+  subcontract_cost_per_unit Decimal  @default(0) @db.Decimal(10, 2)
+  other_cost_per_unit       Decimal  @default(0) @db.Decimal(10, 2)
+  order_index               Int      @default(0)
+  created_at                DateTime @default(now())
 
-  quote_bundle              quote_bundle @relation(fields: [quote_bundle_id], references: [id], onDelete: Cascade)
-  unit_measurement          unit_measurement @relation(fields: [unit_measurement_id], references: [id], onDelete: Restrict)
+  quote_bundle     quote_bundle     @relation(fields: [quote_bundle_id], references: [id], onDelete: Cascade)
+  unit_measurement unit_measurement @relation(fields: [unit_measurement_id], references: [id], onDelete: Restrict)
 
   @@index([quote_bundle_id, order_index])
   @@map("quote_bundle_item")

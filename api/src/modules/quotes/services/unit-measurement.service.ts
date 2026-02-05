@@ -210,7 +210,7 @@ export class UnitMeasurementService {
   async updateGlobal(unitId: string, userId: string, dto: UpdateUnitDto) {
     // Verify unit exists and is global
     const unit = await this.prisma.unit_measurement.findFirst({
-      where: { id: unitId, tenant_id: null },
+      where: { id: unitId, tenant_id: { equals: null } },
     });
 
     if (!unit) {

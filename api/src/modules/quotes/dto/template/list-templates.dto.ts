@@ -23,6 +23,16 @@ export class ListTemplatesDto {
   })
   is_global?: boolean;
 
+  @ApiPropertyOptional({ example: true, description: 'Filter pre-built templates only (admin use)' })
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  is_prebuilt?: boolean;
+
   @ApiPropertyOptional({ example: '550e8400-e29b-41d4-a716', description: 'Filter by tenant ID (admin use)' })
   @IsUUID()
   @IsOptional()

@@ -14,7 +14,25 @@ export class JobQueueService {
     private readonly prisma: PrismaService,
   ) {
     this.logger.log('JobQueueService initialized');
+    this.setupQueueEventHandlers();
     this.logQueueStatus();
+  }
+
+  /**
+   * Setup event handlers for queue connection monitoring
+   */
+  private setupQueueEventHandlers() {
+    // Email queue connection events
+    this.emailQueue.on('error', (error) => {
+      this.logger.error(`Email queue error: ${error.message}`);
+    });
+
+    // Scheduled queue connection events
+    this.scheduledQueue.on('error', (error) => {
+      this.logger.error(`Scheduled queue error: ${error.message}`);
+    });
+
+    this.logger.debug('Queue event handlers registered');
   }
 
   private async logQueueStatus() {
@@ -26,7 +44,22 @@ export class JobQueueService {
       this.logger.log(`Email queue connected: ${emailHealth === 'PONG'}`);
       this.logger.log(`Scheduled queue connected: ${scheduledHealth === 'PONG'}`);
     } catch (error) {
-      this.logger.error(`Queue connection error: ${error.message}`);
+      this.logger.error(`Queue connection error: ${error.message}`, error.stack);
+    }
+  }
+
+  /**
+   * Check if queue connection is healthy
+   * @returns true if connection is alive, false otherwise
+   */
+  private async isQueueHealthy(queue: Queue): Promise<boolean> {
+    try {
+      const client = await queue.client;
+      const result = await client.ping();
+      return result === 'PONG';
+    } catch (error) {
+      this.logger.warn(`Queue health check failed: ${error.message}`);
+      return false;
     }
   }
 
@@ -45,36 +78,67 @@ export class JobQueueService {
   }): Promise<{ jobId: string }> {
     const jobId = randomBytes(16).toString('hex');
 
-    // Create job record in database
-    await this.prisma.job.create({
-      data: {
-        id: jobId,
-        job_type: 'send-email',
-        status: 'pending',
-        tenant_id: data.tenantId,
-        payload: data as any,
-        max_retries: 3,
-      },
-    });
+    // Check queue health before attempting to queue
+    const isHealthy = await this.isQueueHealthy(this.emailQueue);
+    if (!isHealthy) {
+      const error = new Error('Email queue connection is not healthy. Retrying connection...');
+      this.logger.warn(error.message);
 
-    // Queue to BullMQ
-    await this.emailQueue.add('send-email', data, {
-      jobId,
-      attempts: 3,
-      backoff: {
-        type: 'exponential',
-        delay: 2000,
-      },
-      removeOnComplete: {
-        age: 86400, // 24 hours
-        count: 1000,
-      },
-      removeOnFail: false, // Keep failed jobs for manual retry
-    });
+      // Try to reconnect by checking status again
+      await this.logQueueStatus();
 
-    this.logger.log(`Email job queued: ${jobId} to ${data.to}`);
+      // Throw error to trigger retry at caller level
+      throw error;
+    }
 
-    return { jobId };
+    try {
+      // Create job record in database
+      await this.prisma.job.create({
+        data: {
+          id: jobId,
+          job_type: 'send-email',
+          status: 'pending',
+          tenant_id: data.tenantId,
+          payload: data as any,
+          max_retries: 3,
+        },
+      });
+
+      // Queue to BullMQ
+      await this.emailQueue.add('send-email', data, {
+        jobId,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+        removeOnComplete: {
+          age: 86400, // 24 hours
+          count: 1000,
+        },
+        removeOnFail: false, // Keep failed jobs for manual retry
+      });
+
+      this.logger.log(`Email job queued: ${jobId} to ${data.to}`);
+
+      return { jobId };
+    } catch (error) {
+      this.logger.error(
+        `Failed to queue email job: ${error.message}`,
+        error.stack,
+      );
+
+      // Cleanup orphaned DB record if queueing failed
+      await this.prisma.job.deleteMany({
+        where: { id: jobId },
+      }).catch((deleteError) => {
+        this.logger.error(
+          `Failed to cleanup orphaned job record ${jobId}: ${deleteError.message}`,
+        );
+      });
+
+      throw error;
+    }
   }
 
   /**
@@ -91,6 +155,19 @@ export class JobQueueService {
 
     // Add jobId to payload for processor access
     const jobPayload = { ...payload, jobId };
+
+    // Check queue health before attempting to queue
+    const isHealthy = await this.isQueueHealthy(this.scheduledQueue);
+    if (!isHealthy) {
+      const error = new Error('Scheduled queue connection is not healthy. Retrying connection...');
+      this.logger.warn(error.message);
+
+      // Try to reconnect by checking status again
+      await this.logQueueStatus();
+
+      // Throw error to trigger retry at scheduler level
+      throw error;
+    }
 
     try {
       await this.prisma.job.create({

@@ -31,8 +31,8 @@ describe('ImpersonationMiddleware', () => {
     mockRequest.headers['x-impersonation-token'] = 'valid-token';
 
     impersonationService.validateImpersonationSession.mockResolvedValue({
-      impersonated_user: { id: 'user-1', email: 'user@test.com' },
-      admin_user: { id: 'admin-1', email: 'admin@test.com' },
+      impersonated_user: { id: 'user-1', email: 'user@test.com', is_active: true, tenant_id: 'tenant-1', first_name: 'Test', last_name: 'User' },
+      admin_user: { id: 'admin-1', email: 'admin@test.com', first_name: 'Admin', last_name: 'User', is_platform_admin: true },
     });
 
     await middleware.use(mockRequest, mockResponse, mockNext);

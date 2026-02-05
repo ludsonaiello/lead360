@@ -187,6 +187,48 @@ export function formatAbsoluteTime(dateString: string | null): string {
 }
 
 /**
+ * Format time from now (handles both past and future)
+ * Examples:
+ * - Past: "2 hours ago"
+ * - Future: "in 3 hours"
+ * - Now: "Just now"
+ */
+export function formatTimeFromNow(dateString: string | null): string {
+  if (!dateString) return 'Never';
+
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime(); // Future - Now (positive = future, negative = past)
+
+  const absDiffMs = Math.abs(diffMs);
+  const seconds = Math.floor(absDiffMs / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  const months = Math.floor(days / 30);
+  const years = Math.floor(days / 365);
+
+  const isFuture = diffMs > 0;
+
+  if (seconds < 60) return 'Just now';
+
+  let timeStr = '';
+  if (minutes < 60) {
+    timeStr = `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+  } else if (hours < 24) {
+    timeStr = `${hours} hour${hours !== 1 ? 's' : ''}`;
+  } else if (days < 30) {
+    timeStr = `${days} day${days !== 1 ? 's' : ''}`;
+  } else if (months < 12) {
+    timeStr = `${months} month${months !== 1 ? 's' : ''}`;
+  } else {
+    timeStr = `${years} year${years !== 1 ? 's' : ''}`;
+  }
+
+  return isFuture ? `in ${timeStr}` : `${timeStr} ago`;
+}
+
+/**
  * Get priority label
  */
 export function getPriorityLabel(priority: number): string {

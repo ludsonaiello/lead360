@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { ScheduledJob } from '@/lib/types/jobs';
 import { cronToReadable } from '@/lib/utils/cron-helpers';
-import { formatRelativeTime, formatAbsoluteTime, formatDuration } from '@/lib/utils/job-helpers';
+import { formatRelativeTime, formatAbsoluteTime, formatDuration, formatTimeFromNow } from '@/lib/utils/job-helpers';
 import { Calendar, Play, Edit, History, CheckCircle, XCircle } from 'lucide-react';
 
 interface ScheduledJobCardProps {
@@ -31,10 +31,14 @@ export function ScheduledJobCard({
   onViewHistory,
   className = '',
 }: ScheduledJobCardProps) {
+  // Handle both is_active (new) and is_enabled (old) for backwards compatibility
+  const isEnabled = schedule.is_active ?? schedule.is_enabled ?? true;
+  const timezone = schedule.metadata?.timezone || schedule.timezone || 'UTC';
+
   return (
     <Card
       className={`
-        ${schedule.is_enabled ? 'border-green-200 dark:border-green-800' : 'border-gray-200 dark:border-gray-700'}
+        ${isEnabled ? 'border-green-200 dark:border-green-800' : 'border-gray-200 dark:border-gray-700'}
         ${className}
       `}
     >
@@ -43,7 +47,7 @@ export function ScheduledJobCard({
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              {schedule.is_enabled ? (
+              {isEnabled ? (
                 <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
               ) : (
                 <XCircle className="w-5 h-5 text-gray-400 dark:text-gray-500" />
@@ -51,13 +55,18 @@ export function ScheduledJobCard({
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {schedule.name}
               </h3>
+              {schedule.type === 'quote-report' && (
+                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                  Quote Report
+                </span>
+              )}
             </div>
             {schedule.description && (
               <p className="text-sm text-gray-600 dark:text-gray-400">{schedule.description}</p>
             )}
           </div>
           <ToggleSwitch
-            enabled={schedule.is_enabled}
+            enabled={isEnabled}
             onChange={(checked) => onToggle(schedule.id, checked)}
             label=""
           />
@@ -71,7 +80,7 @@ export function ScheduledJobCard({
               {cronToReadable(schedule.schedule)}
             </span>
             <span className="text-gray-500 dark:text-gray-400">
-              ({schedule.timezone})
+              ({timezone})
             </span>
           </div>
 
@@ -79,7 +88,7 @@ export function ScheduledJobCard({
             <div>
               <p className="text-gray-500 dark:text-gray-400 mb-1">Next Run</p>
               <p className="text-gray-900 dark:text-gray-100 font-medium">
-                {schedule.next_run_at ? formatRelativeTime(schedule.next_run_at) : 'Not scheduled'}
+                {schedule.next_run_at ? formatTimeFromNow(schedule.next_run_at) : 'Not scheduled'}
               </p>
             </div>
             <div>
@@ -101,7 +110,7 @@ export function ScheduledJobCard({
             variant="secondary"
             size="sm"
             onClick={() => onTrigger(schedule.id)}
-            disabled={!schedule.is_enabled}
+            disabled={!isEnabled}
           >
             <Play className="w-3.5 h-3.5 mr-1" />
             Run Now

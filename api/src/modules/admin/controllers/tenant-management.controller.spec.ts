@@ -42,8 +42,21 @@ describe('TenantManagementController', () => {
   describe('listTenants', () => {
     it('should return paginated tenant list', async () => {
       const mockResponse = {
-        data: [{ id: 'tenant-1', company_name: 'Test Co' }],
-        pagination: { total: 1, page: 1, limit: 20, totalPages: 1 },
+        data: [{
+          id: 'tenant-1',
+          subdomain: 'test',
+          company_name: 'Test Co',
+          legal_business_name: 'Test Co LLC',
+          business_entity_type: 'LLC',
+          state_of_registration: 'CA',
+          ein: '12-3456789',
+          business_size: 'small',
+          industry: 'construction',
+          is_active: true,
+          created_at: new Date(),
+          updated_at: new Date(),
+        } as any],
+        pagination: { total: 1, page: 1, limit: 20, total_pages: 1 },
       };
 
       service.listTenants.mockResolvedValue(mockResponse);
@@ -67,8 +80,8 @@ describe('TenantManagementController', () => {
       };
 
       const mockResponse = {
-        tenant: { id: 'tenant-1', subdomain: 'acme' },
-        owner: { id: 'user-1', email: 'owner@acme.com' },
+        tenant: { id: 'tenant-1', subdomain: 'acme' } as any,
+        owner: { id: 'user-1', email: 'owner@acme.com' } as any,
         message: 'Tenant created successfully',
       };
 
@@ -86,7 +99,7 @@ describe('TenantManagementController', () => {
       service.suspendTenant.mockResolvedValue({
         id: 'tenant-1',
         is_active: false,
-      });
+      } as any);
 
       const result = await controller.suspendTenant(mockRequest, 'tenant-1', { reason: 'Payment overdue' });
 
@@ -100,7 +113,7 @@ describe('TenantManagementController', () => {
       service.activateTenant.mockResolvedValue({
         id: 'tenant-1',
         is_active: true,
-      });
+      } as any);
 
       const result = await controller.activateTenant(mockRequest, 'tenant-1');
 

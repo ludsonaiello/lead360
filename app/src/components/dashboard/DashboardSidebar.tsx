@@ -135,6 +135,19 @@ const adminNavigationGroups: (NavItem | NavGroup)[] = [
     ],
   },
   {
+    name: 'Quotes Admin',
+    icon: Calculator,
+    permission: 'platform_admin:view_all_tenants',
+    items: [
+      { name: 'Dashboard', href: '/admin/quotes', icon: LayoutDashboard, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Analytics', href: '/admin/quotes/analytics', icon: BarChart3, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Templates', href: '/admin/quotes/templates', icon: FileText, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Tenants', href: '/admin/quotes/tenants', icon: Building2, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Operations', href: '/admin/quotes/operational', icon: Cog, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Reports', href: '/admin/quotes/reports', icon: BarChart3, permission: 'platform_admin:view_all_tenants' },
+    ],
+  },
+  {
     name: 'Users',
     icon: Users,
     permission: 'rbac:view',

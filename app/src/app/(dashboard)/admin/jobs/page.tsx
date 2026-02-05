@@ -272,10 +272,17 @@ function ScheduledJobsTab() {
   const { enableJob, disableJob, triggerJob, updateSchedule } = useScheduledJobs();
 
   const [schedules, setSchedules] = useState<ScheduledJob[]>([]);
+  const [summary, setSummary] = useState<{
+    total_jobs: number;
+    system_jobs: number;
+    quote_reports: number;
+    active_jobs: number;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduledJob | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'system' | 'quote-report'>('all');
 
   const fetchSchedules = async () => {
     try {
@@ -283,6 +290,9 @@ function ScheduledJobsTab() {
       setError(null);
       const response = await getScheduledJobs();
       setSchedules(response.data);
+      if (response.summary) {
+        setSummary(response.summary);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load scheduled jobs');
       console.error('[ScheduledJobsTab] Error:', err);
@@ -357,6 +367,83 @@ function ScheduledJobsTab() {
         </Button>
       </div>
 
+      {/* Summary Cards */}
+      {summary && !isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Total Jobs</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                  {summary.total_jobs}
+                </p>
+              </div>
+              <Clock className="w-8 h-8 text-blue-500" />
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">System Jobs</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                  {summary.system_jobs}
+                </p>
+              </div>
+              <Activity className="w-8 h-8 text-purple-500" />
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Quote Reports</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                  {summary.quote_reports}
+                </p>
+              </div>
+              <FileText className="w-8 h-8 text-green-500" />
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Active Jobs</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                  {summary.active_jobs}
+                </p>
+              </div>
+              <CheckCircle className="w-8 h-8 text-green-500" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filter Buttons */}
+      {!isLoading && schedules.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Button
+            variant={filter === 'all' ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => setFilter('all')}
+          >
+            All ({schedules.length})
+          </Button>
+          <Button
+            variant={filter === 'system' ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => setFilter('system')}
+          >
+            System Jobs ({schedules.filter(s => s.type === 'system' || s.job_type !== 'scheduled-report').length})
+          </Button>
+          <Button
+            variant={filter === 'quote-report' ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => setFilter('quote-report')}
+          >
+            Quote Reports ({schedules.filter(s => s.type === 'quote-report' || s.job_type === 'scheduled-report').length})
+          </Button>
+        </div>
+      )}
+
       {/* Content */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
@@ -376,16 +463,23 @@ function ScheduledJobsTab() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {schedules.map((schedule) => (
-            <ScheduledJobCard
-              key={schedule.id}
-              schedule={schedule}
-              onEdit={handleEdit}
-              onTrigger={handleTrigger}
-              onToggle={handleToggle}
-              onViewHistory={handleViewHistory}
-            />
-          ))}
+          {schedules
+            .filter((schedule) => {
+              if (filter === 'all') return true;
+              if (filter === 'system') return schedule.type === 'system' || schedule.job_type !== 'scheduled-report';
+              if (filter === 'quote-report') return schedule.type === 'quote-report' || schedule.job_type === 'scheduled-report';
+              return true;
+            })
+            .map((schedule) => (
+              <ScheduledJobCard
+                key={schedule.id}
+                schedule={schedule}
+                onEdit={handleEdit}
+                onTrigger={handleTrigger}
+                onToggle={handleToggle}
+                onViewHistory={handleViewHistory}
+              />
+            ))}
         </div>
       )}
 

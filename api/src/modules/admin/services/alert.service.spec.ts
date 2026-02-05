@@ -48,7 +48,7 @@ describe('AlertService', () => {
         message: 'A new tenant signed up',
       };
 
-      prismaService.admin_notification.create.mockResolvedValue({
+      (prismaService.admin_notification.create as any).mockResolvedValue({
         id: 'notif-123',
         ...notification,
         is_read: false,
@@ -62,7 +62,7 @@ describe('AlertService', () => {
 
   describe('getNotifications', () => {
     it('should return paginated notifications', async () => {
-      prismaService.admin_notification.findMany.mockResolvedValue([
+      (prismaService.admin_notification.findMany as any).mockResolvedValue([
         {
           id: 'notif-1',
           title: 'Test',
@@ -78,7 +78,7 @@ describe('AlertService', () => {
 
   describe('markAsRead', () => {
     it('should mark notification as read', async () => {
-      prismaService.admin_notification.update.mockResolvedValue({
+      (prismaService.admin_notification.update as any).mockResolvedValue({
         id: 'notif-1',
         is_read: true,
       });
@@ -90,10 +90,10 @@ describe('AlertService', () => {
 
   describe('cleanupExpiredNotifications', () => {
     it('should delete old notifications', async () => {
-      prismaService.admin_notification.deleteMany.mockResolvedValue({ count: 5 });
+      (prismaService.admin_notification.deleteMany as any).mockResolvedValue({ count: 5 });
 
       const result = await service.cleanupExpiredNotifications();
-      expect(result.deleted_count).toBe(5);
+      expect(result.total_cleaned).toBe(5);
     });
   });
 });

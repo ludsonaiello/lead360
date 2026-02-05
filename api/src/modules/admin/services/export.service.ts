@@ -12,6 +12,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Parser } from 'json2csv';
 import PDFDocument from 'pdfkit';
+import * as ExcelJS from 'exceljs';
 
 @Injectable()
 export class ExportService {
@@ -211,6 +212,13 @@ export class ExportService {
         case 'audit_logs':
           data = await this.fetchAuditLogsData(exportJob.filters);
           break;
+        // Quote report types (handled by quote module)
+        case 'quote_summary':
+        case 'tenant_performance':
+        case 'revenue_analysis':
+        case 'conversion_analysis':
+          data = await this.fetchQuoteReportData(exportJob.export_type, exportJob.filters);
+          break;
         default:
           throw new BadRequestException(`Unknown export type: ${exportJob.export_type}`);
       }
@@ -219,6 +227,8 @@ export class ExportService {
       let filePath: string;
       if (exportJob.format === 'csv') {
         filePath = await this.generateCSV(data, exportJob.export_type, exportJobId);
+      } else if (exportJob.format === 'xlsx') {
+        filePath = await this.generateXLSX(data, exportJob.export_type, exportJobId);
       } else if (exportJob.format === 'pdf') {
         filePath = await this.generatePDF(data, exportJob.export_type, exportJobId);
       } else {
@@ -325,6 +335,57 @@ export class ExportService {
       return filePath;
     } catch (error) {
       this.logger.error(`Failed to generate PDF: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate XLSX file
+   */
+  async generateXLSX(data: any[], exportType: string, exportJobId: string): Promise<string> {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet(exportType.toUpperCase());
+
+      // Get fields for this export type
+      const fields = this.getFieldsForExportType(exportType);
+
+      // Add header row
+      worksheet.columns = fields.map(field => ({
+        header: field.replace(/_/g, ' ').toUpperCase(),
+        key: field,
+        width: 20,
+      }));
+
+      // Style header row
+      worksheet.getRow(1).font = { bold: true };
+      worksheet.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE0E0E0' },
+      };
+
+      // Add data rows
+      data.forEach(row => {
+        worksheet.addRow(row);
+      });
+
+      // Auto-filter
+      worksheet.autoFilter = {
+        from: 'A1',
+        to: `${String.fromCharCode(64 + fields.length)}1`,
+      };
+
+      const filename = `${exportType}_${exportJobId}_${Date.now()}.xlsx`;
+      const filePath = path.join(this.EXPORTS_DIR, filename);
+
+      await workbook.xlsx.writeFile(filePath);
+
+      this.logger.log(`XLSX generated: ${filePath}`);
+
+      return filePath;
+    } catch (error) {
+      this.logger.error(`Failed to generate XLSX: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -486,6 +547,56 @@ export class ExportService {
     }));
   }
 
+  /**
+   * Fetch quote report data (delegated to quote module processor)
+   * For now, returns placeholder data. The actual implementation should be in the quote module's processor.
+   */
+  private async fetchQuoteReportData(reportType: string, filters: any): Promise<any[]> {
+    // Query quotes based on date range and filters
+    const { date_from, date_to, tenant_ids } = filters || {};
+
+    const where: any = {
+      is_archived: false,
+    };
+
+    if (date_from && date_to) {
+      where.created_at = {
+        gte: new Date(date_from),
+        lte: new Date(date_to),
+      };
+    }
+
+    if (tenant_ids && tenant_ids.length > 0) {
+      where.tenant_id = { in: tenant_ids };
+    }
+
+    const quotes = await this.prisma.quote.findMany({
+      where,
+      include: {
+        tenant: { select: { company_name: true, subdomain: true } },
+        lead: { select: { first_name: true, last_name: true } },
+        vendor: { select: { name: true } },
+        created_by_user: { select: { first_name: true, last_name: true, email: true } },
+      },
+      orderBy: { created_at: 'desc' },
+      take: 5000, // Limit to prevent memory issues
+    });
+
+    // Transform for export
+    return quotes.map(q => ({
+      quote_number: q.quote_number,
+      tenant: q.tenant?.company_name || '',
+      customer_name: q.lead ? `${q.lead.first_name} ${q.lead.last_name}` : '',
+      vendor: q.vendor?.name || '',
+      status: q.status,
+      subtotal: q.subtotal ? parseFloat(q.subtotal.toString()) : 0,
+      total: q.total ? parseFloat(q.total.toString()) : 0,
+      created_by: q.created_by_user ? `${q.created_by_user.first_name} ${q.created_by_user.last_name}` : '',
+      created_at: q.created_at.toISOString(),
+      expires_at: q.expires_at?.toISOString() || '',
+    }));
+  }
+
   private getFieldsForExportType(exportType: string): string[] {
     switch (exportType) {
       case 'tenants':
@@ -494,6 +605,11 @@ export class ExportService {
         return ['id', 'email', 'first_name', 'last_name', 'is_active', 'tenant_subdomain', 'roles', 'created_at', 'last_login_at'];
       case 'audit_logs':
         return ['id', 'tenant_id', 'actor_email', 'actor_name', 'entity_type', 'entity_id', 'action_type', 'description', 'status', 'created_at'];
+      case 'quote_summary':
+      case 'tenant_performance':
+      case 'revenue_analysis':
+      case 'conversion_analysis':
+        return ['quote_number', 'tenant', 'customer_name', 'vendor', 'status', 'subtotal', 'total', 'created_by', 'created_at', 'expires_at'];
       default:
         return [];
     }

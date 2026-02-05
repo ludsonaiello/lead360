@@ -68,7 +68,7 @@ import { ExportProcessorProcessor } from './processors/export-processor.processo
     }),
 
     // Schedule module for cron jobs
-    ScheduleModule.forRoot(),
+    //     ScheduleModule.forRoot(),  // REMOVED: Should only be in AppModule (causes duplicate cron triggers)
   ],
   controllers: [
     DashboardController,

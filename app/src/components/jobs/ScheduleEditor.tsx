@@ -42,10 +42,10 @@ export function ScheduleEditor({ isOpen, onClose, schedule, onSave }: ScheduleEd
     if (schedule) {
       setName(schedule.name);
       setDescription(schedule.description || '');
-      setTimezone(schedule.timezone);
-      setIsEnabled(schedule.is_enabled);
-      setMaxRetries(schedule.max_retries);
-      setTimeoutSeconds(schedule.timeout_seconds);
+      setTimezone(schedule.metadata?.timezone || schedule.timezone || 'UTC');
+      setIsEnabled(schedule.is_active ?? schedule.is_enabled ?? true);
+      setMaxRetries(schedule.metadata?.max_retries || schedule.max_retries || 3);
+      setTimeoutSeconds(schedule.metadata?.timeout_seconds || schedule.timeout_seconds || 300);
 
       // Check if schedule matches a preset
       const presets = getCronPresets();

@@ -26,7 +26,6 @@ describe('DailyStatsEmailJob', () => {
   it('should send daily stats email', async () => {
     alertService.sendDailyStatsEmail.mockResolvedValue({
       sent_to: 5,
-      message: 'Daily stats email sent',
     });
 
     await job.handleCron();

@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { BullModule } from '@nestjs/bullmq';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from '../../core/database/prisma.module';
+import { CacheModule } from '../../core/cache/cache.module';
 import { AuditModule } from '../audit/audit.module';
 import { LeadsModule } from '../leads/leads.module';
 import { FilesModule } from '../files/files.module';
@@ -42,6 +45,25 @@ import { ChangeOrderService } from './services/change-order.service';
 import { QuoteAttachmentService } from './services/quote-attachment.service';
 import { QuoteTagService } from './services/quote-tag.service';
 import { WarrantyTierService } from './services/warranty-tier.service';
+import { QuoteNotesService } from './services/quote-notes.service';
+import { AdminAnalyticsService } from './services/admin-analytics.service';
+import { AdminTenantService } from './services/admin-tenant.service';
+import { AdminOperationsService } from './services/admin-operations.service';
+import { AdminReportingService } from './services/admin-reporting.service';
+import { AdminTemplateTestingService } from './services/admin-template-testing.service';
+import { ScheduledReportSchedulerService } from './services/scheduled-report-scheduler.service';
+
+// Template Builder Services (Dev 6)
+import { TemplateValidatorService } from './services/template-builder/template-validator.service';
+import { TemplateComponentService } from './services/template-builder/template-component.service';
+import { CodeTemplateBuilderService } from './services/template-builder/code-template-builder.service';
+import { VisualTemplateBuilderService } from './services/template-builder/visual-template-builder.service';
+import { TemplateRendererService } from './services/template-builder/template-renderer.service';
+import { TemplateMigrationService } from './services/template-builder/template-migration.service';
+
+// Processors
+import { ReportGenerationProcessor } from './processors/report-generation.processor';
+import { ScheduledReportProcessor } from './processors/scheduled-report.processor';
 
 // Controllers (Dev 2)
 import { VendorController } from './controllers/vendor.controller';
@@ -81,15 +103,22 @@ import { QuoteAttachmentController } from './controllers/quote-attachment.contro
 import { QuoteEmailController } from './controllers/quote-email.controller';
 import { QuoteTagController } from './controllers/quote-tag.controller';
 import { WarrantyTierController } from './controllers/warranty-tier.controller';
+import { QuoteNotesController } from './controllers/quote-notes.controller';
 
 @Module({
   imports: [
     PrismaModule,
+    CacheModule, // Redis caching for analytics (Admin)
     AuditModule,
     LeadsModule, // Provides GoogleMapsService
     FilesModule, // Provides FilesService
     CommunicationModule, // Provides SendEmailService (Dev 5)
     ThrottlerModule, // Rate limiting for public endpoints (Dev 5)
+    //     ScheduleModule.forRoot(), // Cron jobs for scheduled reports (Dev 4)  // REMOVED: Should only be in AppModule (causes duplicate cron triggers)
+    BullModule.registerQueue(
+      { name: 'export' }, // BullMQ queue for report generation (Dev 4)
+      { name: 'scheduled-reports' }, // BullMQ queue for scheduled report triggers
+    ),
   ],
   controllers: [
     // Dev 2 controllers
@@ -123,6 +152,7 @@ import { WarrantyTierController } from './controllers/warranty-tier.controller';
     QuoteEmailController, // 1 endpoint (email delivery)
     QuoteTagController, // 8 endpoints (tags)
     WarrantyTierController, // 5 endpoints (warranty tiers)
+    QuoteNotesController, // 4 endpoints (notes)
   ],
   providers: [
     // Dev 2 services
@@ -158,6 +188,24 @@ import { WarrantyTierController } from './controllers/warranty-tier.controller';
     QuoteAttachmentService,
     QuoteTagService,
     WarrantyTierService,
+    QuoteNotesService,
+    // Admin services
+    AdminAnalyticsService,
+    AdminTenantService,
+    AdminOperationsService,
+    AdminReportingService,
+    AdminTemplateTestingService,
+    ScheduledReportSchedulerService,
+    // Template Builder services (Dev 6)
+    TemplateValidatorService,
+    TemplateComponentService,
+    CodeTemplateBuilderService,
+    VisualTemplateBuilderService,
+    TemplateRendererService,
+    TemplateMigrationService,
+    // Processors
+    ReportGenerationProcessor,
+    ScheduledReportProcessor,
   ],
   exports: [
     // Dev 2 services

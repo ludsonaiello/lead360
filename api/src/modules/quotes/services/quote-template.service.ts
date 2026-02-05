@@ -3,6 +3,8 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
@@ -18,6 +20,8 @@ export class QuoteTemplateService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogger: AuditLoggerService,
+    @Inject(forwardRef(() => require('./admin-template-testing.service').AdminTemplateTestingService))
+    private readonly templateTestingService: any,
   ) {}
 
   /**
@@ -40,7 +44,7 @@ export class QuoteTemplateService {
       if (isGlobal) {
         // Unset global defaults
         await this.prisma.quote_template.updateMany({
-          where: { tenant_id: null, is_default: true },
+          where: { tenant_id: { equals: null }, is_default: true },
           data: { is_default: false },
         });
       } else if (tenantId) {
@@ -247,7 +251,7 @@ export class QuoteTemplateService {
     if (dto.is_default && !template.is_default) {
       if (template.is_global) {
         await this.prisma.quote_template.updateMany({
-          where: { tenant_id: null, is_default: true },
+          where: { tenant_id: { equals: null }, is_default: true },
           data: { is_default: false },
         });
       } else if (template.tenant_id) {
@@ -255,6 +259,27 @@ export class QuoteTemplateService {
           where: { tenant_id: template.tenant_id, is_default: true },
           data: { is_default: false },
         });
+      }
+    }
+
+    // Create version snapshot before updating (on any change)
+    const changesSummary: string[] = [];
+    if (dto.name && dto.name !== template.name) changesSummary.push('name');
+    if (dto.description !== undefined && dto.description !== template.description) changesSummary.push('description');
+    if (dto.html_content && dto.html_content !== template.html_content) changesSummary.push('html_content');
+    if (dto.thumbnail_url !== undefined && dto.thumbnail_url !== template.thumbnail_url) changesSummary.push('thumbnail_url');
+    if (dto.is_default !== undefined && dto.is_default !== template.is_default) changesSummary.push('is_default');
+
+    if (changesSummary.length > 0 && this.templateTestingService) {
+      try {
+        await this.templateTestingService.createTemplateSnapshot(
+          template,
+          userId,
+          `Updated: ${changesSummary.join(', ')}`,
+        );
+      } catch (error) {
+        // Log but don't fail the update if versioning fails
+        console.error('Failed to create template version snapshot:', error);
       }
     }
 
@@ -397,7 +422,7 @@ export class QuoteTemplateService {
 
     // Unset all global defaults
     await this.prisma.quote_template.updateMany({
-      where: { tenant_id: null, is_default: true },
+      where: { tenant_id: { equals: null }, is_default: true },
       data: { is_default: false },
     });
 

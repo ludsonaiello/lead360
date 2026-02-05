@@ -35,11 +35,19 @@ describe('ImpersonationController', () => {
     service.startImpersonation.mockResolvedValue({
       session_token: 'a'.repeat(64),
       expires_at: new Date(),
-      impersonated_user: { id: 'user-1', email: 'user@test.com' },
+      impersonated_user: {
+        id: 'user-1',
+        email: 'user@test.com',
+        first_name: 'Test',
+        last_name: 'User',
+        tenant_id: 'tenant-1',
+        tenant: { id: 'tenant-1', subdomain: 'test', company_name: 'Test Company' },
+      },
     });
 
     const result = await controller.startImpersonation(
       { user: { id: 'admin-1' } },
+      'tenant-1',
       { user_id: 'user-1' },
     );
 

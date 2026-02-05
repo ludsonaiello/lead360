@@ -5,7 +5,7 @@ import { QuotePricingService } from './quote-pricing.service';
 import { QuoteJobsiteAddressService } from './quote-jobsite-address.service';
 import { QuoteNumberGeneratorService } from './quote-number-generator.service';
 import { QuoteVersionService } from './quote-version.service';
-import { Fil​esService } from '../../files/files.service';
+import { FilesService } from '../../files/files.service';
 import { GoogleMapsService } from '../../leads/services/google-maps.service';
 import { v4 as uuid } from 'uuid';
 

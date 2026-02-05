@@ -43,4 +43,12 @@ export class CreateTemplateDto {
   @IsBoolean()
   @IsOptional()
   is_default?: boolean;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: 'Mark as pre-built template (platform admin only)',
+  })
+  @IsBoolean()
+  @IsOptional()
+  is_prebuilt?: boolean;
 }

@@ -3,6 +3,7 @@ import { DashboardController } from './dashboard.controller';
 import { DashboardService } from '../services/dashboard.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PlatformAdminGuard } from '../guards/platform-admin.guard';
+import { audit_log_status } from '@prisma/client';
 
 describe('DashboardController', () => {
   let controller: DashboardController;
@@ -39,11 +40,11 @@ describe('DashboardController', () => {
   describe('getMetrics', () => {
     it('should return dashboard metrics', async () => {
       const mockMetrics = {
-        activeTenants: { count: 150, growth: { count: 12, percentage: 8.7, trend: 'up' } },
-        totalUsers: { count: 2450, growth: { count: 87, percentage: 3.7, trend: 'up' } },
-        jobSuccessRate: { total: 500, successful: 475, failed: 25, percentage: 95 },
-        storageUsed: { bytes: 250000000000, gb: 232.8, formatted: '232.8 GB' },
-        systemHealth: { database: 'healthy', redis: 'healthy', overall: 'healthy' },
+        activeTenants: { count: 150, growth: { count: 12, percentage: 8.7, trend: 'up' }, sparkline: [140, 145, 148, 150] },
+        totalUsers: { count: 2450, growth: { count: 87, percentage: 3.7, trend: 'up' }, sparkline: [2300, 2350, 2400, 2450] },
+        jobSuccessRate: { percentage: 95, totalJobs: 500, failedJobs: 25, status: 'healthy' },
+        storageUsed: { current: 250000000000, limit: 500000000000, percentage: 50 },
+        systemHealth: { status: 'healthy', checks: { database: true, redis: true } },
         alerts: { unread: 3, critical: 1 },
       };
 
@@ -58,14 +59,15 @@ describe('DashboardController', () => {
 
   describe('getChartData', () => {
     it('should return chart data', async () => {
-      const mockChartData = {
-        labels: ['Jan', 'Feb', 'Mar'],
-        data: [10, 15, 20],
-      };
+      const mockChartData = [
+        { date: '2025-01-01', count: 10, cumulative: 100 },
+        { date: '2025-02-01', count: 15, cumulative: 115 },
+        { date: '2025-03-01', count: 20, cumulative: 135 },
+      ];
 
       dashboardService.getChartData.mockResolvedValue(mockChartData);
 
-      const result = await controller.getChartData('tenant-growth', { days: 30 });
+      const result = await controller.getChartData('tenant-growth');
 
       expect(result).toEqual(mockChartData);
       expect(dashboardService.getChartData).toHaveBeenCalledWith('tenant-growth', { days: 30 });
@@ -77,15 +79,19 @@ describe('DashboardController', () => {
       const mockActivity = [
         {
           id: 'log-1',
+          action: 'create',
+          entity: 'tenant',
+          entityId: 'tenant-1',
           description: 'Tenant created',
-          created_at: new Date(),
-          actor_user: { email: 'admin@test.com' },
+          actor: { id: 'user-1', name: 'Admin User', email: 'admin@test.com' },
+          timestamp: new Date(),
+          status: audit_log_status.success,
         },
       ];
 
       dashboardService.getRecentActivity.mockResolvedValue(mockActivity);
 
-      const result = await controller.getRecentActivity({ limit: 10 });
+      const result = await controller.getRecentActivity(10);
 
       expect(result).toEqual(mockActivity);
       expect(dashboardService.getRecentActivity).toHaveBeenCalledWith(10);

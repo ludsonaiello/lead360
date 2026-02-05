@@ -24,7 +24,7 @@ describe('NotificationCleanupJob', () => {
   });
 
   it('should cleanup expired notifications', async () => {
-    alertService.cleanupExpiredNotifications.mockResolvedValue({ deleted_count: 15 });
+    alertService.cleanupExpiredNotifications.mockResolvedValue({ old_deleted: 10, expired_deleted: 5, total_cleaned: 15 });
 
     await job.handleCron();
 

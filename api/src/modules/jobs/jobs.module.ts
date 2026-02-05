@@ -39,8 +39,10 @@ import { EmailTemplatesController } from './controllers/email-templates.controll
     BullModule.registerQueue(
       { name: 'email' },
       { name: 'scheduled' },
+      { name: 'export' }, // Export queue for report generation
+      { name: 'scheduled-reports' }, // Scheduled reports queue (separate from export)
     ),
-    ScheduleModule.forRoot(),
+    //     ScheduleModule.forRoot(),  // REMOVED: Should only be in AppModule (causes duplicate cron triggers)
     PrismaModule,
     EncryptionModule,
     AuditModule,

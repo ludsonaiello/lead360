@@ -32,6 +32,9 @@ import { ApprovalHistoryTimeline } from '@/components/quotes/ApprovalHistoryTime
 import { VersionTimelineCard } from '@/components/quotes/VersionTimelineCard';
 import { ChangeOrderList } from '@/components/quotes/ChangeOrderList';
 import { ChangeOrderHistoryTimeline } from '@/components/quotes/ChangeOrderHistoryTimeline';
+// Sprint 6: Notes components
+import { QuoteNotesList } from '@/components/quotes/QuoteNotesList';
+import { NotesQuickViewCard } from '@/components/quotes/NotesQuickViewCard';
 // Sprint 5: Attachments, PDF, Email, Public Access components
 import { AttachmentsSection } from '@/components/quotes/attachments/AttachmentsSection';
 import { PDFActionsMenu } from '@/components/quotes/pdf/PDFActionsMenu';
@@ -113,6 +116,7 @@ import {
   ThumbsUp,
   PlayCircle,
   CheckCircle,
+  ExternalLink,
 } from 'lucide-react';
 import type { Quote, QuoteItem, QuoteGroup, QuoteStatus } from '@/lib/types/quotes';
 
@@ -212,6 +216,28 @@ export default function QuoteDetailPage() {
       'email_failed',
     ];
     return editableStatuses.includes(quote.status);
+  };
+
+  // Helper function to generate Google Maps URL
+  const getGoogleMapsUrl = (address: Quote['jobsite_address']): string => {
+    if (!address) return '';
+
+    // If latitude and longitude are available, use them for precise location
+    if (address.latitude && address.longitude) {
+      return `https://www.google.com/maps/search/?api=1&query=${address.latitude},${address.longitude}`;
+    }
+
+    // Otherwise, use the full address string
+    const addressParts = [
+      address.address_line1,
+      address.address_line2,
+      address.city,
+      address.state,
+      address.zip_code,
+    ].filter(Boolean);
+
+    const fullAddress = addressParts.join(', ');
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
   };
 
   // Helper function to check if approval is required for this quote
@@ -1370,20 +1396,43 @@ export default function QuoteDetailPage() {
           <div className="lg:col-span-2 space-y-4">
             {/* Jobsite Address */}
             <Card>
-              <button
-                onClick={() => setJobsiteExpanded(!jobsiteExpanded)}
-                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-              >
-                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  Jobsite Address
-                </h3>
-                {jobsiteExpanded ? (
-                  <ChevronUp className="w-5 h-5 text-gray-500" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-gray-500" />
-                )}
-              </button>
+              <div className="w-full px-4 py-3 flex items-center justify-between">
+                <button
+                  onClick={() => setJobsiteExpanded(!jobsiteExpanded)}
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                >
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    Jobsite Address
+                  </h3>
+                </button>
+                <div className="flex items-center gap-2 sm:gap-3">
+                  {quote?.jobsite_address && (
+                    <a
+                      href={getGoogleMapsUrl(quote.jobsite_address)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 px-2 py-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                      title="Open in Google Maps"
+                    >
+                      <MapPin className="w-4 h-4" />
+                      <span className="hidden sm:inline">Map</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                  <button
+                    onClick={() => setJobsiteExpanded(!jobsiteExpanded)}
+                    className="hover:opacity-80 transition-opacity"
+                  >
+                    {jobsiteExpanded ? (
+                      <ChevronUp className="w-5 h-5 text-gray-500" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-gray-500" />
+                    )}
+                  </button>
+                </div>
+              </div>
               {jobsiteExpanded && quote.jobsite_address && (
                 <div className="px-4 pb-4 text-sm text-gray-700 dark:text-gray-300">
                   <p>{quote.jobsite_address.address_line1}</p>
@@ -1522,6 +1571,12 @@ export default function QuoteDetailPage() {
                 )}
               </Card>
             )}
+
+            {/* Sprint 6: Recent Notes Quick View */}
+            <NotesQuickViewCard
+              quoteId={quote.id}
+              onViewAll={() => setActiveTab('notes')}
+            />
 
             {/* Sprint 3: Discount Rules */}
             <DiscountRulesSection
@@ -1874,22 +1929,8 @@ export default function QuoteDetailPage() {
         </div>
       )}
 
-      {/* NOTES TAB - Coming Soon */}
-      {activeTab === 'notes' && (
-        <Card className="p-12">
-          <div className="text-center">
-            <div className="mb-4">
-              <MessageSquare className="w-16 h-16 mx-auto text-gray-400" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-              Coming Soon
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              Additional notes will be managed here (Sprint 6)
-            </p>
-          </div>
-        </Card>
-      )}
+      {/* NOTES TAB */}
+      {activeTab === 'notes' && <QuoteNotesList quoteId={quote.id} />}
 
       {/* Group Form Modal */}
       <GroupFormModal

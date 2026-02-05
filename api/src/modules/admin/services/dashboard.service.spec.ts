@@ -59,19 +59,19 @@ describe('DashboardService', () => {
   describe('getMetrics', () => {
     it('should return all dashboard metrics', async () => {
       // Mock active tenants
-      prismaService.tenant.count.mockResolvedValueOnce(150); // current
-      prismaService.tenant.count.mockResolvedValueOnce(138); // last month
+      (prismaService.tenant.count as any).mockResolvedValueOnce(150); // current
+      (prismaService.tenant.count as any).mockResolvedValueOnce(138); // last month
 
       // Mock users
-      prismaService.user.count.mockResolvedValueOnce(2450); // current
-      prismaService.user.count.mockResolvedValueOnce(2363); // last month
+      (prismaService.user.count as any).mockResolvedValueOnce(2450); // current
+      (prismaService.user.count as any).mockResolvedValueOnce(2363); // last month
 
       // Mock jobs
-      prismaService.scheduled_job.count.mockResolvedValueOnce(500); // total 24h
-      prismaService.scheduled_job.count.mockResolvedValueOnce(475); // successful 24h
+      (prismaService.scheduled_job.count as any).mockResolvedValueOnce(500); // total 24h
+      (prismaService.scheduled_job.count as any).mockResolvedValueOnce(475); // successful 24h
 
       // Mock storage
-      prismaService.file.aggregate.mockResolvedValueOnce({
+      (prismaService.file.aggregate as any).mockResolvedValueOnce({
         _sum: { file_size_bytes: 250000000000 }, // 250GB
       });
 
@@ -127,8 +127,8 @@ describe('DashboardService', () => {
 
   describe('getTenantsGrowth', () => {
     it('should calculate tenant growth', async () => {
-      prismaService.tenant.count.mockResolvedValueOnce(150); // current
-      prismaService.tenant.count.mockResolvedValueOnce(138); // last month
+      (prismaService.tenant.count as any).mockResolvedValueOnce(150); // current
+      (prismaService.tenant.count as any).mockResolvedValueOnce(138); // last month
 
       const result = await service.getTenantsGrowth();
 
@@ -138,8 +138,8 @@ describe('DashboardService', () => {
     });
 
     it('should handle negative growth', async () => {
-      prismaService.tenant.count.mockResolvedValueOnce(130); // current
-      prismaService.tenant.count.mockResolvedValueOnce(150); // last month
+      (prismaService.tenant.count as any).mockResolvedValueOnce(130); // current
+      (prismaService.tenant.count as any).mockResolvedValueOnce(150); // last month
 
       const result = await service.getTenantsGrowth();
 
@@ -149,8 +149,8 @@ describe('DashboardService', () => {
     });
 
     it('should handle zero previous month', async () => {
-      prismaService.tenant.count.mockResolvedValueOnce(10);
-      prismaService.tenant.count.mockResolvedValueOnce(0);
+      (prismaService.tenant.count as any).mockResolvedValueOnce(10);
+      (prismaService.tenant.count as any).mockResolvedValueOnce(0);
 
       const result = await service.getTenantsGrowth();
 
@@ -173,8 +173,8 @@ describe('DashboardService', () => {
 
   describe('getJobSuccessRate', () => {
     it('should calculate 24h job success rate', async () => {
-      prismaService.scheduled_job.count.mockResolvedValueOnce(500); // total
-      prismaService.scheduled_job.count.mockResolvedValueOnce(475); // successful
+      (prismaService.scheduled_job.count as any).mockResolvedValueOnce(500); // total
+      (prismaService.scheduled_job.count as any).mockResolvedValueOnce(475); // successful
 
       const result = await service.getJobSuccessRate();
 

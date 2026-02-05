@@ -84,18 +84,23 @@ export interface JobListResponse {
 
 export interface ScheduledJob {
   id: string;
-  job_type: string;
+  type: 'system' | 'quote-report'; // Backend returns this
   name: string;
-  description: string | null;
+  description: string;
   schedule: string; // Cron expression
-  timezone: string;
-  is_enabled: boolean;
-  max_retries: number;
-  timeout_seconds: number;
+  schedule_type: string; // daily, weekly, monthly, custom
+  is_active: boolean; // Backend uses is_active, not is_enabled
   last_run_at: string | null;
   next_run_at: string | null;
   created_at: string;
   updated_at: string;
+  metadata: Record<string, any>; // Contains job-specific data (report details, timezone, etc.)
+  // Deprecated fields (kept for backwards compatibility)
+  job_type?: string;
+  timezone?: string;
+  is_enabled?: boolean;
+  max_retries?: number;
+  timeout_seconds?: number;
 }
 
 export interface ScheduledJobHistory {
@@ -137,6 +142,12 @@ export interface ScheduledJobListResponse {
     total_pages: number;
     total_count: number;
     limit: number;
+  };
+  summary?: {
+    total_jobs: number;
+    system_jobs: number;
+    quote_reports: number;
+    active_jobs: number;
   };
 }
 

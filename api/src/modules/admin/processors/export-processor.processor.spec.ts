@@ -35,6 +35,7 @@ describe('ExportProcessorProcessor', () => {
     };
 
     exportService.processExportJob.mockResolvedValue({
+      success: true,
       filePath: '/exports/tenants-123.csv',
       rowCount: 150,
     });
