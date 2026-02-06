@@ -13,14 +13,28 @@ import {
   ParseUUIDPipe,
   Logger,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { QuotePublicAccessService } from '../services/quote-public-access.service';
 import { QuoteViewTrackingService } from '../services/quote-view-tracking.service';
-import { GeneratePublicUrlDto, PublicUrlResponseDto } from '../dto/public/generate-public-url.dto';
-import { ViewAnalyticsDto, ViewHistoryResponseDto, GetViewHistoryDto, AnonymizeViewsResponseDto } from '../dto/analytics';
+import {
+  GeneratePublicUrlDto,
+  PublicUrlResponseDto,
+} from '../dto/public/generate-public-url.dto';
+import {
+  ViewAnalyticsDto,
+  ViewHistoryResponseDto,
+  GetViewHistoryDto,
+  AnonymizeViewsResponseDto,
+} from '../dto/analytics';
 
 /**
  * QuoteAnalyticsController
@@ -48,7 +62,11 @@ export class QuoteAnalyticsController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Generate public URL for quote' })
   @ApiParam({ name: 'id', description: 'Quote UUID' })
-  @ApiResponse({ status: 201, description: 'Public URL generated', type: PublicUrlResponseDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Public URL generated',
+    type: PublicUrlResponseDto,
+  })
   async generatePublicUrl(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: GeneratePublicUrlDto,
@@ -57,9 +75,16 @@ export class QuoteAnalyticsController {
     const tenantId = req.user.tenant_id;
     const userId = req.user.id;
 
-    this.logger.log(`Generating public URL for quote ${id} (tenant: ${tenantId})`);
+    this.logger.log(
+      `Generating public URL for quote ${id} (tenant: ${tenantId})`,
+    );
 
-    return await this.publicAccessService.generatePublicUrl(tenantId, id, dto, userId);
+    return await this.publicAccessService.generatePublicUrl(
+      tenantId,
+      id,
+      dto,
+      userId,
+    );
   }
 
   @Get(':id/public-access/status')
@@ -67,17 +92,29 @@ export class QuoteAnalyticsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get public access status for quote' })
   @ApiParam({ name: 'id', description: 'Quote UUID' })
-  @ApiResponse({ status: 200, description: 'Public access information returned', type: PublicUrlResponseDto })
-  @ApiResponse({ status: 404, description: 'Quote not found or no active public access' })
+  @ApiResponse({
+    status: 200,
+    description: 'Public access information returned',
+    type: PublicUrlResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Quote not found or no active public access',
+  })
   async getPublicAccessStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req,
   ): Promise<PublicUrlResponseDto | { has_public_access: boolean }> {
     const tenantId = req.user.tenant_id;
 
-    this.logger.log(`Getting public access status for quote ${id} (tenant: ${tenantId})`);
+    this.logger.log(
+      `Getting public access status for quote ${id} (tenant: ${tenantId})`,
+    );
 
-    const status = await this.publicAccessService.getPublicAccessStatus(tenantId, id);
+    const status = await this.publicAccessService.getPublicAccessStatus(
+      tenantId,
+      id,
+    );
 
     if (!status) {
       return { has_public_access: false };
@@ -92,10 +129,15 @@ export class QuoteAnalyticsController {
   @ApiOperation({ summary: 'Deactivate public URL' })
   @ApiParam({ name: 'id', description: 'Quote UUID' })
   @ApiResponse({ status: 200, description: 'Public URL deactivated' })
-  async deactivatePublicUrl(@Param('id', ParseUUIDPipe) id: string, @Request() req) {
+  async deactivatePublicUrl(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req,
+  ) {
     const tenantId = req.user.tenant_id;
 
-    this.logger.log(`Deactivating public URL for quote ${id} (tenant: ${tenantId})`);
+    this.logger.log(
+      `Deactivating public URL for quote ${id} (tenant: ${tenantId})`,
+    );
 
     return await this.publicAccessService.deactivatePublicUrl(tenantId, id);
   }
@@ -107,14 +149,20 @@ export class QuoteAnalyticsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get view analytics for quote' })
   @ApiParam({ name: 'id', description: 'Quote UUID' })
-  @ApiResponse({ status: 200, description: 'Analytics data returned', type: ViewAnalyticsDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Analytics data returned',
+    type: ViewAnalyticsDto,
+  })
   async getViewAnalytics(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req,
   ): Promise<ViewAnalyticsDto> {
     const tenantId = req.user.tenant_id;
 
-    this.logger.log(`Getting view analytics for quote ${id} (tenant: ${tenantId})`);
+    this.logger.log(
+      `Getting view analytics for quote ${id} (tenant: ${tenantId})`,
+    );
 
     return await this.viewTrackingService.getAnalytics(tenantId, id);
   }
@@ -124,7 +172,11 @@ export class QuoteAnalyticsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get view history with pagination' })
   @ApiParam({ name: 'id', description: 'Quote UUID' })
-  @ApiResponse({ status: 200, description: 'View history returned', type: ViewHistoryResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'View history returned',
+    type: ViewHistoryResponseDto,
+  })
   async getViewHistory(
     @Param('id', ParseUUIDPipe) id: string,
     @Query() query: GetViewHistoryDto,
@@ -138,7 +190,12 @@ export class QuoteAnalyticsController {
       `Getting view history for quote ${id} (tenant: ${tenantId}, page: ${page}, limit: ${limit})`,
     );
 
-    return await this.viewTrackingService.getViewHistory(tenantId, id, page, limit);
+    return await this.viewTrackingService.getViewHistory(
+      tenantId,
+      id,
+      page,
+      limit,
+    );
   }
 
   // ========== ADMIN: GDPR ANONYMIZATION ==========
@@ -147,7 +204,11 @@ export class QuoteAnalyticsController {
   @Roles('PlatformAdmin')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Anonymize view logs older than 90 days (GDPR)' })
-  @ApiResponse({ status: 200, description: 'Views anonymized', type: AnonymizeViewsResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Views anonymized',
+    type: AnonymizeViewsResponseDto,
+  })
   async anonymizeViews(@Request() req): Promise<AnonymizeViewsResponseDto> {
     this.logger.log('Anonymizing old view logs (GDPR compliance)');
 

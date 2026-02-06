@@ -103,7 +103,9 @@ export class QuoteTagService {
       orderBy: { name: 'asc' },
     });
 
-    return tags.map((tag) => this.mapToResponseDto(tag, tag._count.assignments));
+    return tags.map((tag) =>
+      this.mapToResponseDto(tag, tag._count.assignments),
+    );
   }
 
   /**

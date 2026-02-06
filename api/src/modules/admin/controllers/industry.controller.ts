@@ -55,7 +55,10 @@ export class IndustryController {
         properties: {
           id: { type: 'string', example: 'uuid-here' },
           name: { type: 'string', example: 'Roofing' },
-          description: { type: 'string', example: 'Residential and commercial roofing services' },
+          description: {
+            type: 'string',
+            example: 'Residential and commercial roofing services',
+          },
           is_active: { type: 'boolean', example: true },
           created_at: { type: 'string', format: 'date-time' },
           updated_at: { type: 'string', format: 'date-time' },
@@ -64,7 +67,10 @@ export class IndustryController {
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async listIndustries(@Query('active_only') activeOnly?: string) {
     return this.industryService.findAll(activeOnly === 'true');
   }
@@ -84,7 +90,10 @@ export class IndustryController {
       properties: {
         id: { type: 'string', example: 'uuid-here' },
         name: { type: 'string', example: 'Roofing' },
-        description: { type: 'string', example: 'Residential and commercial roofing services' },
+        description: {
+          type: 'string',
+          example: 'Residential and commercial roofing services',
+        },
         is_active: { type: 'boolean', example: true },
         created_at: { type: 'string', format: 'date-time' },
         updated_at: { type: 'string', format: 'date-time' },
@@ -93,7 +102,10 @@ export class IndustryController {
   })
   @ApiResponse({ status: 404, description: 'Industry not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async getIndustry(@Param('id', ParseUUIDPipe) id: string) {
     return this.industryService.findById(id);
   }
@@ -113,7 +125,10 @@ export class IndustryController {
       properties: {
         id: { type: 'string', example: 'uuid-here' },
         name: { type: 'string', example: 'Pool Services' },
-        description: { type: 'string', example: 'Pool installation and maintenance' },
+        description: {
+          type: 'string',
+          example: 'Pool installation and maintenance',
+        },
         is_active: { type: 'boolean', example: true },
         created_at: { type: 'string', format: 'date-time' },
         updated_at: { type: 'string', format: 'date-time' },
@@ -122,7 +137,10 @@ export class IndustryController {
   })
   @ApiResponse({ status: 400, description: 'Validation error' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async createIndustry(@Request() req, @Body() createDto: CreateIndustryDto) {
     return this.industryService.create(createDto, req.user.id);
   }
@@ -143,7 +161,10 @@ export class IndustryController {
       properties: {
         id: { type: 'string', example: 'uuid-here' },
         name: { type: 'string', example: 'Pool Services' },
-        description: { type: 'string', example: 'Pool installation and maintenance' },
+        description: {
+          type: 'string',
+          example: 'Pool installation and maintenance',
+        },
         is_active: { type: 'boolean', example: true },
         created_at: { type: 'string', format: 'date-time' },
         updated_at: { type: 'string', format: 'date-time' },
@@ -153,7 +174,10 @@ export class IndustryController {
   @ApiResponse({ status: 404, description: 'Industry not found' })
   @ApiResponse({ status: 400, description: 'Validation error' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async updateIndustry(
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
@@ -187,13 +211,20 @@ export class IndustryController {
       type: 'object',
       properties: {
         statusCode: { type: 'number', example: 409 },
-        message: { type: 'string', example: 'Cannot delete industry "Roofing" - 5 tenant(s) are using it' },
+        message: {
+          type: 'string',
+          example:
+            'Cannot delete industry "Roofing" - 5 tenant(s) are using it',
+        },
         error: { type: 'string', example: 'Conflict' },
       },
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async deleteIndustry(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.industryService.delete(id, req.user.id);
   }

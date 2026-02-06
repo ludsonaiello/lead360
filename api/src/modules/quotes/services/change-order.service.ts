@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { QuoteVersionService } from './quote-version.service';
@@ -61,7 +66,10 @@ export class ChangeOrderService {
    * @param transaction - Prisma transaction
    * @returns Formatted change order number
    */
-  private async generateChangeOrderNumber(tenantId: string, transaction: any): Promise<string> {
+  private async generateChangeOrderNumber(
+    tenantId: string,
+    transaction: any,
+  ): Promise<string> {
     // Count existing change orders for this year
     const year = new Date().getFullYear();
     const existingCOs = await transaction.quote.count({
@@ -172,12 +180,17 @@ export class ChangeOrderService {
           private_notes: dto.description || null,
           created_by_user_id: userId,
           expires_at: expiresAt,
-          use_default_settings: dto.custom_profit_percent === undefined &&
-                                dto.custom_overhead_percent === undefined &&
-                                dto.custom_contingency_percent === undefined,
-          custom_profit_percent: dto.custom_profit_percent ?? parentQuote.custom_profit_percent,
-          custom_overhead_percent: dto.custom_overhead_percent ?? parentQuote.custom_overhead_percent,
-          custom_contingency_percent: dto.custom_contingency_percent ?? parentQuote.custom_contingency_percent,
+          use_default_settings:
+            dto.custom_profit_percent === undefined &&
+            dto.custom_overhead_percent === undefined &&
+            dto.custom_contingency_percent === undefined,
+          custom_profit_percent:
+            dto.custom_profit_percent ?? parentQuote.custom_profit_percent,
+          custom_overhead_percent:
+            dto.custom_overhead_percent ?? parentQuote.custom_overhead_percent,
+          custom_contingency_percent:
+            dto.custom_contingency_percent ??
+            parentQuote.custom_contingency_percent,
         },
       });
 
@@ -207,7 +220,9 @@ export class ChangeOrderService {
         },
       });
 
-      this.logger.log(`Created change order ${coNumber} for parent quote ${parentQuote.quote_number}`);
+      this.logger.log(
+        `Created change order ${coNumber} for parent quote ${parentQuote.quote_number}`,
+      );
 
       // 9. Return response with parent context
       return {
@@ -220,7 +235,9 @@ export class ChangeOrderService {
         parent_original_total: parseFloat(parentQuote.total?.toString() || '0'),
         subtotal: parseFloat(changeOrder.subtotal?.toString() || '0'),
         tax_amount: parseFloat(changeOrder.tax_amount?.toString() || '0'),
-        discount_amount: parseFloat(changeOrder.discount_amount?.toString() || '0'),
+        discount_amount: parseFloat(
+          changeOrder.discount_amount?.toString() || '0',
+        ),
         total: parseFloat(changeOrder.total?.toString() || '0'),
         created_at: changeOrder.created_at.toISOString(),
         updated_at: changeOrder.updated_at.toISOString(),
@@ -285,21 +302,39 @@ export class ChangeOrderService {
     });
 
     // Calculate summary statistics
-    const approvedCount = changeOrders.filter((co) => co.status === 'approved').length;
-    const pendingStatuses = ['draft', 'pending_approval', 'ready', 'sent', 'delivered', 'read', 'opened', 'downloaded'];
-    const pendingCount = changeOrders.filter((co) => pendingStatuses.includes(co.status)).length;
-    const rejectedCount = changeOrders.filter((co) => co.status === 'denied').length;
+    const approvedCount = changeOrders.filter(
+      (co) => co.status === 'approved',
+    ).length;
+    const pendingStatuses = [
+      'draft',
+      'pending_approval',
+      'ready',
+      'sent',
+      'delivered',
+      'read',
+      'opened',
+      'downloaded',
+    ];
+    const pendingCount = changeOrders.filter((co) =>
+      pendingStatuses.includes(co.status),
+    ).length;
+    const rejectedCount = changeOrders.filter(
+      (co) => co.status === 'denied',
+    ).length;
 
     // Map to summary DTOs
-    const changeOrderSummaries: ChangeOrderSummaryDto[] = changeOrders.map((co) => ({
-      id: co.id,
-      quote_number: co.quote_number,
-      title: co.title || '',
-      status: co.status,
-      total: parseFloat(co.total?.toString() || '0'),
-      created_at: co.created_at.toISOString(),
-      approved_at: co.status === 'approved' ? co.updated_at.toISOString() : undefined,
-    }));
+    const changeOrderSummaries: ChangeOrderSummaryDto[] = changeOrders.map(
+      (co) => ({
+        id: co.id,
+        quote_number: co.quote_number,
+        title: co.title || '',
+        status: co.status,
+        total: parseFloat(co.total?.toString() || '0'),
+        created_at: co.created_at.toISOString(),
+        approved_at:
+          co.status === 'approved' ? co.updated_at.toISOString() : undefined,
+      }),
+    );
 
     return {
       parent_quote_id: parentQuoteId,
@@ -364,8 +399,19 @@ export class ChangeOrderService {
 
     // Separate approved and pending change orders
     const approvedCOs = changeOrders.filter((co) => co.status === 'approved');
-    const pendingStatuses = ['draft', 'pending_approval', 'ready', 'sent', 'delivered', 'read', 'opened', 'downloaded'];
-    const pendingCOs = changeOrders.filter((co) => pendingStatuses.includes(co.status));
+    const pendingStatuses = [
+      'draft',
+      'pending_approval',
+      'ready',
+      'sent',
+      'delivered',
+      'read',
+      'opened',
+      'downloaded',
+    ];
+    const pendingCOs = changeOrders.filter((co) =>
+      pendingStatuses.includes(co.status),
+    );
 
     // Calculate totals
     const originalTotal = parseFloat(parentQuote.total?.toString() || '0');
@@ -380,15 +426,18 @@ export class ChangeOrderService {
     const revisedTotal = originalTotal + approvedChangeOrdersTotal;
 
     // Map to summary DTOs
-    const changeOrderSummaries: ChangeOrderSummaryDto[] = changeOrders.map((co) => ({
-      id: co.id,
-      quote_number: co.quote_number,
-      title: co.title || '',
-      status: co.status,
-      total: parseFloat(co.total?.toString() || '0'),
-      created_at: co.created_at.toISOString(),
-      approved_at: co.status === 'approved' ? co.updated_at.toISOString() : undefined,
-    }));
+    const changeOrderSummaries: ChangeOrderSummaryDto[] = changeOrders.map(
+      (co) => ({
+        id: co.id,
+        quote_number: co.quote_number,
+        title: co.title || '',
+        status: co.status,
+        total: parseFloat(co.total?.toString() || '0'),
+        created_at: co.created_at.toISOString(),
+        approved_at:
+          co.status === 'approved' ? co.updated_at.toISOString() : undefined,
+      }),
+    );
 
     return {
       parent_quote_id: parentQuoteId,
@@ -449,7 +498,14 @@ export class ChangeOrderService {
       }
 
       // 2. Validate status (must be ready or sent)
-      const validStatuses = ['ready', 'sent', 'delivered', 'read', 'opened', 'downloaded'];
+      const validStatuses = [
+        'ready',
+        'sent',
+        'delivered',
+        'read',
+        'opened',
+        'downloaded',
+      ];
       if (!validStatuses.includes(changeOrder.status)) {
         throw new BadRequestException(
           `Change order must be in ready or sent status to approve. Current status: ${changeOrder.status}`,
@@ -490,7 +546,9 @@ export class ChangeOrderService {
         },
       });
 
-      this.logger.log(`Change order ${changeOrder.quote_number} approved by user ${userId}`);
+      this.logger.log(
+        `Change order ${changeOrder.quote_number} approved by user ${userId}`,
+      );
 
       // 6. Return response with parent context and revised total
       return {
@@ -500,7 +558,9 @@ export class ChangeOrderService {
         status: updated.status,
         parent_quote_id: changeOrder.parent_quote_id,
         parent_quote_number: changeOrder.parent_quote.quote_number,
-        parent_original_total: parseFloat(changeOrder.parent_quote.total?.toString() || '0'),
+        parent_original_total: parseFloat(
+          changeOrder.parent_quote.total?.toString() || '0',
+        ),
         subtotal: parseFloat(updated.subtotal?.toString() || '0'),
         tax_amount: parseFloat(updated.tax_amount?.toString() || '0'),
         discount_amount: parseFloat(updated.discount_amount?.toString() || '0'),
@@ -590,7 +650,9 @@ export class ChangeOrderService {
         },
       });
 
-      this.logger.log(`Change order ${changeOrder.quote_number} rejected by user ${userId}: ${dto.reason}`);
+      this.logger.log(
+        `Change order ${changeOrder.quote_number} rejected by user ${userId}: ${dto.reason}`,
+      );
 
       // 5. Return response
       return {
@@ -600,7 +662,9 @@ export class ChangeOrderService {
         status: updated.status,
         parent_quote_id: changeOrder.parent_quote_id,
         parent_quote_number: changeOrder.parent_quote.quote_number,
-        parent_original_total: parseFloat(changeOrder.parent_quote.total?.toString() || '0'),
+        parent_original_total: parseFloat(
+          changeOrder.parent_quote.total?.toString() || '0',
+        ),
         subtotal: parseFloat(updated.subtotal?.toString() || '0'),
         tax_amount: parseFloat(updated.tax_amount?.toString() || '0'),
         discount_amount: parseFloat(updated.discount_amount?.toString() || '0'),
@@ -633,13 +697,19 @@ export class ChangeOrderService {
    * @returns Timeline of changes with events
    */
   async getHistory(tenantId: string, parentQuoteId: string) {
-    const changeOrdersList = await this.listChangeOrders(tenantId, parentQuoteId);
+    const changeOrdersList = await this.listChangeOrders(
+      tenantId,
+      parentQuoteId,
+    );
 
     const timeline = changeOrdersList.change_orders.map((co) => ({
       id: co.id,
-      event_type: co.status === 'approved' ? 'change_order_approved' :
-                  co.status === 'denied' ? 'change_order_rejected' :
-                  'change_order_created',
+      event_type:
+        co.status === 'approved'
+          ? 'change_order_approved'
+          : co.status === 'denied'
+            ? 'change_order_rejected'
+            : 'change_order_created',
       change_order_number: co.quote_number,
       description: co.title,
       amount: co.total,
@@ -648,7 +718,10 @@ export class ChangeOrderService {
     }));
 
     // Sort by timestamp (ascending - oldest first)
-    timeline.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    timeline.sort(
+      (a, b) =>
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+    );
 
     return {
       timeline,

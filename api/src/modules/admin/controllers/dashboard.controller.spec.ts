@@ -40,11 +40,31 @@ describe('DashboardController', () => {
   describe('getMetrics', () => {
     it('should return dashboard metrics', async () => {
       const mockMetrics = {
-        activeTenants: { count: 150, growth: { count: 12, percentage: 8.7, trend: 'up' }, sparkline: [140, 145, 148, 150] },
-        totalUsers: { count: 2450, growth: { count: 87, percentage: 3.7, trend: 'up' }, sparkline: [2300, 2350, 2400, 2450] },
-        jobSuccessRate: { percentage: 95, totalJobs: 500, failedJobs: 25, status: 'healthy' },
-        storageUsed: { current: 250000000000, limit: 500000000000, percentage: 50 },
-        systemHealth: { status: 'healthy', checks: { database: true, redis: true } },
+        activeTenants: {
+          count: 150,
+          growth: { count: 12, percentage: 8.7, trend: 'up' },
+          sparkline: [140, 145, 148, 150],
+        },
+        totalUsers: {
+          count: 2450,
+          growth: { count: 87, percentage: 3.7, trend: 'up' },
+          sparkline: [2300, 2350, 2400, 2450],
+        },
+        jobSuccessRate: {
+          percentage: 95,
+          totalJobs: 500,
+          failedJobs: 25,
+          status: 'healthy',
+        },
+        storageUsed: {
+          current: 250000000000,
+          limit: 500000000000,
+          percentage: 50,
+        },
+        systemHealth: {
+          status: 'healthy',
+          checks: { database: true, redis: true },
+        },
         alerts: { unread: 3, critical: 1 },
       };
 
@@ -70,7 +90,10 @@ describe('DashboardController', () => {
       const result = await controller.getChartData('tenant-growth');
 
       expect(result).toEqual(mockChartData);
-      expect(dashboardService.getChartData).toHaveBeenCalledWith('tenant-growth', { days: 30 });
+      expect(dashboardService.getChartData).toHaveBeenCalledWith(
+        'tenant-growth',
+        { days: 30 },
+      );
     });
   });
 

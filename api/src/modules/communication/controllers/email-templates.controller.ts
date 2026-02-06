@@ -110,7 +110,8 @@ export class EmailTemplatesController {
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Employee')
   @ApiOperation({
     summary: 'Get available template variables',
-    description: 'List all available Handlebars variables that can be used in templates',
+    description:
+      'List all available Handlebars variables that can be used in templates',
   })
   @ApiResponse({
     status: 200,
@@ -221,7 +222,8 @@ export class EmailTemplatesController {
   @Roles('Owner', 'Admin')
   @ApiOperation({
     summary: 'Update email template',
-    description: 'Update tenant-specific template. Platform admins can edit system templates.',
+    description:
+      'Update tenant-specific template. Platform admins can edit system templates.',
   })
   @ApiParam({
     name: 'key',
@@ -237,7 +239,8 @@ export class EmailTemplatesController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Tenant users cannot update system templates or insufficient permissions',
+    description:
+      'Tenant users cannot update system templates or insufficient permissions',
   })
   @ApiResponse({ status: 404, description: 'Template not found' })
   async update(
@@ -259,7 +262,8 @@ export class EmailTemplatesController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete email template',
-    description: 'Delete tenant-specific template. Platform admins can delete system templates.',
+    description:
+      'Delete tenant-specific template. Platform admins can delete system templates.',
   })
   @ApiParam({
     name: 'key',
@@ -271,7 +275,8 @@ export class EmailTemplatesController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Tenant users cannot delete system templates or insufficient permissions',
+    description:
+      'Tenant users cannot delete system templates or insufficient permissions',
   })
   @ApiResponse({ status: 404, description: 'Template not found' })
   async delete(@Request() req, @Param('key') key: string) {

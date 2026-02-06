@@ -12,7 +12,11 @@ describe('EncryptionService', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn().mockReturnValue('0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'),
+            get: jest
+              .fn()
+              .mockReturnValue(
+                '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+              ),
           },
         },
       ],

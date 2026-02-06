@@ -42,9 +42,14 @@ export class JobQueueService {
       const emailHealth = await emailClient.ping();
       const scheduledHealth = await scheduledClient.ping();
       this.logger.log(`Email queue connected: ${emailHealth === 'PONG'}`);
-      this.logger.log(`Scheduled queue connected: ${scheduledHealth === 'PONG'}`);
+      this.logger.log(
+        `Scheduled queue connected: ${scheduledHealth === 'PONG'}`,
+      );
     } catch (error) {
-      this.logger.error(`Queue connection error: ${error.message}`, error.stack);
+      this.logger.error(
+        `Queue connection error: ${error.message}`,
+        error.stack,
+      );
     }
   }
 
@@ -81,7 +86,9 @@ export class JobQueueService {
     // Check queue health before attempting to queue
     const isHealthy = await this.isQueueHealthy(this.emailQueue);
     if (!isHealthy) {
-      const error = new Error('Email queue connection is not healthy. Retrying connection...');
+      const error = new Error(
+        'Email queue connection is not healthy. Retrying connection...',
+      );
       this.logger.warn(error.message);
 
       // Try to reconnect by checking status again
@@ -129,13 +136,15 @@ export class JobQueueService {
       );
 
       // Cleanup orphaned DB record if queueing failed
-      await this.prisma.job.deleteMany({
-        where: { id: jobId },
-      }).catch((deleteError) => {
-        this.logger.error(
-          `Failed to cleanup orphaned job record ${jobId}: ${deleteError.message}`,
-        );
-      });
+      await this.prisma.job
+        .deleteMany({
+          where: { id: jobId },
+        })
+        .catch((deleteError) => {
+          this.logger.error(
+            `Failed to cleanup orphaned job record ${jobId}: ${deleteError.message}`,
+          );
+        });
 
       throw error;
     }
@@ -159,7 +168,9 @@ export class JobQueueService {
     // Check queue health before attempting to queue
     const isHealthy = await this.isQueueHealthy(this.scheduledQueue);
     if (!isHealthy) {
-      const error = new Error('Scheduled queue connection is not healthy. Retrying connection...');
+      const error = new Error(
+        'Scheduled queue connection is not healthy. Retrying connection...',
+      );
       this.logger.warn(error.message);
 
       // Try to reconnect by checking status again
@@ -175,7 +186,7 @@ export class JobQueueService {
           id: jobId,
           job_type: jobType,
           status: 'pending',
-          payload: jobPayload as any,
+          payload: jobPayload,
           max_retries: 1, // Most scheduled jobs run once
         },
       });
@@ -197,13 +208,15 @@ export class JobQueueService {
       );
 
       // If BullMQ queueing failed but DB record was created, delete the orphaned record
-      await this.prisma.job.deleteMany({
-        where: { id: jobId },
-      }).catch((deleteError) => {
-        this.logger.error(
-          `Failed to cleanup orphaned job record ${jobId}: ${deleteError.message}`,
-        );
-      });
+      await this.prisma.job
+        .deleteMany({
+          where: { id: jobId },
+        })
+        .catch((deleteError) => {
+          this.logger.error(
+            `Failed to cleanup orphaned job record ${jobId}: ${deleteError.message}`,
+          );
+        });
 
       throw error;
     }

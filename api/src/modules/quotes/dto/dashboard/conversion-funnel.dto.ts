@@ -38,10 +38,14 @@ export class FunnelStageDto {
   @ApiProperty({ description: 'Number of quotes at this stage', example: 100 })
   count: number;
 
-  @ApiProperty({ description: 'Total value at this stage', example: 300000.00 })
+  @ApiProperty({ description: 'Total value at this stage', example: 300000.0 })
   total_value: number;
 
-  @ApiProperty({ description: 'Conversion rate to next stage', example: 75.0, nullable: true })
+  @ApiProperty({
+    description: 'Conversion rate to next stage',
+    example: 75.0,
+    nullable: true,
+  })
   conversion_to_next: number | null;
 
   @ApiProperty({ description: 'Drop-off rate', example: 25.0, nullable: true })
@@ -57,12 +61,21 @@ export class ConversionFunnelResponseDto {
   @ApiProperty({ description: 'Funnel stages', type: [FunnelStageDto] })
   funnel: FunnelStageDto[];
 
-  @ApiProperty({ description: 'Overall conversion rate (approved / sent)', example: 56.25 })
+  @ApiProperty({
+    description: 'Overall conversion rate (approved / sent)',
+    example: 56.25,
+  })
   overall_conversion_rate: number;
 
-  @ApiProperty({ description: 'Date range start', example: '2024-01-01T00:00:00.000Z' })
+  @ApiProperty({
+    description: 'Date range start',
+    example: '2024-01-01T00:00:00.000Z',
+  })
   date_from: string;
 
-  @ApiProperty({ description: 'Date range end', example: '2024-01-31T23:59:59.999Z' })
+  @ApiProperty({
+    description: 'Date range end',
+    example: '2024-01-31T23:59:59.999Z',
+  })
   date_to: string;
 }

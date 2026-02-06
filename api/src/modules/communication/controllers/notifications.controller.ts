@@ -155,10 +155,7 @@ export class NotificationsController {
     },
   })
   @ApiResponse({ status: 404, description: 'Notification not found' })
-  async markAsRead(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async markAsRead(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.notificationsService.markAsRead(
       req.user.tenant_id,
       req.user.id,
@@ -205,14 +202,7 @@ export class NotificationsController {
     description: 'Notification deleted successfully',
   })
   @ApiResponse({ status: 404, description: 'Notification not found' })
-  async delete(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    await this.notificationsService.delete(
-      req.user.tenant_id,
-      req.user.id,
-      id,
-    );
+  async delete(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
+    await this.notificationsService.delete(req.user.tenant_id, req.user.id, id);
   }
 }

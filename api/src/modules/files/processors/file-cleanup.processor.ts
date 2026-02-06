@@ -136,7 +136,10 @@ export class FileCleanupProcessor extends WorkerHost {
         totalTrashedDeleted,
       };
     } catch (error) {
-      this.logger.error(`Daily cleanup job failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `Daily cleanup job failed: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -145,7 +148,9 @@ export class FileCleanupProcessor extends WorkerHost {
    * Manual cleanup job - can be triggered on-demand
    * Processes a specific tenant
    */
-  private async handleManualCleanup(job: Job<{ tenantId: string; userId: string }, any, string>) {
+  private async handleManualCleanup(
+    job: Job<{ tenantId: string; userId: string }, any, string>,
+  ) {
     const { tenantId, userId } = job.data;
 
     this.logger.log(`Starting manual cleanup for tenant ${tenantId}`);
@@ -155,10 +160,16 @@ export class FileCleanupProcessor extends WorkerHost {
       const orphansResult = await this.filesService.findOrphans(tenantId);
 
       // Step 2: Move orphans to trash
-      const trashResult = await this.filesService.moveOrphansToTrash(tenantId, userId);
+      const trashResult = await this.filesService.moveOrphansToTrash(
+        tenantId,
+        userId,
+      );
 
       // Step 3: Permanently delete trashed files
-      const deleteResult = await this.filesService.cleanupTrashedFiles(tenantId, userId);
+      const deleteResult = await this.filesService.cleanupTrashedFiles(
+        tenantId,
+        userId,
+      );
 
       this.logger.log(
         `Manual cleanup for tenant ${tenantId} completed: ` +

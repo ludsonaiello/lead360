@@ -21,7 +21,14 @@ import {
 import type { Response } from 'express';
 import { createReadStream } from 'fs';
 import { PrismaService } from '../../../core/database/prisma.service';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+  ApiBody,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -101,8 +108,14 @@ export class QuoteAdminController {
 
   @Get('dashboard/overview')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get platform-wide quote statistics and trends (Platform Admin)' })
-  @ApiResponse({ status: 200, type: DashboardOverviewResponseDto, description: 'Dashboard overview returned' })
+  @ApiOperation({
+    summary: 'Get platform-wide quote statistics and trends (Platform Admin)',
+  })
+  @ApiResponse({
+    status: 200,
+    type: DashboardOverviewResponseDto,
+    description: 'Dashboard overview returned',
+  })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   async getGlobalOverview(
     @Query() query: DashboardOverviewQueryDto,
@@ -116,13 +129,22 @@ export class QuoteAdminController {
     const dateFrom = query.date_from ? new Date(query.date_from) : undefined;
     const dateTo = query.date_to ? new Date(query.date_to) : undefined;
 
-    return await this.adminAnalyticsService.getDashboardOverview(dateFrom, dateTo);
+    return await this.adminAnalyticsService.getDashboardOverview(
+      dateFrom,
+      dateTo,
+    );
   }
 
   @Get('dashboard/quote-trends')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get quote volume and revenue trends over time (Platform Admin)' })
-  @ApiResponse({ status: 200, type: QuoteTrendsResponseDto, description: 'Quote trends data returned' })
+  @ApiOperation({
+    summary: 'Get quote volume and revenue trends over time (Platform Admin)',
+  })
+  @ApiResponse({
+    status: 200,
+    type: QuoteTrendsResponseDto,
+    description: 'Quote trends data returned',
+  })
   @ApiResponse({ status: 400, description: 'Invalid date range or interval' })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   async getQuoteTrends(
@@ -137,13 +159,23 @@ export class QuoteAdminController {
     const dateTo = new Date(query.date_to);
     const interval = query.interval || 'day';
 
-    return await this.adminAnalyticsService.getQuoteTrends(dateFrom, dateTo, interval);
+    return await this.adminAnalyticsService.getQuoteTrends(
+      dateFrom,
+      dateTo,
+      interval,
+    );
   }
 
   @Get('dashboard/conversion-funnel')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get quote conversion funnel stages and rates (Platform Admin)' })
-  @ApiResponse({ status: 200, type: ConversionFunnelResponseDto, description: 'Conversion funnel data returned' })
+  @ApiOperation({
+    summary: 'Get quote conversion funnel stages and rates (Platform Admin)',
+  })
+  @ApiResponse({
+    status: 200,
+    type: ConversionFunnelResponseDto,
+    description: 'Conversion funnel data returned',
+  })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   async getConversionFunnel(
     @Query() query: ConversionFunnelQueryDto,
@@ -156,13 +188,22 @@ export class QuoteAdminController {
     const dateFrom = query.date_from ? new Date(query.date_from) : undefined;
     const dateTo = query.date_to ? new Date(query.date_to) : undefined;
 
-    return await this.adminAnalyticsService.getConversionFunnel(dateFrom, dateTo);
+    return await this.adminAnalyticsService.getConversionFunnel(
+      dateFrom,
+      dateTo,
+    );
   }
 
   @Get('dashboard/system-health')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get real-time system health metrics (Platform Admin)' })
-  @ApiResponse({ status: 200, type: SystemHealthResponseDto, description: 'System health metrics returned' })
+  @ApiOperation({
+    summary: 'Get real-time system health metrics (Platform Admin)',
+  })
+  @ApiResponse({
+    status: 200,
+    type: SystemHealthResponseDto,
+    description: 'System health metrics returned',
+  })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   async getSystemHealth(@Request() req): Promise<SystemHealthResponseDto> {
     if (!req.user?.is_platform_admin) {
@@ -174,8 +215,15 @@ export class QuoteAdminController {
 
   @Get('dashboard/revenue-analytics')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get revenue analytics grouped by vendor or tenant (Platform Admin)' })
-  @ApiResponse({ status: 200, type: RevenueAnalyticsResponseDto, description: 'Revenue analytics returned' })
+  @ApiOperation({
+    summary:
+      'Get revenue analytics grouped by vendor or tenant (Platform Admin)',
+  })
+  @ApiResponse({
+    status: 200,
+    type: RevenueAnalyticsResponseDto,
+    description: 'Revenue analytics returned',
+  })
   @ApiResponse({ status: 400, description: 'Invalid date range or grouping' })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   async getRevenueAnalytics(
@@ -190,13 +238,23 @@ export class QuoteAdminController {
     const dateTo = new Date(query.date_to);
     const groupBy = query.group_by === 'none' ? undefined : query.group_by;
 
-    return await this.adminAnalyticsService.getRevenueAnalytics(dateFrom, dateTo, groupBy);
+    return await this.adminAnalyticsService.getRevenueAnalytics(
+      dateFrom,
+      dateTo,
+      groupBy,
+    );
   }
 
   @Get()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'List all quotes across all tenants (Platform Admin)' })
-  @ApiResponse({ status: 200, type: CrossTenantQuotesResponseDto, description: 'Quotes list returned' })
+  @ApiOperation({
+    summary: 'List all quotes across all tenants (Platform Admin)',
+  })
+  @ApiResponse({
+    status: 200,
+    type: CrossTenantQuotesResponseDto,
+    description: 'Quotes list returned',
+  })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   async listAllQuotes(
     @Query() query: ListQuotesCrossTenantQueryDto,
@@ -224,7 +282,11 @@ export class QuoteAdminController {
   @Get('diagnostics/run-tests')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Run system diagnostics (Platform Admin)' })
-  @ApiResponse({ status: 200, type: DiagnosticsResponseDto, description: 'Diagnostics results' })
+  @ApiResponse({
+    status: 200,
+    type: DiagnosticsResponseDto,
+    description: 'Diagnostics results',
+  })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   async runDiagnostics(
     @Query() query: RunDiagnosticsQueryDto,
@@ -242,7 +304,11 @@ export class QuoteAdminController {
   @Post('maintenance/cleanup-orphans')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cleanup orphaned records (Platform Admin)' })
-  @ApiResponse({ status: 200, type: CleanupOrphansResponseDto, description: 'Cleanup completed' })
+  @ApiResponse({
+    status: 200,
+    type: CleanupOrphansResponseDto,
+    description: 'Cleanup completed',
+  })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   async cleanupOrphans(
     @Body() dto: CleanupOrphansDto,
@@ -260,8 +326,14 @@ export class QuoteAdminController {
 
   @Get('dashboard/global-item-pricing')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get global item pricing benchmarks (Platform Admin)' })
-  @ApiResponse({ status: 200, type: PricingBenchmarksResponseDto, description: 'Global pricing benchmarks returned' })
+  @ApiOperation({
+    summary: 'Get global item pricing benchmarks (Platform Admin)',
+  })
+  @ApiResponse({
+    status: 200,
+    type: PricingBenchmarksResponseDto,
+    description: 'Global pricing benchmarks returned',
+  })
   @ApiResponse({ status: 400, description: 'Invalid date range or parameters' })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   async getGlobalItemPricing(
@@ -287,8 +359,14 @@ export class QuoteAdminController {
 
   @Get('tenants')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'List tenants with quote activity (Platform Admin)' })
-  @ApiResponse({ status: 200, type: TenantsListResponseDto, description: 'Tenants list returned successfully' })
+  @ApiOperation({
+    summary: 'List tenants with quote activity (Platform Admin)',
+  })
+  @ApiResponse({
+    status: 200,
+    type: TenantsListResponseDto,
+    description: 'Tenants list returned successfully',
+  })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   async listTenants(
     @Query() query: TenantsListQueryDto,
@@ -314,7 +392,11 @@ export class QuoteAdminController {
   @Get('tenants/compare')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Compare tenants by metric (Platform Admin)' })
-  @ApiResponse({ status: 200, type: TenantComparisonResponseDto, description: 'Tenant comparison returned successfully' })
+  @ApiResponse({
+    status: 200,
+    type: TenantComparisonResponseDto,
+    description: 'Tenant comparison returned successfully',
+  })
   @ApiResponse({ status: 400, description: 'Invalid metric or parameters' })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   async compareTenants(
@@ -338,8 +420,16 @@ export class QuoteAdminController {
   @Get('tenants/:tenantId/stats')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get tenant quote statistics (Platform Admin)' })
-  @ApiParam({ name: 'tenantId', description: 'Tenant UUID', example: 'abc-123-def-456' })
-  @ApiResponse({ status: 200, type: TenantStatsResponseDto, description: 'Tenant statistics returned successfully' })
+  @ApiParam({
+    name: 'tenantId',
+    description: 'Tenant UUID',
+    example: 'abc-123-def-456',
+  })
+  @ApiResponse({
+    status: 200,
+    type: TenantStatsResponseDto,
+    description: 'Tenant statistics returned successfully',
+  })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   @ApiResponse({ status: 404, description: 'Tenant not found' })
   async getTenantStats(
@@ -364,8 +454,16 @@ export class QuoteAdminController {
   @Get('tenants/:tenantId/activity')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get tenant activity timeline (Platform Admin)' })
-  @ApiParam({ name: 'tenantId', description: 'Tenant UUID', example: 'abc-123-def-456' })
-  @ApiResponse({ status: 200, type: TenantActivityResponseDto, description: 'Activity timeline returned successfully' })
+  @ApiParam({
+    name: 'tenantId',
+    description: 'Tenant UUID',
+    example: 'abc-123-def-456',
+  })
+  @ApiResponse({
+    status: 200,
+    type: TenantActivityResponseDto,
+    description: 'Activity timeline returned successfully',
+  })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   @ApiResponse({ status: 404, description: 'Tenant not found' })
   async getTenantActivity(
@@ -391,8 +489,16 @@ export class QuoteAdminController {
   @Get('tenants/:tenantId/config')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get tenant configuration (Platform Admin)' })
-  @ApiParam({ name: 'tenantId', description: 'Tenant UUID', example: 'abc-123-def-456' })
-  @ApiResponse({ status: 200, type: TenantConfigurationResponseDto, description: 'Configuration returned successfully' })
+  @ApiParam({
+    name: 'tenantId',
+    description: 'Tenant UUID',
+    example: 'abc-123-def-456',
+  })
+  @ApiResponse({
+    status: 200,
+    type: TenantConfigurationResponseDto,
+    description: 'Configuration returned successfully',
+  })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   @ApiResponse({ status: 404, description: 'Tenant not found' })
   async getTenantConfiguration(
@@ -413,7 +519,11 @@ export class QuoteAdminController {
   @Post('reports/generate')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Generate custom report (Platform Admin)' })
-  @ApiResponse({ status: 202, type: GenerateReportResponseDto, description: 'Report generation queued' })
+  @ApiResponse({
+    status: 202,
+    type: GenerateReportResponseDto,
+    description: 'Report generation queued',
+  })
   @ApiResponse({ status: 400, description: 'Invalid parameters' })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   async generateReport(
@@ -448,8 +558,15 @@ export class QuoteAdminController {
   @Get('reports/:jobId/status')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get report generation status (Platform Admin)' })
-  @ApiParam({ name: 'jobId', description: 'Job ID returned from generate endpoint' })
-  @ApiResponse({ status: 200, type: ReportStatusResponseDto, description: 'Report status returned' })
+  @ApiParam({
+    name: 'jobId',
+    description: 'Job ID returned from generate endpoint',
+  })
+  @ApiResponse({
+    status: 200,
+    type: ReportStatusResponseDto,
+    description: 'Report status returned',
+  })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   @ApiResponse({ status: 404, description: 'Report job not found' })
   async getReportStatus(
@@ -499,7 +616,9 @@ export class QuoteAdminController {
     const extension = job.file_path.split('.').pop()?.toLowerCase();
     let contentType = 'application/octet-stream';
     if (extension === 'csv') contentType = 'text/csv';
-    else if (extension === 'xlsx') contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    else if (extension === 'xlsx')
+      contentType =
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     else if (extension === 'pdf') contentType = 'application/pdf';
 
     // Set response headers
@@ -515,7 +634,9 @@ export class QuoteAdminController {
 
   @Get('reports')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'List recent report generation jobs (Platform Admin)' })
+  @ApiOperation({
+    summary: 'List recent report generation jobs (Platform Admin)',
+  })
   @ApiResponse({ status: 200, description: 'Report jobs list returned' })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   async listReportJobs(
@@ -535,7 +656,12 @@ export class QuoteAdminController {
       this.prisma.export_job.findMany({
         where: {
           export_type: {
-            in: ['quote_summary', 'tenant_performance', 'revenue_analysis', 'conversion_analysis'],
+            in: [
+              'quote_summary',
+              'tenant_performance',
+              'revenue_analysis',
+              'conversion_analysis',
+            ],
           },
         },
         orderBy: { created_at: 'desc' },
@@ -555,7 +681,12 @@ export class QuoteAdminController {
       this.prisma.export_job.count({
         where: {
           export_type: {
-            in: ['quote_summary', 'tenant_performance', 'revenue_analysis', 'conversion_analysis'],
+            in: [
+              'quote_summary',
+              'tenant_performance',
+              'revenue_analysis',
+              'conversion_analysis',
+            ],
           },
         },
       }),
@@ -567,18 +698,33 @@ export class QuoteAdminController {
         report_type: job.export_type,
         format: job.format,
         status: job.status,
-        progress: job.status === 'processing' ? 50 : job.status === 'completed' ? 100 : 0,
-        download_url: job.status === 'completed' && job.file_path ? `/admin/quotes/reports/${job.id}/download` : null,
-        expires_at: job.status === 'completed' && job.completed_at ? new Date(job.completed_at.getTime() + 24 * 60 * 60 * 1000).toISOString() : null,
+        progress:
+          job.status === 'processing'
+            ? 50
+            : job.status === 'completed'
+              ? 100
+              : 0,
+        download_url:
+          job.status === 'completed' && job.file_path
+            ? `/admin/quotes/reports/${job.id}/download`
+            : null,
+        expires_at:
+          job.status === 'completed' && job.completed_at
+            ? new Date(
+                job.completed_at.getTime() + 24 * 60 * 60 * 1000,
+              ).toISOString()
+            : null,
         error_message: job.error_message,
         created_at: job.created_at.toISOString(),
         completed_at: job.completed_at?.toISOString() || null,
         row_count: job.row_count,
-        created_by: job.admin_user ? {
-          id: job.admin_user.id,
-          name: `${job.admin_user.first_name} ${job.admin_user.last_name}`,
-          email: job.admin_user.email,
-        } : null,
+        created_by: job.admin_user
+          ? {
+              id: job.admin_user.id,
+              name: `${job.admin_user.first_name} ${job.admin_user.last_name}`,
+              email: job.admin_user.email,
+            }
+          : null,
       })),
       pagination: {
         page: pageNum,
@@ -766,7 +912,10 @@ export class QuoteAdminController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a scheduled report (Platform Admin)' })
   @ApiParam({ name: 'id', description: 'Scheduled report ID' })
-  @ApiResponse({ status: 204, description: 'Scheduled report deleted successfully' })
+  @ApiResponse({
+    status: 204,
+    description: 'Scheduled report deleted successfully',
+  })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   @ApiResponse({ status: 404, description: 'Scheduled report not found' })
   async deleteScheduledReport(
@@ -792,13 +941,22 @@ export class QuoteAdminController {
 
   @Delete(':id/hard-delete')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Hard delete quote permanently (emergency only, Platform Admin)' })
+  @ApiOperation({
+    summary: 'Hard delete quote permanently (emergency only, Platform Admin)',
+  })
   @ApiParam({ name: 'id', description: 'Quote UUID' })
-  @ApiResponse({ status: 200, type: HardDeleteQuoteResponseDto, description: 'Quote deleted permanently' })
+  @ApiResponse({
+    status: 200,
+    type: HardDeleteQuoteResponseDto,
+    description: 'Quote deleted permanently',
+  })
   @ApiResponse({ status: 400, description: 'Confirmation required' })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   @ApiResponse({ status: 404, description: 'Quote not found' })
-  @ApiResponse({ status: 409, description: 'Cannot delete - child quotes exist' })
+  @ApiResponse({
+    status: 409,
+    description: 'Cannot delete - child quotes exist',
+  })
   async hardDeleteQuote(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: HardDeleteQuoteDto,
@@ -820,7 +978,11 @@ export class QuoteAdminController {
   @Post('bulk-update')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Bulk update quote status (Platform Admin)' })
-  @ApiResponse({ status: 200, type: BulkUpdateResponseDto, description: 'Bulk update completed' })
+  @ApiResponse({
+    status: 200,
+    type: BulkUpdateResponseDto,
+    description: 'Bulk update completed',
+  })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   async bulkUpdateQuoteStatus(
     @Body() dto: BulkUpdateQuoteStatusDto,
@@ -842,7 +1004,11 @@ export class QuoteAdminController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Repair broken quote (Platform Admin)' })
   @ApiParam({ name: 'id', description: 'Quote UUID' })
-  @ApiResponse({ status: 200, type: RepairQuoteResponseDto, description: 'Quote repaired successfully' })
+  @ApiResponse({
+    status: 200,
+    type: RepairQuoteResponseDto,
+    description: 'Quote repaired successfully',
+  })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   @ApiResponse({ status: 404, description: 'Quote not found' })
   async repairQuote(

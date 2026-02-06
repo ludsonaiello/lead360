@@ -74,7 +74,8 @@ export class AdminReportingService {
     const cacheKey = `admin:pricing-benchmarks:${filters.item_title_contains || 'all'}:${dateFrom.toISOString()}:${dateTo.toISOString()}:${minTenantCount}:${limit}`;
 
     // Check cache
-    const cached = await this.cacheService.get<PricingBenchmarksResponseDto>(cacheKey);
+    const cached =
+      await this.cacheService.get<PricingBenchmarksResponseDto>(cacheKey);
     if (cached) {
       this.logger.debug(`Cache hit for ${cacheKey}`);
       return cached;
@@ -206,11 +207,7 @@ export class AdminReportingService {
     };
 
     // Cache result
-    await this.cacheService.set(
-      cacheKey,
-      response,
-      this.CACHE_TTL_BENCHMARKS,
-    );
+    await this.cacheService.set(cacheKey, response, this.CACHE_TTL_BENCHMARKS);
 
     return response;
   }
@@ -376,17 +373,15 @@ export class AdminReportingService {
       scheduledReportId, // Pass through to processor
     };
 
-    this.logger.log(`[DEBUG] Queuing job with data: ${JSON.stringify({ ...jobData, filters: 'omitted' })}`);
-
-    await this.exportQueue.add(
-      'process-export',
-      jobData,
-      {
-        jobId,
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 2000 },
-      },
+    this.logger.log(
+      `[DEBUG] Queuing job with data: ${JSON.stringify({ ...jobData, filters: 'omitted' })}`,
     );
+
+    await this.exportQueue.add('process-export', jobData, {
+      jobId,
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 2000 },
+    });
 
     // Estimate completion time (2 minutes from now)
     const estimatedCompletion = new Date();
@@ -500,7 +495,12 @@ export class AdminReportingService {
     }));
 
     const filename = `quote_summary_${Date.now()}`;
-    return await this.exportReport(exportData, filename, format, 'Quote Summary Report');
+    return await this.exportReport(
+      exportData,
+      filename,
+      format,
+      'Quote Summary Report',
+    );
   }
 
   /**
@@ -545,7 +545,12 @@ export class AdminReportingService {
     }));
 
     const filename = `tenant_performance_${Date.now()}`;
-    return await this.exportReport(exportData, filename, format, 'Tenant Performance Report');
+    return await this.exportReport(
+      exportData,
+      filename,
+      format,
+      'Tenant Performance Report',
+    );
   }
 
   /**
@@ -566,7 +571,9 @@ export class AdminReportingService {
     const analytics = await this.adminAnalyticsService.getRevenueAnalytics(
       date_from,
       date_to,
-      group_by === 'none' ? undefined : (group_by as 'vendor' | 'tenant' | undefined),
+      group_by === 'none'
+        ? undefined
+        : (group_by as 'vendor' | 'tenant' | undefined),
     );
 
     // Format for export
@@ -579,7 +586,12 @@ export class AdminReportingService {
     }));
 
     const filename = `revenue_analysis_${Date.now()}`;
-    return await this.exportReport(exportData, filename, format, 'Revenue Analysis Report');
+    return await this.exportReport(
+      exportData,
+      filename,
+      format,
+      'Revenue Analysis Report',
+    );
   }
 
   /**
@@ -607,11 +619,17 @@ export class AdminReportingService {
       Stage: stage.stage_name,
       Count: stage.count,
       'Percentage (%)': stage.percentage,
-      'Conversion Rate from Previous (%)': stage.conversion_rate_from_previous || 'N/A',
+      'Conversion Rate from Previous (%)':
+        stage.conversion_rate_from_previous || 'N/A',
     }));
 
     const filename = `conversion_analysis_${Date.now()}`;
-    return await this.exportReport(exportData, filename, format, 'Conversion Analysis Report');
+    return await this.exportReport(
+      exportData,
+      filename,
+      format,
+      'Conversion Analysis Report',
+    );
   }
 
   // ============================================================================
@@ -987,15 +1005,20 @@ export class AdminReportingService {
     });
 
     // Reschedule BullMQ job if schedule changed or is_active changed
-    const scheduleChanged = dto.schedule && dto.schedule !== existingReport.schedule;
-    const activeChanged = dto.is_active !== undefined && dto.is_active !== existingReport.is_active;
+    const scheduleChanged =
+      dto.schedule && dto.schedule !== existingReport.schedule;
+    const activeChanged =
+      dto.is_active !== undefined && dto.is_active !== existingReport.is_active;
 
     if (scheduleChanged || activeChanged) {
       // Remove old job
       try {
         const jobId = `scheduled-report-${id}`;
-        const repeatableJobs = await this.scheduledReportsQueue.getRepeatableJobs();
-        const job = repeatableJobs.find((j) => j.id === jobId || j.name === 'scheduled-report');
+        const repeatableJobs =
+          await this.scheduledReportsQueue.getRepeatableJobs();
+        const job = repeatableJobs.find(
+          (j) => j.id === jobId || j.name === 'scheduled-report',
+        );
 
         if (job && job.key) {
           await this.scheduledReportsQueue.removeRepeatableByKey(job.key);
@@ -1047,8 +1070,11 @@ export class AdminReportingService {
     // Remove BullMQ repeatable job
     try {
       const jobId = `scheduled-report-${id}`;
-      const repeatableJobs = await this.scheduledReportsQueue.getRepeatableJobs();
-      const job = repeatableJobs.find((j) => j.id === jobId || j.name === 'scheduled-report');
+      const repeatableJobs =
+        await this.scheduledReportsQueue.getRepeatableJobs();
+      const job = repeatableJobs.find(
+        (j) => j.id === jobId || j.name === 'scheduled-report',
+      );
 
       if (job && job.key) {
         await this.scheduledReportsQueue.removeRepeatableByKey(job.key);
@@ -1072,9 +1098,7 @@ export class AdminReportingService {
    * @param schedule - Schedule frequency
    * @returns Next run DateTime
    */
-  private calculateNextRunTime(
-    schedule: 'daily' | 'weekly' | 'monthly',
-  ): Date {
+  private calculateNextRunTime(schedule: 'daily' | 'weekly' | 'monthly'): Date {
     const now = new Date();
     const next = new Date(now);
 
@@ -1147,7 +1171,9 @@ export class AdminReportingService {
 
     for (const report of dueReports) {
       try {
-        this.logger.log(`Executing scheduled report: ${report.id} - ${report.name}`);
+        this.logger.log(
+          `Executing scheduled report: ${report.id} - ${report.name}`,
+        );
 
         // Calculate date range for relative dates
         const params = this.calculateDateRangeForSchedule(

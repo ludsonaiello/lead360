@@ -16,14 +16,16 @@ export class ComponentResponseDto {
 
   @ApiPropertyOptional({
     description: 'Component description',
-    example: 'Clean, modern header with logo and company details in a horizontal layout',
+    example:
+      'Clean, modern header with logo and company details in a horizontal layout',
     type: String,
     nullable: true,
   })
   description: string | null;
 
   @ApiProperty({
-    description: 'Component type (header, customer_info, line_items, totals, footer, signature, payment_schedule, custom)',
+    description:
+      'Component type (header, customer_info, line_items, totals, footer, signature, payment_schedule, custom)',
     example: 'header',
     maxLength: 50,
   })
@@ -84,7 +86,8 @@ export class ComponentResponseDto {
 
   @ApiPropertyOptional({
     description: 'Usage documentation and notes',
-    example: 'Perfect for modern, professional quotes. Displays logo, company info, and quote details.',
+    example:
+      'Perfect for modern, professional quotes. Displays logo, company info, and quote details.',
     type: String,
     nullable: true,
   })
@@ -106,7 +109,8 @@ export class ComponentResponseDto {
   tags: string[] | null;
 
   @ApiProperty({
-    description: 'Is this a global/platform component accessible to all tenants?',
+    description:
+      'Is this a global/platform component accessible to all tenants?',
     example: true,
     type: Boolean,
   })

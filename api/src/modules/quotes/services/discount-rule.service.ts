@@ -77,56 +77,60 @@ export class DiscountRuleService {
     }
 
     // 4. Transaction
-    return await this.prisma.$transaction(async (tx) => {
-      // Get max order_index
-      const maxOrder = await tx.quote_discount_rule.aggregate({
-        where: { quote_id: quoteId },
-        _max: { order_index: true },
+    return await this.prisma
+      .$transaction(async (tx) => {
+        // Get max order_index
+        const maxOrder = await tx.quote_discount_rule.aggregate({
+          where: { quote_id: quoteId },
+          _max: { order_index: true },
+        });
+
+        // Create rule
+        const rule = await tx.quote_discount_rule.create({
+          data: {
+            id: uuid(),
+            quote_id: quoteId,
+            rule_type: dto.rule_type,
+            value: new Decimal(dto.value),
+            reason: dto.reason,
+            apply_to: dto.apply_to || 'subtotal',
+            order_index: (maxOrder._max.order_index || -1) + 1,
+          },
+        });
+
+        // 🔥 CRITICAL: Recalculate quote totals
+        await this.pricingService.updateQuoteFinancials(quoteId, tx);
+
+        // Create version (+0.1 minor change)
+        await this.versionService.createVersion(
+          quoteId,
+          0.1,
+          `Discount rule added: ${dto.reason}`,
+          userId,
+          tx,
+        );
+
+        this.logger.log(
+          `Discount rule created: ${rule.id} for quote: ${quoteId}`,
+        );
+
+        return rule;
+      })
+      .then(async (rule) => {
+        // Audit log (outside transaction - non-blocking)
+        await this.auditLogger.logTenantChange({
+          action: 'created',
+          entityType: 'discount_rule',
+          entityId: rule.id,
+          tenantId,
+          actorUserId: userId,
+          before: {} as any,
+          after: rule,
+          description: `Discount rule created: ${rule.reason}`,
+        });
+
+        return rule;
       });
-
-      // Create rule
-      const rule = await tx.quote_discount_rule.create({
-        data: {
-          id: uuid(),
-          quote_id: quoteId,
-          rule_type: dto.rule_type,
-          value: new Decimal(dto.value),
-          reason: dto.reason,
-          apply_to: dto.apply_to || 'subtotal',
-          order_index: (maxOrder._max.order_index || -1) + 1,
-        },
-      });
-
-      // 🔥 CRITICAL: Recalculate quote totals
-      await this.pricingService.updateQuoteFinancials(quoteId, tx);
-
-      // Create version (+0.1 minor change)
-      await this.versionService.createVersion(
-        quoteId,
-        0.1,
-        `Discount rule added: ${dto.reason}`,
-        userId,
-        tx,
-      );
-
-      this.logger.log(`Discount rule created: ${rule.id} for quote: ${quoteId}`);
-
-      return rule;
-    }).then(async (rule) => {
-      // Audit log (outside transaction - non-blocking)
-      await this.auditLogger.logTenantChange({
-        action: 'created',
-        entityType: 'discount_rule',
-        entityId: rule.id,
-        tenantId,
-        actorUserId: userId,
-        before: {} as any,
-        after: rule,
-        description: `Discount rule created: ${rule.reason}`,
-      });
-
-      return rule;
-    });
   }
 
   /**
@@ -268,57 +272,60 @@ export class DiscountRuleService {
       }
     }
 
-    return await this.prisma.$transaction(async (tx) => {
-      // Update rule
-      const updatedRule = await tx.quote_discount_rule.update({
-        where: { id: ruleId },
-        data: {
-          rule_type: dto.rule_type || rule.rule_type,
-          value: dto.value !== undefined ? new Decimal(dto.value) : rule.value,
-          reason: dto.reason || rule.reason,
-          apply_to: dto.apply_to || rule.apply_to,
-        },
+    return await this.prisma
+      .$transaction(async (tx) => {
+        // Update rule
+        const updatedRule = await tx.quote_discount_rule.update({
+          where: { id: ruleId },
+          data: {
+            rule_type: dto.rule_type || rule.rule_type,
+            value:
+              dto.value !== undefined ? new Decimal(dto.value) : rule.value,
+            reason: dto.reason || rule.reason,
+            apply_to: dto.apply_to || rule.apply_to,
+          },
+        });
+
+        // Recalculate quote totals
+        await this.pricingService.updateQuoteFinancials(quoteId, tx);
+
+        // Create version
+        await this.versionService.createVersion(
+          quoteId,
+          0.1,
+          `Discount rule updated: ${dto.reason || rule.reason}`,
+          userId,
+          tx,
+        );
+
+        this.logger.log(`Discount rule updated: ${ruleId}`);
+
+        return updatedRule;
+      })
+      .then(async (updatedRule) => {
+        // Audit log
+        await this.auditLogger.logTenantChange({
+          action: 'updated',
+          entityType: 'discount_rule',
+          entityId: ruleId,
+          tenantId,
+          actorUserId: userId,
+          before: rule,
+          after: updatedRule,
+          description: `Discount rule updated: ${updatedRule.reason}`,
+        });
+
+        return {
+          id: updatedRule.id,
+          quote_id: updatedRule.quote_id,
+          rule_type: updatedRule.rule_type,
+          value: Number(updatedRule.value),
+          reason: updatedRule.reason,
+          apply_to: updatedRule.apply_to,
+          order_index: updatedRule.order_index,
+          created_at: updatedRule.created_at,
+        };
       });
-
-      // Recalculate quote totals
-      await this.pricingService.updateQuoteFinancials(quoteId, tx);
-
-      // Create version
-      await this.versionService.createVersion(
-        quoteId,
-        0.1,
-        `Discount rule updated: ${dto.reason || rule.reason}`,
-        userId,
-        tx,
-      );
-
-      this.logger.log(`Discount rule updated: ${ruleId}`);
-
-      return updatedRule;
-    }).then(async (updatedRule) => {
-      // Audit log
-      await this.auditLogger.logTenantChange({
-        action: 'updated',
-        entityType: 'discount_rule',
-        entityId: ruleId,
-        tenantId,
-        actorUserId: userId,
-        before: rule,
-        after: updatedRule,
-        description: `Discount rule updated: ${updatedRule.reason}`,
-      });
-
-      return {
-        id: updatedRule.id,
-        quote_id: updatedRule.quote_id,
-        rule_type: updatedRule.rule_type,
-        value: Number(updatedRule.value),
-        reason: updatedRule.reason,
-        apply_to: updatedRule.apply_to,
-        order_index: updatedRule.order_index,
-        created_at: updatedRule.created_at,
-      };
-    });
   }
 
   /**

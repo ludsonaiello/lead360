@@ -4,7 +4,8 @@ import { IsOptional, IsDateString } from 'class-validator';
 export class ConversionFunnelQueryDto {
   @ApiProperty({
     required: false,
-    description: 'Start date in ISO 8601 format (optional, defaults to 30 days ago)',
+    description:
+      'Start date in ISO 8601 format (optional, defaults to 30 days ago)',
     example: '2024-01-01T00:00:00.000Z',
   })
   @IsOptional()

@@ -377,9 +377,7 @@ export class UserRoleService {
     });
 
     if (users.length !== userIds.length) {
-      throw new NotFoundException(
-        'One or more users not found in this tenant',
-      );
+      throw new NotFoundException('One or more users not found in this tenant');
     }
 
     // Atomic transaction

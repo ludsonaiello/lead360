@@ -1,8 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { UserRoleService } from './user-role.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
@@ -311,7 +308,9 @@ describe('UserRoleService', () => {
           'owner-role-id',
           mockAssignedByUserId,
         ),
-      ).rejects.toThrow('Cannot remove last Owner. Assign another Owner first.');
+      ).rejects.toThrow(
+        'Cannot remove last Owner. Assign another Owner first.',
+      );
 
       // Should not delete
       expect(prismaService.userRole.delete).not.toHaveBeenCalled();
@@ -413,7 +412,9 @@ describe('UserRoleService', () => {
           newRoleIds,
           mockAssignedByUserId,
         ),
-      ).rejects.toThrow('Cannot remove last Owner. Assign another Owner first.');
+      ).rejects.toThrow(
+        'Cannot remove last Owner. Assign another Owner first.',
+      );
     });
 
     it('should allow removing Owner if new roles include Owner', async () => {

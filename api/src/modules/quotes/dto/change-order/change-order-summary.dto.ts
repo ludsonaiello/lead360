@@ -27,13 +27,26 @@ export class ChangeOrderSummaryDto {
   @ApiProperty({
     description: 'Change order status',
     example: 'draft',
-    enum: ['draft', 'pending_approval', 'ready', 'sent', 'delivered', 'read', 'opened', 'downloaded', 'approved', 'denied', 'started', 'concluded'],
+    enum: [
+      'draft',
+      'pending_approval',
+      'ready',
+      'sent',
+      'delivered',
+      'read',
+      'opened',
+      'downloaded',
+      'approved',
+      'denied',
+      'started',
+      'concluded',
+    ],
   })
   status: string;
 
   @ApiProperty({
     description: 'Change order total',
-    example: 3456.00,
+    example: 3456.0,
   })
   total: number;
 

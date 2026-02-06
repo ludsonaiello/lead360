@@ -1,4 +1,8 @@
-import { Injectable, UnprocessableEntityException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  UnprocessableEntityException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client, GeocodeResult } from '@googlemaps/google-maps-services-js';
 
@@ -33,10 +37,13 @@ export class GoogleMapsService {
 
   constructor(private readonly configService: ConfigService) {
     // Use server-side API key (without referer restrictions)
-    this.apiKey = this.configService.get<string>('GOOGLE_MAPS_API_KEY_SERVER') || '';
+    this.apiKey =
+      this.configService.get<string>('GOOGLE_MAPS_API_KEY_SERVER') || '';
 
     if (!this.apiKey) {
-      this.logger.error('GOOGLE_MAPS_API_KEY_SERVER is not configured. Address validation will fail.');
+      this.logger.error(
+        'GOOGLE_MAPS_API_KEY_SERVER is not configured. Address validation will fail.',
+      );
       // Don't throw here, allow service to initialize but fail at runtime
     }
 
@@ -55,23 +62,25 @@ export class GoogleMapsService {
     // Scenario 1: Frontend provided lat/lng (performance optimization - skip API call)
     if (address.latitude && address.longitude) {
       this.logger.log(
-        `Validating address with provided coordinates: ${address.latitude}, ${address.longitude}`
+        `Validating address with provided coordinates: ${address.latitude}, ${address.longitude}`,
       );
 
       // Validate coordinates are within reasonable bounds (US)
       if (!this.validateCoordinates(address.latitude, address.longitude)) {
         throw new UnprocessableEntityException(
-          'Invalid coordinates provided. Coordinates must be within US bounds.'
+          'Invalid coordinates provided. Coordinates must be within US bounds.',
         );
       }
 
       // If city/state missing, reverse geocode to get them
       if (!address.city || !address.state) {
-        this.logger.log('City or state missing, performing reverse geocoding...');
+        this.logger.log(
+          'City or state missing, performing reverse geocoding...',
+        );
         return this.reverseGeocode(
           address.latitude,
           address.longitude,
-          address
+          address,
         );
       }
 
@@ -90,7 +99,7 @@ export class GoogleMapsService {
 
     // Scenario 2 & 3: Lat/lng missing OR city/state missing → geocode
     this.logger.log(
-      `Geocoding address: ${address.address_line1}, ${address.zip_code}`
+      `Geocoding address: ${address.address_line1}, ${address.zip_code}`,
     );
     return this.geocodeAddress(address);
   }
@@ -123,10 +132,10 @@ export class GoogleMapsService {
 
       if (response.data.status !== 'OK' || !response.data.results.length) {
         this.logger.error(
-          `Google Maps geocoding failed: ${response.data.status}`
+          `Google Maps geocoding failed: ${response.data.status}`,
         );
         throw new UnprocessableEntityException(
-          `Address validation failed: Could not geocode address. Please verify street address and zipcode. Status: ${response.data.status}`
+          `Address validation failed: Could not geocode address. Please verify street address and zipcode. Status: ${response.data.status}`,
         );
       }
 
@@ -139,7 +148,7 @@ export class GoogleMapsService {
 
       this.logger.error('Google Maps API error:', error);
       throw new UnprocessableEntityException(
-        `Address validation failed: ${error.message}`
+        `Address validation failed: ${error.message}`,
       );
     }
   }
@@ -150,7 +159,7 @@ export class GoogleMapsService {
   async reverseGeocode(
     lat: number,
     lng: number,
-    originalAddress: PartialAddress
+    originalAddress: PartialAddress,
   ): Promise<ValidatedAddress> {
     this.ensureApiKeyConfigured();
 
@@ -165,10 +174,10 @@ export class GoogleMapsService {
 
       if (response.data.status !== 'OK' || !response.data.results.length) {
         this.logger.error(
-          `Google Maps reverse geocoding failed: ${response.data.status}`
+          `Google Maps reverse geocoding failed: ${response.data.status}`,
         );
         throw new UnprocessableEntityException(
-          `Address validation failed: Could not reverse geocode coordinates. Status: ${response.data.status}`
+          `Address validation failed: Could not reverse geocode coordinates. Status: ${response.data.status}`,
         );
       }
 
@@ -181,7 +190,7 @@ export class GoogleMapsService {
 
       this.logger.error('Google Maps reverse geocoding error:', error);
       throw new UnprocessableEntityException(
-        `Address validation failed: ${error.message}`
+        `Address validation failed: ${error.message}`,
       );
     }
   }
@@ -201,7 +210,7 @@ export class GoogleMapsService {
    */
   private parseGeocodeResult(
     result: GeocodeResult,
-    originalAddress: PartialAddress
+    originalAddress: PartialAddress,
   ): ValidatedAddress {
     const components = result.address_components;
 
@@ -215,7 +224,7 @@ export class GoogleMapsService {
     const state = this.extractComponent(
       components,
       'administrative_area_level_1',
-      true
+      true,
     ); // Short name (e.g., "MA")
     const zipCode = this.extractComponent(components, 'postal_code');
     const country = this.extractComponent(components, 'country', true); // Short name (e.g., "US")
@@ -234,7 +243,7 @@ export class GoogleMapsService {
         zipCode,
       });
       throw new UnprocessableEntityException(
-        'Address validation failed: Could not extract all required address components from Google Maps'
+        'Address validation failed: Could not extract all required address components from Google Maps',
       );
     }
 
@@ -257,7 +266,7 @@ export class GoogleMapsService {
   extractComponent(
     components: any[],
     type: string,
-    shortName: boolean = false
+    shortName: boolean = false,
   ): string | null {
     const component = components.find((c) => c.types.includes(type));
     if (!component) return null;
@@ -270,7 +279,7 @@ export class GoogleMapsService {
   private ensureApiKeyConfigured(): void {
     if (!this.apiKey) {
       throw new UnprocessableEntityException(
-        'Google Maps API key is not configured. Cannot validate address.'
+        'Google Maps API key is not configured. Cannot validate address.',
       );
     }
   }

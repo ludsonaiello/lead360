@@ -31,7 +31,9 @@ describe('SendEmailController (Integration)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
 
     prisma = moduleFixture.get<PrismaService>(PrismaService);
@@ -62,7 +64,8 @@ describe('SendEmailController (Integration)', () => {
         template_key: 'quote-sent',
         category: 'transactional',
         subject: 'Quote {{quote_number}} from {{company_name}}',
-        html_body: '<h1>Quote {{quote_number}}</h1><p>Total: {{quote_total}}</p>',
+        html_body:
+          '<h1>Quote {{quote_number}}</h1><p>Total: {{quote_total}}</p>',
         text_body: 'Quote {{quote_number}} - Total: {{quote_total}}',
         variables: {},
         variable_schema: {

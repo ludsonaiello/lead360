@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsEnum, IsUUID, IsObject } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsUUID,
+  IsObject,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateAuditLogDto {
@@ -73,7 +79,10 @@ export class CreateAuditLogDto {
 
   @ApiPropertyOptional({
     description: 'Additional metadata as JSON',
-    example: { fields_changed: ['legal_name'], change_reason: 'Legal entity conversion' },
+    example: {
+      fields_changed: ['legal_name'],
+      change_reason: 'Legal entity conversion',
+    },
   })
   @IsObject()
   @IsOptional()

@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsInt, Min, Max, IsISO8601 } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsInt,
+  Min,
+  Max,
+  IsISO8601,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 /**
@@ -163,7 +170,8 @@ export class PricingBenchmarksResponseDto {
   min_tenant_count: number;
 
   @ApiProperty({
-    description: 'Total number of benchmarks available (may be more than returned)',
+    description:
+      'Total number of benchmarks available (may be more than returned)',
     example: 150,
   })
   total_count: number;

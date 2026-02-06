@@ -154,11 +154,16 @@ describe('LeadPhonesService', () => {
         is_primary: false,
       });
 
-      const result = await service.create(mockTenantId, mockLeadId, mockUserId, {
-        phone: '555-123-4567',
-        phone_type: 'mobile',
-        is_primary: false,
-      });
+      const result = await service.create(
+        mockTenantId,
+        mockLeadId,
+        mockUserId,
+        {
+          phone: '555-123-4567',
+          phone_type: 'mobile',
+          is_primary: false,
+        },
+      );
 
       expect(result.phone).toBe('5551234567');
       expect(activitiesService.logActivity).toHaveBeenCalled();
@@ -301,13 +306,9 @@ describe('LeadPhonesService', () => {
         phone: '5559876543',
       });
 
-      await service.update(
-        mockTenantId,
-        mockLeadId,
-        'phone-uuid',
-        mockUserId,
-        { phone: '555-987-6543' },
-      );
+      await service.update(mockTenantId, mockLeadId, 'phone-uuid', mockUserId, {
+        phone: '555-987-6543',
+      });
 
       expect(prismaService.lead_phone.findFirst).toHaveBeenCalledTimes(2);
     });

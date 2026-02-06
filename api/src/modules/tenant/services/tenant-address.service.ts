@@ -73,7 +73,11 @@ export class TenantAddressService {
   /**
    * Create a new address
    */
-  async create(tenantId: string, createAddressDto: CreateAddressDto, userId: string) {
+  async create(
+    tenantId: string,
+    createAddressDto: CreateAddressDto,
+    userId: string,
+  ) {
     // Business rule: Legal address cannot be a PO Box
     if (
       createAddressDto.address_type === AddressType.LEGAL &&
@@ -91,7 +95,8 @@ export class TenantAddressService {
     });
 
     // If first address of this type, auto-set as default
-    const shouldBeDefault = existingCount === 0 || createAddressDto.is_default === true;
+    const shouldBeDefault =
+      existingCount === 0 || createAddressDto.is_default === true;
 
     const address = await this.prisma.$transaction(async (tx) => {
       // If setting as default, un-set other defaults of same type

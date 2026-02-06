@@ -73,10 +73,7 @@ export class ApprovalWorkflowService {
         'Quote must have jobsite address before submission',
       );
     }
-    if (
-      quote.status === 'approved' ||
-      quote.status === 'pending_approval'
-    ) {
+    if (quote.status === 'approved' || quote.status === 'pending_approval') {
       throw new BadRequestException('Quote already submitted or approved');
     }
 
@@ -92,7 +89,9 @@ export class ApprovalWorkflowService {
         select: { approval_thresholds: true },
       });
 
-      const hasThresholds = tenant?.approval_thresholds && (tenant.approval_thresholds as any).length > 0;
+      const hasThresholds =
+        tenant?.approval_thresholds &&
+        (tenant.approval_thresholds as any).length > 0;
 
       if (!hasThresholds) {
         // No approval thresholds configured = approval workflow disabled
@@ -117,7 +116,8 @@ export class ApprovalWorkflowService {
       );
 
       return {
-        message: 'Quote total is below approval threshold - automatically approved',
+        message:
+          'Quote total is below approval threshold - automatically approved',
         quote_total: Number(quote.total),
         minimum_threshold: minThreshold,
         auto_approved: true,
@@ -853,7 +853,8 @@ export class ApprovalWorkflowService {
       );
 
       return {
-        message: 'Approval workflow disabled - all quotes will be auto-approved',
+        message:
+          'Approval workflow disabled - all quotes will be auto-approved',
         thresholds: [],
         approval_workflow_enabled: false,
         updated_at: new Date(),
@@ -909,10 +910,7 @@ export class ApprovalWorkflowService {
       throw new NotFoundException('Quote not found');
     }
 
-    if (
-      quote.status !== 'pending_approval' &&
-      quote.status !== 'ready'
-    ) {
+    if (quote.status !== 'pending_approval' && quote.status !== 'ready') {
       // Quote not in approval process, nothing to reset
       return { message: 'No approvals to reset' };
     }

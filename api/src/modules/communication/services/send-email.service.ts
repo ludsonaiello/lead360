@@ -6,10 +6,7 @@ import { EmailTemplatesService } from './email-templates.service';
 import { TenantEmailConfigService } from './tenant-email-config.service';
 import { PlatformEmailConfigService } from './platform-email-config.service';
 import { randomUUID } from 'crypto';
-import {
-  SendTemplatedEmailDto,
-  SendRawEmailDto,
-} from '../dto/send-email.dto';
+import { SendTemplatedEmailDto, SendRawEmailDto } from '../dto/send-email.dto';
 
 /**
  * Send Email Service
@@ -235,7 +232,8 @@ export class SendEmailService {
     }
 
     // Use platform configuration
-    const platformConfig = await this.platformEmailConfig.getActiveConfiguration();
+    const platformConfig =
+      await this.platformEmailConfig.getActiveConfiguration();
     if (!platformConfig) {
       throw new NotFoundException(
         'No active email configuration found. Please configure email settings.',

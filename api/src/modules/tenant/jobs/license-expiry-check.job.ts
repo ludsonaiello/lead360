@@ -39,7 +39,10 @@ export class LicenseExpiryCheckJob {
 
       this.logger.log('License expiry check job completed successfully');
     } catch (error) {
-      this.logger.error(`License expiry check job failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `License expiry check job failed: ${error.message}`,
+        error.stack,
+      );
     }
   }
 
@@ -51,21 +54,24 @@ export class LicenseExpiryCheckJob {
 
     try {
       // Get all licenses expiring in X days
-      const expiringLicenses = await this.licenseService.findAllExpiring(daysFromNow);
+      const expiringLicenses =
+        await this.licenseService.findAllExpiring(daysFromNow);
 
       if (expiringLicenses.length === 0) {
         this.logger.log(`No licenses expiring in ${daysFromNow} days`);
         return;
       }
 
-      this.logger.log(`Found ${expiringLicenses.length} licenses expiring in ${daysFromNow} days`);
+      this.logger.log(
+        `Found ${expiringLicenses.length} licenses expiring in ${daysFromNow} days`,
+      );
 
       // Group licenses by tenant
       const licensesByTenant = this.groupByTenant(expiringLicenses);
 
       // Send alert for each tenant
       for (const [tenantId, licenses] of Object.entries(licensesByTenant)) {
-        await this.sendExpiryAlert(tenantId, licenses as any[], daysFromNow);
+        await this.sendExpiryAlert(tenantId, licenses, daysFromNow);
       }
     } catch (error) {
       this.logger.error(
@@ -92,7 +98,11 @@ export class LicenseExpiryCheckJob {
   /**
    * Send expiry alert email to tenant Owner/Admin users
    */
-  private async sendExpiryAlert(tenantId: string, licenses: any[], daysUntilExpiry: number) {
+  private async sendExpiryAlert(
+    tenantId: string,
+    licenses: any[],
+    daysUntilExpiry: number,
+  ) {
     try {
       const tenant = licenses[0].tenant;
 
@@ -116,12 +126,16 @@ export class LicenseExpiryCheckJob {
       });
 
       // Filter by role name (check if user has Owner or Admin role)
-      const recipients = allUsers.filter(user =>
-        user.user_role_user_role_user_idTouser.some(ur => ['Owner', 'Admin'].includes(ur.role.name))
+      const recipients = allUsers.filter((user) =>
+        user.user_role_user_role_user_idTouser.some((ur) =>
+          ['Owner', 'Admin'].includes(ur.role.name),
+        ),
       );
 
       if (recipients.length === 0) {
-        this.logger.warn(`No Owner/Admin users found for tenant ${tenantId} to send license expiry alerts`);
+        this.logger.warn(
+          `No Owner/Admin users found for tenant ${tenantId} to send license expiry alerts`,
+        );
         return;
       }
 
@@ -132,13 +146,18 @@ export class LicenseExpiryCheckJob {
       );
 
       for (const license of licenses) {
-        const licenseTypeName = license.license_type?.name || license.custom_license_type || 'Unknown';
+        const licenseTypeName =
+          license.license_type?.name ||
+          license.custom_license_type ||
+          'Unknown';
         this.logger.log(
           `  - ${licenseTypeName} #${license.license_number} (State: ${license.issuing_state}) expires on ${new Date(license.expiry_date).toLocaleDateString()}`,
         );
       }
 
-      this.logger.log(`  Recipients: ${recipients.map((r) => r.email).join(', ')}`);
+      this.logger.log(
+        `  Recipients: ${recipients.map((r) => r.email).join(', ')}`,
+      );
 
       // TODO: Send actual email
       // await this.emailService.sendLicenseExpiryAlert({
@@ -151,7 +170,8 @@ export class LicenseExpiryCheckJob {
       // Create audit log entry
       await this.prisma.audit_log.create({
         data: {
-        id: randomBytes(16).toString('hex'),tenant_id: tenantId,
+          id: randomBytes(16).toString('hex'),
+          tenant_id: tenantId,
           actor_user_id: null, // System action
           actor_type: 'cron_job',
           action_type: 'ALERT',

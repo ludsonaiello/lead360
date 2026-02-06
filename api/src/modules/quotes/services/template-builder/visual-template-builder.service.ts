@@ -77,12 +77,16 @@ export class VisualTemplateBuilderService {
   /**
    * Create new visual template
    */
-  async createVisualTemplate(userId: string, dto: CreateVisualTemplateDto): Promise<any> {
+  async createVisualTemplate(
+    userId: string,
+    dto: CreateVisualTemplateDto,
+  ): Promise<any> {
     // Generate initial visual structure based on preset
     const visualStructure = this.getLayoutPreset(dto.layout_preset || 'blank');
 
     // Validate visual structure
-    const validation = await this.validator.validateVisualTemplate(visualStructure);
+    const validation =
+      await this.validator.validateVisualTemplate(visualStructure);
 
     if (!validation.is_valid) {
       throw new BadRequestException({
@@ -133,7 +137,14 @@ export class VisualTemplateBuilderService {
     });
 
     // Create initial version
-    await this.createVersion(templateId, visualStructure, html, css, userId, 'Initial version');
+    await this.createVersion(
+      templateId,
+      visualStructure,
+      html,
+      css,
+      userId,
+      'Initial version',
+    );
 
     // Audit log
     if (dto.tenant_id) {
@@ -212,7 +223,14 @@ export class VisualTemplateBuilderService {
     });
 
     // Create new version
-    await this.createNewVersion(templateId, structure, html, css, userId, `Added component: ${dto.component_type}`);
+    await this.createNewVersion(
+      templateId,
+      structure,
+      html,
+      css,
+      userId,
+      `Added component: ${dto.component_type}`,
+    );
 
     return {
       ...updated,
@@ -236,7 +254,9 @@ export class VisualTemplateBuilderService {
     const component = this.findComponentInStructure(structure, componentId);
 
     if (!component) {
-      throw new NotFoundException(`Component ${componentId} not found in template`);
+      throw new NotFoundException(
+        `Component ${componentId} not found in template`,
+      );
     }
 
     // Update component properties
@@ -253,7 +273,10 @@ export class VisualTemplateBuilderService {
     }
 
     if (dto.data_bindings) {
-      component.dataBindings = { ...component.dataBindings, ...dto.data_bindings };
+      component.dataBindings = {
+        ...component.dataBindings,
+        ...dto.data_bindings,
+      };
     }
 
     if (dto.conditions) {
@@ -284,7 +307,14 @@ export class VisualTemplateBuilderService {
     });
 
     // Create new version
-    await this.createNewVersion(templateId, structure, html, css, userId, `Updated component: ${componentId}`);
+    await this.createNewVersion(
+      templateId,
+      structure,
+      html,
+      css,
+      userId,
+      `Updated component: ${componentId}`,
+    );
 
     return updated;
   }
@@ -292,7 +322,11 @@ export class VisualTemplateBuilderService {
   /**
    * Remove component from visual template
    */
-  async removeComponent(templateId: string, componentId: string, userId: string) {
+  async removeComponent(
+    templateId: string,
+    componentId: string,
+    userId: string,
+  ) {
     const template = await this.getVisualTemplate(templateId);
     const structure = template.visual_structure as any;
 
@@ -300,7 +334,9 @@ export class VisualTemplateBuilderService {
     const removed = this.removeComponentFromStructure(structure, componentId);
 
     if (!removed) {
-      throw new NotFoundException(`Component ${componentId} not found in template`);
+      throw new NotFoundException(
+        `Component ${componentId} not found in template`,
+      );
     }
 
     // Recompile to HTML/CSS
@@ -318,7 +354,14 @@ export class VisualTemplateBuilderService {
     });
 
     // Create new version
-    await this.createNewVersion(templateId, structure, html, css, userId, `Removed component: ${componentId}`);
+    await this.createNewVersion(
+      templateId,
+      structure,
+      html,
+      css,
+      userId,
+      `Removed component: ${componentId}`,
+    );
 
     return updated;
   }
@@ -342,12 +385,14 @@ export class VisualTemplateBuilderService {
     // Reorder components based on provided order
     const componentMap = new Map(section.components.map((c: any) => [c.id, c]));
     const reordered = dto.component_order
-      .map(id => componentMap.get(id))
-      .filter(c => c !== undefined);
+      .map((id) => componentMap.get(id))
+      .filter((c) => c !== undefined);
 
     // Check if all components are accounted for
     if (reordered.length !== section.components.length) {
-      throw new BadRequestException('Component order must include all components');
+      throw new BadRequestException(
+        'Component order must include all components',
+      );
     }
 
     section.components = reordered;
@@ -367,7 +412,14 @@ export class VisualTemplateBuilderService {
     });
 
     // Create new version
-    await this.createNewVersion(templateId, structure, html, css, userId, `Reordered components in ${dto.section}`);
+    await this.createNewVersion(
+      templateId,
+      structure,
+      html,
+      css,
+      userId,
+      `Reordered components in ${dto.section}`,
+    );
 
     return updated;
   }
@@ -401,7 +453,14 @@ export class VisualTemplateBuilderService {
     });
 
     // Create new version
-    await this.createNewVersion(templateId, structure, html, css, userId, 'Applied theme changes');
+    await this.createNewVersion(
+      templateId,
+      structure,
+      html,
+      css,
+      userId,
+      'Applied theme changes',
+    );
 
     return updated;
   }
@@ -409,7 +468,9 @@ export class VisualTemplateBuilderService {
   /**
    * Compile visual structure to Handlebars HTML + CSS
    */
-  async compileToHandlebars(structure: any): Promise<{ html: string; css: string }> {
+  async compileToHandlebars(
+    structure: any,
+  ): Promise<{ html: string; css: string }> {
     const { layout, theme } = structure;
 
     // Generate CSS
@@ -466,7 +527,9 @@ export class VisualTemplateBuilderService {
   async exportToCode(templateId: string) {
     const template = await this.getVisualTemplate(templateId);
 
-    const { html, css } = await this.compileToHandlebars(template.visual_structure);
+    const { html, css } = await this.compileToHandlebars(
+      template.visual_structure,
+    );
 
     const variables = this.validator.extractVariables(html);
 
@@ -548,31 +611,43 @@ export class VisualTemplateBuilderService {
     if (componentInstance.componentId) {
       // Load from component library
       try {
-        const component = await this.componentService.getComponent(componentInstance.componentId);
+        const component = await this.componentService.getComponent(
+          componentInstance.componentId,
+        );
         htmlTemplate = component.html_template;
         cssTemplate = component.css_template;
         defaultProps = component.default_props || {};
       } catch (error) {
         // Component not found, use inline fallback
-        htmlTemplate = this.getInlineComponentTemplate(componentInstance.componentType);
+        htmlTemplate = this.getInlineComponentTemplate(
+          componentInstance.componentType,
+        );
       }
     } else {
       // Use inline component template
-      htmlTemplate = this.getInlineComponentTemplate(componentInstance.componentType);
+      htmlTemplate = this.getInlineComponentTemplate(
+        componentInstance.componentType,
+      );
     }
 
     // Merge default props with instance props
     const props = { ...defaultProps, ...componentInstance.props };
 
     // Apply data bindings (replace props with Handlebars expressions)
-    const boundProps = this.applyDataBindings(props, componentInstance.dataBindings || {});
+    const boundProps = this.applyDataBindings(
+      props,
+      componentInstance.dataBindings || {},
+    );
 
     // Compile component template
     const template = Handlebars.compile(htmlTemplate);
     let html = template(boundProps);
 
     // Generate component style
-    const style = this.generateComponentStyle(componentInstance.position, componentInstance.style || {});
+    const style = this.generateComponentStyle(
+      componentInstance.position,
+      componentInstance.style || {},
+    );
 
     // Wrap in container
     html = `      <div class="component component-${componentInstance.componentType}" style="${style}">\n${html}\n      </div>\n`;
@@ -593,9 +668,12 @@ export class VisualTemplateBuilderService {
     const templates: Record<string, string> = {
       header: '<div class="header"><h1>{{company_name}}</h1></div>',
       footer: '<div class="footer"><p>{{footer_text}}</p></div>',
-      customer_info: '<div class="customer-info"><p><strong>{{label}}:</strong> {{customer_name}}</p></div>',
-      line_items: '<table class="line-items">{{#each items}}<tr><td>{{title}}</td><td>{{quantity}}</td></tr>{{/each}}</table>',
-      totals: '<div class="totals"><p><strong>Total:</strong> {{currency total}}</p></div>',
+      customer_info:
+        '<div class="customer-info"><p><strong>{{label}}:</strong> {{customer_name}}</p></div>',
+      line_items:
+        '<table class="line-items">{{#each items}}<tr><td>{{title}}</td><td>{{quantity}}</td></tr>{{/each}}</table>',
+      totals:
+        '<div class="totals"><p><strong>Total:</strong> {{currency total}}</p></div>',
       custom: '<div class="custom-component">{{content}}</div>',
     };
 
@@ -618,10 +696,14 @@ export class VisualTemplateBuilderService {
     if (position.x !== undefined) styles.push(`left: ${position.x}px`);
     if (position.y !== undefined) styles.push(`top: ${position.y}px`);
     if (position.width) {
-      styles.push(`width: ${typeof position.width === 'number' ? position.width + 'px' : position.width}`);
+      styles.push(
+        `width: ${typeof position.width === 'number' ? position.width + 'px' : position.width}`,
+      );
     }
     if (position.height) {
-      styles.push(`height: ${typeof position.height === 'number' ? position.height + 'px' : position.height}`);
+      styles.push(
+        `height: ${typeof position.height === 'number' ? position.height + 'px' : position.height}`,
+      );
     }
 
     // Add custom styles
@@ -692,13 +774,18 @@ body.quote-template {
     return null;
   }
 
-  private removeComponentFromStructure(structure: any, componentId: string): boolean {
+  private removeComponentFromStructure(
+    structure: any,
+    componentId: string,
+  ): boolean {
     const sections = ['header', 'body', 'footer'];
 
     for (const sectionName of sections) {
       const section = structure.layout[sectionName];
       if (section?.components) {
-        const index = section.components.findIndex((c: any) => c.id === componentId);
+        const index = section.components.findIndex(
+          (c: any) => c.id === componentId,
+        );
         if (index !== -1) {
           section.components.splice(index, 1);
           return true;

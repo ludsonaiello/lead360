@@ -64,7 +64,10 @@ describe('FeatureFlagService', () => {
   describe('toggleFlag', () => {
     it('should toggle flag and invalidate cache', async () => {
       prismaService.feature_flag.findUnique.mockResolvedValue(mockFlag);
-      prismaService.feature_flag.update.mockResolvedValue({ ...mockFlag, is_enabled: false });
+      prismaService.feature_flag.update.mockResolvedValue({
+        ...mockFlag,
+        is_enabled: false,
+      });
 
       const result = await service.toggleFlag('user_registration', 'admin-123');
       expect(result.is_enabled).toBe(false);
@@ -72,7 +75,9 @@ describe('FeatureFlagService', () => {
 
     it('should throw error if flag not found', async () => {
       prismaService.feature_flag.findUnique.mockResolvedValue(null);
-      await expect(service.toggleFlag('invalid', 'admin-123')).rejects.toThrow(NotFoundException);
+      await expect(service.toggleFlag('invalid', 'admin-123')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

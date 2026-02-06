@@ -14,7 +14,9 @@ export class PartitionMaintenanceHandler {
   }
 
   async execute(jobId: string, payload: any): Promise<any> {
-    this.logger.log(`🔄 PROCESSING: Starting partition maintenance job ${jobId}`);
+    this.logger.log(
+      `🔄 PROCESSING: Starting partition maintenance job ${jobId}`,
+    );
 
     try {
       await this.jobQueue.updateJobStatus(jobId, 'processing');
@@ -34,7 +36,9 @@ export class PartitionMaintenanceHandler {
 
       if (!isPartitioned) {
         // Table is not partitioned - skip partition maintenance
-        this.logger.log('audit_log table is not partitioned - skipping partition maintenance');
+        this.logger.log(
+          'audit_log table is not partitioned - skipping partition maintenance',
+        );
 
         await this.jobQueue.logJobExecution(
           jobId,
@@ -46,7 +50,11 @@ export class PartitionMaintenanceHandler {
           result: { skipped: true, reason: 'Table not partitioned' },
         });
 
-        return { success: true, skipped: true, reason: 'Table not partitioned' };
+        return {
+          success: true,
+          skipped: true,
+          reason: 'Table not partitioned',
+        };
       }
 
       // If we get here, table IS partitioned - proceed with maintenance

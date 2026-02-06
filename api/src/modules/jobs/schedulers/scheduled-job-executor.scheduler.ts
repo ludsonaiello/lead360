@@ -29,7 +29,7 @@ export class ScheduledJobExecutor {
           : 'unknown';
         this.logger.warn(
           `Scheduled job executor still running after ${runningDuration}s (${this.consecutiveSkips} consecutive skips). ` +
-          `This may indicate slow database queries or long-running jobs.`
+            `This may indicate slow database queries or long-running jobs.`,
         );
       }
       return;
@@ -50,7 +50,9 @@ export class ScheduledJobExecutor {
         },
       });
 
-      this.logger.log(`Found ${dueJobs.length} scheduled jobs due for execution`);
+      this.logger.log(
+        `Found ${dueJobs.length} scheduled jobs due for execution`,
+      );
 
       for (const schedule of dueJobs) {
         try {
@@ -67,7 +69,9 @@ export class ScheduledJobExecutor {
             schedule.timezone,
           );
 
-          this.logger.log(`Queued scheduled job: ${schedule.name} (${schedule.job_type})`);
+          this.logger.log(
+            `Queued scheduled job: ${schedule.name} (${schedule.job_type})`,
+          );
         } catch (error) {
           this.logger.error(
             `Failed to queue scheduled job ${schedule.name}: ${error.message}`,
@@ -76,7 +80,10 @@ export class ScheduledJobExecutor {
         }
       }
     } catch (error) {
-      this.logger.error(`Scheduled job executor failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `Scheduled job executor failed: ${error.message}`,
+        error.stack,
+      );
     } finally {
       this.isRunning = false;
     }

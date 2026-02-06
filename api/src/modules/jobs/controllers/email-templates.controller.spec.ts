@@ -27,12 +27,9 @@ describe('EmailTemplatesController', () => {
       ],
     }).compile();
 
-    controller = module.get<EmailTemplatesController>(
-      EmailTemplatesController,
-    );
-    emailTemplateService = module.get<EmailTemplateService>(
-      EmailTemplateService,
-    );
+    controller = module.get<EmailTemplatesController>(EmailTemplatesController);
+    emailTemplateService =
+      module.get<EmailTemplateService>(EmailTemplateService);
   });
 
   afterEach(() => {
@@ -64,9 +61,7 @@ describe('EmailTemplatesController', () => {
         },
       ];
 
-      mockEmailTemplateService.getAllTemplates.mockResolvedValue(
-        mockTemplates,
-      );
+      mockEmailTemplateService.getAllTemplates.mockResolvedValue(mockTemplates);
 
       const result = await controller.listTemplates({});
 

@@ -51,10 +51,7 @@ export class NotificationsService {
       ],
       AND: [
         {
-          OR: [
-            { expires_at: null },
-            { expires_at: { gte: new Date() } },
-          ],
+          OR: [{ expires_at: null }, { expires_at: { gte: new Date() } }],
         },
       ],
     };
@@ -116,10 +113,7 @@ export class NotificationsService {
         is_read: false,
         AND: [
           {
-            OR: [
-              { expires_at: null },
-              { expires_at: { gte: new Date() } },
-            ],
+            OR: [{ expires_at: null }, { expires_at: { gte: new Date() } }],
           },
         ],
       },
@@ -163,9 +157,7 @@ export class NotificationsService {
       },
     });
 
-    this.logger.debug(
-      `Notification ${id} marked as read by user ${userId}`,
-    );
+    this.logger.debug(`Notification ${id} marked as read by user ${userId}`);
 
     return updated;
   }
@@ -226,9 +218,7 @@ export class NotificationsService {
       where: { id },
     });
 
-    this.logger.debug(
-      `Notification ${id} deleted by user ${userId}`,
-    );
+    this.logger.debug(`Notification ${id} deleted by user ${userId}`);
 
     return { message: 'Notification deleted successfully' };
   }

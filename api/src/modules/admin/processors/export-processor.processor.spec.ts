@@ -53,8 +53,12 @@ describe('ExportProcessorProcessor', () => {
       data: { exportJobId: 'export-123' },
     };
 
-    exportService.processExportJob.mockRejectedValue(new Error('Export failed'));
+    exportService.processExportJob.mockRejectedValue(
+      new Error('Export failed'),
+    );
 
-    await expect(processor.process(mockJob as any)).rejects.toThrow('Export failed');
+    await expect(processor.process(mockJob as any)).rejects.toThrow(
+      'Export failed',
+    );
   });
 });

@@ -323,7 +323,9 @@ export class AdminTemplateTestingService {
       versions: versions.map((v) => ({
         version: v.version_number,
         created_at: v.created_at.toISOString(),
-        created_by: v.created_by_user ? `${v.created_by_user.first_name} ${v.created_by_user.last_name}` : 'Unknown',
+        created_by: v.created_by_user
+          ? `${v.created_by_user.first_name} ${v.created_by_user.last_name}`
+          : 'Unknown',
         changes_summary: v.changes_summary || 'No summary provided',
         html_content_snapshot: v.html_content,
       })) as any,
@@ -406,7 +408,9 @@ export class AdminTemplateTestingService {
         title: 'Kitchen Renovation',
         status: 'draft',
         created_at: new Date().toISOString(),
-        valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        valid_until: new Date(
+          Date.now() + 30 * 24 * 60 * 60 * 1000,
+        ).toISOString(),
       },
       customer: {
         first_name: 'John',
@@ -550,9 +554,27 @@ export class AdminTemplateTestingService {
       // Simplified for now - add more items
       baseData.items = [
         ...baseData.items,
-        { title: 'Item 1', quantity: 1, unit: 'Each', unit_price: 100, total_price: 100 },
-        { title: 'Item 2', quantity: 2, unit: 'Each', unit_price: 150, total_price: 300 },
-        { title: 'Item 3', quantity: 3, unit: 'Each', unit_price: 200, total_price: 600 },
+        {
+          title: 'Item 1',
+          quantity: 1,
+          unit: 'Each',
+          unit_price: 100,
+          total_price: 100,
+        },
+        {
+          title: 'Item 2',
+          quantity: 2,
+          unit: 'Each',
+          unit_price: 150,
+          total_price: 300,
+        },
+        {
+          title: 'Item 3',
+          quantity: 3,
+          unit: 'Each',
+          unit_price: 200,
+          total_price: 600,
+        },
         // ... add more items to reach 25+
       ];
       baseData.totals.subtotal = 20000;
@@ -572,7 +594,9 @@ export class AdminTemplateTestingService {
       return compiledTemplate(data);
     } catch (error) {
       this.logger.error('Template rendering error', error);
-      throw new BadRequestException(`Template rendering failed: ${error.message}`);
+      throw new BadRequestException(
+        `Template rendering failed: ${error.message}`,
+      );
     }
   }
 
@@ -583,18 +607,25 @@ export class AdminTemplateTestingService {
     const warnings: string[] = [];
 
     // Check template width
-    if (!templateHtml.includes('width') || !templateHtml.includes('max-width')) {
+    if (
+      !templateHtml.includes('width') ||
+      !templateHtml.includes('max-width')
+    ) {
       warnings.push('Template may not have responsive width settings');
     }
 
     // Check for very long templates
     if (templateHtml.length > 50000) {
-      warnings.push('Template is very large (>50KB), may impact PDF generation performance');
+      warnings.push(
+        'Template is very large (>50KB), may impact PDF generation performance',
+      );
     }
 
     // Check for external resources (images, fonts)
     if (templateHtml.includes('http://') || templateHtml.includes('https://')) {
-      warnings.push('Template contains external resources that may slow PDF generation');
+      warnings.push(
+        'Template contains external resources that may slow PDF generation',
+      );
     }
 
     return warnings;
@@ -644,7 +675,9 @@ export class AdminTemplateTestingService {
   private async fetchRealQuoteData(quoteId: string): Promise<any> {
     // For now, return sample data since real quote fetching requires complex includes
     // In production, this would fetch actual quote data from database
-    this.logger.log(`Fetching real quote data for ${quoteId} (using sample data for now)`);
+    this.logger.log(
+      `Fetching real quote data for ${quoteId} (using sample data for now)`,
+    );
 
     // Return standard sample data as placeholder
     return this.generateSampleQuoteData(PreviewType.STANDARD);

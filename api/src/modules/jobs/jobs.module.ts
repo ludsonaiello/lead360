@@ -115,6 +115,8 @@ export class JobsModule implements OnModuleInit {
       }
     }
 
-    this.logger.log('JobsModule initialization complete - All workers should be listening');
+    this.logger.log(
+      'JobsModule initialization complete - All workers should be listening',
+    );
   }
 }

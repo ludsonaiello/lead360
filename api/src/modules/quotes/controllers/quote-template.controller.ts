@@ -88,9 +88,19 @@ export class QuoteTemplateAdminController {
     summary: 'Create template (admin only)',
     description: 'Create global or tenant-specific template',
   })
-  @ApiResponse({ status: 201, description: 'Template created successfully', type: TemplateDetailResponseDto })
-  async createTemplate(@Request() req, @Body() createTemplateDto: CreateTemplateDto): Promise<TemplateDetailResponseDto> {
-    return this.templateService.createTemplate(req.user.id, createTemplateDto) as unknown as Promise<TemplateDetailResponseDto>;
+  @ApiResponse({
+    status: 201,
+    description: 'Template created successfully',
+    type: TemplateDetailResponseDto,
+  })
+  async createTemplate(
+    @Request() req,
+    @Body() createTemplateDto: CreateTemplateDto,
+  ): Promise<TemplateDetailResponseDto> {
+    return this.templateService.createTemplate(
+      req.user.id,
+      createTemplateDto,
+    ) as unknown as Promise<TemplateDetailResponseDto>;
   }
 
   @Get()
@@ -99,19 +109,30 @@ export class QuoteTemplateAdminController {
     summary: 'Get all templates (admin only)',
     description: 'View all templates with usage statistics',
   })
-  @ApiResponse({ status: 200, description: 'Templates retrieved successfully', type: PaginatedResponseDto })
-  async findAllAdmin(@Query() listTemplatesDto: ListTemplatesDto): Promise<PaginatedResponseDto<TemplateResponseDto>> {
-    return this.templateService.findAllAdmin(listTemplatesDto) as unknown as Promise<PaginatedResponseDto<TemplateResponseDto>>;
+  @ApiResponse({
+    status: 200,
+    description: 'Templates retrieved successfully',
+    type: PaginatedResponseDto,
+  })
+  async findAllAdmin(
+    @Query() listTemplatesDto: ListTemplatesDto,
+  ): Promise<PaginatedResponseDto<TemplateResponseDto>> {
+    return this.templateService.findAllAdmin(
+      listTemplatesDto,
+    ) as unknown as Promise<PaginatedResponseDto<TemplateResponseDto>>;
   }
 
-  
   @Get('variables/schema')
   @Roles('Platform Admin')
   @ApiOperation({
     summary: 'Get template variables schema',
-    description: 'Returns complete Handlebars variable schema for template development',
+    description:
+      'Returns complete Handlebars variable schema for template development',
   })
-  @ApiResponse({ status: 200, description: 'Variable schema retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Variable schema retrieved successfully',
+  })
   async getTemplateVariables() {
     return this.templateService.getTemplateVariables();
   }
@@ -122,9 +143,18 @@ export class QuoteTemplateAdminController {
     summary: 'List pre-built templates',
     description: 'Get platform-provided starter templates',
   })
-  @ApiResponse({ status: 200, description: 'Pre-built templates retrieved successfully', type: PaginatedResponseDto })
-  async listPrebuiltTemplates(@Query() dto: ListTemplatesDto): Promise<PaginatedResponseDto<TemplateResponseDto>> {
-    return this.templateService.findAllAdmin({ ...dto, is_prebuilt: true }) as unknown as Promise<PaginatedResponseDto<TemplateResponseDto>>;
+  @ApiResponse({
+    status: 200,
+    description: 'Pre-built templates retrieved successfully',
+    type: PaginatedResponseDto,
+  })
+  async listPrebuiltTemplates(
+    @Query() dto: ListTemplatesDto,
+  ): Promise<PaginatedResponseDto<TemplateResponseDto>> {
+    return this.templateService.findAllAdmin({
+      ...dto,
+      is_prebuilt: true,
+    }) as unknown as Promise<PaginatedResponseDto<TemplateResponseDto>>;
   }
 
   @Get('migration/stats')
@@ -146,9 +176,18 @@ export class QuoteTemplateAdminController {
     summary: 'List template components',
     description: 'Get all available components from the library',
   })
-  @ApiResponse({ status: 200, description: 'Components retrieved successfully', type: PaginatedResponseDto })
-  async listComponents(@Request() req, @Query() dto: ListComponentsDto): Promise<PaginatedResponseDto<ComponentResponseDto>> {
-    return this.componentService.listComponents(dto) as unknown as Promise<PaginatedResponseDto<ComponentResponseDto>>;
+  @ApiResponse({
+    status: 200,
+    description: 'Components retrieved successfully',
+    type: PaginatedResponseDto,
+  })
+  async listComponents(
+    @Request() req,
+    @Query() dto: ListComponentsDto,
+  ): Promise<PaginatedResponseDto<ComponentResponseDto>> {
+    return this.componentService.listComponents(dto) as unknown as Promise<
+      PaginatedResponseDto<ComponentResponseDto>
+    >;
   }
 
   @Get('components/:componentId')
@@ -158,10 +197,18 @@ export class QuoteTemplateAdminController {
     description: 'Retrieve component definition, props, and usage information',
   })
   @ApiParam({ name: 'componentId', description: 'Component UUID' })
-  @ApiResponse({ status: 200, description: 'Component retrieved successfully', type: ComponentDetailResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Component retrieved successfully',
+    type: ComponentDetailResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Component not found' })
-  async getComponent(@Param('componentId', ParseUUIDPipe) componentId: string): Promise<ComponentDetailResponseDto> {
-    return this.componentService.getComponent(componentId) as unknown as Promise<ComponentDetailResponseDto>;
+  async getComponent(
+    @Param('componentId', ParseUUIDPipe) componentId: string,
+  ): Promise<ComponentDetailResponseDto> {
+    return this.componentService.getComponent(
+      componentId,
+    ) as unknown as Promise<ComponentDetailResponseDto>;
   }
 
   @Post('components')
@@ -170,12 +217,19 @@ export class QuoteTemplateAdminController {
     summary: 'Create custom component',
     description: 'Add new reusable component to the library',
   })
-  @ApiResponse({ status: 201, description: 'Component created successfully', type: ComponentDetailResponseDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Component created successfully',
+    type: ComponentDetailResponseDto,
+  })
   async createComponent(
     @Request() req,
     @Body() dto: CreateComponentDto,
   ): Promise<ComponentDetailResponseDto> {
-    return this.componentService.createComponent(req.user.id, dto) as unknown as Promise<ComponentDetailResponseDto>;
+    return this.componentService.createComponent(
+      req.user.id,
+      dto,
+    ) as unknown as Promise<ComponentDetailResponseDto>;
   }
 
   @Patch('components/:componentId')
@@ -185,13 +239,20 @@ export class QuoteTemplateAdminController {
     description: 'Modify component definition, props, or templates',
   })
   @ApiParam({ name: 'componentId', description: 'Component UUID' })
-  @ApiResponse({ status: 200, description: 'Component updated successfully', type: ComponentDetailResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Component updated successfully',
+    type: ComponentDetailResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Component not found' })
   async updateComponentLibrary(
     @Param('componentId', ParseUUIDPipe) componentId: string,
     @Body() dto: UpdateComponentLibraryDto,
   ): Promise<ComponentDetailResponseDto> {
-    return this.componentService.updateComponent(componentId, dto) as unknown as Promise<ComponentDetailResponseDto>;
+    return this.componentService.updateComponent(
+      componentId,
+      dto,
+    ) as unknown as Promise<ComponentDetailResponseDto>;
   }
 
   @Delete('components/:componentId')
@@ -205,7 +266,9 @@ export class QuoteTemplateAdminController {
   @ApiResponse({ status: 204, description: 'Component deleted successfully' })
   @ApiResponse({ status: 400, description: 'Cannot delete component (in use)' })
   @ApiResponse({ status: 404, description: 'Component not found' })
-  async deleteComponent(@Param('componentId', ParseUUIDPipe) componentId: string) {
+  async deleteComponent(
+    @Param('componentId', ParseUUIDPipe) componentId: string,
+  ) {
     return this.componentService.deleteComponent(componentId);
   }
 
@@ -216,13 +279,19 @@ export class QuoteTemplateAdminController {
     description: 'Render component with sample data for preview',
   })
   @ApiParam({ name: 'componentId', description: 'Component UUID' })
-  @ApiResponse({ status: 200, description: 'Component preview generated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Component preview generated successfully',
+  })
   @ApiResponse({ status: 404, description: 'Component not found' })
   async previewComponent(
     @Param('componentId', ParseUUIDPipe) componentId: string,
     @Body() dto: PreviewComponentDto,
   ) {
-    const html = await this.componentService.renderComponent(componentId, dto.props);
+    const html = await this.componentService.renderComponent(
+      componentId,
+      dto.props,
+    );
     return { rendered_html: html, props: dto.props };
   }
 
@@ -230,24 +299,40 @@ export class QuoteTemplateAdminController {
   @Roles('Platform Admin')
   @ApiOperation({ summary: 'Get template details (admin only)' })
   @ApiParam({ name: 'id', description: 'Template UUID' })
-  @ApiResponse({ status: 200, description: 'Template retrieved successfully', type: TemplateDetailResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Template retrieved successfully',
+    type: TemplateDetailResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Template not found' })
-  async findOneAdmin(@Param('id', ParseUUIDPipe) id: string): Promise<TemplateDetailResponseDto> {
-    return this.templateService.findOneAdmin(id) as unknown as Promise<TemplateDetailResponseDto>;
+  async findOneAdmin(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<TemplateDetailResponseDto> {
+    return this.templateService.findOneAdmin(
+      id,
+    ) as unknown as Promise<TemplateDetailResponseDto>;
   }
 
   @Patch(':id')
   @Roles('Platform Admin')
   @ApiOperation({ summary: 'Update template (admin only)' })
   @ApiParam({ name: 'id', description: 'Template UUID' })
-  @ApiResponse({ status: 200, description: 'Template updated successfully', type: TemplateDetailResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Template updated successfully',
+    type: TemplateDetailResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Template not found' })
   async updateTemplate(
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateTemplateDto: UpdateTemplateDto,
   ): Promise<TemplateDetailResponseDto> {
-    return this.templateService.updateTemplate(id, req.user.id, updateTemplateDto) as unknown as Promise<TemplateDetailResponseDto>;
+    return this.templateService.updateTemplate(
+      id,
+      req.user.id,
+      updateTemplateDto,
+    ) as unknown as Promise<TemplateDetailResponseDto>;
   }
 
   @Delete(':id')
@@ -259,7 +344,10 @@ export class QuoteTemplateAdminController {
   })
   @ApiParam({ name: 'id', description: 'Template UUID' })
   @ApiResponse({ status: 204, description: 'Template deleted successfully' })
-  @ApiResponse({ status: 400, description: 'Cannot delete template (in use or is default)' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot delete template (in use or is default)',
+  })
   @ApiResponse({ status: 404, description: 'Template not found' })
   async deleteTemplate(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.templateService.deleteTemplate(id, req.user.id);
@@ -281,14 +369,22 @@ export class QuoteTemplateAdminController {
     },
     required: false,
   })
-  @ApiResponse({ status: 201, description: 'Template cloned successfully', type: TemplateDetailResponseDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Template cloned successfully',
+    type: TemplateDetailResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Template not found' })
   async cloneTemplate(
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
     @Body('new_name') newName?: string,
   ): Promise<TemplateDetailResponseDto> {
-    return this.templateService.cloneTemplate(id, req.user.id, newName) as unknown as Promise<TemplateDetailResponseDto>;
+    return this.templateService.cloneTemplate(
+      id,
+      req.user.id,
+      newName,
+    ) as unknown as Promise<TemplateDetailResponseDto>;
   }
 
   @Patch(':id/set-default')
@@ -298,14 +394,24 @@ export class QuoteTemplateAdminController {
     description: 'Only global templates can be set as platform default',
   })
   @ApiParam({ name: 'id', description: 'Template UUID' })
-  @ApiResponse({ status: 200, description: 'Template set as default successfully', type: TemplateDetailResponseDto })
-  @ApiResponse({ status: 403, description: 'Only global templates can be set as default' })
+  @ApiResponse({
+    status: 200,
+    description: 'Template set as default successfully',
+    type: TemplateDetailResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Only global templates can be set as default',
+  })
   @ApiResponse({ status: 404, description: 'Template not found' })
   async setDefaultTemplate(
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<TemplateDetailResponseDto> {
-    return this.templateService.setDefaultTemplate(id, req.user.id) as unknown as Promise<TemplateDetailResponseDto>;
+    return this.templateService.setDefaultTemplate(
+      id,
+      req.user.id,
+    ) as unknown as Promise<TemplateDetailResponseDto>;
   }
 
   // ========== TEMPLATE TESTING ENDPOINTS ==========
@@ -315,7 +421,8 @@ export class QuoteTemplateAdminController {
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute
   @ApiOperation({
     summary: 'Preview template with sample or real data',
-    description: 'Render template with sample data or real quote data for preview',
+    description:
+      'Render template with sample data or real quote data for preview',
   })
   @ApiParam({ name: 'id', description: 'Template UUID' })
   @ApiResponse({ status: 200, description: 'Preview generated successfully' })
@@ -356,13 +463,22 @@ export class QuoteTemplateAdminController {
   @Roles('Platform Admin')
   @ApiOperation({
     summary: 'Validate template syntax',
-    description: 'Check template for Handlebars syntax errors and missing variables',
+    description:
+      'Check template for Handlebars syntax errors and missing variables',
   })
   @ApiParam({ name: 'id', description: 'Template UUID' })
-  @ApiResponse({ status: 200, description: 'Validation completed', type: ValidateHandlebarsResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Validation completed',
+    type: ValidateHandlebarsResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Template not found' })
-  async validateTemplate(@Param('id', ParseUUIDPipe) id: string): Promise<ValidateHandlebarsResponseDto> {
-    return this.templateTestingService.validateTemplateSyntax(id) as unknown as Promise<ValidateHandlebarsResponseDto>;
+  async validateTemplate(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ValidateHandlebarsResponseDto> {
+    return this.templateTestingService.validateTemplateSyntax(
+      id,
+    ) as unknown as Promise<ValidateHandlebarsResponseDto>;
   }
 
   @Post(':id/test-email')
@@ -392,10 +508,18 @@ export class QuoteTemplateAdminController {
     description: 'Retrieve all versions of a template',
   })
   @ApiParam({ name: 'id', description: 'Template UUID' })
-  @ApiResponse({ status: 200, description: 'Version history retrieved', type: [TemplateVersionResponseDto] })
+  @ApiResponse({
+    status: 200,
+    description: 'Version history retrieved',
+    type: [TemplateVersionResponseDto],
+  })
   @ApiResponse({ status: 404, description: 'Template not found' })
-  async getTemplateVersionHistory(@Param('id', ParseUUIDPipe) id: string): Promise<TemplateVersionResponseDto[]> {
-    return this.templateTestingService.getTemplateVersionHistory(id) as unknown as Promise<TemplateVersionResponseDto[]>;
+  async getTemplateVersionHistory(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<TemplateVersionResponseDto[]> {
+    return this.templateTestingService.getTemplateVersionHistory(
+      id,
+    ) as unknown as Promise<TemplateVersionResponseDto[]>;
   }
 
   @Post(':id/restore-version')
@@ -405,7 +529,11 @@ export class QuoteTemplateAdminController {
     description: 'Restore template HTML content from a specific version',
   })
   @ApiParam({ name: 'id', description: 'Template UUID' })
-  @ApiResponse({ status: 200, description: 'Template restored successfully', type: TemplateDetailResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Template restored successfully',
+    type: TemplateDetailResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Template or version not found' })
   async restoreTemplateVersion(
     @Request() req,
@@ -428,12 +556,19 @@ export class QuoteTemplateAdminController {
     summary: 'Create visual template',
     description: 'Create new component-based visual template',
   })
-  @ApiResponse({ status: 201, description: 'Visual template created successfully', type: TemplateDetailResponseDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Visual template created successfully',
+    type: TemplateDetailResponseDto,
+  })
   async createVisualTemplate(
     @Request() req,
     @Body() dto: CreateVisualTemplateDto,
   ): Promise<TemplateDetailResponseDto> {
-    return this.visualBuilder.createVisualTemplate(req.user.id, dto) as unknown as Promise<TemplateDetailResponseDto>;
+    return this.visualBuilder.createVisualTemplate(
+      req.user.id,
+      dto,
+    ) as unknown as Promise<TemplateDetailResponseDto>;
   }
 
   @Post(':id/visual/components')
@@ -443,14 +578,22 @@ export class QuoteTemplateAdminController {
     description: 'Add a component instance to the template layout',
   })
   @ApiParam({ name: 'id', description: 'Template UUID' })
-  @ApiResponse({ status: 200, description: 'Component added successfully', type: TemplateDetailResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Component added successfully',
+    type: TemplateDetailResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Template not found' })
   async addComponent(
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AddComponentDto,
   ): Promise<TemplateDetailResponseDto> {
-    return this.visualBuilder.addComponent(id, req.user.id, dto) as unknown as Promise<TemplateDetailResponseDto>;
+    return this.visualBuilder.addComponent(
+      id,
+      req.user.id,
+      dto,
+    ) as unknown as Promise<TemplateDetailResponseDto>;
   }
 
   @Patch(':id/visual/components/:componentId')
@@ -461,7 +604,11 @@ export class QuoteTemplateAdminController {
   })
   @ApiParam({ name: 'id', description: 'Template UUID' })
   @ApiParam({ name: 'componentId', description: 'Component instance UUID' })
-  @ApiResponse({ status: 200, description: 'Component updated successfully', type: TemplateDetailResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Component updated successfully',
+    type: TemplateDetailResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Template or component not found' })
   async updateComponent(
     @Request() req,
@@ -469,7 +616,12 @@ export class QuoteTemplateAdminController {
     @Param('componentId') componentId: string,
     @Body() dto: UpdateComponentDto,
   ): Promise<TemplateDetailResponseDto> {
-    return this.visualBuilder.updateComponent(id, componentId, req.user.id, dto) as unknown as Promise<TemplateDetailResponseDto>;
+    return this.visualBuilder.updateComponent(
+      id,
+      componentId,
+      req.user.id,
+      dto,
+    ) as unknown as Promise<TemplateDetailResponseDto>;
   }
 
   @Delete(':id/visual/components/:componentId')
@@ -498,14 +650,22 @@ export class QuoteTemplateAdminController {
     description: 'Change the order of components in a section (drag-and-drop)',
   })
   @ApiParam({ name: 'id', description: 'Template UUID' })
-  @ApiResponse({ status: 200, description: 'Components reordered successfully', type: TemplateDetailResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Components reordered successfully',
+    type: TemplateDetailResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Template not found' })
   async reorderComponents(
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReorderComponentsDto,
   ): Promise<TemplateDetailResponseDto> {
-    return this.visualBuilder.reorderComponents(id, req.user.id, dto) as unknown as Promise<TemplateDetailResponseDto>;
+    return this.visualBuilder.reorderComponents(
+      id,
+      req.user.id,
+      dto,
+    ) as unknown as Promise<TemplateDetailResponseDto>;
   }
 
   @Post(':id/visual/theme')
@@ -515,27 +675,44 @@ export class QuoteTemplateAdminController {
     description: 'Update colors, fonts, and styling for the template',
   })
   @ApiParam({ name: 'id', description: 'Template UUID' })
-  @ApiResponse({ status: 200, description: 'Theme applied successfully', type: TemplateDetailResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Theme applied successfully',
+    type: TemplateDetailResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Template not found' })
   async applyTheme(
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ApplyThemeDto,
   ): Promise<TemplateDetailResponseDto> {
-    return this.visualBuilder.applyTheme(id, req.user.id, dto) as unknown as Promise<TemplateDetailResponseDto>;
+    return this.visualBuilder.applyTheme(
+      id,
+      req.user.id,
+      dto,
+    ) as unknown as Promise<TemplateDetailResponseDto>;
   }
 
   @Get(':id/visual/export-code')
   @Roles('Platform Admin')
   @ApiOperation({
     summary: 'Export visual template to code',
-    description: 'Convert visual template to Handlebars HTML/CSS for advanced editing',
+    description:
+      'Convert visual template to Handlebars HTML/CSS for advanced editing',
   })
   @ApiParam({ name: 'id', description: 'Template UUID' })
-  @ApiResponse({ status: 200, description: 'Template exported to code successfully', type: ExportCodeResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Template exported to code successfully',
+    type: ExportCodeResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Template not found' })
-  async exportToCode(@Param('id', ParseUUIDPipe) id: string): Promise<ExportCodeResponseDto> {
-    return this.visualBuilder.exportToCode(id) as unknown as Promise<ExportCodeResponseDto>;
+  async exportToCode(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ExportCodeResponseDto> {
+    return this.visualBuilder.exportToCode(
+      id,
+    ) as unknown as Promise<ExportCodeResponseDto>;
   }
 
   // ========== CODE TEMPLATE BUILDER ENDPOINTS ==========
@@ -546,12 +723,19 @@ export class QuoteTemplateAdminController {
     summary: 'Create code template',
     description: 'Create new Handlebars-based code template',
   })
-  @ApiResponse({ status: 201, description: 'Code template created successfully', type: TemplateDetailResponseDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Code template created successfully',
+    type: TemplateDetailResponseDto,
+  })
   async createCodeTemplate(
     @Request() req,
     @Body() dto: CreateCodeTemplateDto,
   ): Promise<TemplateDetailResponseDto> {
-    return this.codeBuilder.createCodeTemplate(req.user.id, dto) as unknown as Promise<TemplateDetailResponseDto>;
+    return this.codeBuilder.createCodeTemplate(
+      req.user.id,
+      dto,
+    ) as unknown as Promise<TemplateDetailResponseDto>;
   }
 
   @Patch(':id/code')
@@ -561,39 +745,60 @@ export class QuoteTemplateAdminController {
     description: 'Update Handlebars HTML/CSS in code template',
   })
   @ApiParam({ name: 'id', description: 'Template UUID' })
-  @ApiResponse({ status: 200, description: 'Code template updated successfully', type: TemplateDetailResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Code template updated successfully',
+    type: TemplateDetailResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Template not found' })
   async updateCodeTemplate(
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCodeDto,
   ): Promise<TemplateDetailResponseDto> {
-    return this.codeBuilder.updateTemplateCode(id, req.user.id, dto) as unknown as Promise<TemplateDetailResponseDto>;
+    return this.codeBuilder.updateTemplateCode(
+      id,
+      req.user.id,
+      dto,
+    ) as unknown as Promise<TemplateDetailResponseDto>;
   }
 
   @Post('code/validate')
   @Roles('Platform Admin')
   @ApiOperation({
     summary: 'Validate Handlebars syntax',
-    description: 'Check Handlebars template for syntax errors and security issues',
+    description:
+      'Check Handlebars template for syntax errors and security issues',
   })
-  @ApiResponse({ status: 200, description: 'Validation completed', type: ValidateHandlebarsResponseDto })
-  async validateHandlebars(@Body() dto: ValidateHandlebarsDto): Promise<ValidateHandlebarsResponseDto> {
-    return this.codeBuilder.validateHandlebars(dto) as unknown as Promise<ValidateHandlebarsResponseDto>;
+  @ApiResponse({
+    status: 200,
+    description: 'Validation completed',
+    type: ValidateHandlebarsResponseDto,
+  })
+  async validateHandlebars(
+    @Body() dto: ValidateHandlebarsDto,
+  ): Promise<ValidateHandlebarsResponseDto> {
+    return this.codeBuilder.validateHandlebars(
+      dto,
+    ) as unknown as Promise<ValidateHandlebarsResponseDto>;
   }
 
   @Get('code/variables')
   @Roles('Platform Admin')
   @ApiOperation({
     summary: 'Get available template variables',
-    description: 'Returns complete schema of available Handlebars variables and helpers',
+    description:
+      'Returns complete schema of available Handlebars variables and helpers',
   })
-  @ApiResponse({ status: 200, description: 'Variable schema retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Variable schema retrieved successfully',
+  })
   async getVariableSchema() {
     return this.codeBuilder.getVariableSuggestions();
   }
 
-    // ========== PRE-BUILT TEMPLATES & MIGRATION ==========
+  // ========== PRE-BUILT TEMPLATES & MIGRATION ==========
 
   @Post('prebuilt/:id/clone')
   @Roles('Platform Admin')
@@ -612,7 +817,11 @@ export class QuoteTemplateAdminController {
       required: ['new_name'],
     },
   })
-  @ApiResponse({ status: 201, description: 'Template cloned successfully', type: TemplateDetailResponseDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Template cloned successfully',
+    type: TemplateDetailResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Pre-built template not found' })
   async clonePrebuiltTemplate(
     @Request() req,
@@ -620,7 +829,11 @@ export class QuoteTemplateAdminController {
     @Body('new_name') newName: string,
     @Body('tenant_id') tenantId?: string,
   ): Promise<TemplateDetailResponseDto> {
-    return this.templateService.cloneTemplate(id, req.user.id, newName) as unknown as Promise<TemplateDetailResponseDto>;
+    return this.templateService.cloneTemplate(
+      id,
+      req.user.id,
+      newName,
+    ) as unknown as Promise<TemplateDetailResponseDto>;
   }
 
   @Post('migration/run')
@@ -633,7 +846,6 @@ export class QuoteTemplateAdminController {
   async runMigration(): Promise<any> {
     return this.migrationService.migrateAllTemplates();
   }
-
 }
 
 // ========== TENANT CONTROLLER (Template Selection) ==========
@@ -653,22 +865,39 @@ export class QuoteTemplateController {
     summary: 'Get available templates',
     description: 'Returns global templates plus tenant-specific templates',
   })
-  @ApiResponse({ status: 200, description: 'Templates retrieved successfully', type: PaginatedResponseDto })
-  async findAll(@Request() req, @Query() listTemplatesDto: ListTemplatesDto): Promise<PaginatedResponseDto<TemplateResponseDto>> {
-    return this.templateService.findAllForTenant(req.user.tenant_id, listTemplatesDto) as unknown as Promise<PaginatedResponseDto<TemplateResponseDto>>;
+  @ApiResponse({
+    status: 200,
+    description: 'Templates retrieved successfully',
+    type: PaginatedResponseDto,
+  })
+  async findAll(
+    @Request() req,
+    @Query() listTemplatesDto: ListTemplatesDto,
+  ): Promise<PaginatedResponseDto<TemplateResponseDto>> {
+    return this.templateService.findAllForTenant(
+      req.user.tenant_id,
+      listTemplatesDto,
+    ) as unknown as Promise<PaginatedResponseDto<TemplateResponseDto>>;
   }
 
   @Get(':id')
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Employee')
   @ApiOperation({ summary: 'Get template details' })
   @ApiParam({ name: 'id', description: 'Template UUID' })
-  @ApiResponse({ status: 200, description: 'Template retrieved successfully', type: TemplateDetailResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Template retrieved successfully',
+    type: TemplateDetailResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Template not found' })
   async findOne(
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<TemplateDetailResponseDto> {
-    return this.templateService.findOne(req.user.tenant_id, id) as unknown as Promise<TemplateDetailResponseDto>;
+    return this.templateService.findOne(
+      req.user.tenant_id,
+      id,
+    ) as unknown as Promise<TemplateDetailResponseDto>;
   }
 
   @Patch('active')
@@ -681,12 +910,19 @@ export class QuoteTemplateController {
     schema: {
       type: 'object',
       properties: {
-        template_id: { type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716' },
+        template_id: {
+          type: 'string',
+          format: 'uuid',
+          example: '550e8400-e29b-41d4-a716',
+        },
       },
       required: ['template_id'],
     },
   })
-  @ApiResponse({ status: 200, description: 'Active template updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Active template updated successfully',
+  })
   @ApiResponse({ status: 404, description: 'Template not found' })
   async setActiveTemplate(
     @Request() req,

@@ -1,4 +1,10 @@
-import { IsOptional, IsString, IsInt, IsDateString, Min } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsInt,
+  IsDateString,
+  Min,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateShareLinkDto {

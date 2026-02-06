@@ -74,7 +74,9 @@ export class UnitMeasurementService {
     });
 
     if (existing) {
-      throw new ConflictException('Unit with this name already exists for your tenant');
+      throw new ConflictException(
+        'Unit with this name already exists for your tenant',
+      );
     }
 
     const unitId = this.generateUUID();
@@ -184,10 +186,7 @@ export class UnitMeasurementService {
 
     if (tenantId) {
       // Tenant access: can see global OR tenant-specific
-      whereCondition.OR = [
-        { tenant_id: null },
-        { tenant_id: tenantId },
-      ];
+      whereCondition.OR = [{ tenant_id: null }, { tenant_id: tenantId }];
     } else {
       // Admin access: global only
       whereCondition.tenant_id = null;
@@ -227,7 +226,9 @@ export class UnitMeasurementService {
         },
       });
       if (existing) {
-        throw new ConflictException('Global unit with this name already exists');
+        throw new ConflictException(
+          'Global unit with this name already exists',
+        );
       }
     }
 
@@ -277,7 +278,9 @@ export class UnitMeasurementService {
         },
       });
       if (existing) {
-        throw new ConflictException('Unit with this name already exists for your tenant');
+        throw new ConflictException(
+          'Unit with this name already exists for your tenant',
+        );
       }
     }
 
@@ -318,7 +321,9 @@ export class UnitMeasurementService {
 
     // Prevent deleting global units (should use admin endpoint)
     if (unit.is_global) {
-      throw new ForbiddenException('Cannot delete global units via tenant endpoint');
+      throw new ForbiddenException(
+        'Cannot delete global units via tenant endpoint',
+      );
     }
 
     // Check usage in quote_item
@@ -336,7 +341,8 @@ export class UnitMeasurementService {
       where: { unit_measurement_id: unitId },
     });
 
-    const totalUsage = itemUsageCount + libraryUsageCount + bundleItemUsageCount;
+    const totalUsage =
+      itemUsageCount + libraryUsageCount + bundleItemUsageCount;
 
     if (totalUsage > 0) {
       throw new BadRequestException(

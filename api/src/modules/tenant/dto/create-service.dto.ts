@@ -1,9 +1,4 @@
-import {
-  IsString,
-  IsOptional,
-  Length,
-  Matches,
-} from 'class-validator';
+import { IsString, IsOptional, Length, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateServiceDto {
@@ -30,7 +25,9 @@ export class CreateServiceDto {
   })
   @IsString()
   @IsOptional()
-  @Matches(/^[a-z0-9-]+$/, { message: 'Slug must be lowercase letters, numbers, and hyphens only' })
+  @Matches(/^[a-z0-9-]+$/, {
+    message: 'Slug must be lowercase letters, numbers, and hyphens only',
+  })
   @Length(1, 100)
   slug?: string;
 }

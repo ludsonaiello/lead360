@@ -27,11 +27,15 @@ export class SmtpService {
 
     // Check if the provider is SMTP
     if (config.provider?.provider_key !== 'smtp') {
-      throw new Error(`Active provider is not SMTP, it is: ${config.provider?.provider_key}`);
+      throw new Error(
+        `Active provider is not SMTP, it is: ${config.provider?.provider_key}`,
+      );
     }
 
     // Decrypt credentials (now stored in JSON format)
-    const decryptedCredentials = this.encryption.decrypt(config.credentials as string);
+    const decryptedCredentials = this.encryption.decrypt(
+      config.credentials as string,
+    );
     const credentials = JSON.parse(decryptedCredentials);
 
     this.transporter = nodemailer.createTransport({
@@ -58,7 +62,7 @@ export class SmtpService {
     html: string;
     text?: string;
   }): Promise<{ messageId: string }> {
-    if (!this.transporter || await this.configChanged()) {
+    if (!this.transporter || (await this.configChanged())) {
       await this.initializeTransporter();
     }
 

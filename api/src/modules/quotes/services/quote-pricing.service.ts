@@ -100,10 +100,16 @@ export class QuotePricingService {
         : quote.tenant.sales_tax_rate !== null
           ? quote.tenant.sales_tax_rate
           : new Decimal(0);
-    const taxAmount = this.calculateTax(discounts.subtotalAfterDiscounts, taxRate);
+    const taxAmount = this.calculateTax(
+      discounts.subtotalAfterDiscounts,
+      taxRate,
+    );
 
     // Step 4: Calculate final total
-    const total = this.calculateTotal(discounts.subtotalAfterDiscounts, taxAmount);
+    const total = this.calculateTotal(
+      discounts.subtotalAfterDiscounts,
+      taxAmount,
+    );
 
     // Build response DTO
     return {
@@ -239,7 +245,10 @@ export class QuotePricingService {
       return new Decimal(0);
     }
 
-    return items.reduce((sum, item) => sum.add(item.total_cost), new Decimal(0));
+    return items.reduce(
+      (sum, item) => sum.add(item.total_cost),
+      new Decimal(0),
+    );
   }
 
   /**
@@ -337,8 +346,8 @@ export class QuotePricingService {
 
       this.logger.debug(
         `Item with cost ${itemCost} - Profit(${profitPercent}%): ${itemProfit}, ` +
-        `Overhead(${overheadPercent}%): ${itemOverhead}, ` +
-        `Contingency(${contingencyPercent}%): ${itemContingency}`,
+          `Overhead(${overheadPercent}%): ${itemOverhead}, ` +
+          `Contingency(${contingencyPercent}%): ${itemContingency}`,
       );
     }
 
@@ -349,9 +358,9 @@ export class QuotePricingService {
 
     this.logger.debug(
       `Items calculation - Item subtotal: ${itemSubtotal}, ` +
-      `Total Profit: ${totalProfit}, Total Overhead: ${totalOverhead}, ` +
-      `Total Contingency: ${totalContingency}, ` +
-      `Subtotal before discounts: ${subtotalBeforeDiscounts}`,
+        `Total Profit: ${totalProfit}, Total Overhead: ${totalOverhead}, ` +
+        `Total Contingency: ${totalContingency}, ` +
+        `Subtotal before discounts: ${subtotalBeforeDiscounts}`,
     );
 
     return {
@@ -397,10 +406,10 @@ export class QuotePricingService {
 
     this.logger.debug(
       `Markup calculation (NON-COMPOUNDING) - Item subtotal: ${itemSubtotal}, ` +
-      `Profit (${profitPercent}%): ${profit}, ` +
-      `Overhead (${overheadPercent}%): ${overhead}, ` +
-      `Contingency (${contingencyPercent}%): ${contingency}, ` +
-      `Subtotal: ${subtotalBeforeDiscounts}`,
+        `Profit (${profitPercent}%): ${profit}, ` +
+        `Overhead (${overheadPercent}%): ${overhead}, ` +
+        `Contingency (${contingencyPercent}%): ${contingency}, ` +
+        `Subtotal: ${subtotalBeforeDiscounts}`,
     );
 
     return {
@@ -447,7 +456,9 @@ export class QuotePricingService {
     const percentageRules = discountRules.filter(
       (r) => r.rule_type === 'percentage',
     );
-    const fixedRules = discountRules.filter((r) => r.rule_type === 'fixed_amount');
+    const fixedRules = discountRules.filter(
+      (r) => r.rule_type === 'fixed_amount',
+    );
 
     // Apply percentage discounts first
     for (const rule of percentageRules) {
@@ -581,9 +592,9 @@ export class QuotePricingService {
 
     this.logger.debug(
       `Effective percentages - Profit: ${profitPercent}% (custom: ${quote.custom_profit_percent}, default: ${tenant.default_profit_margin}), ` +
-      `Overhead: ${overheadPercent}% (custom: ${quote.custom_overhead_percent}, default: ${tenant.default_overhead_rate}), ` +
-      `Contingency: ${contingencyPercent}% (custom: ${quote.custom_contingency_percent}, default: ${tenant.default_contingency_rate}), ` +
-      `Tax: ${taxRate}% (tenant rate: ${tenant.sales_tax_rate})`,
+        `Overhead: ${overheadPercent}% (custom: ${quote.custom_overhead_percent}, default: ${tenant.default_overhead_rate}), ` +
+        `Contingency: ${contingencyPercent}% (custom: ${quote.custom_contingency_percent}, default: ${tenant.default_contingency_rate}), ` +
+        `Tax: ${taxRate}% (tenant rate: ${tenant.sales_tax_rate})`,
     );
 
     return {

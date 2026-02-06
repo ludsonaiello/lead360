@@ -201,7 +201,6 @@ export function ToLowerCase() {
  * date_of_incorporation?: string;
  */
 export function SanitizeDate() {
-  
   return Transform(({ value }: TransformFnParams) => {
     if (!value) return value;
 
@@ -248,7 +247,10 @@ export function ToArray() {
 
     // Split comma-separated string
     if (typeof value === 'string') {
-      return value.split(',').map(item => item.trim()).filter(Boolean);
+      return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
     }
 
     // Single value → wrap in array

@@ -41,11 +41,16 @@ export class AlertService {
         },
       });
 
-      this.logger.log(`Admin notification created: ${notification.type} - ${notification.title}`);
+      this.logger.log(
+        `Admin notification created: ${notification.type} - ${notification.title}`,
+      );
 
       return notification;
     } catch (error) {
-      this.logger.error(`Failed to create notification: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to create notification: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -98,7 +103,10 @@ export class AlertService {
 
       return { sent_to: recipients, count: recipients.length };
     } catch (error) {
-      this.logger.error(`Failed to send email alert: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to send email alert: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -114,7 +122,8 @@ export class AlertService {
       const metrics = await this.dashboardService.getMetrics();
 
       // Get yesterday's activity
-      const yesterdayActivity = await this.dashboardService.getRecentActivity(20);
+      const yesterdayActivity =
+        await this.dashboardService.getRecentActivity(20);
 
       // Get Platform Admin emails
       const platformAdmins = await this.prisma.user.findMany({
@@ -149,11 +158,16 @@ export class AlertService {
         });
       }
 
-      this.logger.log(`Daily stats email queued to ${platformAdmins.length} Platform Admins`);
+      this.logger.log(
+        `Daily stats email queued to ${platformAdmins.length} Platform Admins`,
+      );
 
       return { sent_to: platformAdmins.length };
     } catch (error) {
-      this.logger.error(`Failed to send daily stats email: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to send daily stats email: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -182,7 +196,10 @@ export class AlertService {
 
       return updatedNotification;
     } catch (error) {
-      this.logger.error(`Failed to mark notification as read: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to mark notification as read: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -201,7 +218,10 @@ export class AlertService {
 
       return { marked_read: result.count };
     } catch (error) {
-      this.logger.error(`Failed to mark all as read: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to mark all as read: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -227,7 +247,10 @@ export class AlertService {
 
       return { message: 'Notification deleted successfully' };
     } catch (error) {
-      this.logger.error(`Failed to delete notification: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to delete notification: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -237,7 +260,10 @@ export class AlertService {
    */
   async cleanupExpiredNotifications() {
     try {
-      const retentionDate = subDays(new Date(), this.NOTIFICATION_RETENTION_DAYS);
+      const retentionDate = subDays(
+        new Date(),
+        this.NOTIFICATION_RETENTION_DAYS,
+      );
 
       // Delete notifications older than retention period
       const oldNotifications = await this.prisma.admin_notification.deleteMany({
@@ -246,16 +272,21 @@ export class AlertService {
         },
       });
 
-      this.logger.log(`Deleted ${oldNotifications.count} expired notifications (>${this.NOTIFICATION_RETENTION_DAYS} days old)`);
+      this.logger.log(
+        `Deleted ${oldNotifications.count} expired notifications (>${this.NOTIFICATION_RETENTION_DAYS} days old)`,
+      );
 
       // Also delete explicitly expired notifications
-      const expiredNotifications = await this.prisma.admin_notification.deleteMany({
-        where: {
-          expires_at: { lt: new Date() },
-        },
-      });
+      const expiredNotifications =
+        await this.prisma.admin_notification.deleteMany({
+          where: {
+            expires_at: { lt: new Date() },
+          },
+        });
 
-      this.logger.log(`Deleted ${expiredNotifications.count} explicitly expired notifications`);
+      this.logger.log(
+        `Deleted ${expiredNotifications.count} explicitly expired notifications`,
+      );
 
       // Check if total count exceeds max - delete oldest if needed
       const totalCount = await this.prisma.admin_notification.count();
@@ -264,11 +295,12 @@ export class AlertService {
         const excessCount = totalCount - this.MAX_NOTIFICATIONS;
 
         // Get IDs of oldest notifications to delete
-        const oldestNotifications = await this.prisma.admin_notification.findMany({
-          take: excessCount,
-          orderBy: { created_at: 'asc' },
-          select: { id: true },
-        });
+        const oldestNotifications =
+          await this.prisma.admin_notification.findMany({
+            take: excessCount,
+            orderBy: { created_at: 'asc' },
+            select: { id: true },
+          });
 
         const idsToDelete = oldestNotifications.map((n) => n.id);
 
@@ -276,7 +308,9 @@ export class AlertService {
           where: { id: { in: idsToDelete } },
         });
 
-        this.logger.log(`Deleted ${excessDeleted.count} excess notifications (max ${this.MAX_NOTIFICATIONS})`);
+        this.logger.log(
+          `Deleted ${excessDeleted.count} excess notifications (max ${this.MAX_NOTIFICATIONS})`,
+        );
       }
 
       return {
@@ -285,7 +319,10 @@ export class AlertService {
         total_cleaned: oldNotifications.count + expiredNotifications.count,
       };
     } catch (error) {
-      this.logger.error(`Failed to cleanup notifications: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to cleanup notifications: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -293,7 +330,9 @@ export class AlertService {
   /**
    * Get paginated notifications list
    */
-  async getNotifications(options: { page?: number; limit?: number; unread_only?: boolean } = {}) {
+  async getNotifications(
+    options: { page?: number; limit?: number; unread_only?: boolean } = {},
+  ) {
     try {
       const page = options.page || 1;
       const limit = options.limit || 20;
@@ -330,7 +369,10 @@ export class AlertService {
         unread_count: unreadCount,
       };
     } catch (error) {
-      this.logger.error(`Failed to get notifications: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get notifications: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }

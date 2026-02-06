@@ -1,14 +1,7 @@
 import { IsArray, ValidateNested, ArrayMinSize } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsString,
-  IsEnum,
-  IsNumber,
-  Min,
-  Max,
-  IsInt,
-} from 'class-validator';
+import { IsString, IsEnum, IsNumber, Min, Max, IsInt } from 'class-validator';
 
 export enum PaymentTermType {
   PERCENTAGE = 'percentage',

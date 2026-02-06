@@ -66,12 +66,7 @@ export class NotificationRulesController {
           email_template_key: { type: 'string', nullable: true },
           recipient_type: {
             type: 'string',
-            enum: [
-              'owner',
-              'assigned_user',
-              'specific_users',
-              'all_users',
-            ],
+            enum: ['owner', 'assigned_user', 'specific_users', 'all_users'],
             example: 'all_users',
           },
           specific_user_ids: {
@@ -119,10 +114,7 @@ export class NotificationRulesController {
     description: 'Insufficient permissions (Owner, Admin only)',
   })
   @ApiResponse({ status: 404, description: 'Notification rule not found' })
-  async findOne(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.notificationRulesService.findOne(req.user.tenant_id, id);
   }
 
@@ -212,10 +204,7 @@ export class NotificationRulesController {
     description: 'Insufficient permissions (Owner, Admin only)',
   })
   @ApiResponse({ status: 404, description: 'Notification rule not found' })
-  async delete(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async delete(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     await this.notificationRulesService.delete(
       req.user.tenant_id,
       id,

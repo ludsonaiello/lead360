@@ -1,5 +1,12 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsHexColor, IsOptional, MinLength, MaxLength, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsHexColor,
+  IsOptional,
+  MinLength,
+  MaxLength,
+  IsBoolean,
+} from 'class-validator';
 
 /**
  * UpdateQuoteTagDto

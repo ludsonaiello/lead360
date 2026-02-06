@@ -652,7 +652,9 @@ export class VariableRegistryService {
    */
   getVariablesByCategory(category: VariableCategory): VariableSchema {
     return Object.fromEntries(
-      Object.entries(this.registry).filter(([_, field]) => field.category === category),
+      Object.entries(this.registry).filter(
+        ([_, field]) => field.category === category,
+      ),
     );
   }
 
@@ -661,14 +663,19 @@ export class VariableRegistryService {
    */
   getVariablesSchema(variableNames: string[]): VariableSchema {
     return Object.fromEntries(
-      variableNames.map((name) => [name, this.registry[name]]).filter(([_, field]) => field !== undefined),
+      variableNames
+        .map((name) => [name, this.registry[name]])
+        .filter(([_, field]) => field !== undefined),
     );
   }
 
   /**
    * Validate that all variables exist in registry
    */
-  validateVariables(variableNames: string[]): { valid: boolean; unknown: string[] } {
+  validateVariables(variableNames: string[]): {
+    valid: boolean;
+    unknown: string[];
+  } {
     const unknown = variableNames.filter((name) => !this.registry[name]);
     return {
       valid: unknown.length === 0,
@@ -681,7 +688,9 @@ export class VariableRegistryService {
    */
   getSampleData(variableNames: string[]): Record<string, any> {
     return Object.fromEntries(
-      variableNames.filter((name) => this.registry[name]).map((name) => [name, this.registry[name].example]),
+      variableNames
+        .filter((name) => this.registry[name])
+        .map((name) => [name, this.registry[name].example]),
     );
   }
 
@@ -705,7 +714,9 @@ export class VariableRegistryService {
   getVariableCountByCategory(): Record<VariableCategory, number> {
     const counts: Record<string, number> = {};
     for (const category of this.getCategories()) {
-      counts[category] = Object.values(this.registry).filter((v) => v.category === category).length;
+      counts[category] = Object.values(this.registry).filter(
+        (v) => v.category === category,
+      ).length;
     }
     return counts as Record<VariableCategory, number>;
   }
@@ -718,7 +729,8 @@ export class VariableRegistryService {
     return Object.fromEntries(
       Object.entries(this.registry).filter(
         ([name, field]) =>
-          name.toLowerCase().includes(lowercaseQuery) || field.description.toLowerCase().includes(lowercaseQuery),
+          name.toLowerCase().includes(lowercaseQuery) ||
+          field.description.toLowerCase().includes(lowercaseQuery),
       ),
     );
   }

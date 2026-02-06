@@ -302,7 +302,8 @@ export class TemplateValidatorService {
     }
 
     // Check for data: URIs with script content
-    const dataUriRegex = /(?:href|src)\s*=\s*['"]?\s*data:text\/html[^'"]*script/gi;
+    const dataUriRegex =
+      /(?:href|src)\s*=\s*['"]?\s*data:text\/html[^'"]*script/gi;
     const dataMatches = html.match(dataUriRegex);
     if (dataMatches) {
       threats.push({
@@ -325,7 +326,10 @@ export class TemplateValidatorService {
     }
 
     return {
-      is_safe: threats.filter((t) => t.severity === 'critical' || t.severity === 'high').length === 0,
+      is_safe:
+        threats.filter(
+          (t) => t.severity === 'critical' || t.severity === 'high',
+        ).length === 0,
       threats,
     };
   }
@@ -344,7 +348,11 @@ export class TemplateValidatorService {
       const variable = match[1].trim();
 
       // Skip helpers (if, each, etc.)
-      if (!this.ALLOWED_HELPERS.some(helper => variable.startsWith(helper + ' '))) {
+      if (
+        !this.ALLOWED_HELPERS.some((helper) =>
+          variable.startsWith(helper + ' '),
+        )
+      ) {
         // Extract the base variable name
         const baseVar = variable.split(/[\s()]/)[0];
         if (baseVar && !this.ALLOWED_HELPERS.includes(baseVar)) {
@@ -359,14 +367,12 @@ export class TemplateValidatorService {
   /**
    * Check data bindings - verify all variables are available in sample data
    */
-  async checkDataBindings(
-    template: any,
-    sampleData: any,
-  ): Promise<string[]> {
+  async checkDataBindings(template: any, sampleData: any): Promise<string[]> {
     const missingVariables: string[] = [];
-    const html = template.template_type === 'code'
-      ? template.html_content
-      : this.compileVisualToHandlebars(template.visual_structure);
+    const html =
+      template.template_type === 'code'
+        ? template.html_content
+        : this.compileVisualToHandlebars(template.visual_structure);
 
     const variables = this.extractVariables(html);
 
@@ -394,7 +400,11 @@ export class TemplateValidatorService {
 
   // ==================== PRIVATE HELPER METHODS ====================
 
-  private validateLayout(layout: any, errors: ValidationError[], warnings: ValidationWarning[]): void {
+  private validateLayout(
+    layout: any,
+    errors: ValidationError[],
+    warnings: ValidationWarning[],
+  ): void {
     // Validate page size
     const validPageSizes = ['letter', 'a4', 'legal'];
     if (!layout.pageSize || !validPageSizes.includes(layout.pageSize)) {
@@ -407,7 +417,10 @@ export class TemplateValidatorService {
 
     // Validate orientation
     const validOrientations = ['portrait', 'landscape'];
-    if (!layout.orientation || !validOrientations.includes(layout.orientation)) {
+    if (
+      !layout.orientation ||
+      !validOrientations.includes(layout.orientation)
+    ) {
       errors.push({
         type: 'structure',
         message: `Invalid orientation. Must be one of: ${validOrientations.join(', ')}`,
@@ -424,7 +437,10 @@ export class TemplateValidatorService {
       });
     } else {
       ['top', 'right', 'bottom', 'left'].forEach((side) => {
-        if (typeof layout.margins[side] !== 'number' || layout.margins[side] < 0) {
+        if (
+          typeof layout.margins[side] !== 'number' ||
+          layout.margins[side] < 0
+        ) {
           errors.push({
             type: 'structure',
             message: `Invalid margin.${side}: must be a non-negative number`,
@@ -464,7 +480,12 @@ export class TemplateValidatorService {
       });
     } else {
       section.components.forEach((component, index) => {
-        this.validateComponent(component, `${sectionName}.components[${index}]`, errors, warnings);
+        this.validateComponent(
+          component,
+          `${sectionName}.components[${index}]`,
+          errors,
+          warnings,
+        );
       });
     }
   }
@@ -502,7 +523,10 @@ export class TemplateValidatorService {
     } else {
       // Validate position values
       ['x', 'y'].forEach((coord) => {
-        if (typeof component.position[coord] !== 'number' || component.position[coord] < 0) {
+        if (
+          typeof component.position[coord] !== 'number' ||
+          component.position[coord] < 0
+        ) {
           errors.push({
             type: 'structure',
             message: `Invalid position.${coord}: must be a non-negative number`,
@@ -534,7 +558,11 @@ export class TemplateValidatorService {
     }
   }
 
-  private validateTheme(theme: any, errors: ValidationError[], warnings: ValidationWarning[]): void {
+  private validateTheme(
+    theme: any,
+    errors: ValidationError[],
+    warnings: ValidationWarning[],
+  ): void {
     // Validate color formats (hex)
     const colorFields = ['primaryColor', 'secondaryColor'];
     colorFields.forEach((field) => {
@@ -551,7 +579,12 @@ export class TemplateValidatorService {
     });
 
     // Validate font size
-    if (theme.fontSize && (typeof theme.fontSize !== 'number' || theme.fontSize < 8 || theme.fontSize > 72)) {
+    if (
+      theme.fontSize &&
+      (typeof theme.fontSize !== 'number' ||
+        theme.fontSize < 8 ||
+        theme.fontSize > 72)
+    ) {
       warnings.push({
         type: 'best_practice',
         message: 'Font size should be between 8 and 72 pixels',
@@ -560,7 +593,12 @@ export class TemplateValidatorService {
     }
 
     // Validate line height
-    if (theme.lineHeight && (typeof theme.lineHeight !== 'number' || theme.lineHeight < 0.5 || theme.lineHeight > 3)) {
+    if (
+      theme.lineHeight &&
+      (typeof theme.lineHeight !== 'number' ||
+        theme.lineHeight < 0.5 ||
+        theme.lineHeight > 3)
+    ) {
       warnings.push({
         type: 'best_practice',
         message: 'Line height should be between 0.5 and 3',

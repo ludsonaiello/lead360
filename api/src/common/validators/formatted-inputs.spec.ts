@@ -303,7 +303,9 @@ describe('Input Sanitization Utilities', () => {
     });
 
     it('should pass validation after transformation', async () => {
-      const dto = plainToInstance(TestLowerCaseDto, { subdomain: 'ACME-Roofing' });
+      const dto = plainToInstance(TestLowerCaseDto, {
+        subdomain: 'ACME-Roofing',
+      });
       const errors = await validate(dto);
       expect(errors).toHaveLength(0);
       expect(dto.subdomain).toBe('acme-roofing');

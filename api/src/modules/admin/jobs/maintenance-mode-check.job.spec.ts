@@ -32,7 +32,9 @@ describe('MaintenanceModeCheckJob', () => {
   });
 
   it('should handle errors gracefully', async () => {
-    maintenanceModeService.disableMaintenanceMode.mockRejectedValue(new Error('DB error'));
+    maintenanceModeService.disableMaintenanceMode.mockRejectedValue(
+      new Error('DB error'),
+    );
 
     await expect(job.handleCron()).resolves.not.toThrow();
   });

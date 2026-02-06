@@ -92,12 +92,16 @@ describe('CommunicationProviderService', () => {
   describe('getActiveProviders', () => {
     it('should return all active providers', async () => {
       const providers = [mockProvider];
-      (prismaService.communication_provider.findMany as jest.Mock).mockResolvedValue(providers);
+      (
+        prismaService.communication_provider.findMany as jest.Mock
+      ).mockResolvedValue(providers);
 
       const result = await service.getActiveProviders();
 
       expect(result).toEqual(providers);
-      expect(prismaService.communication_provider.findMany).toHaveBeenCalledWith({
+      expect(
+        prismaService.communication_provider.findMany,
+      ).toHaveBeenCalledWith({
         where: { is_active: true },
         orderBy: { provider_name: 'asc' },
       });
@@ -105,12 +109,16 @@ describe('CommunicationProviderService', () => {
 
     it('should filter providers by type', async () => {
       const providers = [mockProvider];
-      (prismaService.communication_provider.findMany as jest.Mock).mockResolvedValue(providers);
+      (
+        prismaService.communication_provider.findMany as jest.Mock
+      ).mockResolvedValue(providers);
 
       const result = await service.getActiveProviders('email');
 
       expect(result).toEqual(providers);
-      expect(prismaService.communication_provider.findMany).toHaveBeenCalledWith({
+      expect(
+        prismaService.communication_provider.findMany,
+      ).toHaveBeenCalledWith({
         where: {
           is_active: true,
           provider_type: 'email',
@@ -122,18 +130,24 @@ describe('CommunicationProviderService', () => {
 
   describe('getProvider', () => {
     it('should return provider by key', async () => {
-      (prismaService.communication_provider.findUnique as jest.Mock).mockResolvedValue(mockProvider);
+      (
+        prismaService.communication_provider.findUnique as jest.Mock
+      ).mockResolvedValue(mockProvider);
 
       const result = await service.getProvider('sendgrid');
 
       expect(result).toEqual(mockProvider);
-      expect(prismaService.communication_provider.findUnique).toHaveBeenCalledWith({
+      expect(
+        prismaService.communication_provider.findUnique,
+      ).toHaveBeenCalledWith({
         where: { provider_key: 'sendgrid' },
       });
     });
 
     it('should throw NotFoundException if provider not found', async () => {
-      (prismaService.communication_provider.findUnique as jest.Mock).mockResolvedValue(null);
+      (
+        prismaService.communication_provider.findUnique as jest.Mock
+      ).mockResolvedValue(null);
 
       await expect(service.getProvider('nonexistent')).rejects.toThrow(
         NotFoundException,
@@ -176,7 +190,10 @@ describe('CommunicationProviderService', () => {
     });
 
     it('should throw BadRequestException if no credentials schema', async () => {
-      const providerWithoutSchema = { ...mockProvider, credentials_schema: null };
+      const providerWithoutSchema = {
+        ...mockProvider,
+        credentials_schema: null,
+      };
 
       await expect(
         service.validateProviderCredentials(providerWithoutSchema as any, {}),
@@ -258,8 +275,12 @@ describe('CommunicationProviderService', () => {
   describe('toggleProviderStatus', () => {
     it('should toggle provider active status', async () => {
       const userProvider = { ...mockProvider, is_system: false };
-      (prismaService.communication_provider.findUnique as jest.Mock).mockResolvedValue(userProvider);
-      (prismaService.communication_provider.update as jest.Mock).mockResolvedValue({
+      (
+        prismaService.communication_provider.findUnique as jest.Mock
+      ).mockResolvedValue(userProvider);
+      (
+        prismaService.communication_provider.update as jest.Mock
+      ).mockResolvedValue({
         ...userProvider,
         is_active: false,
       });
@@ -274,8 +295,14 @@ describe('CommunicationProviderService', () => {
     });
 
     it('should not allow deactivating system providers', async () => {
-      const systemProvider = { ...mockProvider, is_system: true, is_active: true };
-      (prismaService.communication_provider.findUnique as jest.Mock).mockResolvedValue(systemProvider);
+      const systemProvider = {
+        ...mockProvider,
+        is_system: true,
+        is_active: true,
+      };
+      (
+        prismaService.communication_provider.findUnique as jest.Mock
+      ).mockResolvedValue(systemProvider);
 
       await expect(service.toggleProviderStatus('sendgrid')).rejects.toThrow(
         BadRequestException,
@@ -285,7 +312,9 @@ describe('CommunicationProviderService', () => {
 
   describe('deleteProvider', () => {
     it('should not allow deleting system providers', async () => {
-      (prismaService.communication_provider.findUnique as jest.Mock).mockResolvedValue(mockProvider);
+      (
+        prismaService.communication_provider.findUnique as jest.Mock
+      ).mockResolvedValue(mockProvider);
 
       await expect(service.deleteProvider('sendgrid')).rejects.toThrow(
         BadRequestException,
@@ -294,9 +323,15 @@ describe('CommunicationProviderService', () => {
 
     it('should not allow deleting providers in use', async () => {
       const userProvider = { ...mockProvider, is_system: false };
-      (prismaService.communication_provider.findUnique as jest.Mock).mockResolvedValue(userProvider);
-      (prismaService.platform_email_config.count as jest.Mock).mockResolvedValue(1);
-      (prismaService.tenant_email_config.count as jest.Mock).mockResolvedValue(0);
+      (
+        prismaService.communication_provider.findUnique as jest.Mock
+      ).mockResolvedValue(userProvider);
+      (
+        prismaService.platform_email_config.count as jest.Mock
+      ).mockResolvedValue(1);
+      (prismaService.tenant_email_config.count as jest.Mock).mockResolvedValue(
+        0,
+      );
 
       await expect(service.deleteProvider('custom')).rejects.toThrow(
         BadRequestException,
@@ -305,9 +340,15 @@ describe('CommunicationProviderService', () => {
 
     it('should delete provider if not system and not in use', async () => {
       const userProvider = { ...mockProvider, is_system: false };
-      (prismaService.communication_provider.findUnique as jest.Mock).mockResolvedValue(userProvider);
-      (prismaService.platform_email_config.count as jest.Mock).mockResolvedValue(0);
-      (prismaService.tenant_email_config.count as jest.Mock).mockResolvedValue(0);
+      (
+        prismaService.communication_provider.findUnique as jest.Mock
+      ).mockResolvedValue(userProvider);
+      (
+        prismaService.platform_email_config.count as jest.Mock
+      ).mockResolvedValue(0);
+      (prismaService.tenant_email_config.count as jest.Mock).mockResolvedValue(
+        0,
+      );
 
       await service.deleteProvider('custom');
 
@@ -319,9 +360,15 @@ describe('CommunicationProviderService', () => {
 
   describe('getProviderStats', () => {
     it('should return provider statistics', async () => {
-      (prismaService.communication_provider.findUnique as jest.Mock).mockResolvedValue(mockProvider);
-      (prismaService.platform_email_config.count as jest.Mock).mockResolvedValue(1);
-      (prismaService.tenant_email_config.count as jest.Mock).mockResolvedValue(5);
+      (
+        prismaService.communication_provider.findUnique as jest.Mock
+      ).mockResolvedValue(mockProvider);
+      (
+        prismaService.platform_email_config.count as jest.Mock
+      ).mockResolvedValue(1);
+      (prismaService.tenant_email_config.count as jest.Mock).mockResolvedValue(
+        5,
+      );
       (prismaService.communication_event.count as jest.Mock)
         .mockResolvedValueOnce(100)
         .mockResolvedValueOnce(10);

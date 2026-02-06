@@ -96,25 +96,25 @@ describe('AuditExportService', () => {
     it('should enforce 10,000 row limit', async () => {
       prismaService.audit_log.count.mockResolvedValue(10001);
 
-      await expect(
-        service.export({}, false, mockTenantId),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.export({}, false, mockTenantId)).rejects.toThrow(
+        BadRequestException,
+      );
 
-      await expect(
-        service.export({}, false, mockTenantId),
-      ).rejects.toThrow(/Too many results.*10001.*Maximum 10000/);
+      await expect(service.export({}, false, mockTenantId)).rejects.toThrow(
+        /Too many results.*10001.*Maximum 10000/,
+      );
     });
 
     it('should throw error if no results found', async () => {
       prismaService.audit_log.count.mockResolvedValue(0);
 
-      await expect(
-        service.export({}, false, mockTenantId),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.export({}, false, mockTenantId)).rejects.toThrow(
+        BadRequestException,
+      );
 
-      await expect(
-        service.export({}, false, mockTenantId),
-      ).rejects.toThrow(/No audit logs found/);
+      await expect(service.export({}, false, mockTenantId)).rejects.toThrow(
+        /No audit logs found/,
+      );
     });
 
     it('should enforce tenant isolation for non-platform admin', async () => {
@@ -284,7 +284,9 @@ describe('AuditExportService', () => {
         mockTenantId,
       );
 
-      expect(result.filename).toBe('audit-log-testco-2026-01-01-2026-01-31.csv');
+      expect(result.filename).toBe(
+        'audit-log-testco-2026-01-01-2026-01-31.csv',
+      );
     });
   });
 
@@ -378,7 +380,7 @@ describe('AuditExportService', () => {
 
       // Check for proper indentation (JSON.stringify with 2 spaces)
       expect(result.data).toContain('  ');
-      expect(result.data).toMatch(/\[\n  \{/);
+      expect(result.data).toMatch(/\[\n {2}\{/);
     });
   });
 

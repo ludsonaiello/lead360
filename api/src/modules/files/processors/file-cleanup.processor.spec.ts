@@ -211,8 +211,14 @@ describe('FileCleanupProcessor', () => {
 
       // Verify all three stages were called in sequence
       expect(mockFilesService.findOrphans).toHaveBeenCalledWith('tenant-1');
-      expect(mockFilesService.moveOrphansToTrash).toHaveBeenCalledWith('tenant-1', 'owner-123');
-      expect(mockFilesService.cleanupTrashedFiles).toHaveBeenCalledWith('tenant-1', 'owner-123');
+      expect(mockFilesService.moveOrphansToTrash).toHaveBeenCalledWith(
+        'tenant-1',
+        'owner-123',
+      );
+      expect(mockFilesService.cleanupTrashedFiles).toHaveBeenCalledWith(
+        'tenant-1',
+        'owner-123',
+      );
 
       expect(result.totalOrphansMarked).toBe(1);
       expect(result.totalOrphansTrashed).toBe(1);
@@ -278,8 +284,14 @@ describe('FileCleanupProcessor', () => {
       const result = await processor.handleManualCleanup(manualJob);
 
       expect(mockFilesService.findOrphans).toHaveBeenCalledWith('tenant-123');
-      expect(mockFilesService.moveOrphansToTrash).toHaveBeenCalledWith('tenant-123', 'user-123');
-      expect(mockFilesService.cleanupTrashedFiles).toHaveBeenCalledWith('tenant-123', 'user-123');
+      expect(mockFilesService.moveOrphansToTrash).toHaveBeenCalledWith(
+        'tenant-123',
+        'user-123',
+      );
+      expect(mockFilesService.cleanupTrashedFiles).toHaveBeenCalledWith(
+        'tenant-123',
+        'user-123',
+      );
 
       expect(result).toEqual({
         success: true,
@@ -300,7 +312,9 @@ describe('FileCleanupProcessor', () => {
       const error = new Error('Cleanup failed');
       mockFilesService.findOrphans.mockRejectedValue(error);
 
-      await expect(processor.handleManualCleanup(manualJob)).rejects.toThrow('Cleanup failed');
+      await expect(processor.handleManualCleanup(manualJob)).rejects.toThrow(
+        'Cleanup failed',
+      );
 
       expect(Logger.prototype.error).toHaveBeenCalledWith(
         expect.stringContaining('Manual cleanup failed'),

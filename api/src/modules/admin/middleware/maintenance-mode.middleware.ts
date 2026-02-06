@@ -12,7 +12,9 @@ import { MaintenanceModeService } from '../services/maintenance-mode.service';
  */
 @Injectable()
 export class MaintenanceModeMiddleware implements NestMiddleware {
-  constructor(private readonly maintenanceModeService: MaintenanceModeService) {}
+  constructor(
+    private readonly maintenanceModeService: MaintenanceModeService,
+  ) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
     // Skip admin routes (admins can always access)
@@ -26,7 +28,8 @@ export class MaintenanceModeMiddleware implements NestMiddleware {
     }
 
     try {
-      const isInMaintenance = await this.maintenanceModeService.isInMaintenanceMode();
+      const isInMaintenance =
+        await this.maintenanceModeService.isInMaintenanceMode();
 
       if (isInMaintenance) {
         const config = await this.maintenanceModeService.getMaintenanceConfig();
@@ -45,7 +48,9 @@ export class MaintenanceModeMiddleware implements NestMiddleware {
         // Block request with maintenance page response
         return res.status(503).json({
           statusCode: 503,
-          message: config.message || 'Lead360 is undergoing maintenance. We\'ll be back shortly.',
+          message:
+            config.message ||
+            "Lead360 is undergoing maintenance. We'll be back shortly.",
           maintenance: true,
           mode: config.mode,
           estimated_end: config.end_time,
@@ -70,9 +75,10 @@ export class MaintenanceModeMiddleware implements NestMiddleware {
     if (forwardedFor) {
       // X-Forwarded-For can contain multiple IPs (client, proxy1, proxy2...)
       // The first one is the original client IP
-      const ips = typeof forwardedFor === 'string'
-        ? forwardedFor.split(',').map((ip) => ip.trim())
-        : [forwardedFor[0]];
+      const ips =
+        typeof forwardedFor === 'string'
+          ? forwardedFor.split(',').map((ip) => ip.trim())
+          : [forwardedFor[0]];
       return ips[0];
     }
 

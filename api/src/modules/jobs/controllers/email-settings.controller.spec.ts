@@ -98,9 +98,7 @@ describe('EmailSettingsController', () => {
     });
 
     it('should return null when no config exists', async () => {
-      mockPrismaService.platform_email_config.findFirst.mockResolvedValue(
-        null,
-      );
+      mockPrismaService.platform_email_config.findFirst.mockResolvedValue(null);
 
       const result = await controller.getEmailConfig();
 
@@ -155,21 +153,21 @@ describe('EmailSettingsController', () => {
       expect(mockEncryptionService.encrypt).toHaveBeenCalledWith(
         updateDto.smtp_password,
       );
-      expect(mockPrismaService.platform_email_config.update).toHaveBeenCalledWith(
-        {
-          where: { id: existingConfig.id },
-          data: {
-            smtp_host: updateDto.smtp_host,
-            smtp_port: updateDto.smtp_port,
-            smtp_encryption: updateDto.smtp_encryption,
-            smtp_username: updateDto.smtp_username,
-            smtp_password: 'encrypted-new-password',
-            from_email: updateDto.from_email,
-            from_name: updateDto.from_name,
-            is_verified: false,
-          },
+      expect(
+        mockPrismaService.platform_email_config.update,
+      ).toHaveBeenCalledWith({
+        where: { id: existingConfig.id },
+        data: {
+          smtp_host: updateDto.smtp_host,
+          smtp_port: updateDto.smtp_port,
+          smtp_encryption: updateDto.smtp_encryption,
+          smtp_username: updateDto.smtp_username,
+          smtp_password: 'encrypted-new-password',
+          from_email: updateDto.from_email,
+          from_name: updateDto.from_name,
+          is_verified: false,
         },
-      );
+      });
       expect(mockSmtpService.initializeTransporter).toHaveBeenCalled();
       expect(result.smtp_password).toBe('********');
     });
@@ -185,9 +183,7 @@ describe('EmailSettingsController', () => {
         from_name: 'Lead360',
       };
 
-      mockPrismaService.platform_email_config.findFirst.mockResolvedValue(
-        null,
-      );
+      mockPrismaService.platform_email_config.findFirst.mockResolvedValue(null);
       mockEncryptionService.encrypt.mockReturnValue('encrypted-password');
       mockPrismaService.platform_email_config.create.mockResolvedValue({
         id: 'new-config-id',
@@ -270,12 +266,12 @@ describe('EmailSettingsController', () => {
         templateKey: 'test-email',
         variables: {},
       });
-      expect(mockPrismaService.platform_email_config.update).toHaveBeenCalledWith(
-        {
-          where: { id: mockConfig.id },
-          data: { is_verified: true },
-        },
-      );
+      expect(
+        mockPrismaService.platform_email_config.update,
+      ).toHaveBeenCalledWith({
+        where: { id: mockConfig.id },
+        data: { is_verified: true },
+      });
       expect(result).toEqual({
         message: 'Test email sent successfully',
         messageId: 'test-message-id-123',

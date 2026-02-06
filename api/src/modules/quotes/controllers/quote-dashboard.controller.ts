@@ -12,7 +12,13 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -56,9 +62,14 @@ export class QuoteDashboardController {
    * Parse date range with defaults (last 30 days)
    * Sets dateFrom to start of day (00:00:00.000) and dateTo to end of day (23:59:59.999)
    */
-  private parseDateRange(dateFrom?: string, dateTo?: string): { from: Date; to: Date } {
+  private parseDateRange(
+    dateFrom?: string,
+    dateTo?: string,
+  ): { from: Date; to: Date } {
     const to = dateTo ? new Date(dateTo) : new Date();
-    const from = dateFrom ? new Date(dateFrom) : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const from = dateFrom
+      ? new Date(dateFrom)
+      : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     // Set from to start of day (00:00:00.000)
     from.setHours(0, 0, 0, 0);
@@ -73,7 +84,11 @@ export class QuoteDashboardController {
   @Roles('Owner', 'Admin', 'Manager')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get dashboard overview' })
-  @ApiResponse({ status: 200, description: 'Dashboard overview returned', type: DashboardOverviewResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Dashboard overview returned',
+    type: DashboardOverviewResponseDto,
+  })
   async getOverview(
     @Query() query: GetDashboardOverviewDto,
     @Request() req,
@@ -94,7 +109,11 @@ export class QuoteDashboardController {
   @Roles('Owner', 'Admin', 'Manager')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get quotes over time (time series)' })
-  @ApiResponse({ status: 200, description: 'Time series data returned', type: QuotesOverTimeResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Time series data returned',
+    type: QuotesOverTimeResponseDto,
+  })
   async getQuotesOverTime(
     @Query() query: GetQuotesOverTimeDto,
     @Request() req,
@@ -102,14 +121,23 @@ export class QuoteDashboardController {
     const tenantId = req.user.tenant_id;
     const { from, to } = this.parseDateRange(query.date_from, query.date_to);
 
-    return await this.dashboardService.getQuotesOverTime(tenantId, from, to, query.interval || 'day');
+    return await this.dashboardService.getQuotesOverTime(
+      tenantId,
+      from,
+      to,
+      query.interval || 'day',
+    );
   }
 
   @Get('top-items')
   @Roles('Owner', 'Admin', 'Manager')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get top items by usage' })
-  @ApiResponse({ status: 200, description: 'Top items returned', type: TopItemsResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Top items returned',
+    type: TopItemsResponseDto,
+  })
   async getTopItems(
     @Query() query: GetTopItemsDto,
     @Request() req,
@@ -117,14 +145,23 @@ export class QuoteDashboardController {
     const tenantId = req.user.tenant_id;
     const { from, to } = this.parseDateRange(query.date_from, query.date_to);
 
-    return await this.dashboardService.getTopItems(tenantId, from, to, query.limit || 10);
+    return await this.dashboardService.getTopItems(
+      tenantId,
+      from,
+      to,
+      query.limit || 10,
+    );
   }
 
   @Get('win-loss-analysis')
   @Roles('Owner', 'Admin', 'Manager')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get win/loss analysis' })
-  @ApiResponse({ status: 200, description: 'Win/loss data returned', type: WinLossAnalysisResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Win/loss data returned',
+    type: WinLossAnalysisResponseDto,
+  })
   async getWinLossAnalysis(
     @Query() query: GetWinLossAnalysisDto,
     @Request() req,
@@ -139,7 +176,11 @@ export class QuoteDashboardController {
   @Roles('Owner', 'Admin', 'Manager')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get conversion funnel' })
-  @ApiResponse({ status: 200, description: 'Conversion funnel returned', type: ConversionFunnelResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Conversion funnel returned',
+    type: ConversionFunnelResponseDto,
+  })
   async getConversionFunnel(
     @Query() query: GetConversionFunnelDto,
     @Request() req,
@@ -154,7 +195,11 @@ export class QuoteDashboardController {
   @Roles('Owner', 'Admin', 'Manager')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get revenue by vendor' })
-  @ApiResponse({ status: 200, description: 'Vendor revenue returned', type: RevenueByVendorResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Vendor revenue returned',
+    type: RevenueByVendorResponseDto,
+  })
   async getRevenueByVendor(
     @Query() query: GetRevenueByVendorDto,
     @Request() req,
@@ -169,7 +214,11 @@ export class QuoteDashboardController {
   @Roles('Owner', 'Admin', 'Manager')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get average pricing by task' })
-  @ApiResponse({ status: 200, description: 'Task pricing returned', type: AvgPricingByTaskResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Task pricing returned',
+    type: AvgPricingByTaskResponseDto,
+  })
   async getAvgPricingByTask(
     @Query() query: GetAvgPricingByTaskDto,
     @Request() req,
@@ -184,7 +233,11 @@ export class QuoteDashboardController {
   @Roles('Owner', 'Admin', 'Manager')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Export dashboard data' })
-  @ApiResponse({ status: 200, description: 'Export file URL returned', type: ExportDashboardResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Export file URL returned',
+    type: ExportDashboardResponseDto,
+  })
   async exportDashboard(
     @Body() dto: ExportDashboardDto,
     @Request() req,
@@ -192,6 +245,12 @@ export class QuoteDashboardController {
     const tenantId = req.user.tenant_id;
     const { from, to } = this.parseDateRange(dto.date_from, dto.date_to);
 
-    return await this.dashboardService.exportDashboard(tenantId, dto.format, from, to, dto.sections);
+    return await this.dashboardService.exportDashboard(
+      tenantId,
+      dto.format,
+      from,
+      to,
+      dto.sections,
+    );
   }
 }

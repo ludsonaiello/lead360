@@ -132,7 +132,11 @@ export class TenantBusinessHoursService {
   /**
    * Update business hours with time validation
    */
-  async update(tenantId: string, updateDto: UpdateBusinessHoursDto, userId: string) {
+  async update(
+    tenantId: string,
+    updateDto: UpdateBusinessHoursDto,
+    userId: string,
+  ) {
     // Validate time logic
     this.validateTimeLogic(updateDto);
 
@@ -170,7 +174,8 @@ export class TenantBusinessHoursService {
     // Format dates to YYYY-MM-DD (strip time component since DB stores DATE only)
     return customHours.map((ch) => ({
       ...ch,
-      date: ch.date instanceof Date ? ch.date.toISOString().split('T')[0] : ch.date,
+      date:
+        ch.date instanceof Date ? ch.date.toISOString().split('T')[0] : ch.date,
     }));
   }
 
@@ -195,7 +200,11 @@ export class TenantBusinessHoursService {
   /**
    * Create custom hours for a special date
    */
-  async createCustomHours(tenantId: string, createDto: CreateCustomHoursDto, userId: string) {
+  async createCustomHours(
+    tenantId: string,
+    createDto: CreateCustomHoursDto,
+    userId: string,
+  ) {
     // Check if custom hours already exist for this date
     const existing = await this.findCustomHoursByDate(tenantId, createDto.date);
     if (existing) {
@@ -217,18 +226,31 @@ export class TenantBusinessHoursService {
         return hours * 60 + minutes;
       };
 
-      if (timeToMinutes(createDto.open_time1) >= timeToMinutes(createDto.close_time1)) {
-        throw new BadRequestException('First shift opening time must be before closing time');
+      if (
+        timeToMinutes(createDto.open_time1) >=
+        timeToMinutes(createDto.close_time1)
+      ) {
+        throw new BadRequestException(
+          'First shift opening time must be before closing time',
+        );
       }
 
       if (createDto.open_time2 && createDto.close_time2) {
-        if (timeToMinutes(createDto.close_time1) >= timeToMinutes(createDto.open_time2)) {
+        if (
+          timeToMinutes(createDto.close_time1) >=
+          timeToMinutes(createDto.open_time2)
+        ) {
           throw new BadRequestException(
             'First shift closing time must be before second shift opening time',
           );
         }
-        if (timeToMinutes(createDto.open_time2) >= timeToMinutes(createDto.close_time2)) {
-          throw new BadRequestException('Second shift opening time must be before closing time');
+        if (
+          timeToMinutes(createDto.open_time2) >=
+          timeToMinutes(createDto.close_time2)
+        ) {
+          throw new BadRequestException(
+            'Second shift opening time must be before closing time',
+          );
         }
       }
     }
@@ -257,11 +279,17 @@ export class TenantBusinessHoursService {
       // Format date to YYYY-MM-DD (strip time component since DB stores DATE only)
       return {
         ...customHours,
-        date: customHours.date instanceof Date ? customHours.date.toISOString().split('T')[0] : customHours.date,
+        date:
+          customHours.date instanceof Date
+            ? customHours.date.toISOString().split('T')[0]
+            : customHours.date,
       };
     } catch (error) {
       // Handle unique constraint violation (duplicate date)
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
         throw new ConflictException(
           `Custom hours already exist for this date. Please use update instead.`,
         );
@@ -293,12 +321,19 @@ export class TenantBusinessHoursService {
     }
 
     // Validate time logic if updating to not closed
-    const isClosed = updateDto.closed !== undefined ? updateDto.closed : existing.closed;
+    const isClosed =
+      updateDto.closed !== undefined ? updateDto.closed : existing.closed;
     if (!isClosed) {
       const open1 = updateDto.open_time1 || existing.open_time1;
       const close1 = updateDto.close_time1 || existing.close_time1;
-      const open2 = updateDto.open_time2 !== undefined ? updateDto.open_time2 : existing.open_time2;
-      const close2 = updateDto.close_time2 !== undefined ? updateDto.close_time2 : existing.close_time2;
+      const open2 =
+        updateDto.open_time2 !== undefined
+          ? updateDto.open_time2
+          : existing.open_time2;
+      const close2 =
+        updateDto.close_time2 !== undefined
+          ? updateDto.close_time2
+          : existing.close_time2;
 
       if (!open1 || !close1) {
         throw new BadRequestException(
@@ -312,7 +347,9 @@ export class TenantBusinessHoursService {
       };
 
       if (timeToMinutes(open1) >= timeToMinutes(close1)) {
-        throw new BadRequestException('First shift opening time must be before closing time');
+        throw new BadRequestException(
+          'First shift opening time must be before closing time',
+        );
       }
 
       if (open2 && close2) {
@@ -322,7 +359,9 @@ export class TenantBusinessHoursService {
           );
         }
         if (timeToMinutes(open2) >= timeToMinutes(close2)) {
-          throw new BadRequestException('Second shift opening time must be before closing time');
+          throw new BadRequestException(
+            'Second shift opening time must be before closing time',
+          );
         }
       }
     }
@@ -348,11 +387,17 @@ export class TenantBusinessHoursService {
       // Format date to YYYY-MM-DD (strip time component since DB stores DATE only)
       return {
         ...customHours,
-        date: customHours.date instanceof Date ? customHours.date.toISOString().split('T')[0] : customHours.date,
+        date:
+          customHours.date instanceof Date
+            ? customHours.date.toISOString().split('T')[0]
+            : customHours.date,
       };
     } catch (error) {
       // Handle unique constraint violation (duplicate date if date was changed)
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
         throw new ConflictException(
           `Custom hours already exist for this date. Please choose a different date.`,
         );
@@ -365,7 +410,11 @@ export class TenantBusinessHoursService {
   /**
    * Delete custom hours
    */
-  async deleteCustomHours(tenantId: string, customHoursId: string, userId: string) {
+  async deleteCustomHours(
+    tenantId: string,
+    customHoursId: string,
+    userId: string,
+  ) {
     // Verify custom hours exist and belong to tenant
     const existing = await this.prisma.tenant_custom_hours.findFirst({
       where: {

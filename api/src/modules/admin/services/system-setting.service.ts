@@ -34,7 +34,10 @@ export class SystemSettingService {
       if (error instanceof NotFoundException) {
         throw error;
       }
-      this.logger.error(`Failed to get setting ${key}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get setting ${key}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -83,18 +86,26 @@ export class SystemSettingService {
         status: 'success',
       });
 
-      this.logger.log(`System setting '${key}' updated by admin ${adminUserId}`);
+      this.logger.log(
+        `System setting '${key}' updated by admin ${adminUserId}`,
+      );
 
       return {
         id: updatedSetting.id,
         setting_key: updatedSetting.setting_key,
-        setting_value: this.parseSettingValue(updatedSetting.setting_value, updatedSetting.data_type),
+        setting_value: this.parseSettingValue(
+          updatedSetting.setting_value,
+          updatedSetting.data_type,
+        ),
         data_type: updatedSetting.data_type,
         description: updatedSetting.description,
         updated_at: updatedSetting.updated_at,
       };
     } catch (error) {
-      this.logger.error(`Failed to set setting ${key}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to set setting ${key}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -133,7 +144,10 @@ export class SystemSettingService {
         const settingData = {
           id: setting.id,
           setting_key: setting.setting_key,
-          setting_value: this.parseSettingValue(setting.setting_value, setting.data_type),
+          setting_value: this.parseSettingValue(
+            setting.setting_value,
+            setting.data_type,
+          ),
           data_type: setting.data_type,
           description: setting.description,
           updated_at: setting.updated_at,
@@ -146,7 +160,10 @@ export class SystemSettingService {
             : null,
         };
 
-        if (setting.setting_key.startsWith('max_file_') || setting.setting_key.startsWith('max_storage_')) {
+        if (
+          setting.setting_key.startsWith('max_file_') ||
+          setting.setting_key.startsWith('max_storage_')
+        ) {
           grouped.file_storage.push(settingData);
         } else if (setting.setting_key.startsWith('session_')) {
           grouped.session.push(settingData);
@@ -168,7 +185,10 @@ export class SystemSettingService {
 
       return grouped;
     } catch (error) {
-      this.logger.error(`Failed to list settings: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to list settings: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -181,7 +201,12 @@ export class SystemSettingService {
     adminUserId: string,
   ) {
     try {
-      const results: Array<{ key: string; success: boolean; result?: any; error?: string }> = [];
+      const results: Array<{
+        key: string;
+        success: boolean;
+        result?: any;
+        error?: string;
+      }> = [];
 
       for (const { key, value } of settings) {
         try {
@@ -193,7 +218,9 @@ export class SystemSettingService {
             success: false,
             error: error.message,
           });
-          this.logger.error(`Failed to update setting ${key}: ${error.message}`);
+          this.logger.error(
+            `Failed to update setting ${key}: ${error.message}`,
+          );
         }
       }
 
@@ -211,7 +238,10 @@ export class SystemSettingService {
         results,
       };
     } catch (error) {
-      this.logger.error(`Failed to update settings: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to update settings: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -250,10 +280,18 @@ export class SystemSettingService {
         return intValue.toString();
 
       case 'boolean':
-        if (typeof value !== 'boolean' && value !== 'true' && value !== 'false' && value !== 1 && value !== 0) {
+        if (
+          typeof value !== 'boolean' &&
+          value !== 'true' &&
+          value !== 'false' &&
+          value !== 1 &&
+          value !== 0
+        ) {
           throw new BadRequestException(`Value must be a boolean`);
         }
-        return value === true || value === 'true' || value === 1 ? 'true' : 'false';
+        return value === true || value === 'true' || value === 1
+          ? 'true'
+          : 'false';
 
       case 'json':
         try {

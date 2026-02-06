@@ -7,10 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
-import {
-  LeadActivitiesService,
-  ActivityType,
-} from './lead-activities.service';
+import { LeadActivitiesService, ActivityType } from './lead-activities.service';
 import { LeadEmailsService } from './lead-emails.service';
 import { LeadPhonesService } from './lead-phones.service';
 import { LeadAddressesService } from './lead-addresses.service';
@@ -169,14 +166,13 @@ export class LeadsService {
         let serviceRequest = null;
         if (createLeadDto.service_request && addresses.length > 0) {
           // Use first address as default
-          serviceRequest =
-            await this.serviceRequestsService.createForNewLead(
-              tenantId,
-              leadId,
-              addresses[0].id,
-              createLeadDto.service_request,
-              tx,
-            );
+          serviceRequest = await this.serviceRequestsService.createForNewLead(
+            tenantId,
+            leadId,
+            addresses[0].id,
+            createLeadDto.service_request,
+            tx,
+          );
         }
 
         return {
@@ -283,7 +279,7 @@ export class LeadsService {
       const searchTerms = searchInput.split(/\s+/).filter(Boolean);
 
       // Each search term must match at least one field (AND logic between terms, OR logic between fields)
-      const searchConditions = searchTerms.map(term => {
+      const searchConditions = searchTerms.map((term) => {
         const phoneDigits = term.replace(/\D/g, '');
 
         return {
@@ -299,13 +295,15 @@ export class LeadsService {
               },
             },
             // Search in phones (digits only)
-            ...(phoneDigits.length > 0 ? [
-              {
-                phones: {
-                  some: { phone: { contains: phoneDigits } },
-                },
-              },
-            ] : []),
+            ...(phoneDigits.length > 0
+              ? [
+                  {
+                    phones: {
+                      some: { phone: { contains: phoneDigits } },
+                    },
+                  },
+                ]
+              : []),
             // Search in addresses (city)
             {
               addresses: {
@@ -324,16 +322,15 @@ export class LeadsService {
 
       // Combine all search term conditions with AND
       if (searchConditions.length > 0) {
-        where.AND = [
-          ...(where.AND || []),
-          ...searchConditions,
-        ];
+        where.AND = [...(where.AND || []), ...searchConditions];
       }
     }
 
     // Log the generated where clause for debugging
     if (listLeadsDto.search) {
-      this.logger.debug(`Search query for "${listLeadsDto.search}": ${JSON.stringify(where, null, 2)}`);
+      this.logger.debug(
+        `Search query for "${listLeadsDto.search}": ${JSON.stringify(where, null, 2)}`,
+      );
     }
 
     // Dynamic sorting
@@ -344,10 +341,7 @@ export class LeadsService {
       switch (listLeadsDto.sort_by) {
         case 'name':
           // Sort by first_name, then last_name
-          orderBy = [
-            { first_name: sortOrder },
-            { last_name: sortOrder },
-          ];
+          orderBy = [{ first_name: sortOrder }, { last_name: sortOrder }];
           break;
         case 'city':
           // Sort by primary address city (Prisma doesn't support nested sorting directly)
@@ -583,8 +577,7 @@ export class LeadsService {
           updateStatusDto.status === 'lost'
             ? updateStatusDto.lost_reason
             : null,
-        lost_at:
-          updateStatusDto.status === 'lost' ? new Date() : null,
+        lost_at: updateStatusDto.status === 'lost' ? new Date() : null,
       },
     });
 
@@ -655,37 +648,33 @@ export class LeadsService {
    * @returns Dashboard stats
    */
   async getStats(tenantId: string): Promise<any> {
-    const [
-      totalLeads,
-      leadsByStatus,
-      leadsBySource,
-      recentLeads,
-    ] = await Promise.all([
-      this.prisma.lead.count({ where: { tenant_id: tenantId } }),
-      this.prisma.lead.groupBy({
-        by: ['status'],
-        where: { tenant_id: tenantId },
-        _count: { id: true },
-      }),
-      this.prisma.lead.groupBy({
-        by: ['source'],
-        where: { tenant_id: tenantId },
-        _count: { id: true },
-      }),
-      this.prisma.lead.findMany({
-        where: { tenant_id: tenantId },
-        orderBy: { created_at: 'desc' },
-        take: 5,
-        select: {
-          id: true,
-          first_name: true,
-          last_name: true,
-          status: true,
-          source: true,
-          created_at: true,
-        },
-      }),
-    ]);
+    const [totalLeads, leadsByStatus, leadsBySource, recentLeads] =
+      await Promise.all([
+        this.prisma.lead.count({ where: { tenant_id: tenantId } }),
+        this.prisma.lead.groupBy({
+          by: ['status'],
+          where: { tenant_id: tenantId },
+          _count: { id: true },
+        }),
+        this.prisma.lead.groupBy({
+          by: ['source'],
+          where: { tenant_id: tenantId },
+          _count: { id: true },
+        }),
+        this.prisma.lead.findMany({
+          where: { tenant_id: tenantId },
+          orderBy: { created_at: 'desc' },
+          take: 5,
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            status: true,
+            source: true,
+            created_at: true,
+          },
+        }),
+      ]);
 
     return {
       total: totalLeads,

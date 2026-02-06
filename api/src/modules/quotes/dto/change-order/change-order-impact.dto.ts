@@ -6,16 +6,22 @@ import { ApiProperty } from '@nestjs/swagger';
  * Total impact of change orders on parent quote
  */
 export class ChangeOrderImpactDto {
-  @ApiProperty({ description: 'Parent quote ID', example: '123e4567-e89b-12d3-a456-426614174000' })
+  @ApiProperty({
+    description: 'Parent quote ID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
   parent_quote_id: string;
 
-  @ApiProperty({ description: 'Original quote total', example: 50000.00 })
+  @ApiProperty({ description: 'Original quote total', example: 50000.0 })
   original_total: number;
 
-  @ApiProperty({ description: 'Sum of approved change orders', example: 7500.00 })
+  @ApiProperty({
+    description: 'Sum of approved change orders',
+    example: 7500.0,
+  })
   change_orders_total: number;
 
-  @ApiProperty({ description: 'Revised project total', example: 57500.00 })
+  @ApiProperty({ description: 'Revised project total', example: 57500.0 })
   revised_total: number;
 
   @ApiProperty({ description: 'Number of change orders', example: 3 })
@@ -34,22 +40,39 @@ export class ChangeOrderImpactDto {
  * Single event in change order history
  */
 export class ChangeOrderHistoryEventDto {
-  @ApiProperty({ description: 'Event ID', example: '123e4567-e89b-12d3-a456-426614174000' })
+  @ApiProperty({
+    description: 'Event ID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
   id: string;
 
-  @ApiProperty({ description: 'Event type', example: 'change_order_created', enum: ['change_order_created', 'change_order_approved', 'change_order_rejected'] })
+  @ApiProperty({
+    description: 'Event type',
+    example: 'change_order_created',
+    enum: [
+      'change_order_created',
+      'change_order_approved',
+      'change_order_rejected',
+    ],
+  })
   event_type: string;
 
   @ApiProperty({ description: 'Change order number', example: 'CO-2024-001' })
   change_order_number: string;
 
-  @ApiProperty({ description: 'Description', example: 'Change order created for additional work' })
+  @ApiProperty({
+    description: 'Description',
+    example: 'Change order created for additional work',
+  })
   description: string;
 
-  @ApiProperty({ description: 'Amount', example: 5000.00 })
+  @ApiProperty({ description: 'Amount', example: 5000.0 })
   amount: number;
 
-  @ApiProperty({ description: 'Timestamp', example: '2024-01-20T10:30:00.000Z' })
+  @ApiProperty({
+    description: 'Timestamp',
+    example: '2024-01-20T10:30:00.000Z',
+  })
   timestamp: string;
 }
 
@@ -59,9 +82,15 @@ export class ChangeOrderHistoryEventDto {
  * Timeline of change order events
  */
 export class ChangeOrderHistoryResponseDto {
-  @ApiProperty({ description: 'History timeline', type: [ChangeOrderHistoryEventDto] })
+  @ApiProperty({
+    description: 'History timeline',
+    type: [ChangeOrderHistoryEventDto],
+  })
   timeline: ChangeOrderHistoryEventDto[];
 
-  @ApiProperty({ description: 'Parent quote ID', example: '123e4567-e89b-12d3-a456-426614174000' })
+  @ApiProperty({
+    description: 'Parent quote ID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
   parent_quote_id: string;
 }

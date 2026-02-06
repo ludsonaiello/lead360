@@ -30,7 +30,22 @@ export class GetDashboardOverviewDto {
     description: 'Filter by quote status',
     example: 'sent',
     required: false,
-    enum: ['draft', 'pending_approval', 'ready', 'sent', 'delivered', 'read', 'opened', 'downloaded', 'approved', 'started', 'concluded', 'denied', 'lost', 'email_failed'],
+    enum: [
+      'draft',
+      'pending_approval',
+      'ready',
+      'sent',
+      'delivered',
+      'read',
+      'opened',
+      'downloaded',
+      'approved',
+      'started',
+      'concluded',
+      'denied',
+      'lost',
+      'email_failed',
+    ],
   })
   @IsString()
   @IsOptional()
@@ -64,7 +79,7 @@ export class StatusMetricsDto {
   @ApiProperty({ description: 'Number of quotes', example: 45 })
   count: number;
 
-  @ApiProperty({ description: 'Total revenue', example: 125000.50 })
+  @ApiProperty({ description: 'Total revenue', example: 125000.5 })
   total_revenue: number;
 
   @ApiProperty({ description: 'Average quote value', example: 2777.79 })
@@ -86,7 +101,11 @@ export class PeriodComparisonDto {
   @ApiProperty({ description: 'Change percentage', example: 19.05 })
   change_percent: number;
 
-  @ApiProperty({ description: 'Trend direction', example: 'up', enum: ['up', 'down', 'stable'] })
+  @ApiProperty({
+    description: 'Trend direction',
+    example: 'up',
+    enum: ['up', 'down', 'stable'],
+  })
   trend: 'up' | 'down' | 'stable';
 }
 
@@ -99,28 +118,52 @@ export class DashboardOverviewResponseDto {
   @ApiProperty({ description: 'Total number of quotes', example: 150 })
   total_quotes: number;
 
-  @ApiProperty({ description: 'Total amount generated (sent/read quotes, excluding drafts)', example: 450000.00 })
+  @ApiProperty({
+    description: 'Total amount generated (sent/read quotes, excluding drafts)',
+    example: 450000.0,
+  })
   total_generated: number;
 
-  @ApiProperty({ description: 'Total revenue (approved quotes only)', example: 189000.00 })
+  @ApiProperty({
+    description: 'Total revenue (approved quotes only)',
+    example: 189000.0,
+  })
   total_revenue: number;
 
-  @ApiProperty({ description: 'Average quote value (excluding drafts)', example: 3000.00 })
+  @ApiProperty({
+    description: 'Average quote value (excluding drafts)',
+    example: 3000.0,
+  })
   avg_quote_value: number;
 
-  @ApiProperty({ description: 'Total amount sent (status >= sent, excluding drafts)', example: 380000.00 })
+  @ApiProperty({
+    description: 'Total amount sent (status >= sent, excluding drafts)',
+    example: 380000.0,
+  })
   amount_sent: number;
 
-  @ApiProperty({ description: 'Total amount lost (status = lost)', example: 45000.00 })
+  @ApiProperty({
+    description: 'Total amount lost (status = lost)',
+    example: 45000.0,
+  })
   amount_lost: number;
 
-  @ApiProperty({ description: 'Total amount denied (status = denied)', example: 32000.00 })
+  @ApiProperty({
+    description: 'Total amount denied (status = denied)',
+    example: 32000.0,
+  })
   amount_denied: number;
 
-  @ApiProperty({ description: 'Total amount pending approval (status = pending_approval)', example: 28000.00 })
+  @ApiProperty({
+    description: 'Total amount pending approval (status = pending_approval)',
+    example: 28000.0,
+  })
   amount_pending_approval: number;
 
-  @ApiProperty({ description: 'Conversion rate (approved / sent)', example: 42.5 })
+  @ApiProperty({
+    description: 'Conversion rate (approved / sent)',
+    example: 42.5,
+  })
   conversion_rate: number;
 
   @ApiProperty({ description: 'Metrics by status', type: [StatusMetricsDto] })
@@ -133,9 +176,15 @@ export class DashboardOverviewResponseDto {
   })
   velocity_comparison?: PeriodComparisonDto;
 
-  @ApiProperty({ description: 'Date range start', example: '2024-01-01T00:00:00.000Z' })
+  @ApiProperty({
+    description: 'Date range start',
+    example: '2024-01-01T00:00:00.000Z',
+  })
   date_from: string;
 
-  @ApiProperty({ description: 'Date range end', example: '2024-01-31T23:59:59.999Z' })
+  @ApiProperty({
+    description: 'Date range end',
+    example: '2024-01-31T23:59:59.999Z',
+  })
   date_to: string;
 }

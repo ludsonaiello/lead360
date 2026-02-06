@@ -56,7 +56,9 @@ export class PrismaService
   private setupTenantIsolationMiddleware() {
     // Skip middleware setup if $use is not available (e.g., in test environment)
     if (typeof (this as any).$use !== 'function') {
-      console.warn('Prisma middleware ($use) not available - skipping tenant isolation middleware');
+      console.warn(
+        'Prisma middleware ($use) not available - skipping tenant isolation middleware',
+      );
       return;
     }
 
@@ -85,6 +87,14 @@ export class PrismaService
       'QuoteWarrantyTier',
       'UnitMeasurement',
       'QuoteTemplate',
+      // Twilio Communication Module Models
+      'TenantSmsConfig',
+      'TenantWhatsAppConfig',
+      'CallRecord', // Nullable tenant_id for system-level calls
+      'IvrConfiguration',
+      'OfficeNumberWhitelist',
+      'CallTranscription', // Nullable tenant_id for system-level
+      'TranscriptionProviderConfiguration', // Nullable tenant_id for system-level providers
     ];
 
     // Models exempt from tenant_id check (admin/system tables)
@@ -105,8 +115,8 @@ export class PrismaService
 
       // Skip tenant isolation for specific operations (e.g., tenant creation during registration)
       const skipTenantCheck =
-        (params as any).skipTenantCheck === true ||
-        (params.args?.skipTenantCheck === true);
+        params.skipTenantCheck === true ||
+        params.args?.skipTenantCheck === true;
 
       if (skipTenantCheck) {
         // Remove the flag before passing to Prisma
@@ -119,19 +129,31 @@ export class PrismaService
       // Enforce tenant_id for tenant-scoped models
       if (TENANT_SCOPED_MODELS.includes(model)) {
         // For mutations (create, update, delete), check tenant_id is present
-        if (['create', 'createMany', 'update', 'updateMany', 'delete', 'deleteMany', 'upsert'].includes(action)) {
+        if (
+          [
+            'create',
+            'createMany',
+            'update',
+            'updateMany',
+            'delete',
+            'deleteMany',
+            'upsert',
+          ].includes(action)
+        ) {
           // For create/createMany, check data.tenant_id
           if (action === 'create' && params.args.data) {
             if (!params.args.data.tenant_id) {
               throw new Error(
                 `SECURITY VIOLATION: Attempted to create ${model} without tenant_id. ` +
-                `This is a critical security issue. All tenant-scoped operations MUST include tenant_id.`,
+                  `This is a critical security issue. All tenant-scoped operations MUST include tenant_id.`,
               );
             }
           }
 
           if (action === 'createMany' && params.args.data) {
-            const records = Array.isArray(params.args.data) ? params.args.data : [params.args.data];
+            const records = Array.isArray(params.args.data)
+              ? params.args.data
+              : [params.args.data];
             for (const record of records) {
               if (!record.tenant_id) {
                 throw new Error(
@@ -142,11 +164,13 @@ export class PrismaService
           }
 
           // For update/delete, check where.tenant_id
-          if (['update', 'updateMany', 'delete', 'deleteMany'].includes(action)) {
+          if (
+            ['update', 'updateMany', 'delete', 'deleteMany'].includes(action)
+          ) {
             if (!params.args.where) {
               throw new Error(
                 `SECURITY VIOLATION: Attempted ${action} on ${model} without where clause. ` +
-                `This could affect multiple tenants.`,
+                  `This could affect multiple tenants.`,
               );
             }
 
@@ -155,7 +179,7 @@ export class PrismaService
               if (!params.args.where.tenant_id) {
                 throw new Error(
                   `SECURITY VIOLATION: Attempted ${action} on ${model} without tenant_id filter. ` +
-                  `This operation MUST be scoped to a specific tenant.`,
+                    `This operation MUST be scoped to a specific tenant.`,
                 );
               }
             }
@@ -163,7 +187,15 @@ export class PrismaService
         }
 
         // For queries (findMany, findFirst, findUnique, count, aggregate), inject tenant_id if missing
-        if (['findMany', 'findFirst', 'findUnique', 'count', 'aggregate'].includes(action)) {
+        if (
+          [
+            'findMany',
+            'findFirst',
+            'findUnique',
+            'count',
+            'aggregate',
+          ].includes(action)
+        ) {
           // Skip tenant_id injection for findUnique if querying by ID only (ID includes tenant check in service layer)
           // This allows service methods like findOne(tenantId, resourceId) to work
           if (action === 'findUnique' && params.args.where?.id) {
@@ -176,7 +208,7 @@ export class PrismaService
             if (process.env.NODE_ENV === 'development') {
               console.warn(
                 `WARNING: Query on ${model} without tenant_id filter. ` +
-                `This may expose cross-tenant data. Action: ${action}`,
+                  `This may expose cross-tenant data. Action: ${action}`,
               );
             }
             // In production, this should be an error, but we'll allow it for now

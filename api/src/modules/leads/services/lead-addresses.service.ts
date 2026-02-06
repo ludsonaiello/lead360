@@ -13,10 +13,7 @@ import {
   ValidatedAddress,
 } from './google-maps.service';
 import { Decimal } from '@prisma/client/runtime/library';
-import {
-  CreateAddressDto,
-  UpdateAddressDto,
-} from '../dto/lead.dto';
+import { CreateAddressDto, UpdateAddressDto } from '../dto/lead.dto';
 
 @Injectable()
 export class LeadAddressesService {
@@ -297,7 +294,8 @@ export class LeadAddressesService {
     const updatedAddress = await this.prisma.lead_address.update({
       where: { id: addressId },
       data: {
-        address_line1: validatedAddress?.address_line1 || updateData.address_line1,
+        address_line1:
+          validatedAddress?.address_line1 || updateData.address_line1,
         address_line2:
           validatedAddress?.address_line2 !== undefined
             ? validatedAddress.address_line2
@@ -441,10 +439,7 @@ export class LeadAddressesService {
    * @param leadId - Lead ID
    * @param addressType - Address type
    */
-  async ensurePrimaryFlag(
-    leadId: string,
-    addressType: string,
-  ): Promise<void> {
+  async ensurePrimaryFlag(leadId: string, addressType: string): Promise<void> {
     const addresses = await this.prisma.lead_address.findMany({
       where: {
         lead_id: leadId,

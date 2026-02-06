@@ -12,7 +12,13 @@ import {
   HttpStatus,
   NotFoundException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+} from '@nestjs/swagger';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -35,11 +41,14 @@ export class ScheduledJobsController {
     private readonly scheduledJobService: ScheduledJobService,
     private readonly jobQueue: JobQueueService,
     private readonly prisma: PrismaService,
-    @InjectQueue('scheduled-reports') private readonly scheduledReportsQueue: Queue,
+    @InjectQueue('scheduled-reports')
+    private readonly scheduledReportsQueue: Queue,
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'List all scheduled jobs (system jobs + scheduled reports)' })
+  @ApiOperation({
+    summary: 'List all scheduled jobs (system jobs + scheduled reports)',
+  })
   @ApiResponse({ status: 200, description: 'Scheduled jobs retrieved' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin only' })
@@ -116,11 +125,15 @@ export class ScheduledJobsController {
     // Sort by next_run_at (nulls last) or created_at
     allJobs.sort((a, b) => {
       if (a.next_run_at && b.next_run_at) {
-        return new Date(a.next_run_at).getTime() - new Date(b.next_run_at).getTime();
+        return (
+          new Date(a.next_run_at).getTime() - new Date(b.next_run_at).getTime()
+        );
       }
       if (a.next_run_at) return -1;
       if (b.next_run_at) return 1;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return (
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
     });
 
     // Apply pagination
@@ -172,7 +185,11 @@ export class ScheduledJobsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get scheduled job or report details' })
-  @ApiParam({ name: 'id', description: 'Scheduled Job or Report ID', type: String })
+  @ApiParam({
+    name: 'id',
+    description: 'Scheduled Job or Report ID',
+    type: String,
+  })
   @ApiResponse({ status: 200, description: 'Scheduled job/report retrieved' })
   @ApiResponse({ status: 404, description: 'Scheduled job/report not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
@@ -254,23 +271,37 @@ export class ScheduledJobsController {
 
   @Post(':id/trigger')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Manually trigger a scheduled job or report to run immediately' })
-  @ApiParam({ name: 'id', description: 'Scheduled Job ID or Scheduled Report ID', type: String })
+  @ApiOperation({
+    summary: 'Manually trigger a scheduled job or report to run immediately',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Scheduled Job ID or Scheduled Report ID',
+    type: String,
+  })
   @ApiResponse({ status: 200, description: 'Job triggered successfully' })
-  @ApiResponse({ status: 404, description: 'Scheduled job or report not found' })
+  @ApiResponse({
+    status: 404,
+    description: 'Scheduled job or report not found',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin only' })
   async triggerScheduledJob(@Param('id') id: string) {
     // First, try to find in scheduled_job table (system jobs)
-    const systemJob = await this.prisma.scheduled_job.findUnique({ where: { id } });
+    const systemJob = await this.prisma.scheduled_job.findUnique({
+      where: { id },
+    });
 
     if (systemJob) {
       // Handle system job trigger
-      const { jobId } = await this.jobQueue.queueScheduledJob(systemJob.job_type, {
-        scheduleId: systemJob.id,
-        scheduleName: systemJob.name,
-        manualTrigger: true,
-      });
+      const { jobId } = await this.jobQueue.queueScheduledJob(
+        systemJob.job_type,
+        {
+          scheduleId: systemJob.id,
+          scheduleName: systemJob.name,
+          manualTrigger: true,
+        },
+      );
 
       return {
         message: 'System job triggered successfully',
@@ -324,8 +355,14 @@ export class ScheduledJobsController {
   }
 
   @Get(':id/history')
-  @ApiOperation({ summary: 'Get last 100 execution runs for a scheduled job or report' })
-  @ApiParam({ name: 'id', description: 'Scheduled Job or Report ID', type: String })
+  @ApiOperation({
+    summary: 'Get last 100 execution runs for a scheduled job or report',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Scheduled Job or Report ID',
+    type: String,
+  })
   @ApiResponse({ status: 200, description: 'Execution history retrieved' })
   @ApiResponse({ status: 404, description: 'Scheduled job/report not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })

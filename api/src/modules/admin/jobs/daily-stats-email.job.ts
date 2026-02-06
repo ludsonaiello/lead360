@@ -23,9 +23,14 @@ export class DailyStatsEmailJob {
 
     try {
       const result = await this.alertService.sendDailyStatsEmail();
-      this.logger.log(`Daily stats email sent to ${result?.sent_to || 0} Platform Admins`);
+      this.logger.log(
+        `Daily stats email sent to ${result?.sent_to || 0} Platform Admins`,
+      );
     } catch (error) {
-      this.logger.error(`Daily stats email job failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `Daily stats email job failed: ${error.message}`,
+        error.stack,
+      );
     }
   }
 }

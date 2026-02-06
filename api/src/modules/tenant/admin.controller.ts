@@ -64,10 +64,28 @@ export class AdminController {
 
   @Get('tenants')
   @ApiOperation({ summary: 'List all tenants (admin-only)' })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number', example: 1 })
-  @ApiQuery({ name: 'limit', required: false, description: 'Items per page', example: 20 })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by company name or subdomain' })
-  @ApiQuery({ name: 'status', required: false, description: 'Filter by subscription status' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    description: 'Page number',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Items per page',
+    example: 20,
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Search by company name or subdomain',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: 'Filter by subscription status',
+  })
   @ApiResponse({ status: 200, description: 'Tenants retrieved successfully' })
   async getAllTenants(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
@@ -133,7 +151,10 @@ export class AdminController {
   @Patch('tenants/:id/subscription')
   @ApiOperation({ summary: 'Update tenant subscription plan (admin-only)' })
   @ApiParam({ name: 'id', description: 'Tenant ID' })
-  @ApiResponse({ status: 200, description: 'Subscription updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Subscription updated successfully',
+  })
   async updateTenantSubscription(
     @Request() req,
     @Param('id', ParseUUIDPipe) tenantId: string,
@@ -149,7 +170,10 @@ export class AdminController {
   @Patch('tenants/:id/status')
   @ApiOperation({ summary: 'Suspend or activate tenant (admin-only)' })
   @ApiParam({ name: 'id', description: 'Tenant ID' })
-  @ApiResponse({ status: 200, description: 'Tenant status updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Tenant status updated successfully',
+  })
   async updateTenantStatus(
     @Request() req,
     @Param('id', ParseUUIDPipe) tenantId: string,
@@ -157,7 +181,11 @@ export class AdminController {
     @Body('reason') reason?: string,
   ) {
     if (action === 'suspend') {
-      return this.tenantService.suspend(tenantId, reason || 'Suspended by admin', req.user.id);
+      return this.tenantService.suspend(
+        tenantId,
+        reason || 'Suspended by admin',
+        req.user.id,
+      );
     } else if (action === 'activate') {
       return this.tenantService.reactivate(tenantId, req.user.id);
     } else {
@@ -177,38 +205,62 @@ export class AdminController {
 
   @Get('license-types')
   @ApiOperation({ summary: 'List all license types (admin-only)' })
-  @ApiQuery({ name: 'include_inactive', required: false, description: 'Include inactive types' })
-  @ApiResponse({ status: 200, description: 'License types retrieved successfully' })
+  @ApiQuery({
+    name: 'include_inactive',
+    required: false,
+    description: 'Include inactive types',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'License types retrieved successfully',
+  })
   async getAllLicenseTypes(
-    @Query('include_inactive', new DefaultValuePipe(false), ParseBoolPipe) includeInactive: boolean,
+    @Query('include_inactive', new DefaultValuePipe(false), ParseBoolPipe)
+    includeInactive: boolean,
   ) {
     return this.licenseTypeService.findAll(includeInactive);
   }
 
   @Post('license-types')
   @ApiOperation({ summary: 'Create license type (admin-only)' })
-  @ApiResponse({ status: 201, description: 'License type created successfully' })
-  async createLicenseType(@Request() req, @Body() createDto: CreateLicenseTypeDto) {
+  @ApiResponse({
+    status: 201,
+    description: 'License type created successfully',
+  })
+  async createLicenseType(
+    @Request() req,
+    @Body() createDto: CreateLicenseTypeDto,
+  ) {
     return this.licenseTypeService.create(createDto, req.user.id);
   }
 
   @Patch('license-types/:id')
   @ApiOperation({ summary: 'Update license type (admin-only)' })
   @ApiParam({ name: 'id', description: 'License type ID' })
-  @ApiResponse({ status: 200, description: 'License type updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'License type updated successfully',
+  })
   async updateLicenseType(
     @Request() req,
     @Param('id', ParseUUIDPipe) licenseTypeId: string,
     @Body() updateDto: UpdateLicenseTypeDto,
   ) {
-    return this.licenseTypeService.update(licenseTypeId, updateDto, req.user.id);
+    return this.licenseTypeService.update(
+      licenseTypeId,
+      updateDto,
+      req.user.id,
+    );
   }
 
   @Patch('license-types/:id/deactivate')
   @ApiOperation({ summary: 'Deactivate license type (admin-only)' })
   @ApiParam({ name: 'id', description: 'License type ID' })
   @ApiResponse({ status: 200, description: 'License type deactivated' })
-  async deactivateLicenseType(@Request() req, @Param('id', ParseUUIDPipe) licenseTypeId: string) {
+  async deactivateLicenseType(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) licenseTypeId: string,
+  ) {
     return this.licenseTypeService.deactivate(licenseTypeId, req.user.id);
   }
 
@@ -216,7 +268,10 @@ export class AdminController {
   @ApiOperation({ summary: 'Reactivate license type (admin-only)' })
   @ApiParam({ name: 'id', description: 'License type ID' })
   @ApiResponse({ status: 200, description: 'License type reactivated' })
-  async reactivateLicenseType(@Request() req, @Param('id', ParseUUIDPipe) licenseTypeId: string) {
+  async reactivateLicenseType(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) licenseTypeId: string,
+  ) {
     return this.licenseTypeService.reactivate(licenseTypeId, req.user.id);
   }
 
@@ -232,25 +287,42 @@ export class AdminController {
 
   @Get('subscription-plans')
   @ApiOperation({ summary: 'List all subscription plans (admin-only)' })
-  @ApiQuery({ name: 'include_inactive', required: false, description: 'Include inactive plans' })
-  @ApiResponse({ status: 200, description: 'Subscription plans retrieved successfully' })
+  @ApiQuery({
+    name: 'include_inactive',
+    required: false,
+    description: 'Include inactive plans',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Subscription plans retrieved successfully',
+  })
   async getAllSubscriptionPlans(
-    @Query('include_inactive', new DefaultValuePipe(false), ParseBoolPipe) includeInactive: boolean,
+    @Query('include_inactive', new DefaultValuePipe(false), ParseBoolPipe)
+    includeInactive: boolean,
   ) {
     return this.subscriptionService.findAllPlans(includeInactive);
   }
 
   @Post('subscription-plans')
   @ApiOperation({ summary: 'Create subscription plan (admin-only)' })
-  @ApiResponse({ status: 201, description: 'Subscription plan created successfully' })
-  async createSubscriptionPlan(@Request() req, @Body() createDto: CreateSubscriptionPlanDto) {
+  @ApiResponse({
+    status: 201,
+    description: 'Subscription plan created successfully',
+  })
+  async createSubscriptionPlan(
+    @Request() req,
+    @Body() createDto: CreateSubscriptionPlanDto,
+  ) {
     return this.subscriptionService.createPlan(createDto, req.user.id);
   }
 
   @Patch('subscription-plans/:id')
   @ApiOperation({ summary: 'Update subscription plan (admin-only)' })
   @ApiParam({ name: 'id', description: 'Subscription plan ID' })
-  @ApiResponse({ status: 200, description: 'Subscription plan updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Subscription plan updated successfully',
+  })
   async updateSubscriptionPlan(
     @Request() req,
     @Param('id', ParseUUIDPipe) planId: string,
@@ -260,7 +332,9 @@ export class AdminController {
   }
 
   @Get('subscription-plans/:id/tenants')
-  @ApiOperation({ summary: 'Get tenants using a subscription plan (admin-only)' })
+  @ApiOperation({
+    summary: 'Get tenants using a subscription plan (admin-only)',
+  })
   @ApiParam({ name: 'id', description: 'Subscription plan ID (UUID)' })
   @ApiResponse({ status: 200, description: 'Tenants retrieved successfully' })
   async getTenantsUsingPlan(@Param('id', ParseUUIDPipe) planId: string) {
@@ -270,11 +344,18 @@ export class AdminController {
   @Delete('subscription-plans/:id')
   @ApiOperation({
     summary: 'Delete subscription plan (admin-only)',
-    description: 'Delete a subscription plan. Cannot delete if tenants are currently using it.',
+    description:
+      'Delete a subscription plan. Cannot delete if tenants are currently using it.',
   })
   @ApiParam({ name: 'id', description: 'Subscription plan ID (UUID)' })
-  @ApiResponse({ status: 200, description: 'Subscription plan deleted successfully' })
-  @ApiResponse({ status: 400, description: 'Cannot delete plan - tenants are using it' })
+  @ApiResponse({
+    status: 200,
+    description: 'Subscription plan deleted successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot delete plan - tenants are using it',
+  })
   @ApiResponse({ status: 404, description: 'Subscription plan not found' })
   async deleteSubscriptionPlan(
     @Request() req,
@@ -287,7 +368,10 @@ export class AdminController {
 
   @Get('dashboard/stats')
   @ApiOperation({ summary: 'Get platform-wide statistics (admin-only)' })
-  @ApiResponse({ status: 200, description: 'Statistics retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistics retrieved successfully',
+  })
   async getPlatformStats() {
     const [
       totalTenants,
@@ -297,9 +381,15 @@ export class AdminController {
       totalUsers,
     ] = await Promise.all([
       this.tenantService['prisma'].tenant.count(),
-      this.tenantService['prisma'].tenant.count({ where: { subscription_status: 'active' } }),
-      this.tenantService['prisma'].tenant.count({ where: { subscription_status: 'trial' } }),
-      this.tenantService['prisma'].tenant.count({ where: { is_active: false } }),
+      this.tenantService['prisma'].tenant.count({
+        where: { subscription_status: 'active' },
+      }),
+      this.tenantService['prisma'].tenant.count({
+        where: { subscription_status: 'trial' },
+      }),
+      this.tenantService['prisma'].tenant.count({
+        where: { is_active: false },
+      }),
       this.tenantService['prisma'].user.count(),
     ]);
 
@@ -320,10 +410,16 @@ export class AdminController {
 
   @Get('services')
   @ApiOperation({ summary: 'List all services (admin-only)' })
-  @ApiQuery({ name: 'include_inactive', required: false, description: 'Include inactive services', example: false })
+  @ApiQuery({
+    name: 'include_inactive',
+    required: false,
+    description: 'Include inactive services',
+    example: false,
+  })
   @ApiResponse({ status: 200, description: 'Services retrieved successfully' })
   async getAllServices(
-    @Query('include_inactive', new DefaultValuePipe(false), ParseBoolPipe) includeInactive: boolean,
+    @Query('include_inactive', new DefaultValuePipe(false), ParseBoolPipe)
+    includeInactive: boolean,
   ) {
     return this.serviceService.findAll(includeInactive);
   }
@@ -362,7 +458,10 @@ export class AdminController {
   @ApiOperation({ summary: 'Delete a service (admin-only)' })
   @ApiParam({ name: 'id', description: 'Service UUID' })
   @ApiResponse({ status: 200, description: 'Service deleted successfully' })
-  @ApiResponse({ status: 400, description: 'Cannot delete service assigned to tenants' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot delete service assigned to tenants',
+  })
   @ApiResponse({ status: 404, description: 'Service not found' })
   async deleteService(@Param('id', ParseUUIDPipe) id: string) {
     return this.serviceService.delete(id);

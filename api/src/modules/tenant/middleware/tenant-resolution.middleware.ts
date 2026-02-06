@@ -3,7 +3,10 @@ import { Request, Response, NextFunction } from 'express';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { TenantService } from '../services/tenant.service';
-import { AuthenticatedUser, JwtPayload } from '../../auth/entities/jwt-payload.entity';
+import {
+  AuthenticatedUser,
+  JwtPayload,
+} from '../../auth/entities/jwt-payload.entity';
 
 // Extend Express Request to include tenant_id and tenant
 // Note: 'user' is defined by Passport.js and set by JwtStrategy
@@ -61,7 +64,9 @@ export class TenantResolutionMiddleware implements NestMiddleware {
       // If no subdomain or special subdomain, try to get tenant_id from JWT or header
       if (!subdomain || this.SPECIAL_SUBDOMAINS.includes(subdomain)) {
         // PRIORITY 1: Check X-Impersonate-Tenant-Id header (for Platform Admins viewing tenant data)
-        const impersonateTenantId = req.headers['x-impersonate-tenant-id'] as string;
+        const impersonateTenantId = req.headers[
+          'x-impersonate-tenant-id'
+        ] as string;
 
         if (impersonateTenantId) {
           // Verify user is Platform Admin by extracting JWT payload
@@ -69,9 +74,12 @@ export class TenantResolutionMiddleware implements NestMiddleware {
           if (jwtPayload && jwtPayload.is_platform_admin) {
             req.tenant_id = impersonateTenantId;
             // Load full tenant object
-            const tenant = await this.tenantService.findById(impersonateTenantId);
+            const tenant =
+              await this.tenantService.findById(impersonateTenantId);
             req.tenant = tenant;
-            console.log(`[TenantResolution] Admin ${jwtPayload.email} viewing tenant ${impersonateTenantId}`);
+            console.log(
+              `[TenantResolution] Admin ${jwtPayload.email} viewing tenant ${impersonateTenantId}`,
+            );
             return next();
           }
         }

@@ -64,8 +64,8 @@ export class QuoteVersionComparisonService {
     }
 
     // Parse snapshots
-    const fromSnapshot = JSON.parse(fromVersion.snapshot_data as string);
-    const toSnapshot = JSON.parse(toVersion.snapshot_data as string);
+    const fromSnapshot = JSON.parse(fromVersion.snapshot_data);
+    const toSnapshot = JSON.parse(toVersion.snapshot_data);
 
     // Deep compare
     const differences = {
@@ -396,7 +396,7 @@ export class QuoteVersionComparisonService {
       throw new NotFoundException('Version not found');
     }
 
-    const snapshot = JSON.parse(version.snapshot_data as string);
+    const snapshot = JSON.parse(version.snapshot_data);
 
     // Transaction
     return await this.prisma.$transaction(async (tx) => {
@@ -526,8 +526,7 @@ export class QuoteVersionComparisonService {
           custom_overhead_percent: snapshot.quote.custom_overhead_percent
             ? new Decimal(snapshot.quote.custom_overhead_percent)
             : null,
-          custom_contingency_percent: snapshot.quote
-            .custom_contingency_percent
+          custom_contingency_percent: snapshot.quote.custom_contingency_percent
             ? new Decimal(snapshot.quote.custom_contingency_percent)
             : null,
           subtotal: new Decimal(snapshot.quote.subtotal),
@@ -539,8 +538,7 @@ export class QuoteVersionComparisonService {
       });
 
       // 8. Create version record for restore
-      const reasonText =
-        reason || `Restored to version ${versionNumber}`;
+      const reasonText = reason || `Restored to version ${versionNumber}`;
       await this.versionService.createVersion(
         quoteId,
         1.0,
@@ -549,9 +547,7 @@ export class QuoteVersionComparisonService {
         tx,
       );
 
-      this.logger.log(
-        `Restored quote ${quoteId} to version ${versionNumber}`,
-      );
+      this.logger.log(`Restored quote ${quoteId} to version ${versionNumber}`);
 
       return {
         success: true,

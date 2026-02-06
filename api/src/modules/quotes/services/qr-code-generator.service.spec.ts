@@ -63,7 +63,8 @@ describe('QrCodeGeneratorService', () => {
     });
 
     it('should handle long URLs', async () => {
-      const longUrl = 'https://example.com/quote/123456789012345678901234567890?param1=value1&param2=value2&param3=value3';
+      const longUrl =
+        'https://example.com/quote/123456789012345678901234567890?param1=value1&param2=value2&param3=value3';
 
       const buffer = await service.generate(longUrl);
 
@@ -72,7 +73,8 @@ describe('QrCodeGeneratorService', () => {
     });
 
     it('should handle special characters in URL', async () => {
-      const url = 'https://example.com/quote/123?name=John%20Doe&email=test@example.com';
+      const url =
+        'https://example.com/quote/123?name=John%20Doe&email=test@example.com';
 
       const buffer = await service.generate(url);
 
@@ -100,7 +102,11 @@ describe('QrCodeGeneratorService', () => {
     it('should log warning about incomplete implementation', async () => {
       const loggerSpy = jest.spyOn(service['logger'], 'warn');
 
-      await service.generateAndSave('tenant-123', 'https://example.com', 'user-123');
+      await service.generateAndSave(
+        'tenant-123',
+        'https://example.com',
+        'user-123',
+      );
 
       expect(loggerSpy).toHaveBeenCalledWith(
         expect.stringContaining('generateAndSave not fully implemented'),

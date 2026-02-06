@@ -133,7 +133,10 @@ export class TenantStatsResponseDto {
   @ApiProperty({ type: DateRangeDto, description: 'Query period' })
   period: DateRangeDto;
 
-  @ApiProperty({ type: TenantStatisticsDto, description: 'Detailed statistics' })
+  @ApiProperty({
+    type: TenantStatisticsDto,
+    description: 'Detailed statistics',
+  })
   statistics: TenantStatisticsDto;
 
   @ApiProperty({ type: TenantTrendsDto, description: 'Trend comparisons' })

@@ -185,7 +185,10 @@ export class WebhookController {
     };
 
     // Validate: At least 1 email OR 1 phone
-    if (createLeadDto.emails.length === 0 && createLeadDto.phones.length === 0) {
+    if (
+      createLeadDto.emails.length === 0 &&
+      createLeadDto.phones.length === 0
+    ) {
       throw new ConflictException(
         'Lead must have at least one email or phone number',
       );

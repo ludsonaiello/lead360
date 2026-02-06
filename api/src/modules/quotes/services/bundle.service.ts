@@ -34,19 +34,32 @@ export class BundleService {
   /**
    * Validate discount logic
    */
-  private validateDiscount(discountType?: DiscountType, discountValue?: number) {
+  private validateDiscount(
+    discountType?: DiscountType,
+    discountValue?: number,
+  ) {
     if (discountType && !discountValue) {
-      throw new BadRequestException('Discount value is required when discount type is set');
+      throw new BadRequestException(
+        'Discount value is required when discount type is set',
+      );
     }
     if (!discountType && discountValue) {
-      throw new BadRequestException('Discount type is required when discount value is set');
+      throw new BadRequestException(
+        'Discount type is required when discount value is set',
+      );
     }
     if (discountType === DiscountType.PERCENTAGE && discountValue) {
       if (discountValue < 0 || discountValue > 100) {
-        throw new BadRequestException('Percentage discount must be between 0 and 100');
+        throw new BadRequestException(
+          'Percentage discount must be between 0 and 100',
+        );
       }
     }
-    if (discountType === DiscountType.FIXED_AMOUNT && discountValue && discountValue < 0) {
+    if (
+      discountType === DiscountType.FIXED_AMOUNT &&
+      discountValue &&
+      discountValue < 0
+    ) {
       throw new BadRequestException('Fixed amount discount cannot be negative');
     }
   }
@@ -68,7 +81,8 @@ export class BundleService {
       const subcontractCost = Number(item.subcontract_cost_per_unit);
       const otherCost = Number(item.other_cost_per_unit);
 
-      const totalCostPerUnit = materialCost + laborCost + equipmentCost + subcontractCost + otherCost;
+      const totalCostPerUnit =
+        materialCost + laborCost + equipmentCost + subcontractCost + otherCost;
       const itemTotal = quantity * totalCostPerUnit;
 
       return sum + itemTotal;
@@ -128,29 +142,39 @@ export class BundleService {
             title: item.title || libraryItem.title,
             description: item.description || libraryItem.description,
             quantity: item.quantity,
-            unit_measurement_id: item.unit_measurement_id || libraryItem.unit_measurement_id,
-            material_cost_per_unit: item.material_cost_per_unit !== undefined
-              ? item.material_cost_per_unit
-              : Number(libraryItem.material_cost_per_unit),
-            labor_cost_per_unit: item.labor_cost_per_unit !== undefined
-              ? item.labor_cost_per_unit
-              : Number(libraryItem.labor_cost_per_unit),
-            equipment_cost_per_unit: item.equipment_cost_per_unit !== undefined
-              ? item.equipment_cost_per_unit
-              : Number(libraryItem.equipment_cost_per_unit),
-            subcontract_cost_per_unit: item.subcontract_cost_per_unit !== undefined
-              ? item.subcontract_cost_per_unit
-              : Number(libraryItem.subcontract_cost_per_unit),
-            other_cost_per_unit: item.other_cost_per_unit !== undefined
-              ? item.other_cost_per_unit
-              : Number(libraryItem.other_cost_per_unit),
-            order_index: item.order_index !== undefined ? item.order_index : index,
+            unit_measurement_id:
+              item.unit_measurement_id || libraryItem.unit_measurement_id,
+            material_cost_per_unit:
+              item.material_cost_per_unit !== undefined
+                ? item.material_cost_per_unit
+                : Number(libraryItem.material_cost_per_unit),
+            labor_cost_per_unit:
+              item.labor_cost_per_unit !== undefined
+                ? item.labor_cost_per_unit
+                : Number(libraryItem.labor_cost_per_unit),
+            equipment_cost_per_unit:
+              item.equipment_cost_per_unit !== undefined
+                ? item.equipment_cost_per_unit
+                : Number(libraryItem.equipment_cost_per_unit),
+            subcontract_cost_per_unit:
+              item.subcontract_cost_per_unit !== undefined
+                ? item.subcontract_cost_per_unit
+                : Number(libraryItem.subcontract_cost_per_unit),
+            other_cost_per_unit:
+              item.other_cost_per_unit !== undefined
+                ? item.other_cost_per_unit
+                : Number(libraryItem.other_cost_per_unit),
+            order_index:
+              item.order_index !== undefined ? item.order_index : index,
           };
         } else {
           // Validate all required fields are present when not using library_item_id
-          if (!item.title || !item.unit_measurement_id ||
-              item.material_cost_per_unit === undefined ||
-              item.labor_cost_per_unit === undefined) {
+          if (
+            !item.title ||
+            !item.unit_measurement_id ||
+            item.material_cost_per_unit === undefined ||
+            item.labor_cost_per_unit === undefined
+          ) {
             throw new BadRequestException(
               'When library_item_id is not provided, title, unit_measurement_id, material_cost_per_unit, and labor_cost_per_unit are required',
             );
@@ -167,7 +191,8 @@ export class BundleService {
             equipment_cost_per_unit: item.equipment_cost_per_unit || 0,
             subcontract_cost_per_unit: item.subcontract_cost_per_unit || 0,
             other_cost_per_unit: item.other_cost_per_unit || 0,
-            order_index: item.order_index !== undefined ? item.order_index : index,
+            order_index:
+              item.order_index !== undefined ? item.order_index : index,
           };
         }
       }),
@@ -184,7 +209,9 @@ export class BundleService {
     });
 
     if (units.length !== new Set(unitIds).size) {
-      throw new BadRequestException('One or more unit measurements not found or inactive');
+      throw new BadRequestException(
+        'One or more unit measurements not found or inactive',
+      );
     }
 
     // Create bundle and items in transaction
@@ -210,16 +237,16 @@ export class BundleService {
         id: this.generateUUID(),
         quote_bundle_id: bundleId,
         item_library_id: item.library_item_id,
-        title: item.title!,
+        title: item.title,
         description: item.description,
         quantity: new Decimal(item.quantity),
-        unit_measurement_id: item.unit_measurement_id!,
-        material_cost_per_unit: new Decimal(item.material_cost_per_unit!),
-        labor_cost_per_unit: new Decimal(item.labor_cost_per_unit!),
-        equipment_cost_per_unit: new Decimal(item.equipment_cost_per_unit!),
-        subcontract_cost_per_unit: new Decimal(item.subcontract_cost_per_unit!),
-        other_cost_per_unit: new Decimal(item.other_cost_per_unit!),
-        order_index: item.order_index!,
+        unit_measurement_id: item.unit_measurement_id,
+        material_cost_per_unit: new Decimal(item.material_cost_per_unit),
+        labor_cost_per_unit: new Decimal(item.labor_cost_per_unit),
+        equipment_cost_per_unit: new Decimal(item.equipment_cost_per_unit),
+        subcontract_cost_per_unit: new Decimal(item.subcontract_cost_per_unit),
+        other_cost_per_unit: new Decimal(item.other_cost_per_unit),
+        order_index: item.order_index,
       }));
 
       await tx.quote_bundle_item.createMany({
@@ -248,7 +275,13 @@ export class BundleService {
    * List all bundles with item count and total cost
    */
   async findAll(tenantId: string, filters: ListBundlesDto) {
-    const { is_active, page = 1, limit = 50, sort_by = 'name', sort_order = 'asc' } = filters;
+    const {
+      is_active,
+      page = 1,
+      limit = 50,
+      sort_by = 'name',
+      sort_order = 'asc',
+    } = filters;
     const skip = (page - 1) * limit;
 
     const where: any = {
@@ -354,11 +387,9 @@ export class BundleService {
     // Validate discount if being updated
     if (dto.discount_type !== undefined || dto.discount_value !== undefined) {
       const newDiscountType = dto.discount_type ?? bundle.discount_type;
-      const newDiscountValue = dto.discount_value ?? Number(bundle.discount_value);
-      this.validateDiscount(
-        newDiscountType as DiscountType,
-        newDiscountValue,
-      );
+      const newDiscountValue =
+        dto.discount_value ?? Number(bundle.discount_value);
+      this.validateDiscount(newDiscountType as DiscountType, newDiscountValue);
     }
 
     const updatedBundle = await this.prisma.quote_bundle.update({
@@ -366,9 +397,13 @@ export class BundleService {
       data: {
         ...(dto.name && { name: dto.name }),
         ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.discount_type !== undefined && { discount_type: dto.discount_type }),
+        ...(dto.discount_type !== undefined && {
+          discount_type: dto.discount_type,
+        }),
         ...(dto.discount_value !== undefined && {
-          discount_value: dto.discount_value ? new Decimal(dto.discount_value) : null,
+          discount_value: dto.discount_value
+            ? new Decimal(dto.discount_value)
+            : null,
         }),
       },
       include: {
@@ -422,11 +457,10 @@ export class BundleService {
     // Validate discount if provided
     if (dto.discount_type !== undefined || dto.discount_value !== undefined) {
       const newDiscountType = dto.discount_type ?? bundle.discount_type;
-      const newDiscountValue = dto.discount_value ?? (bundle.discount_value ? Number(bundle.discount_value) : undefined);
-      this.validateDiscount(
-        newDiscountType as DiscountType,
-        newDiscountValue,
-      );
+      const newDiscountValue =
+        dto.discount_value ??
+        (bundle.discount_value ? Number(bundle.discount_value) : undefined);
+      this.validateDiscount(newDiscountType as DiscountType, newDiscountValue);
     }
 
     // If items are provided, validate and populate from library
@@ -456,29 +490,39 @@ export class BundleService {
               title: item.title || libraryItem.title,
               description: item.description || libraryItem.description,
               quantity: item.quantity,
-              unit_measurement_id: item.unit_measurement_id || libraryItem.unit_measurement_id,
-              material_cost_per_unit: item.material_cost_per_unit !== undefined
-                ? item.material_cost_per_unit
-                : Number(libraryItem.material_cost_per_unit),
-              labor_cost_per_unit: item.labor_cost_per_unit !== undefined
-                ? item.labor_cost_per_unit
-                : Number(libraryItem.labor_cost_per_unit),
-              equipment_cost_per_unit: item.equipment_cost_per_unit !== undefined
-                ? item.equipment_cost_per_unit
-                : Number(libraryItem.equipment_cost_per_unit),
-              subcontract_cost_per_unit: item.subcontract_cost_per_unit !== undefined
-                ? item.subcontract_cost_per_unit
-                : Number(libraryItem.subcontract_cost_per_unit),
-              other_cost_per_unit: item.other_cost_per_unit !== undefined
-                ? item.other_cost_per_unit
-                : Number(libraryItem.other_cost_per_unit),
-              order_index: item.order_index !== undefined ? item.order_index : index,
+              unit_measurement_id:
+                item.unit_measurement_id || libraryItem.unit_measurement_id,
+              material_cost_per_unit:
+                item.material_cost_per_unit !== undefined
+                  ? item.material_cost_per_unit
+                  : Number(libraryItem.material_cost_per_unit),
+              labor_cost_per_unit:
+                item.labor_cost_per_unit !== undefined
+                  ? item.labor_cost_per_unit
+                  : Number(libraryItem.labor_cost_per_unit),
+              equipment_cost_per_unit:
+                item.equipment_cost_per_unit !== undefined
+                  ? item.equipment_cost_per_unit
+                  : Number(libraryItem.equipment_cost_per_unit),
+              subcontract_cost_per_unit:
+                item.subcontract_cost_per_unit !== undefined
+                  ? item.subcontract_cost_per_unit
+                  : Number(libraryItem.subcontract_cost_per_unit),
+              other_cost_per_unit:
+                item.other_cost_per_unit !== undefined
+                  ? item.other_cost_per_unit
+                  : Number(libraryItem.other_cost_per_unit),
+              order_index:
+                item.order_index !== undefined ? item.order_index : index,
             };
           } else {
             // Validate all required fields when not using library_item_id
-            if (!item.title || !item.unit_measurement_id ||
-                item.material_cost_per_unit === undefined ||
-                item.labor_cost_per_unit === undefined) {
+            if (
+              !item.title ||
+              !item.unit_measurement_id ||
+              item.material_cost_per_unit === undefined ||
+              item.labor_cost_per_unit === undefined
+            ) {
               throw new BadRequestException(
                 'When library_item_id is not provided, title, unit_measurement_id, material_cost_per_unit, and labor_cost_per_unit are required',
               );
@@ -495,7 +539,8 @@ export class BundleService {
               equipment_cost_per_unit: item.equipment_cost_per_unit || 0,
               subcontract_cost_per_unit: item.subcontract_cost_per_unit || 0,
               other_cost_per_unit: item.other_cost_per_unit || 0,
-              order_index: item.order_index !== undefined ? item.order_index : index,
+              order_index:
+                item.order_index !== undefined ? item.order_index : index,
             };
           }
         }),
@@ -512,88 +557,100 @@ export class BundleService {
       });
 
       if (units.length !== new Set(unitIds).size) {
-        throw new BadRequestException('One or more unit measurements not found or inactive');
+        throw new BadRequestException(
+          'One or more unit measurements not found or inactive',
+        );
       }
     }
 
     // Execute replacement in transaction
-    return await this.prisma.$transaction(async (tx) => {
-      // 1. Update bundle metadata
-      const updatedBundle = await tx.quote_bundle.update({
-        where: { id: bundleId },
-        data: {
-          ...(dto.name && { name: dto.name }),
-          ...(dto.description !== undefined && { description: dto.description }),
-          ...(dto.discount_type !== undefined && { discount_type: dto.discount_type }),
-          ...(dto.discount_value !== undefined && {
-            discount_value: dto.discount_value ? new Decimal(dto.discount_value) : null,
-          }),
-        },
-      });
-
-      // 2. If items are provided, replace all items
-      if (dto.items && dto.items.length > 0) {
-        // Delete all existing items
-        await tx.quote_bundle_item.deleteMany({
-          where: { quote_bundle_id: bundleId },
+    return await this.prisma
+      .$transaction(async (tx) => {
+        // 1. Update bundle metadata
+        const updatedBundle = await tx.quote_bundle.update({
+          where: { id: bundleId },
+          data: {
+            ...(dto.name && { name: dto.name }),
+            ...(dto.description !== undefined && {
+              description: dto.description,
+            }),
+            ...(dto.discount_type !== undefined && {
+              discount_type: dto.discount_type,
+            }),
+            ...(dto.discount_value !== undefined && {
+              discount_value: dto.discount_value
+                ? new Decimal(dto.discount_value)
+                : null,
+            }),
+          },
         });
 
-        // Create new items
-        const itemsData = populatedItems.map((item) => ({
-          id: this.generateUUID(),
-          quote_bundle_id: bundleId,
-          item_library_id: item.library_item_id,
-          title: item.title!,
-          description: item.description,
-          quantity: new Decimal(item.quantity),
-          unit_measurement_id: item.unit_measurement_id!,
-          material_cost_per_unit: new Decimal(item.material_cost_per_unit!),
-          labor_cost_per_unit: new Decimal(item.labor_cost_per_unit!),
-          equipment_cost_per_unit: new Decimal(item.equipment_cost_per_unit!),
-          subcontract_cost_per_unit: new Decimal(item.subcontract_cost_per_unit!),
-          other_cost_per_unit: new Decimal(item.other_cost_per_unit!),
-          order_index: item.order_index!,
-        }));
+        // 2. If items are provided, replace all items
+        if (dto.items && dto.items.length > 0) {
+          // Delete all existing items
+          await tx.quote_bundle_item.deleteMany({
+            where: { quote_bundle_id: bundleId },
+          });
 
-        await tx.quote_bundle_item.createMany({
-          data: itemsData,
+          // Create new items
+          const itemsData = populatedItems.map((item) => ({
+            id: this.generateUUID(),
+            quote_bundle_id: bundleId,
+            item_library_id: item.library_item_id,
+            title: item.title!,
+            description: item.description,
+            quantity: new Decimal(item.quantity),
+            unit_measurement_id: item.unit_measurement_id!,
+            material_cost_per_unit: new Decimal(item.material_cost_per_unit),
+            labor_cost_per_unit: new Decimal(item.labor_cost_per_unit),
+            equipment_cost_per_unit: new Decimal(item.equipment_cost_per_unit),
+            subcontract_cost_per_unit: new Decimal(
+              item.subcontract_cost_per_unit,
+            ),
+            other_cost_per_unit: new Decimal(item.other_cost_per_unit),
+            order_index: item.order_index!,
+          }));
+
+          await tx.quote_bundle_item.createMany({
+            data: itemsData,
+          });
+        }
+
+        // 3. Audit log
+        await this.auditLogger.logTenantChange({
+          action: 'updated',
+          entityType: 'quote_bundle',
+          entityId: bundleId,
+          tenantId,
+          actorUserId: userId,
+          before: bundle,
+          after: updatedBundle,
+          description: `Bundle replaced: ${updatedBundle.name}${dto.items ? ` with ${dto.items.length} items` : ''}`,
         });
-      }
 
-      // 3. Audit log
-      await this.auditLogger.logTenantChange({
-        action: 'updated',
-        entityType: 'quote_bundle',
-        entityId: bundleId,
-        tenantId,
-        actorUserId: userId,
-        before: bundle,
-        after: updatedBundle,
-        description: `Bundle replaced: ${updatedBundle.name}${dto.items ? ` with ${dto.items.length} items` : ''}`,
-      });
-
-      // 4. Return complete bundle with items and total_cost
-      return await tx.quote_bundle.findFirst({
-        where: { id: bundleId, tenant_id: tenantId },
-        include: {
-          items: {
-            orderBy: { order_index: 'asc' },
-            include: {
-              unit_measurement: {
-                select: {
-                  id: true,
-                  name: true,
-                  abbreviation: true,
+        // 4. Return complete bundle with items and total_cost
+        return await tx.quote_bundle.findFirst({
+          where: { id: bundleId, tenant_id: tenantId },
+          include: {
+            items: {
+              orderBy: { order_index: 'asc' },
+              include: {
+                unit_measurement: {
+                  select: {
+                    id: true,
+                    name: true,
+                    abbreviation: true,
+                  },
                 },
               },
             },
           },
-        },
-      });
-    }).then((bundle) => ({
-      ...bundle,
-      total_cost: this.calculateBundleTotalCost(bundle),
-    }));
+        });
+      })
+      .then((bundle) => ({
+        ...bundle,
+        total_cost: this.calculateBundleTotalCost(bundle),
+      }));
   }
 
   /**
@@ -769,28 +826,37 @@ export class BundleService {
         title: dto.title || libraryItem.title,
         description: dto.description || libraryItem.description,
         quantity: dto.quantity,
-        unit_measurement_id: dto.unit_measurement_id || libraryItem.unit_measurement_id,
-        material_cost_per_unit: dto.material_cost_per_unit !== undefined
-          ? dto.material_cost_per_unit
-          : Number(libraryItem.material_cost_per_unit),
-        labor_cost_per_unit: dto.labor_cost_per_unit !== undefined
-          ? dto.labor_cost_per_unit
-          : Number(libraryItem.labor_cost_per_unit),
-        equipment_cost_per_unit: dto.equipment_cost_per_unit !== undefined
-          ? dto.equipment_cost_per_unit
-          : Number(libraryItem.equipment_cost_per_unit),
-        subcontract_cost_per_unit: dto.subcontract_cost_per_unit !== undefined
-          ? dto.subcontract_cost_per_unit
-          : Number(libraryItem.subcontract_cost_per_unit),
-        other_cost_per_unit: dto.other_cost_per_unit !== undefined
-          ? dto.other_cost_per_unit
-          : Number(libraryItem.other_cost_per_unit),
+        unit_measurement_id:
+          dto.unit_measurement_id || libraryItem.unit_measurement_id,
+        material_cost_per_unit:
+          dto.material_cost_per_unit !== undefined
+            ? dto.material_cost_per_unit
+            : Number(libraryItem.material_cost_per_unit),
+        labor_cost_per_unit:
+          dto.labor_cost_per_unit !== undefined
+            ? dto.labor_cost_per_unit
+            : Number(libraryItem.labor_cost_per_unit),
+        equipment_cost_per_unit:
+          dto.equipment_cost_per_unit !== undefined
+            ? dto.equipment_cost_per_unit
+            : Number(libraryItem.equipment_cost_per_unit),
+        subcontract_cost_per_unit:
+          dto.subcontract_cost_per_unit !== undefined
+            ? dto.subcontract_cost_per_unit
+            : Number(libraryItem.subcontract_cost_per_unit),
+        other_cost_per_unit:
+          dto.other_cost_per_unit !== undefined
+            ? dto.other_cost_per_unit
+            : Number(libraryItem.other_cost_per_unit),
       };
     } else {
       // Validate all required fields are present
-      if (!dto.title || !dto.unit_measurement_id ||
-          dto.material_cost_per_unit === undefined ||
-          dto.labor_cost_per_unit === undefined) {
+      if (
+        !dto.title ||
+        !dto.unit_measurement_id ||
+        dto.material_cost_per_unit === undefined ||
+        dto.labor_cost_per_unit === undefined
+      ) {
         throw new BadRequestException(
           'When library_item_id is not provided, title, unit_measurement_id, material_cost_per_unit, and labor_cost_per_unit are required',
         );
@@ -846,9 +912,12 @@ export class BundleService {
         material_cost_per_unit: new Decimal(itemData.material_cost_per_unit),
         labor_cost_per_unit: new Decimal(itemData.labor_cost_per_unit),
         equipment_cost_per_unit: new Decimal(itemData.equipment_cost_per_unit),
-        subcontract_cost_per_unit: new Decimal(itemData.subcontract_cost_per_unit),
+        subcontract_cost_per_unit: new Decimal(
+          itemData.subcontract_cost_per_unit,
+        ),
         other_cost_per_unit: new Decimal(itemData.other_cost_per_unit),
-        order_index: dto.order_index !== undefined ? dto.order_index : newOrderIndex,
+        order_index:
+          dto.order_index !== undefined ? dto.order_index : newOrderIndex,
       },
       include: {
         unit_measurement: {
@@ -919,11 +988,15 @@ export class BundleService {
     const updatedItem = await this.prisma.quote_bundle_item.update({
       where: { id: itemId },
       data: {
-        ...((dto as any).library_item_id !== undefined && { item_library_id: (dto as any).library_item_id }),
+        ...((dto as any).library_item_id !== undefined && {
+          item_library_id: (dto as any).library_item_id,
+        }),
         ...(dto.title && { title: dto.title }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.quantity && { quantity: new Decimal(dto.quantity) }),
-        ...(dto.unit_measurement_id && { unit_measurement_id: dto.unit_measurement_id }),
+        ...(dto.unit_measurement_id && {
+          unit_measurement_id: dto.unit_measurement_id,
+        }),
         ...(dto.material_cost_per_unit !== undefined && {
           material_cost_per_unit: new Decimal(dto.material_cost_per_unit),
         }),
@@ -985,7 +1058,9 @@ export class BundleService {
     });
 
     if (itemCount <= 1) {
-      throw new BadRequestException('Cannot delete last item. Bundle must have at least one item');
+      throw new BadRequestException(
+        'Cannot delete last item. Bundle must have at least one item',
+      );
     }
 
     // Verify item exists and belongs to bundle

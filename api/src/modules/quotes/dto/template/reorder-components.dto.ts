@@ -5,7 +5,7 @@ export class ReorderComponentsDto {
   @ApiProperty({
     description: 'Array of component IDs in new order',
     example: ['comp-id-1', 'comp-id-3', 'comp-id-2'],
-    type: [String]
+    type: [String],
   })
   @IsArray()
   @IsString({ each: true })
@@ -14,7 +14,7 @@ export class ReorderComponentsDto {
   @ApiProperty({
     description: 'Section to reorder',
     enum: ['header', 'body', 'footer'],
-    example: 'body'
+    example: 'body',
   })
   @IsString()
   @IsIn(['header', 'body', 'footer'])

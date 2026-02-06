@@ -679,7 +679,9 @@ export class TemplateVariableRegistryService {
   /**
    * Get variables for a specific category
    */
-  getVariablesByCategory(category: VariableCategory): Record<string, Omit<VariableDefinition, 'category'>> {
+  getVariablesByCategory(
+    category: VariableCategory,
+  ): Record<string, Omit<VariableDefinition, 'category'>> {
     const registry = this.getSystemVariables();
     const filtered: Record<string, Omit<VariableDefinition, 'category'>> = {};
 
@@ -726,7 +728,10 @@ export class TemplateVariableRegistryService {
   /**
    * Validate that variables exist in registry
    */
-  validateVariables(variableNames: string[]): { valid: boolean; unknown: string[] } {
+  validateVariables(variableNames: string[]): {
+    valid: boolean;
+    unknown: string[];
+  } {
     const registry = this.getSystemVariables();
     const unknown = variableNames.filter((name) => !registry[name]);
 

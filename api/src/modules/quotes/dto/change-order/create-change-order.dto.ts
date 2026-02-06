@@ -1,5 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsNumber, IsUUID, ValidateNested, Min, Max } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsUUID,
+  ValidateNested,
+  Min,
+  Max,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { JobsiteAddressDto } from '../quote/jobsite-address.dto';
 
@@ -71,7 +79,8 @@ export class CreateChangeOrderDto {
   custom_overhead_percent?: number;
 
   @ApiPropertyOptional({
-    description: 'Custom contingency percentage (overrides parent quote setting)',
+    description:
+      'Custom contingency percentage (overrides parent quote setting)',
     example: 5.0,
   })
   @IsOptional()

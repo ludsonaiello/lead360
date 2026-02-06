@@ -114,18 +114,12 @@ import { ExportProcessorProcessor } from './processors/export-processor.processo
 export class AdminModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // Apply feature flag middleware globally
-    consumer
-      .apply(FeatureFlagMiddleware)
-      .forRoutes('*');
+    consumer.apply(FeatureFlagMiddleware).forRoutes('*');
 
     // Apply maintenance mode middleware globally (excluding admin routes)
-    consumer
-      .apply(MaintenanceModeMiddleware)
-      .forRoutes('*');
+    consumer.apply(MaintenanceModeMiddleware).forRoutes('*');
 
     // Apply impersonation middleware globally
-    consumer
-      .apply(ImpersonationMiddleware)
-      .forRoutes('*');
+    consumer.apply(ImpersonationMiddleware).forRoutes('*');
   }
 }

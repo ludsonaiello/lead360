@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MinLength, MaxLength, IsDateString } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  MinLength,
+  MaxLength,
+  IsDateString,
+} from 'class-validator';
 
 export class GeneratePublicUrlDto {
   @ApiPropertyOptional({
@@ -25,7 +31,8 @@ export class GeneratePublicUrlDto {
   password_hint?: string;
 
   @ApiPropertyOptional({
-    description: 'Expiration date for the public URL (ISO 8601 format). If not provided, URL never expires.',
+    description:
+      'Expiration date for the public URL (ISO 8601 format). If not provided, URL never expires.',
     example: '2026-12-31T23:59:59Z',
   })
   @IsOptional()

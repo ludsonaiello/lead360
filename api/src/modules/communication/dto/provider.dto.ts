@@ -28,7 +28,8 @@ export class CreateProviderDto {
   })
   @IsString()
   @Matches(/^[a-z0-9_-]+$/, {
-    message: 'Provider key must be lowercase alphanumeric with hyphens/underscores',
+    message:
+      'Provider key must be lowercase alphanumeric with hyphens/underscores',
   })
   provider_key: string;
 

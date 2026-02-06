@@ -193,8 +193,7 @@ export class QuoteDiscountController {
   @Post('preview')
   @Roles('Owner', 'Admin', 'Manager', 'Sales')
   @ApiOperation({
-    summary:
-      'Preview discount impact without saving (before/after comparison)',
+    summary: 'Preview discount impact without saving (before/after comparison)',
   })
   @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
   @ApiResponse({

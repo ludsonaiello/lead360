@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { FilesService } from './files.service';
 import { PrismaService } from '../../core/database/prisma.service';
 import { FileStorageService } from '../../core/file-storage/file-storage.service';
@@ -184,7 +188,12 @@ describe('FilesService', () => {
         updated_at: new Date(),
       });
 
-      const result = await service.uploadFile(mockTenantId, mockUserId, mockFile, uploadDto);
+      const result = await service.uploadFile(
+        mockTenantId,
+        mockUserId,
+        mockFile,
+        uploadDto,
+      );
 
       expect(mockImageProcessor.isImage).toHaveBeenCalledWith('image/jpeg');
       expect(mockImageProcessor.processImage).toHaveBeenCalled();
@@ -196,7 +205,11 @@ describe('FilesService', () => {
     });
 
     it('should upload a non-image file without optimization', async () => {
-      const pdfFile = { ...mockFile, originalname: 'document.pdf', mimetype: 'application/pdf' };
+      const pdfFile = {
+        ...mockFile,
+        originalname: 'document.pdf',
+        mimetype: 'application/pdf',
+      };
 
       mockImageProcessor.isImage.mockReturnValue(false);
       mockStorageProvider.upload.mockResolvedValue({
@@ -228,11 +241,18 @@ describe('FilesService', () => {
         updated_at: new Date(),
       });
 
-      const result = await service.uploadFile(mockTenantId, mockUserId, pdfFile, {
-        category: FileCategory.INVOICE,
-      });
+      const result = await service.uploadFile(
+        mockTenantId,
+        mockUserId,
+        pdfFile,
+        {
+          category: FileCategory.INVOICE,
+        },
+      );
 
-      expect(mockImageProcessor.isImage).toHaveBeenCalledWith('application/pdf');
+      expect(mockImageProcessor.isImage).toHaveBeenCalledWith(
+        'application/pdf',
+      );
       expect(mockImageProcessor.processImage).not.toHaveBeenCalled();
       expect(mockPrismaService.file.create).toHaveBeenCalled();
       expect(result.file.is_optimized).toBe(false);
@@ -243,7 +263,7 @@ describe('FilesService', () => {
       mockStorageProvider.upload.mockRejectedValue(new Error('Storage error'));
 
       await expect(
-        service.uploadFile(mockTenantId, mockUserId, mockFile, uploadDto)
+        service.uploadFile(mockTenantId, mockUserId, mockFile, uploadDto),
       ).rejects.toThrow('Storage error');
     });
   });
@@ -281,7 +301,11 @@ describe('FilesService', () => {
       const result = await service.findOne(mockTenantId, mockFileId);
 
       expect(mockPrismaService.file.findFirst).toHaveBeenCalledWith({
-        where: { file_id: mockFileId, tenant_id: mockTenantId, is_trashed: false },
+        where: {
+          file_id: mockFileId,
+          tenant_id: mockTenantId,
+          is_trashed: false,
+        },
       });
       expect(result.url).toBe('https://example.com/file-123.jpg');
     });
@@ -289,17 +313,27 @@ describe('FilesService', () => {
     it('should throw NotFoundException if file not found', async () => {
       mockPrismaService.file.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.findOne(mockTenantId, mockFileId)
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(mockTenantId, mockFileId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
   describe('findAll', () => {
     it('should return paginated files', async () => {
       const mockFiles = [
-        { id: 'file-1', file_id: 'file-1', original_filename: 'file1.jpg', tenant_id: mockTenantId },
-        { id: 'file-2', file_id: 'file-2', original_filename: 'file2.jpg', tenant_id: mockTenantId },
+        {
+          id: 'file-1',
+          file_id: 'file-1',
+          original_filename: 'file1.jpg',
+          tenant_id: mockTenantId,
+        },
+        {
+          id: 'file-2',
+          file_id: 'file-2',
+          original_filename: 'file2.jpg',
+          tenant_id: mockTenantId,
+        },
       ];
 
       mockPrismaService.file.findMany.mockResolvedValue(mockFiles);
@@ -309,7 +343,10 @@ describe('FilesService', () => {
         size: 1000,
       });
 
-      const result = await service.findAll(mockTenantId, { page: 1, limit: 20 });
+      const result = await service.findAll(mockTenantId, {
+        page: 1,
+        limit: 20,
+      });
 
       expect(result.data.length).toBe(2);
       expect(result.pagination.total).toBe(2);
@@ -340,10 +377,18 @@ describe('FilesService', () => {
       mockPrismaService.file.findMany.mockResolvedValue([]);
       mockPrismaService.file.count.mockResolvedValue(0);
 
-      await service.findAll(mockTenantId, { page: 1, limit: 20, category: FileCategory.PHOTO });
+      await service.findAll(mockTenantId, {
+        page: 1,
+        limit: 20,
+        category: FileCategory.PHOTO,
+      });
 
       expect(mockPrismaService.file.findMany).toHaveBeenCalledWith({
-        where: { tenant_id: mockTenantId, is_trashed: false, category: FileCategory.PHOTO },
+        where: {
+          tenant_id: mockTenantId,
+          is_trashed: false,
+          category: FileCategory.PHOTO,
+        },
         skip: 0,
         take: 20,
         orderBy: { created_at: 'desc' },
@@ -368,10 +413,18 @@ describe('FilesService', () => {
       mockPrismaService.file.findMany.mockResolvedValue([]);
       mockPrismaService.file.count.mockResolvedValue(0);
 
-      await service.findAll(mockTenantId, { page: 1, limit: 20, entity_id: 'lead-123' });
+      await service.findAll(mockTenantId, {
+        page: 1,
+        limit: 20,
+        entity_id: 'lead-123',
+      });
 
       expect(mockPrismaService.file.findMany).toHaveBeenCalledWith({
-        where: { tenant_id: mockTenantId, is_trashed: false, entity_id: 'lead-123' },
+        where: {
+          tenant_id: mockTenantId,
+          is_trashed: false,
+          entity_id: 'lead-123',
+        },
         skip: 0,
         take: 20,
         orderBy: { created_at: 'desc' },
@@ -410,7 +463,9 @@ describe('FilesService', () => {
 
       await service.delete(mockTenantId, mockFileId, mockUserId);
 
-      expect(mockFileStorageService.deleteFileByPath).toHaveBeenCalledWith('tenant-123/files/file-123.pdf');
+      expect(mockFileStorageService.deleteFileByPath).toHaveBeenCalledWith(
+        'tenant-123/files/file-123.pdf',
+      );
       expect(mockPrismaService.file.delete).toHaveBeenCalledWith({
         where: { id: mockFileId },
       });
@@ -432,14 +487,16 @@ describe('FilesService', () => {
 
       await service.delete(mockTenantId, mockFileId, mockUserId);
 
-      expect(mockFileStorageService.deleteFileByPath).toHaveBeenCalledWith('tenant-123/images/file-123.webp');
+      expect(mockFileStorageService.deleteFileByPath).toHaveBeenCalledWith(
+        'tenant-123/images/file-123.webp',
+      );
     });
 
     it('should throw NotFoundException if file not found', async () => {
       mockPrismaService.file.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.delete(mockTenantId, mockFileId, mockUserId)
+        service.delete(mockTenantId, mockFileId, mockUserId),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -447,8 +504,20 @@ describe('FilesService', () => {
   describe('findOrphans', () => {
     it('should find orphaned files older than 30 days', async () => {
       const mockOrphans = [
-        { id: 'orphan-1', file_id: 'orphan-1', original_filename: 'orphan1.jpg', entity_id: null, created_at: new Date() },
-        { id: 'orphan-2', file_id: 'orphan-2', original_filename: 'orphan2.jpg', entity_id: null, created_at: new Date() },
+        {
+          id: 'orphan-1',
+          file_id: 'orphan-1',
+          original_filename: 'orphan1.jpg',
+          entity_id: null,
+          created_at: new Date(),
+        },
+        {
+          id: 'orphan-2',
+          file_id: 'orphan-2',
+          original_filename: 'orphan2.jpg',
+          entity_id: null,
+          created_at: new Date(),
+        },
       ];
 
       mockPrismaService.file.findMany.mockResolvedValue(mockOrphans);
@@ -526,7 +595,10 @@ describe('FilesService', () => {
       mockPrismaService.file.deleteMany.mockResolvedValue({ count: 2 });
       mockFileStorageService.deleteFileByPath.mockResolvedValue(undefined);
 
-      const result = await service.cleanupTrashedFiles(mockTenantId, mockUserId);
+      const result = await service.cleanupTrashedFiles(
+        mockTenantId,
+        mockUserId,
+      );
 
       expect(result.count).toBe(2);
       expect(mockFileStorageService.deleteFileByPath).toHaveBeenCalledTimes(2);
@@ -598,7 +670,9 @@ describe('FilesService', () => {
       mockPrismaService.file.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.createShareLink(mockTenantId, mockUserId, { file_id: mockFileId })
+        service.createShareLink(mockTenantId, mockUserId, {
+          file_id: mockFileId,
+        }),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -627,7 +701,9 @@ describe('FilesService', () => {
         },
       };
 
-      mockPrismaService.file_share_link.findUnique.mockResolvedValue(mockShareLink);
+      mockPrismaService.file_share_link.findUnique.mockResolvedValue(
+        mockShareLink,
+      );
       mockPrismaService.file_share_link.update.mockResolvedValue(mockShareLink);
 
       const result = await service.accessShareLink('a'.repeat(64), {});
@@ -646,18 +722,20 @@ describe('FilesService', () => {
         download_count: 0,
       };
 
-      mockPrismaService.file_share_link.findUnique.mockResolvedValue(mockShareLink);
+      mockPrismaService.file_share_link.findUnique.mockResolvedValue(
+        mockShareLink,
+      );
 
-      await expect(
-        service.accessShareLink('a'.repeat(64), {})
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(service.accessShareLink('a'.repeat(64), {})).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('should throw NotFoundException if share link not found', async () => {
       mockPrismaService.file_share_link.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.accessShareLink('invalid-token', {})
+        service.accessShareLink('invalid-token', {}),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -671,11 +749,13 @@ describe('FilesService', () => {
         download_count: 0,
       };
 
-      mockPrismaService.file_share_link.findUnique.mockResolvedValue(mockShareLink);
+      mockPrismaService.file_share_link.findUnique.mockResolvedValue(
+        mockShareLink,
+      );
 
-      await expect(
-        service.accessShareLink('a'.repeat(64), {})
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.accessShareLink('a'.repeat(64), {})).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException if max downloads exceeded', async () => {
@@ -688,11 +768,13 @@ describe('FilesService', () => {
         download_count: 5,
       };
 
-      mockPrismaService.file_share_link.findUnique.mockResolvedValue(mockShareLink);
+      mockPrismaService.file_share_link.findUnique.mockResolvedValue(
+        mockShareLink,
+      );
 
-      await expect(
-        service.accessShareLink('a'.repeat(64), {})
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.accessShareLink('a'.repeat(64), {})).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -704,7 +786,9 @@ describe('FilesService', () => {
         is_active: true,
       };
 
-      mockPrismaService.file_share_link.findFirst.mockResolvedValue(mockShareLink);
+      mockPrismaService.file_share_link.findFirst.mockResolvedValue(
+        mockShareLink,
+      );
       mockPrismaService.file_share_link.update.mockResolvedValue({
         ...mockShareLink,
         is_active: false,
@@ -722,7 +806,7 @@ describe('FilesService', () => {
       mockPrismaService.file_share_link.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.revokeShareLink(mockTenantId, mockUserId, 'invalid-id')
+        service.revokeShareLink(mockTenantId, mockUserId, 'invalid-id'),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -739,7 +823,7 @@ describe('FilesService', () => {
           expires_at: null,
           max_downloads: null,
           download_count: 0,
-          file: { original_filename: 'file1.pdf' }
+          file: { original_filename: 'file1.pdf' },
         },
         {
           id: 'share-2',
@@ -750,11 +834,13 @@ describe('FilesService', () => {
           expires_at: null,
           max_downloads: null,
           download_count: 0,
-          file: { original_filename: 'file2.pdf' }
+          file: { original_filename: 'file2.pdf' },
         },
       ];
 
-      mockPrismaService.file_share_link.findMany.mockResolvedValue(mockShareLinks);
+      mockPrismaService.file_share_link.findMany.mockResolvedValue(
+        mockShareLinks,
+      );
 
       const result = await service.listShareLinks(mockTenantId);
 
@@ -773,11 +859,13 @@ describe('FilesService', () => {
           expires_at: null,
           max_downloads: null,
           download_count: 0,
-          file: { original_filename: 'test.pdf' }
+          file: { original_filename: 'test.pdf' },
         },
       ];
 
-      mockPrismaService.file_share_link.findMany.mockResolvedValue(mockShareLinks);
+      mockPrismaService.file_share_link.findMany.mockResolvedValue(
+        mockShareLinks,
+      );
 
       const result = await service.listShareLinks(mockTenantId, mockFileId);
 
@@ -831,7 +919,9 @@ describe('FilesService', () => {
       mockPrismaService.file.deleteMany.mockResolvedValue({ count: 3 });
       mockStorageProvider.delete.mockResolvedValue(undefined);
 
-      const result = await service.bulkDelete(mockTenantId, mockUserId, { file_ids: fileIds });
+      const result = await service.bulkDelete(mockTenantId, mockUserId, {
+        file_ids: fileIds,
+      });
 
       expect(result.count).toBe(3);
       expect(mockPrismaService.file.deleteMany).toHaveBeenCalled();
@@ -840,7 +930,7 @@ describe('FilesService', () => {
 
     it('should throw BadRequestException if no files provided', async () => {
       await expect(
-        service.bulkDelete(mockTenantId, mockUserId, { file_ids: [] })
+        service.bulkDelete(mockTenantId, mockUserId, { file_ids: [] }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -848,7 +938,9 @@ describe('FilesService', () => {
       const tooManyFiles = Array(101).fill('file-id');
 
       await expect(
-        service.bulkDelete(mockTenantId, mockUserId, { file_ids: tooManyFiles })
+        service.bulkDelete(mockTenantId, mockUserId, {
+          file_ids: tooManyFiles,
+        }),
       ).rejects.toThrow(BadRequestException);
     });
   });

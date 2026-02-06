@@ -76,7 +76,8 @@ export class CreateEmailTemplateDto {
   text_body?: string;
 
   @ApiPropertyOptional({
-    description: 'Array of variable names used in template (auto-extracted if not provided)',
+    description:
+      'Array of variable names used in template (auto-extracted if not provided)',
     example: ['customerName', 'companyName', 'quoteNumber'],
   })
   @IsArray()
@@ -117,7 +118,8 @@ export class CreateEmailTemplateDto {
   is_active?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Template type (platform/shared/tenant). Defaults to tenant. Only platform admins can create platform/shared templates.',
+    description:
+      'Template type (platform/shared/tenant). Defaults to tenant. Only platform admins can create platform/shared templates.',
     enum: TemplateType,
     example: TemplateType.TENANT,
   })
@@ -126,7 +128,8 @@ export class CreateEmailTemplateDto {
   template_type?: TemplateType;
 
   @ApiPropertyOptional({
-    description: 'Tenant ID (only for platform admins creating templates for specific tenants)',
+    description:
+      'Tenant ID (only for platform admins creating templates for specific tenants)',
     example: '14a34ab2-6f6f-4e41-9bea-c444a304557e',
   })
   @IsString()
@@ -297,7 +300,8 @@ export class ListTemplatesDto {
   is_active?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Filter by system template status (DEPRECATED: use template_type instead)',
+    description:
+      'Filter by system template status (DEPRECATED: use template_type instead)',
     deprecated: true,
   })
   @Transform(({ value }) => {

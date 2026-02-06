@@ -65,7 +65,9 @@ export class IndustryService {
       after_json: industry,
     });
 
-    this.logger.log(`Industry created: ${industry.name} (ID: ${industry.id}) by admin ${adminUserId}`);
+    this.logger.log(
+      `Industry created: ${industry.name} (ID: ${industry.id}) by admin ${adminUserId}`,
+    );
 
     return industry;
   }
@@ -97,7 +99,9 @@ export class IndustryService {
       after_json: updated,
     });
 
-    this.logger.log(`Industry updated: ${updated.name} (ID: ${id}) by admin ${adminUserId}`);
+    this.logger.log(
+      `Industry updated: ${updated.name} (ID: ${id}) by admin ${adminUserId}`,
+    );
 
     return updated;
   }
@@ -132,7 +136,9 @@ export class IndustryService {
       before_json: industry,
     });
 
-    this.logger.log(`Industry deleted: ${industry.name} (ID: ${id}) by admin ${adminUserId}`);
+    this.logger.log(
+      `Industry deleted: ${industry.name} (ID: ${id}) by admin ${adminUserId}`,
+    );
 
     return { message: 'Industry deleted successfully' };
   }

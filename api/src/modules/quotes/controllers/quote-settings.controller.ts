@@ -63,7 +63,8 @@ export class QuoteSettingsController {
   @Roles('Owner', 'Admin')
   @ApiOperation({
     summary: 'Reset settings to system defaults',
-    description: 'Clears tenant-specific settings and reverts to system defaults',
+    description:
+      'Clears tenant-specific settings and reverts to system defaults',
   })
   @ApiResponse({ status: 200, description: 'Settings reset successfully' })
   async resetToDefaults(@Request() req) {
@@ -79,7 +80,10 @@ export class QuoteSettingsController {
     summary: 'Get approval threshold configuration',
     description: 'Returns approval levels and amount thresholds',
   })
-  @ApiResponse({ status: 200, description: 'Approval thresholds retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Approval thresholds retrieved successfully',
+  })
   async getApprovalThresholds(@Request() req) {
     return this.settingsService.getApprovalThresholds(req.user.tenant_id);
   }

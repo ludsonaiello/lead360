@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { FileStorageService } from '../../core/file-storage/file-storage.service';
 import { StorageProviderFactory } from '../../core/file-storage/storage-provider.factory';
@@ -43,19 +48,43 @@ export class FilesService {
         maxSizeBytes: 10 * 1024 * 1024, // 10MB
       },
       invoice: {
-        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
+        allowedMimeTypes: [
+          'application/pdf',
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+          'image/webp',
+        ],
         maxSizeBytes: 10 * 1024 * 1024, // 10MB
       },
       license: {
-        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
+        allowedMimeTypes: [
+          'application/pdf',
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+          'image/webp',
+        ],
         maxSizeBytes: 10 * 1024 * 1024, // 10MB
       },
       insurance: {
-        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
+        allowedMimeTypes: [
+          'application/pdf',
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+          'image/webp',
+        ],
         maxSizeBytes: 10 * 1024 * 1024, // 10MB
       },
       logo: {
-        allowedMimeTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml', 'image/webp'],
+        allowedMimeTypes: [
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+          'image/svg+xml',
+          'image/webp',
+        ],
         maxSizeBytes: 5 * 1024 * 1024, // 5MB
       },
       contract: {
@@ -67,7 +96,13 @@ export class FilesService {
         maxSizeBytes: 15 * 1024 * 1024, // 15MB
       },
       receipt: {
-        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
+        allowedMimeTypes: [
+          'application/pdf',
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+          'image/webp',
+        ],
         maxSizeBytes: 5 * 1024 * 1024, // 5MB
       },
       photo: {
@@ -92,7 +127,12 @@ export class FilesService {
         maxSizeBytes: 25 * 1024 * 1024, // 25MB
       },
       signature: {
-        allowedMimeTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
+        allowedMimeTypes: [
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+          'image/webp',
+        ],
         maxSizeBytes: 2 * 1024 * 1024, // 2MB
       },
       misc: {

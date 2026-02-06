@@ -7,10 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { LeadActivitiesService, ActivityType } from './lead-activities.service';
-import {
-  CreateEmailDto,
-  UpdateEmailDto,
-} from '../dto/lead.dto';
+import { CreateEmailDto, UpdateEmailDto } from '../dto/lead.dto';
 
 @Injectable()
 export class LeadEmailsService {
@@ -46,9 +43,7 @@ export class LeadEmailsService {
       // Auto-set first email as primary
       emails[0].is_primary = true;
     } else if (primaryCount > 1) {
-      throw new BadRequestException(
-        'Only one email can be marked as primary',
-      );
+      throw new BadRequestException('Only one email can be marked as primary');
     }
 
     // Validate email format
@@ -110,9 +105,7 @@ export class LeadEmailsService {
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(emailData.email)) {
-      throw new BadRequestException(
-        `Invalid email format: ${emailData.email}`,
-      );
+      throw new BadRequestException(`Invalid email format: ${emailData.email}`);
     }
 
     // If setting as primary, unset other primary emails
@@ -151,12 +144,12 @@ export class LeadEmailsService {
     await this.activitiesService.logActivity(tenantId, {
       lead_id: leadId,
       activity_type: ActivityType.EMAIL_ADDED,
-      description: `Email ${email.email} (${"personal"}) added`,
+      description: `Email ${email.email} (${'personal'}) added`,
       user_id: userId,
       metadata: {
         email_id: email.id,
         email: email.email,
-        email_type: "personal",
+        email_type: 'personal',
         is_primary: email.is_primary,
       },
     });
@@ -302,12 +295,12 @@ export class LeadEmailsService {
     await this.activitiesService.logActivity(tenantId, {
       lead_id: leadId,
       activity_type: ActivityType.EMAIL_DELETED,
-      description: `Email ${email.email} (${"personal"}) deleted`,
+      description: `Email ${email.email} (${'personal'}) deleted`,
       user_id: userId,
       metadata: {
         email_id: email.id,
         email: email.email,
-        email_type: "personal",
+        email_type: 'personal',
       },
     });
   }

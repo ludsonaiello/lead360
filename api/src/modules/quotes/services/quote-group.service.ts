@@ -254,7 +254,8 @@ export class QuoteGroupService {
         where: { id: groupId },
         data: {
           name: dto.name || group.name,
-          description: dto.description !== undefined ? dto.description : group.description,
+          description:
+            dto.description !== undefined ? dto.description : group.description,
         },
       });
 
@@ -355,7 +356,9 @@ export class QuoteGroupService {
       }
 
       // Create version (+0.1)
-      const action = deleteItems ? 'deleted with items' : 'deleted (items moved to ungrouped)';
+      const action = deleteItems
+        ? 'deleted with items'
+        : 'deleted (items moved to ungrouped)';
       await this.versionService.createVersion(
         quoteId,
         0.1,
@@ -376,7 +379,9 @@ export class QuoteGroupService {
         description: `Quote group ${action}: ${group.name}`,
       });
 
-      this.logger.log(`Quote group deleted: ${groupId} (deleteItems: ${deleteItems})`);
+      this.logger.log(
+        `Quote group deleted: ${groupId} (deleteItems: ${deleteItems})`,
+      );
     });
   }
 
@@ -404,7 +409,9 @@ export class QuoteGroupService {
     }
 
     if (quote.status === 'approved') {
-      throw new BadRequestException('Cannot duplicate groups in approved quote');
+      throw new BadRequestException(
+        'Cannot duplicate groups in approved quote',
+      );
     }
 
     const sourceGroup = await this.findOne(tenantId, quoteId, groupId);
@@ -446,7 +453,9 @@ export class QuoteGroupService {
             material_cost_per_unit: new Decimal(item.material_cost_per_unit),
             labor_cost_per_unit: new Decimal(item.labor_cost_per_unit),
             equipment_cost_per_unit: new Decimal(item.equipment_cost_per_unit),
-            subcontract_cost_per_unit: new Decimal(item.subcontract_cost_per_unit),
+            subcontract_cost_per_unit: new Decimal(
+              item.subcontract_cost_per_unit,
+            ),
             other_cost_per_unit: new Decimal(item.other_cost_per_unit),
             total_cost: new Decimal(item.total_cost),
             order_index: item.order_index,
@@ -524,6 +533,8 @@ export class QuoteGroupService {
       ),
     );
 
-    this.logger.log(`Reordered ${dto.groups.length} groups for quote: ${quoteId}`);
+    this.logger.log(
+      `Reordered ${dto.groups.length} groups for quote: ${quoteId}`,
+    );
   }
 }

@@ -41,7 +41,11 @@ describe('ImpersonationController', () => {
         first_name: 'Test',
         last_name: 'User',
         tenant_id: 'tenant-1',
-        tenant: { id: 'tenant-1', subdomain: 'test', company_name: 'Test Company' },
+        tenant: {
+          id: 'tenant-1',
+          subdomain: 'test',
+          company_name: 'Test Company',
+        },
       },
     });
 
@@ -59,7 +63,9 @@ describe('ImpersonationController', () => {
       message: 'Impersonation ended successfully',
     });
 
-    const result = await controller.exitImpersonation({ session_token: 'token' });
+    const result = await controller.exitImpersonation({
+      session_token: 'token',
+    });
 
     expect(result).toHaveProperty('message');
   });

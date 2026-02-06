@@ -19,7 +19,10 @@ export class FileInfoDto {
   @ApiProperty({ description: 'File size in bytes', example: 1024000 })
   size_bytes: number;
 
-  @ApiPropertyOptional({ description: 'Presigned download URL', example: 'https://s3.amazonaws.com/...' })
+  @ApiPropertyOptional({
+    description: 'Presigned download URL',
+    example: 'https://s3.amazonaws.com/...',
+  })
   url?: string;
 
   @ApiPropertyOptional({ description: 'Image width in pixels', example: 1920 })
@@ -28,7 +31,10 @@ export class FileInfoDto {
   @ApiPropertyOptional({ description: 'Image height in pixels', example: 1080 })
   height?: number;
 
-  @ApiPropertyOptional({ description: 'Thumbnail URL', example: 'https://s3.amazonaws.com/.../thumb.webp' })
+  @ApiPropertyOptional({
+    description: 'Thumbnail URL',
+    example: 'https://s3.amazonaws.com/.../thumb.webp',
+  })
   thumbnail_url?: string;
 }
 
@@ -87,7 +93,10 @@ export class QuoteAttachmentResponseDto {
   @ApiProperty({ description: 'Display order index', example: 0 })
   order_index: number;
 
-  @ApiProperty({ description: 'Creation timestamp', example: '2026-01-24T10:30:00.000Z' })
+  @ApiProperty({
+    description: 'Creation timestamp',
+    example: '2026-01-24T10:30:00.000Z',
+  })
   created_at: Date;
 
   @ApiPropertyOptional({

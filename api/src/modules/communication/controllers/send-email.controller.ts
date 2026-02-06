@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Post,
-  Body,
-  UseGuards,
-  Request,
-} from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -117,10 +111,6 @@ export class SendEmailController {
     description: 'Email config not set up',
   })
   async sendRaw(@Request() req, @Body() dto: SendRawEmailDto) {
-    return this.sendEmailService.sendRaw(
-      req.user.tenant_id,
-      dto,
-      req.user.id,
-    );
+    return this.sendEmailService.sendRaw(req.user.tenant_id, dto, req.user.id);
   }
 }

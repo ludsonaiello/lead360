@@ -27,7 +27,20 @@ export class ChangeOrderResponseDto {
   @ApiProperty({
     description: 'Change order status',
     example: 'draft',
-    enum: ['draft', 'pending_approval', 'ready', 'sent', 'delivered', 'read', 'opened', 'downloaded', 'approved', 'denied', 'started', 'concluded'],
+    enum: [
+      'draft',
+      'pending_approval',
+      'ready',
+      'sent',
+      'delivered',
+      'read',
+      'opened',
+      'downloaded',
+      'approved',
+      'denied',
+      'started',
+      'concluded',
+    ],
   })
   status: string;
 
@@ -45,31 +58,31 @@ export class ChangeOrderResponseDto {
 
   @ApiProperty({
     description: 'Parent quote original total',
-    example: 45000.00,
+    example: 45000.0,
   })
   parent_original_total: number;
 
   @ApiProperty({
     description: 'Change order subtotal',
-    example: 3200.00,
+    example: 3200.0,
   })
   subtotal: number;
 
   @ApiProperty({
     description: 'Tax amount',
-    example: 256.00,
+    example: 256.0,
   })
   tax_amount: number;
 
   @ApiProperty({
     description: 'Discount amount',
-    example: 0.00,
+    example: 0.0,
   })
   discount_amount: number;
 
   @ApiProperty({
     description: 'Change order total',
-    example: 3456.00,
+    example: 3456.0,
   })
   total: number;
 

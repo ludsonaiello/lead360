@@ -20,7 +20,10 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PlatformAdminGuard } from '../rbac/guards/platform-admin.guard';
 import { FilesService } from './files.service';
-import { AdminFileQueryDto, AdminShareLinksQueryDto } from './dto/admin-file-query.dto';
+import {
+  AdminFileQueryDto,
+  AdminShareLinksQueryDto,
+} from './dto/admin-file-query.dto';
 
 /**
  * Admin Files Controller
@@ -41,7 +44,8 @@ export class FilesAdminController {
   @Get()
   @ApiOperation({
     summary: 'List all files (Platform Admin)',
-    description: 'Returns all files across all tenants. Optionally filter by tenant_id, status, mime_type, or search filename.',
+    description:
+      'Returns all files across all tenants. Optionally filter by tenant_id, status, mime_type, or search filename.',
   })
   @ApiResponse({
     status: 200,
@@ -95,16 +99,70 @@ export class FilesAdminController {
       },
     },
   })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin required' })
-  @ApiQuery({ name: 'tenant_id', required: false, description: 'Filter by tenant ID' })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number (default: 1)' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Items per page (default: 50, max: 100)' })
-  @ApiQuery({ name: 'status', required: false, enum: ['active', 'deleted'], description: 'Filter by status' })
-  @ApiQuery({ name: 'mime_type', required: false, description: 'Filter by MIME type' })
-  @ApiQuery({ name: 'search', required: false, description: 'Search filename (partial match)' })
-  @ApiQuery({ name: 'category', required: false, enum: ['quote', 'invoice', 'license', 'insurance', 'logo', 'contract', 'receipt', 'photo', 'report', 'signature', 'misc'], description: 'Filter by file category' })
-  @ApiQuery({ name: 'entity_type', required: false, description: 'Filter by entity type (e.g., "invoice", "user")' })
-  @ApiQuery({ name: 'file_type', required: false, enum: ['image', 'document', 'other'], description: 'Filter by file type' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin required',
+  })
+  @ApiQuery({
+    name: 'tenant_id',
+    required: false,
+    description: 'Filter by tenant ID',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Items per page (default: 50, max: 100)',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['active', 'deleted'],
+    description: 'Filter by status',
+  })
+  @ApiQuery({
+    name: 'mime_type',
+    required: false,
+    description: 'Filter by MIME type',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Search filename (partial match)',
+  })
+  @ApiQuery({
+    name: 'category',
+    required: false,
+    enum: [
+      'quote',
+      'invoice',
+      'license',
+      'insurance',
+      'logo',
+      'contract',
+      'receipt',
+      'photo',
+      'report',
+      'signature',
+      'misc',
+    ],
+    description: 'Filter by file category',
+  })
+  @ApiQuery({
+    name: 'entity_type',
+    required: false,
+    description: 'Filter by entity type (e.g., "invoice", "user")',
+  })
+  @ApiQuery({
+    name: 'file_type',
+    required: false,
+    enum: ['image', 'document', 'other'],
+    description: 'Filter by file type',
+  })
   async listAllFiles(@Query() query: AdminFileQueryDto) {
     return this.filesService.findAllForAdmin(query);
   }
@@ -116,7 +174,8 @@ export class FilesAdminController {
   @Get('stats')
   @ApiOperation({
     summary: 'Get platform-wide file statistics (Platform Admin)',
-    description: 'Returns aggregate statistics for all files across all tenants.',
+    description:
+      'Returns aggregate statistics for all files across all tenants.',
   })
   @ApiResponse({
     status: 200,
@@ -152,7 +211,10 @@ export class FilesAdminController {
       },
     },
   })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin required',
+  })
   async getFileStats() {
     return this.filesService.getFileStatsForAdmin();
   }
@@ -184,7 +246,10 @@ export class FilesAdminController {
       },
     },
   })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin required',
+  })
   async getStorageStatsByTenant() {
     return this.filesService.getStorageStatsByTenant();
   }
@@ -196,7 +261,8 @@ export class FilesAdminController {
   @Get('shares')
   @ApiOperation({
     summary: 'List all file share links (Platform Admin)',
-    description: 'Returns all share links across all tenants. Optionally filter by tenant_id or active status.',
+    description:
+      'Returns all share links across all tenants. Optionally filter by tenant_id or active status.',
   })
   @ApiResponse({
     status: 200,
@@ -259,11 +325,30 @@ export class FilesAdminController {
       },
     },
   })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin required' })
-  @ApiQuery({ name: 'tenant_id', required: false, description: 'Filter by tenant ID' })
-  @ApiQuery({ name: 'active_only', required: false, description: 'Show only active links (default: false)' })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number (default: 1)' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Items per page (default: 50, max: 100)' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin required',
+  })
+  @ApiQuery({
+    name: 'tenant_id',
+    required: false,
+    description: 'Filter by tenant ID',
+  })
+  @ApiQuery({
+    name: 'active_only',
+    required: false,
+    description: 'Show only active links (default: false)',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Items per page (default: 50, max: 100)',
+  })
   async getAllShareLinks(@Query() query: AdminShareLinksQueryDto) {
     return this.filesService.getAllShareLinksForAdmin(query);
   }
@@ -275,7 +360,8 @@ export class FilesAdminController {
   @Get(':id')
   @ApiOperation({
     summary: 'Get file details by ID (Platform Admin)',
-    description: 'Returns file details for any tenant (bypasses tenant isolation).',
+    description:
+      'Returns file details for any tenant (bypasses tenant isolation).',
   })
   @ApiResponse({
     status: 200,
@@ -329,7 +415,10 @@ export class FilesAdminController {
     },
   })
   @ApiResponse({ status: 404, description: 'File not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin required',
+  })
   @ApiParam({ name: 'id', description: 'File ID' })
   async getFileById(@Param('id') id: string) {
     return this.filesService.getFileByIdForAdmin(id);
@@ -343,7 +432,8 @@ export class FilesAdminController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete file by ID (Platform Admin)',
-    description: 'Soft deletes file from database and removes from storage. Works for any tenant.',
+    description:
+      'Soft deletes file from database and removes from storage. Works for any tenant.',
   })
   @ApiResponse({
     status: 200,
@@ -358,7 +448,10 @@ export class FilesAdminController {
   })
   @ApiResponse({ status: 404, description: 'File not found' })
   @ApiResponse({ status: 400, description: 'File is already deleted' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin required',
+  })
   @ApiParam({ name: 'id', description: 'File ID' })
   async deleteFile(@Param('id') id: string, @Request() req) {
     return this.filesService.deleteFileForAdmin(id, req.user.id);

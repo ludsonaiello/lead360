@@ -83,7 +83,10 @@ export class TenantController {
 
   @Get('current')
   @ApiOperation({ summary: 'Get current tenant profile (from subdomain)' })
-  @ApiResponse({ status: 200, description: 'Tenant profile retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Tenant profile retrieved successfully',
+  })
   async getCurrentTenant(@Request() req) {
     return this.tenantService.findById(req.user.tenant_id);
   }
@@ -91,21 +94,37 @@ export class TenantController {
   @Patch('current')
   @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Update current tenant profile' })
-  @ApiResponse({ status: 200, description: 'Tenant profile updated successfully' })
-  async updateCurrentTenant(@Request() req, @Body() updateTenantDto: UpdateTenantDto) {
+  @ApiResponse({
+    status: 200,
+    description: 'Tenant profile updated successfully',
+  })
+  async updateCurrentTenant(
+    @Request() req,
+    @Body() updateTenantDto: UpdateTenantDto,
+  ) {
     // Log all incoming request data for debugging (using WARN so it shows in console)
-    this.logger.log('===== PATCH /tenants/current - Incoming Request Data =====');
+    this.logger.log(
+      '===== PATCH /tenants/current - Incoming Request Data =====',
+    );
     this.logger.log(`Tenant ID: ${req.user.tenant_id}`);
     this.logger.log(`User ID: ${req.user.id}`);
     this.logger.log('Raw Body (all fields):');
     this.logger.log(JSON.stringify(updateTenantDto, null, 2));
     this.logger.log('Field-by-field breakdown:');
     for (const [key, value] of Object.entries(updateTenantDto)) {
-      this.logger.log(`  ${key}: ${JSON.stringify(value)} (type: ${typeof value})`);
+      this.logger.log(
+        `  ${key}: ${JSON.stringify(value)} (type: ${typeof value})`,
+      );
     }
-    this.logger.log('==========================================================');
+    this.logger.log(
+      '==========================================================',
+    );
 
-    return this.tenantService.update(req.user.tenant_id, updateTenantDto, req.user.id);
+    return this.tenantService.update(
+      req.user.tenant_id,
+      updateTenantDto,
+      req.user.id,
+    );
   }
 
   @Patch('current/branding')
@@ -113,13 +132,20 @@ export class TenantController {
   @ApiOperation({ summary: 'Update tenant branding settings' })
   @ApiResponse({ status: 200, description: 'Branding updated successfully' })
   async updateBranding(@Request() req, @Body() brandingDto: UpdateBrandingDto) {
-    return this.tenantService.updateBranding(req.user.tenant_id, brandingDto, req.user.id);
+    return this.tenantService.updateBranding(
+      req.user.tenant_id,
+      brandingDto,
+      req.user.id,
+    );
   }
 
   @Get('current/statistics')
   @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Get tenant statistics for dashboard' })
-  @ApiResponse({ status: 200, description: 'Statistics retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistics retrieved successfully',
+  })
   async getStatistics(@Request() req) {
     return this.tenantService.getStatistics(req.user.tenant_id);
   }
@@ -178,8 +204,15 @@ export class TenantController {
   @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Create a new address' })
   @ApiResponse({ status: 201, description: 'Address created successfully' })
-  async createAddress(@Request() req, @Body() createAddressDto: CreateAddressDto) {
-    return this.addressService.create(req.user.tenant_id, createAddressDto, req.user.id);
+  async createAddress(
+    @Request() req,
+    @Body() createAddressDto: CreateAddressDto,
+  ) {
+    return this.addressService.create(
+      req.user.tenant_id,
+      createAddressDto,
+      req.user.id,
+    );
   }
 
   @Get('current/addresses/:id')
@@ -200,7 +233,12 @@ export class TenantController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateAddressDto: UpdateAddressDto,
   ) {
-    return this.addressService.update(req.user.tenant_id, id, updateAddressDto, req.user.id);
+    return this.addressService.update(
+      req.user.tenant_id,
+      id,
+      updateAddressDto,
+      req.user.id,
+    );
   }
 
   @Delete('current/addresses/:id')
@@ -218,8 +256,15 @@ export class TenantController {
   @ApiOperation({ summary: 'Set an address as default for its type' })
   @ApiParam({ name: 'id', description: 'Address ID' })
   @ApiResponse({ status: 200, description: 'Address set as default' })
-  async setDefaultAddress(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
-    return this.addressService.setAsDefault(req.user.tenant_id, id, req.user.id);
+  async setDefaultAddress(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.addressService.setAsDefault(
+      req.user.tenant_id,
+      id,
+      req.user.id,
+    );
   }
 
   // ========== LICENSES ==========
@@ -235,8 +280,15 @@ export class TenantController {
   @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Create a new license' })
   @ApiResponse({ status: 201, description: 'License created successfully' })
-  async createLicense(@Request() req, @Body() createLicenseDto: CreateLicenseDto) {
-    return this.licenseService.create(req.user.tenant_id, createLicenseDto, req.user.id);
+  async createLicense(
+    @Request() req,
+    @Body() createLicenseDto: CreateLicenseDto,
+  ) {
+    return this.licenseService.create(
+      req.user.tenant_id,
+      createLicenseDto,
+      req.user.id,
+    );
   }
 
   @Get('current/licenses/:id')
@@ -257,7 +309,12 @@ export class TenantController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateLicenseDto: UpdateLicenseDto,
   ) {
-    return this.licenseService.update(req.user.tenant_id, id, updateLicenseDto, req.user.id);
+    return this.licenseService.update(
+      req.user.tenant_id,
+      id,
+      updateLicenseDto,
+      req.user.id,
+    );
   }
 
   @Delete('current/licenses/:id')
@@ -272,7 +329,10 @@ export class TenantController {
 
   @Get('license-types')
   @ApiOperation({ summary: 'Get all active license types (for dropdowns)' })
-  @ApiResponse({ status: 200, description: 'License types retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'License types retrieved successfully',
+  })
   async getLicenseTypes() {
     // Return all active license types for dropdown selection
     return this.prisma.license_type.findMany({
@@ -287,10 +347,15 @@ export class TenantController {
   }
 
   @Get('current/licenses/:id/status')
-  @ApiOperation({ summary: 'Get license status (expired, expiring soon, valid)' })
+  @ApiOperation({
+    summary: 'Get license status (expired, expiring soon, valid)',
+  })
   @ApiParam({ name: 'id', description: 'License ID' })
   @ApiResponse({ status: 200, description: 'License status retrieved' })
-  async getLicenseStatus(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
+  async getLicenseStatus(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.licenseService.getLicenseStatus(req.user.tenant_id, id);
   }
 
@@ -318,7 +383,12 @@ export class TenantController {
     @Param('id', ParseUUIDPipe) id: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.licenseService.uploadDocument(req.user.tenant_id, id, file, req.user.id);
+    return this.licenseService.uploadDocument(
+      req.user.tenant_id,
+      id,
+      file,
+      req.user.id,
+    );
   }
 
   @Delete('current/licenses/:id/document')
@@ -327,15 +397,25 @@ export class TenantController {
   @ApiOperation({ summary: 'Delete document for a license' })
   @ApiParam({ name: 'id', description: 'License ID' })
   @ApiResponse({ status: 204, description: 'Document deleted successfully' })
-  async deleteLicenseDocument(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
-    return this.licenseService.deleteDocument(req.user.tenant_id, id, req.user.id);
+  async deleteLicenseDocument(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.licenseService.deleteDocument(
+      req.user.tenant_id,
+      id,
+      req.user.id,
+    );
   }
 
   // ========== INSURANCE ==========
 
   @Get('current/insurance')
   @ApiOperation({ summary: 'Get insurance information for current tenant' })
-  @ApiResponse({ status: 200, description: 'Insurance information retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Insurance information retrieved successfully',
+  })
   async getInsurance(@Request() req) {
     return this.insuranceService.findOrCreate(req.user.tenant_id);
   }
@@ -343,9 +423,19 @@ export class TenantController {
   @Patch('current/insurance')
   @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Update insurance information' })
-  @ApiResponse({ status: 200, description: 'Insurance information updated successfully' })
-  async updateInsurance(@Request() req, @Body() updateInsuranceDto: UpdateInsuranceDto) {
-    return this.insuranceService.update(req.user.tenant_id, updateInsuranceDto, req.user.id);
+  @ApiResponse({
+    status: 200,
+    description: 'Insurance information updated successfully',
+  })
+  async updateInsurance(
+    @Request() req,
+    @Body() updateInsuranceDto: UpdateInsuranceDto,
+  ) {
+    return this.insuranceService.update(
+      req.user.tenant_id,
+      updateInsuranceDto,
+      req.user.id,
+    );
   }
 
   @Get('current/insurance/status')
@@ -379,9 +469,19 @@ export class TenantController {
       },
     },
   })
-  @ApiResponse({ status: 200, description: 'GL document uploaded successfully' })
-  async uploadGLDocument(@Request() req, @UploadedFile() file: Express.Multer.File) {
-    return this.insuranceService.uploadGLDocument(req.user.tenant_id, file, req.user.id);
+  @ApiResponse({
+    status: 200,
+    description: 'GL document uploaded successfully',
+  })
+  async uploadGLDocument(
+    @Request() req,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.insuranceService.uploadGLDocument(
+      req.user.tenant_id,
+      file,
+      req.user.id,
+    );
   }
 
   @Post('current/insurance/wc-document')
@@ -401,9 +501,19 @@ export class TenantController {
       },
     },
   })
-  @ApiResponse({ status: 200, description: 'WC document uploaded successfully' })
-  async uploadWCDocument(@Request() req, @UploadedFile() file: Express.Multer.File) {
-    return this.insuranceService.uploadWCDocument(req.user.tenant_id, file, req.user.id);
+  @ApiResponse({
+    status: 200,
+    description: 'WC document uploaded successfully',
+  })
+  async uploadWCDocument(
+    @Request() req,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.insuranceService.uploadWCDocument(
+      req.user.tenant_id,
+      file,
+      req.user.id,
+    );
   }
 
   @Delete('current/insurance/gl-document')
@@ -412,7 +522,10 @@ export class TenantController {
   @ApiOperation({ summary: 'Delete General Liability insurance document' })
   @ApiResponse({ status: 204, description: 'GL document deleted successfully' })
   async deleteGLDocument(@Request() req) {
-    return this.insuranceService.deleteGLDocument(req.user.tenant_id, req.user.id);
+    return this.insuranceService.deleteGLDocument(
+      req.user.tenant_id,
+      req.user.id,
+    );
   }
 
   @Delete('current/insurance/wc-document')
@@ -421,14 +534,20 @@ export class TenantController {
   @ApiOperation({ summary: 'Delete Workers Compensation insurance document' })
   @ApiResponse({ status: 204, description: 'WC document deleted successfully' })
   async deleteWCDocument(@Request() req) {
-    return this.insuranceService.deleteWCDocument(req.user.tenant_id, req.user.id);
+    return this.insuranceService.deleteWCDocument(
+      req.user.tenant_id,
+      req.user.id,
+    );
   }
 
   // ========== PAYMENT TERMS ==========
 
   @Get('current/payment-terms')
   @ApiOperation({ summary: 'Get payment terms for current tenant' })
-  @ApiResponse({ status: 200, description: 'Payment terms retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment terms retrieved successfully',
+  })
   async getPaymentTerms(@Request() req) {
     return this.paymentTermsService.findOrCreate(req.user.tenant_id);
   }
@@ -436,9 +555,19 @@ export class TenantController {
   @Patch('current/payment-terms')
   @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Update payment terms' })
-  @ApiResponse({ status: 200, description: 'Payment terms updated successfully' })
-  async updatePaymentTerms(@Request() req, @Body() updatePaymentTermsDto: UpdatePaymentTermsDto) {
-    return this.paymentTermsService.update(req.user.tenant_id, updatePaymentTermsDto, req.user.id);
+  @ApiResponse({
+    status: 200,
+    description: 'Payment terms updated successfully',
+  })
+  async updatePaymentTerms(
+    @Request() req,
+    @Body() updatePaymentTermsDto: UpdatePaymentTermsDto,
+  ) {
+    return this.paymentTermsService.update(
+      req.user.tenant_id,
+      updatePaymentTermsDto,
+      req.user.id,
+    );
   }
 
   @Get('payment-terms/templates')
@@ -452,7 +581,10 @@ export class TenantController {
 
   @Get('current/business-hours')
   @ApiOperation({ summary: 'Get business hours for current tenant' })
-  @ApiResponse({ status: 200, description: 'Business hours retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Business hours retrieved successfully',
+  })
   async getBusinessHours(@Request() req) {
     return this.businessHoursService.findOrCreate(req.user.tenant_id);
   }
@@ -460,16 +592,29 @@ export class TenantController {
   @Patch('current/business-hours')
   @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Update business hours' })
-  @ApiResponse({ status: 200, description: 'Business hours updated successfully' })
-  async updateBusinessHours(@Request() req, @Body() updateBusinessHoursDto: UpdateBusinessHoursDto) {
-    return this.businessHoursService.update(req.user.tenant_id, updateBusinessHoursDto, req.user.id);
+  @ApiResponse({
+    status: 200,
+    description: 'Business hours updated successfully',
+  })
+  async updateBusinessHours(
+    @Request() req,
+    @Body() updateBusinessHoursDto: UpdateBusinessHoursDto,
+  ) {
+    return this.businessHoursService.update(
+      req.user.tenant_id,
+      updateBusinessHoursDto,
+      req.user.id,
+    );
   }
 
   // ========== CUSTOM HOURS (Holidays, Special Dates) ==========
 
   @Get('current/custom-hours')
   @ApiOperation({ summary: 'Get all custom hours (holidays, special dates)' })
-  @ApiResponse({ status: 200, description: 'Custom hours retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Custom hours retrieved successfully',
+  })
   async getCustomHours(@Request() req) {
     return this.businessHoursService.findAllCustomHours(req.user.tenant_id);
   }
@@ -477,22 +622,40 @@ export class TenantController {
   @Post('current/custom-hours')
   @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Create custom hours for a special date' })
-  @ApiResponse({ status: 201, description: 'Custom hours created successfully' })
-  async createCustomHours(@Request() req, @Body() createCustomHoursDto: CreateCustomHoursDto) {
-    return this.businessHoursService.createCustomHours(req.user.tenant_id, createCustomHoursDto, req.user.id);
+  @ApiResponse({
+    status: 201,
+    description: 'Custom hours created successfully',
+  })
+  async createCustomHours(
+    @Request() req,
+    @Body() createCustomHoursDto: CreateCustomHoursDto,
+  ) {
+    return this.businessHoursService.createCustomHours(
+      req.user.tenant_id,
+      createCustomHoursDto,
+      req.user.id,
+    );
   }
 
   @Patch('current/custom-hours/:id')
   @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Update custom hours' })
   @ApiParam({ name: 'id', description: 'Custom hours ID' })
-  @ApiResponse({ status: 200, description: 'Custom hours updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Custom hours updated successfully',
+  })
   async updateCustomHours(
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateCustomHoursDto: UpdateCustomHoursDto,
   ) {
-    return this.businessHoursService.updateCustomHours(req.user.tenant_id, id, updateCustomHoursDto, req.user.id);
+    return this.businessHoursService.updateCustomHours(
+      req.user.tenant_id,
+      id,
+      updateCustomHoursDto,
+      req.user.id,
+    );
   }
 
   @Delete('current/custom-hours/:id')
@@ -500,16 +663,29 @@ export class TenantController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete custom hours' })
   @ApiParam({ name: 'id', description: 'Custom hours ID' })
-  @ApiResponse({ status: 204, description: 'Custom hours deleted successfully' })
-  async deleteCustomHours(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
-    return this.businessHoursService.deleteCustomHours(req.user.tenant_id, id, req.user.id);
+  @ApiResponse({
+    status: 204,
+    description: 'Custom hours deleted successfully',
+  })
+  async deleteCustomHours(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.businessHoursService.deleteCustomHours(
+      req.user.tenant_id,
+      id,
+      req.user.id,
+    );
   }
 
   // ========== SERVICE AREAS ==========
 
   @Get('current/service-areas')
   @ApiOperation({ summary: 'Get all service areas for current tenant' })
-  @ApiResponse({ status: 200, description: 'Service areas retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Service areas retrieved successfully',
+  })
   async getServiceAreas(@Request() req) {
     return this.serviceAreaService.findAll(req.user.tenant_id);
   }
@@ -517,15 +693,28 @@ export class TenantController {
   @Post('current/service-areas')
   @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Create a new service area' })
-  @ApiResponse({ status: 201, description: 'Service area created successfully' })
-  async createServiceArea(@Request() req, @Body() createServiceAreaDto: CreateServiceAreaDto) {
-    return this.serviceAreaService.create(req.user.tenant_id, createServiceAreaDto, req.user.id);
+  @ApiResponse({
+    status: 201,
+    description: 'Service area created successfully',
+  })
+  async createServiceArea(
+    @Request() req,
+    @Body() createServiceAreaDto: CreateServiceAreaDto,
+  ) {
+    return this.serviceAreaService.create(
+      req.user.tenant_id,
+      createServiceAreaDto,
+      req.user.id,
+    );
   }
 
   @Get('current/service-areas/:id')
   @ApiOperation({ summary: 'Get a specific service area by ID' })
   @ApiParam({ name: 'id', description: 'Service area ID' })
-  @ApiResponse({ status: 200, description: 'Service area retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Service area retrieved successfully',
+  })
   async getServiceArea(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.serviceAreaService.findOne(req.user.tenant_id, id);
   }
@@ -534,13 +723,21 @@ export class TenantController {
   @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Update a service area' })
   @ApiParam({ name: 'id', description: 'Service area ID' })
-  @ApiResponse({ status: 200, description: 'Service area updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Service area updated successfully',
+  })
   async updateServiceArea(
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateServiceAreaDto: UpdateServiceAreaDto,
   ) {
-    return this.serviceAreaService.update(req.user.tenant_id, id, updateServiceAreaDto, req.user.id);
+    return this.serviceAreaService.update(
+      req.user.tenant_id,
+      id,
+      updateServiceAreaDto,
+      req.user.id,
+    );
   }
 
   @Delete('current/service-areas/:id')
@@ -548,8 +745,14 @@ export class TenantController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a service area' })
   @ApiParam({ name: 'id', description: 'Service area ID' })
-  @ApiResponse({ status: 204, description: 'Service area deleted successfully' })
-  async deleteServiceArea(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
+  @ApiResponse({
+    status: 204,
+    description: 'Service area deleted successfully',
+  })
+  async deleteServiceArea(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.serviceAreaService.delete(req.user.tenant_id, id, req.user.id);
   }
 
@@ -576,8 +779,11 @@ export class TenantController {
   }
 
   @Get('current/assigned-services')
-  @ApiOperation({ summary: 'Get tenant\'s assigned services' })
-  @ApiResponse({ status: 200, description: 'Assigned services retrieved successfully' })
+  @ApiOperation({ summary: "Get tenant's assigned services" })
+  @ApiResponse({
+    status: 200,
+    description: 'Assigned services retrieved successfully',
+  })
   async getAssignedServices(@Request() req) {
     return this.serviceService.getTenantServices(req.user.tenant_id);
   }
@@ -588,6 +794,10 @@ export class TenantController {
   @ApiResponse({ status: 200, description: 'Services assigned successfully' })
   @ApiResponse({ status: 400, description: 'Invalid service IDs' })
   async assignServices(@Request() req, @Body() assignDto: AssignServicesDto) {
-    return this.serviceService.assignServices(req.user.tenant_id, assignDto, req.user.userId);
+    return this.serviceService.assignServices(
+      req.user.tenant_id,
+      assignDto,
+      req.user.userId,
+    );
   }
 }

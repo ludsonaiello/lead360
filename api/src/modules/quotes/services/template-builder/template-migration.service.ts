@@ -65,7 +65,9 @@ export class TemplateMigrationService {
           template_name: template.name,
           error: error.message,
         });
-        console.error(`✗ Failed: ${template.name} (${template.id}) - ${error.message}`);
+        console.error(
+          `✗ Failed: ${template.name} (${template.id}) - ${error.message}`,
+        );
       }
     }
 
@@ -78,7 +80,9 @@ export class TemplateMigrationService {
 
     result.skipped = alreadyMigrated - result.migrated;
 
-    console.log(`Migration complete: ${result.migrated} migrated, ${result.failed} failed, ${result.skipped} skipped`);
+    console.log(
+      `Migration complete: ${result.migrated} migrated, ${result.failed} failed, ${result.skipped} skipped`,
+    );
 
     return result;
   }
@@ -105,7 +109,10 @@ export class TemplateMigrationService {
     const { html, css } = this.extractCssFromHtml(template.html_content || '');
 
     // Validate the extracted code
-    const validation = await this.validator.validateHandlebarsCode(html, css ?? undefined);
+    const validation = await this.validator.validateHandlebarsCode(
+      html,
+      css ?? undefined,
+    );
 
     // Update template with extracted code
     await this.prisma.quote_template.update({
@@ -169,7 +176,9 @@ export class TemplateMigrationService {
     // Assess complexity
     if (tagCount > 100) {
       complexity = 'complex';
-      recommendations.push('Template has many HTML elements. Consider breaking into sections.');
+      recommendations.push(
+        'Template has many HTML elements. Consider breaking into sections.',
+      );
     } else if (tagCount > 50) {
       complexity = 'moderate';
     }
@@ -186,19 +195,25 @@ export class TemplateMigrationService {
     }
 
     if (hasInlineStyles) {
-      recommendations.push('Template uses inline styles. Extract to CSS for better maintainability.');
+      recommendations.push(
+        'Template uses inline styles. Extract to CSS for better maintainability.',
+      );
     }
 
     // Check for external resources
     if (/src=["']https?:\/\//i.test(html)) {
-      recommendations.push('Template loads external resources. Consider using data URIs or local assets.');
+      recommendations.push(
+        'Template loads external resources. Consider using data URIs or local assets.',
+      );
     }
 
     // Validate Handlebars syntax
     const validation = await this.validator.validateHandlebarsCode(html);
     if (!validation.is_valid) {
-      issues.push(`Handlebars validation failed: ${validation.errors.length} error(s)`);
-      validation.errors.forEach(error => {
+      issues.push(
+        `Handlebars validation failed: ${validation.errors.length} error(s)`,
+      );
+      validation.errors.forEach((error) => {
         issues.push(`  - ${error.message}`);
       });
       canConvert = false;
@@ -210,9 +225,13 @@ export class TemplateMigrationService {
     const hasSemanticStructure = /<(header|footer|section|article)/i.test(html);
 
     if (hasSemanticStructure) {
-      recommendations.push('Template uses semantic HTML - good candidate for visual conversion');
+      recommendations.push(
+        'Template uses semantic HTML - good candidate for visual conversion',
+      );
     } else if (hasTable && !hasDivLayout) {
-      recommendations.push('Template uses table-based layout - consider refactoring to modern layout');
+      recommendations.push(
+        'Template uses table-based layout - consider refactoring to modern layout',
+      );
     }
 
     return {
@@ -327,7 +346,9 @@ export class TemplateMigrationService {
         break;
       }
 
-      console.log(`Processing batch: ${offset + 1} to ${offset + batch.length}`);
+      console.log(
+        `Processing batch: ${offset + 1} to ${offset + batch.length}`,
+      );
 
       for (const template of batch) {
         try {
@@ -346,10 +367,12 @@ export class TemplateMigrationService {
       offset += batchSize;
 
       // Add delay to avoid overwhelming the database
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
-    console.log(`Batch migration complete: ${result.migrated} migrated, ${result.failed} failed`);
+    console.log(
+      `Batch migration complete: ${result.migrated} migrated, ${result.failed} failed`,
+    );
 
     return result;
   }
@@ -359,7 +382,10 @@ export class TemplateMigrationService {
   /**
    * Extract inline CSS from HTML
    */
-  private extractCssFromHtml(html: string): { html: string; css: string | null } {
+  private extractCssFromHtml(html: string): {
+    html: string;
+    css: string | null;
+  } {
     // Extract <style> tags
     const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
     let css = '';

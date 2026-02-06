@@ -113,7 +113,10 @@ export class NotificationProcessor extends WorkerHost {
         `✅ Notification job ${jobId} completed - Created ${totalNotificationsCreated} notifications`,
       );
 
-      return { success: true, notifications_created: totalNotificationsCreated };
+      return {
+        success: true,
+        notifications_created: totalNotificationsCreated,
+      };
     } catch (error) {
       this.logger.error(
         `❌ Notification job ${jobId} failed: ${error.message}`,
@@ -210,7 +213,9 @@ export class NotificationProcessor extends WorkerHost {
       case 'invoice_paid':
         return 'Invoice Paid';
       default:
-        return eventType.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+        return eventType
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (l) => l.toUpperCase());
     }
   }
 

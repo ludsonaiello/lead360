@@ -40,7 +40,10 @@ export class InsuranceExpiryCheckJob {
 
       this.logger.log('Insurance expiry check job completed successfully');
     } catch (error) {
-      this.logger.error(`Insurance expiry check job failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `Insurance expiry check job failed: ${error.message}`,
+        error.stack,
+      );
     }
   }
 
@@ -48,18 +51,25 @@ export class InsuranceExpiryCheckJob {
    * Check for insurance policies expiring in specified days and send alerts
    */
   private async checkAndAlertForDays(daysFromNow: number) {
-    this.logger.log(`Checking for insurance policies expiring in ${daysFromNow} days...`);
+    this.logger.log(
+      `Checking for insurance policies expiring in ${daysFromNow} days...`,
+    );
 
     try {
       // Get all insurance records with GL or WC expiring in X days
-      const expiringInsurance = await this.insuranceService.findExpiring(daysFromNow);
+      const expiringInsurance =
+        await this.insuranceService.findExpiring(daysFromNow);
 
       if (expiringInsurance.length === 0) {
-        this.logger.log(`No insurance policies expiring in ${daysFromNow} days`);
+        this.logger.log(
+          `No insurance policies expiring in ${daysFromNow} days`,
+        );
         return;
       }
 
-      this.logger.log(`Found ${expiringInsurance.length} insurance records with expiring policies in ${daysFromNow} days`);
+      this.logger.log(
+        `Found ${expiringInsurance.length} insurance records with expiring policies in ${daysFromNow} days`,
+      );
 
       // Send alert for each tenant
       for (const insurance of expiringInsurance) {
@@ -129,12 +139,16 @@ export class InsuranceExpiryCheckJob {
       });
 
       // Filter by role (check if user has Owner or Admin role)
-      const recipients = allUsers.filter(user =>
-        user.user_role_user_role_user_idTouser.some(ur => ['Owner', 'Admin'].includes(ur.role.name))
+      const recipients = allUsers.filter((user) =>
+        user.user_role_user_role_user_idTouser.some((ur) =>
+          ['Owner', 'Admin'].includes(ur.role.name),
+        ),
       );
 
       if (recipients.length === 0) {
-        this.logger.warn(`No Owner/Admin users found for tenant ${tenantId} to send insurance expiry alerts`);
+        this.logger.warn(
+          `No Owner/Admin users found for tenant ${tenantId} to send insurance expiry alerts`,
+        );
         return;
       }
 
@@ -156,7 +170,9 @@ export class InsuranceExpiryCheckJob {
         }
       }
 
-      this.logger.log(`  Recipients: ${recipients.map((r) => r.email).join(', ')}`);
+      this.logger.log(
+        `  Recipients: ${recipients.map((r) => r.email).join(', ')}`,
+      );
 
       // TODO: Send actual email
       // await this.emailService.sendInsuranceExpiryAlert({
@@ -170,7 +186,8 @@ export class InsuranceExpiryCheckJob {
       // Create audit log entry
       await this.prisma.audit_log.create({
         data: {
-        id: randomBytes(16).toString('hex'),tenant_id: tenantId,
+          id: randomBytes(16).toString('hex'),
+          tenant_id: tenantId,
           actor_user_id: null, // System action
           actor_type: 'cron_job',
           action_type: 'ALERT',

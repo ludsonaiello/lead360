@@ -33,7 +33,8 @@ export class DashboardController {
   @Get('metrics')
   @ApiOperation({
     summary: 'Get all dashboard metrics',
-    description: 'Returns comprehensive dashboard metrics including active tenants, total users, job success rate, storage usage, and system health',
+    description:
+      'Returns comprehensive dashboard metrics including active tenants, total users, job success rate, storage usage, and system health',
   })
   @ApiResponse({
     status: 200,
@@ -50,10 +51,18 @@ export class DashboardController {
               properties: {
                 count: { type: 'number', example: 12 },
                 percentage: { type: 'number', example: 8.7 },
-                trend: { type: 'string', enum: ['up', 'down', 'stable'], example: 'up' },
+                trend: {
+                  type: 'string',
+                  enum: ['up', 'down', 'stable'],
+                  example: 'up',
+                },
               },
             },
-            sparkline: { type: 'array', items: { type: 'number' }, example: [1, 2, 3, 5, 4] },
+            sparkline: {
+              type: 'array',
+              items: { type: 'number' },
+              example: [1, 2, 3, 5, 4],
+            },
           },
         },
         totalUsers: {
@@ -65,7 +74,11 @@ export class DashboardController {
               properties: {
                 count: { type: 'number', example: 87 },
                 percentage: { type: 'number', example: 3.7 },
-                trend: { type: 'string', enum: ['up', 'down', 'stable'], example: 'up' },
+                trend: {
+                  type: 'string',
+                  enum: ['up', 'down', 'stable'],
+                  example: 'up',
+                },
               },
             },
             sparkline: { type: 'array', items: { type: 'number' } },
@@ -77,21 +90,37 @@ export class DashboardController {
             percentage: { type: 'number', example: 98.5 },
             totalJobs: { type: 'number', example: 1247 },
             failedJobs: { type: 'number', example: 19 },
-            status: { type: 'string', enum: ['healthy', 'warning', 'critical'], example: 'healthy' },
+            status: {
+              type: 'string',
+              enum: ['healthy', 'warning', 'critical'],
+              example: 'healthy',
+            },
           },
         },
         storageUsed: {
           type: 'object',
           properties: {
-            current: { type: 'number', example: 45.67, description: 'Storage used in GB' },
-            limit: { type: 'number', example: 75000, description: 'Total storage limit in GB' },
+            current: {
+              type: 'number',
+              example: 45.67,
+              description: 'Storage used in GB',
+            },
+            limit: {
+              type: 'number',
+              example: 75000,
+              description: 'Total storage limit in GB',
+            },
             percentage: { type: 'number', example: 0.06 },
           },
         },
         systemHealth: {
           type: 'object',
           properties: {
-            status: { type: 'string', enum: ['healthy', 'unhealthy'], example: 'healthy' },
+            status: {
+              type: 'string',
+              enum: ['healthy', 'unhealthy'],
+              example: 'healthy',
+            },
             checks: {
               type: 'object',
               properties: {
@@ -105,7 +134,10 @@ export class DashboardController {
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async getMetrics() {
     return this.dashboardService.getMetrics();
   }
@@ -118,12 +150,20 @@ export class DashboardController {
   @Get('charts/:chartType')
   @ApiOperation({
     summary: 'Get chart data',
-    description: 'Returns time-series or distribution data for dashboard charts',
+    description:
+      'Returns time-series or distribution data for dashboard charts',
   })
   @ApiParam({
     name: 'chartType',
     required: true,
-    enum: ['tenant-growth', 'user-signups', 'job-trends', 'tenants-by-industry', 'tenants-by-size', 'users-by-role'],
+    enum: [
+      'tenant-growth',
+      'user-signups',
+      'job-trends',
+      'tenants-by-industry',
+      'tenants-by-size',
+      'users-by-role',
+    ],
     description: 'Type of chart data to retrieve',
   })
   @ApiResponse({
@@ -173,7 +213,10 @@ export class DashboardController {
   })
   @ApiResponse({ status: 400, description: 'Unknown chart type' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async getChartData(@Param('chartType') chartType: string) {
     const validChartTypes = [
       'tenant-growth',
@@ -185,7 +228,9 @@ export class DashboardController {
     ];
 
     if (!validChartTypes.includes(chartType)) {
-      throw new BadRequestException(`Invalid chart type. Must be one of: ${validChartTypes.join(', ')}`);
+      throw new BadRequestException(
+        `Invalid chart type. Must be one of: ${validChartTypes.join(', ')}`,
+      );
     }
 
     return this.dashboardService.getChartData(chartType);
@@ -217,10 +262,17 @@ export class DashboardController {
         type: 'object',
         properties: {
           id: { type: 'string', example: 'abc123' },
-          action: { type: 'string', enum: ['created', 'updated', 'deleted', 'failed'], example: 'created' },
+          action: {
+            type: 'string',
+            enum: ['created', 'updated', 'deleted', 'failed'],
+            example: 'created',
+          },
           entity: { type: 'string', example: 'tenant' },
           entityId: { type: 'string', example: 'tenant-123' },
-          description: { type: 'string', example: 'New tenant created: Acme Roofing' },
+          description: {
+            type: 'string',
+            example: 'New tenant created: Acme Roofing',
+          },
           actor: {
             type: 'object',
             nullable: true,
@@ -230,14 +282,25 @@ export class DashboardController {
               email: { type: 'string', example: 'john@example.com' },
             },
           },
-          timestamp: { type: 'string', format: 'date-time', example: '2026-01-09T12:00:00Z' },
-          status: { type: 'string', enum: ['success', 'failure'], example: 'success' },
+          timestamp: {
+            type: 'string',
+            format: 'date-time',
+            example: '2026-01-09T12:00:00Z',
+          },
+          status: {
+            type: 'string',
+            enum: ['success', 'failure'],
+            example: 'success',
+          },
         },
       },
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async getRecentActivity(@Query('limit') limit?: number) {
     const activityLimit = Math.min(limit || 10, 50); // Max 50 items
     return this.dashboardService.getRecentActivity(activityLimit);

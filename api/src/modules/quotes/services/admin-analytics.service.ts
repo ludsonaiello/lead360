@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { CacheService } from '../../../core/cache/cache.service';
 
@@ -389,8 +385,9 @@ export class AdminAnalyticsService {
       'denied',
       'lost',
     ];
-    const totalSent = quotes.filter((q) => sentStatuses.includes(q.status))
-      .length;
+    const totalSent = quotes.filter((q) =>
+      sentStatuses.includes(q.status),
+    ).length;
 
     const viewedStatuses = [
       'read',
@@ -420,20 +417,17 @@ export class AdminAnalyticsService {
       {
         stage: 'sent',
         count: totalSent,
-        percentage:
-          totalCreated > 0 ? (totalSent / totalCreated) * 100 : 0,
+        percentage: totalCreated > 0 ? (totalSent / totalCreated) * 100 : 0,
       },
       {
         stage: 'viewed',
         count: totalViewed,
-        percentage:
-          totalCreated > 0 ? (totalViewed / totalCreated) * 100 : 0,
+        percentage: totalCreated > 0 ? (totalViewed / totalCreated) * 100 : 0,
       },
       {
         stage: 'accepted',
         count: totalAccepted,
-        percentage:
-          totalCreated > 0 ? (totalAccepted / totalCreated) * 100 : 0,
+        percentage: totalCreated > 0 ? (totalAccepted / totalCreated) * 100 : 0,
       },
     ];
 
@@ -487,10 +481,10 @@ export class AdminAnalyticsService {
     });
 
     const totalRequests = apiLogs.length;
-    const errorRequests = apiLogs.filter((log) => log.status === 'failure')
-      .length;
-    const errorRate =
-      totalRequests > 0 ? errorRequests / totalRequests : 0;
+    const errorRequests = apiLogs.filter(
+      (log) => log.status === 'failure',
+    ).length;
+    const errorRate = totalRequests > 0 ? errorRequests / totalRequests : 0;
 
     // Estimate avg response time (placeholder - would need APM tool for real data)
     const avgResponseTimeMs = totalRequests > 0 ? 150 : 0;
@@ -507,20 +501,15 @@ export class AdminAnalyticsService {
       },
     });
 
-    const pendingPdfJobs = pdfJobs.filter((j) => j.status === 'pending')
-      .length;
+    const pendingPdfJobs = pdfJobs.filter((j) => j.status === 'pending').length;
     const completedPdfJobs = pdfJobs.filter((j) => j.status === 'completed');
     const avgPdfTime =
       completedPdfJobs.length > 0
-        ? completedPdfJobs.reduce(
-            (sum, j) => sum + (j.duration_ms || 0),
-            0,
-          ) / completedPdfJobs.length
+        ? completedPdfJobs.reduce((sum, j) => sum + (j.duration_ms || 0), 0) /
+          completedPdfJobs.length
         : 0;
     const pdfSuccessRate =
-      pdfJobs.length > 0
-        ? (completedPdfJobs.length / pdfJobs.length) * 100
-        : 0;
+      pdfJobs.length > 0 ? (completedPdfJobs.length / pdfJobs.length) * 100 : 0;
 
     // Email Delivery (from email_queue table)
     const emailQueue = await this.prisma.email_queue.findMany({
@@ -533,8 +522,9 @@ export class AdminAnalyticsService {
       },
     });
 
-    const pendingEmails = emailQueue.filter((e) => e.status === 'pending')
-      .length;
+    const pendingEmails = emailQueue.filter(
+      (e) => e.status === 'pending',
+    ).length;
     const failedEmails24h = emailQueue.filter(
       (e) => e.status === 'failed' && e.created_at >= oneDayAgo,
     ).length;
@@ -621,7 +611,11 @@ export class AdminAnalyticsService {
       return cached;
     }
 
-    const acceptedStatuses: ('approved' | 'started' | 'concluded')[] = ['approved', 'started', 'concluded'];
+    const acceptedStatuses: ('approved' | 'started' | 'concluded')[] = [
+      'approved',
+      'started',
+      'concluded',
+    ];
 
     // Query accepted quotes in period with related data
     const quotes = await this.prisma.quote.findMany({
@@ -635,18 +629,24 @@ export class AdminAnalyticsService {
         created_at: true,
         vendor_id: true,
         tenant_id: true,
-        vendor: groupBy === 'vendor' ? {
-          select: {
-            id: true,
-            name: true,
-          },
-        } : false,
-        tenant: groupBy === 'tenant' ? {
-          select: {
-            id: true,
-            company_name: true,
-          },
-        } : false,
+        vendor:
+          groupBy === 'vendor'
+            ? {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              }
+            : false,
+        tenant:
+          groupBy === 'tenant'
+            ? {
+                select: {
+                  id: true,
+                  company_name: true,
+                },
+              }
+            : false,
       },
     });
 
@@ -670,7 +670,7 @@ export class AdminAnalyticsService {
       quotes.forEach((q) => {
         if (!q.vendor_id) return;
         const existing = vendorRevenue.get(q.vendor_id) || {
-          name: (q.vendor && 'name' in q.vendor) ? q.vendor.name : 'Unknown',
+          name: q.vendor && 'name' in q.vendor ? q.vendor.name : 'Unknown',
           revenue: 0,
           count: 0,
         };
@@ -694,7 +694,10 @@ export class AdminAnalyticsService {
       >();
       quotes.forEach((q) => {
         const existing = tenantRevenue.get(q.tenant_id) || {
-          name: (q.tenant && 'company_name' in q.tenant) ? q.tenant.company_name : 'Unknown',
+          name:
+            q.tenant && 'company_name' in q.tenant
+              ? q.tenant.company_name
+              : 'Unknown',
           revenue: 0,
           count: 0,
         };
@@ -814,10 +817,7 @@ export class AdminAnalyticsService {
    * @param previous - Previous value
    * @returns Percentage change
    */
-  private calculatePercentageChange(
-    current: number,
-    previous: number,
-  ): number {
+  private calculatePercentageChange(current: number, previous: number): number {
     if (previous === 0) {
       return current > 0 ? 100 : 0;
     }

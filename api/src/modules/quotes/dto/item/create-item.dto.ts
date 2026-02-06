@@ -44,7 +44,7 @@ export class CreateItemDto {
   unit_measurement_id: string;
 
   @ApiProperty({
-    example: 5.50,
+    example: 5.5,
     description: 'Material cost per unit',
   })
   @IsNumber()
@@ -60,7 +60,7 @@ export class CreateItemDto {
   labor_cost_per_unit: number;
 
   @ApiPropertyOptional({
-    example: 0.50,
+    example: 0.5,
     description: 'Equipment cost per unit',
   })
   @IsNumber()
@@ -97,7 +97,8 @@ export class CreateItemDto {
 
   @ApiPropertyOptional({
     example: 15.0,
-    description: 'Custom profit percentage for this item (overrides quote-level)',
+    description:
+      'Custom profit percentage for this item (overrides quote-level)',
   })
   @IsNumber()
   @IsOptional()
@@ -107,7 +108,8 @@ export class CreateItemDto {
 
   @ApiPropertyOptional({
     example: 10.0,
-    description: 'Custom overhead percentage for this item (overrides quote-level)',
+    description:
+      'Custom overhead percentage for this item (overrides quote-level)',
   })
   @IsNumber()
   @IsOptional()
@@ -117,7 +119,8 @@ export class CreateItemDto {
 
   @ApiPropertyOptional({
     example: 5.0,
-    description: 'Custom contingency percentage for this item (overrides quote-level)',
+    description:
+      'Custom contingency percentage for this item (overrides quote-level)',
   })
   @IsNumber()
   @IsOptional()

@@ -244,10 +244,7 @@ export class CommunicationHistoryController {
     },
   })
   @ApiResponse({ status: 404, description: 'Communication event not found' })
-  async findOne(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.communicationHistoryService.findOne(req.user.tenant_id, id);
   }
 
@@ -289,10 +286,7 @@ export class CommunicationHistoryController {
     description: 'Insufficient permissions',
   })
   @ApiResponse({ status: 404, description: 'Communication event not found' })
-  async resend(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async resend(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.communicationHistoryService.resend(
       req.user.tenant_id,
       id,

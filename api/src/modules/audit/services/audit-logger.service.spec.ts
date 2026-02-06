@@ -82,7 +82,9 @@ describe('AuditLoggerService', () => {
 
     it('should not throw error even if direct write fails', async () => {
       mockQueue.add.mockRejectedValueOnce(new Error('Queue unavailable'));
-      prismaService.audit_log.create.mockRejectedValueOnce(new Error('DB error'));
+      prismaService.audit_log.create.mockRejectedValueOnce(
+        new Error('DB error'),
+      );
 
       await expect(service.log(mockLogData)).resolves.not.toThrow();
     });

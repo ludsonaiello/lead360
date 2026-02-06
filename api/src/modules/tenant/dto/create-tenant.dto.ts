@@ -119,7 +119,8 @@ export class CreateTenantDto {
   date_of_incorporation?: string;
 
   @ApiProperty({
-    description: 'Employer Identification Number (accepts any format, stores as XX-XXXXXXX)',
+    description:
+      'Employer Identification Number (accepts any format, stores as XX-XXXXXXX)',
     example: '12-3456789',
   })
   @IsString()
@@ -161,7 +162,8 @@ export class CreateTenantDto {
 
   // CONTACT INFORMATION
   @ApiProperty({
-    description: 'Primary contact phone (accepts any format, stores as 10 digits only)',
+    description:
+      'Primary contact phone (accepts any format, stores as 10 digits only)',
     example: '5551234567',
   })
   @IsString()
@@ -172,7 +174,8 @@ export class CreateTenantDto {
   primary_contact_phone: string;
 
   @ApiPropertyOptional({
-    description: 'Secondary phone (accepts any format, stores as 10 digits only)',
+    description:
+      'Secondary phone (accepts any format, stores as 10 digits only)',
     example: '5559876543',
   })
   @IsString()
@@ -330,7 +333,9 @@ export class CreateTenantDto {
   })
   @IsString()
   @IsOptional()
-  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'Must be a valid hex color (#RRGGBB)' })
+  @Matches(/^#[0-9A-Fa-f]{6}$/, {
+    message: 'Must be a valid hex color (#RRGGBB)',
+  })
   primary_brand_color?: string;
 
   @ApiPropertyOptional({
@@ -339,7 +344,9 @@ export class CreateTenantDto {
   })
   @IsString()
   @IsOptional()
-  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'Must be a valid hex color (#RRGGBB)' })
+  @Matches(/^#[0-9A-Fa-f]{6}$/, {
+    message: 'Must be a valid hex color (#RRGGBB)',
+  })
   secondary_brand_color?: string;
 
   @ApiPropertyOptional({
@@ -348,7 +355,9 @@ export class CreateTenantDto {
   })
   @IsString()
   @IsOptional()
-  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'Must be a valid hex color (#RRGGBB)' })
+  @Matches(/^#[0-9A-Fa-f]{6}$/, {
+    message: 'Must be a valid hex color (#RRGGBB)',
+  })
   accent_color?: string;
 
   // INVOICE & QUOTE SETTINGS

@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsOptional, IsString, IsArray, MaxLength } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  IsArray,
+  MaxLength,
+} from 'class-validator';
 
 export class SendQuoteEmailDto {
   @ApiPropertyOptional({
@@ -31,7 +37,8 @@ export class SendQuoteEmailDto {
   custom_message?: string;
 
   @ApiPropertyOptional({
-    description: 'Custom email subject (defaults to "Quote {number} - {title}")',
+    description:
+      'Custom email subject (defaults to "Quote {number} - {title}")',
     example: 'Your Custom Quote from ACME Corp',
     maxLength: 200,
   })

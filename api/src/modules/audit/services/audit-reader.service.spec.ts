@@ -282,7 +282,10 @@ describe('AuditReaderService', () => {
     });
 
     it('should enforce tenant isolation for non-platform admin', async () => {
-      const otherTenantLog = { ...mockAuditLogs[0], tenant_id: mockOtherTenantId };
+      const otherTenantLog = {
+        ...mockAuditLogs[0],
+        tenant_id: mockOtherTenantId,
+      };
       prismaService.audit_log.findUnique.mockResolvedValue(otherTenantLog);
 
       await expect(
@@ -291,7 +294,10 @@ describe('AuditReaderService', () => {
     });
 
     it('should allow cross-tenant access for platform admin', async () => {
-      const otherTenantLog = { ...mockAuditLogs[0], tenant_id: mockOtherTenantId };
+      const otherTenantLog = {
+        ...mockAuditLogs[0],
+        tenant_id: mockOtherTenantId,
+      };
       prismaService.audit_log.findUnique.mockResolvedValue(otherTenantLog);
 
       const result = await service.findOne('log-1', true, mockTenantId);

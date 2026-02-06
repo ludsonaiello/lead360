@@ -137,9 +137,7 @@ export class WarrantyTierService {
     dto: UpdateWarrantyTierDto,
     userId: string,
   ): Promise<WarrantyTierResponseDto> {
-    this.logger.log(
-      `Updating warranty tier ${tierId} for tenant ${tenantId}`,
-    );
+    this.logger.log(`Updating warranty tier ${tierId} for tenant ${tenantId}`);
 
     // Verify tier exists
     const existing = await this.prisma.quote_warranty_tier.findFirst({
@@ -192,9 +190,7 @@ export class WarrantyTierService {
     tierId: string,
     userId: string,
   ): Promise<void> {
-    this.logger.log(
-      `Deleting warranty tier ${tierId} for tenant ${tenantId}`,
-    );
+    this.logger.log(`Deleting warranty tier ${tierId} for tenant ${tenantId}`);
 
     // Verify tier exists
     const existing = await this.prisma.quote_warranty_tier.findFirst({

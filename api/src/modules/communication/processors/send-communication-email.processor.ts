@@ -114,11 +114,13 @@ export class SendCommunicationEmailProcessor extends WorkerHost {
       }
 
       // 3. Process attachments (fetch file content if file_id is provided)
-      let processedAttachments: Array<{
-        filename: string;
-        content: string;
-        mime_type: string;
-      }> | undefined;
+      let processedAttachments:
+        | Array<{
+            filename: string;
+            content: string;
+            mime_type: string;
+          }>
+        | undefined;
 
       if (event.attachments && Array.isArray(event.attachments)) {
         const attachmentsWithNulls = await Promise.all(
@@ -142,9 +144,9 @@ export class SendCommunicationEmailProcessor extends WorkerHost {
               }
 
               // Get storage provider and download file content
-              const storageProvider = await (this.filesService as any).storageFactory.getProvider(
-                event.tenant_id,
-              );
+              const storageProvider = await (
+                this.filesService as any
+              ).storageFactory.getProvider(event.tenant_id);
               const fileBuffer = await storageProvider.download(
                 file.id,
                 file.storage_path,

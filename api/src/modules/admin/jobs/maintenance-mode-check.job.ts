@@ -12,7 +12,9 @@ import { MaintenanceModeService } from '../services/maintenance-mode.service';
 export class MaintenanceModeCheckJob {
   private readonly logger = new Logger(MaintenanceModeCheckJob.name);
 
-  constructor(private readonly maintenanceModeService: MaintenanceModeService) {}
+  constructor(
+    private readonly maintenanceModeService: MaintenanceModeService,
+  ) {}
 
   @Cron(CronExpression.EVERY_MINUTE, {
     name: 'maintenance-mode-check',
@@ -23,7 +25,10 @@ export class MaintenanceModeCheckJob {
     } catch (error) {
       // Don't log every minute - only log when there's an actual error (not "already disabled")
       if (error.message && !error.message.includes('already')) {
-        this.logger.error(`Maintenance mode check failed: ${error.message}`, error.stack);
+        this.logger.error(
+          `Maintenance mode check failed: ${error.message}`,
+          error.stack,
+        );
       }
     }
   }

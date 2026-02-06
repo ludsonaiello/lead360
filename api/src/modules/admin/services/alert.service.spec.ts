@@ -90,7 +90,9 @@ describe('AlertService', () => {
 
   describe('cleanupExpiredNotifications', () => {
     it('should delete old notifications', async () => {
-      (prismaService.admin_notification.deleteMany as any).mockResolvedValue({ count: 5 });
+      (prismaService.admin_notification.deleteMany as any).mockResolvedValue({
+        count: 5,
+      });
 
       const result = await service.cleanupExpiredNotifications();
       expect(result.total_cleaned).toBe(5);

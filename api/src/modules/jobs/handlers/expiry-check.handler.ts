@@ -72,7 +72,10 @@ export class ExpiryCheckHandler {
     }
   }
 
-  private async checkTenantExpiry(tenantId: string, jobId: string): Promise<number> {
+  private async checkTenantExpiry(
+    tenantId: string,
+    jobId: string,
+  ): Promise<number> {
     // Fetch tenant details (company name + owner email)
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -89,7 +92,9 @@ export class ExpiryCheckHandler {
 
     let warningsCount = 0;
     const now = new Date();
-    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const thirtyDaysFromNow = new Date(
+      now.getTime() + 30 * 24 * 60 * 60 * 1000,
+    );
 
     // Check license expiry
     const expiringLicenses = await this.prisma.tenant_license.findMany({
@@ -107,7 +112,7 @@ export class ExpiryCheckHandler {
 
     for (const license of expiringLicenses) {
       const daysUntilExpiry = Math.floor(
-        (license.expiry_date.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)
+        (license.expiry_date.getTime() - now.getTime()) / (24 * 60 * 60 * 1000),
       );
 
       // Only send warnings at specific thresholds: 30, 14, 7, 3, 1 days
@@ -125,7 +130,10 @@ export class ExpiryCheckHandler {
             templateKey: 'license-expiry-warning',
             variables: {
               company_name: tenant.company_name,
-              license_type: license.license_type?.name || license.custom_license_type || 'License',
+              license_type:
+                license.license_type?.name ||
+                license.custom_license_type ||
+                'License',
               license_number: license.license_number,
               expiry_date: license.expiry_date.toISOString().split('T')[0],
               days_until_expiry: daysUntilExpiry.toString(),
@@ -151,9 +159,14 @@ export class ExpiryCheckHandler {
 
     if (insurance) {
       // Check GL expiry
-      if (insurance.gl_expiry_date && insurance.gl_expiry_date >= now && insurance.gl_expiry_date <= thirtyDaysFromNow) {
+      if (
+        insurance.gl_expiry_date &&
+        insurance.gl_expiry_date >= now &&
+        insurance.gl_expiry_date <= thirtyDaysFromNow
+      ) {
         const daysUntilExpiry = Math.floor(
-          (insurance.gl_expiry_date.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)
+          (insurance.gl_expiry_date.getTime() - now.getTime()) /
+            (24 * 60 * 60 * 1000),
         );
 
         if ([30, 14, 7, 3, 1].includes(daysUntilExpiry)) {
@@ -173,7 +186,9 @@ export class ExpiryCheckHandler {
                   insurance_type: 'General Liability Insurance',
                   policy_number: insurance.gl_policy_number || 'N/A',
                   provider: insurance.gl_insurance_provider || 'N/A',
-                  expiry_date: insurance.gl_expiry_date.toISOString().split('T')[0],
+                  expiry_date: insurance.gl_expiry_date
+                    .toISOString()
+                    .split('T')[0],
                   days_until_expiry: daysUntilExpiry.toString(),
                 },
                 tenantId,
@@ -196,9 +211,14 @@ export class ExpiryCheckHandler {
       }
 
       // Check WC expiry
-      if (insurance.wc_expiry_date && insurance.wc_expiry_date >= now && insurance.wc_expiry_date <= thirtyDaysFromNow) {
+      if (
+        insurance.wc_expiry_date &&
+        insurance.wc_expiry_date >= now &&
+        insurance.wc_expiry_date <= thirtyDaysFromNow
+      ) {
         const daysUntilExpiry = Math.floor(
-          (insurance.wc_expiry_date.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)
+          (insurance.wc_expiry_date.getTime() - now.getTime()) /
+            (24 * 60 * 60 * 1000),
         );
 
         if ([30, 14, 7, 3, 1].includes(daysUntilExpiry)) {
@@ -218,7 +238,9 @@ export class ExpiryCheckHandler {
                   insurance_type: 'Workers Compensation Insurance',
                   policy_number: insurance.wc_policy_number || 'N/A',
                   provider: insurance.wc_insurance_provider || 'N/A',
-                  expiry_date: insurance.wc_expiry_date.toISOString().split('T')[0],
+                  expiry_date: insurance.wc_expiry_date
+                    .toISOString()
+                    .split('T')[0],
                   days_until_expiry: daysUntilExpiry.toString(),
                 },
                 tenantId,

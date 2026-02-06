@@ -15,7 +15,22 @@ export class ViewAnalyticsDto {
   @ApiProperty({
     description: 'Current quote status',
     example: 'read',
-    enum: ['draft', 'pending_approval', 'ready', 'sent', 'delivered', 'read', 'opened', 'downloaded', 'approved', 'started', 'concluded', 'denied', 'lost', 'email_failed'],
+    enum: [
+      'draft',
+      'pending_approval',
+      'ready',
+      'sent',
+      'delivered',
+      'read',
+      'opened',
+      'downloaded',
+      'approved',
+      'started',
+      'concluded',
+      'denied',
+      'lost',
+      'email_failed',
+    ],
   })
   quote_status: string;
 

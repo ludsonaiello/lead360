@@ -1,8 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { TenantEmailConfigService } from './tenant-email-config.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { EncryptionService } from '../../../core/encryption/encryption.service';
@@ -109,7 +106,9 @@ describe('TenantEmailConfigService', () => {
 
   describe('get', () => {
     it('should return tenant email config without credentials', async () => {
-      (prismaService.tenant_email_config.findUnique as jest.Mock).mockResolvedValue(mockConfig);
+      (
+        prismaService.tenant_email_config.findUnique as jest.Mock
+      ).mockResolvedValue(mockConfig);
 
       const result = await service.get('tenant-123');
 
@@ -119,9 +118,13 @@ describe('TenantEmailConfigService', () => {
     });
 
     it('should throw NotFoundException if config not found', async () => {
-      (prismaService.tenant_email_config.findUnique as jest.Mock).mockResolvedValue(null);
+      (
+        prismaService.tenant_email_config.findUnique as jest.Mock
+      ).mockResolvedValue(null);
 
-      await expect(service.get('tenant-123')).rejects.toThrow(NotFoundException);
+      await expect(service.get('tenant-123')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -137,16 +140,24 @@ describe('TenantEmailConfigService', () => {
     };
 
     it('should create new config if none exists', async () => {
-      (providerService.getProvider as jest.Mock).mockResolvedValue(mockProvider);
-      (providerService.validateProviderSettings as jest.Mock).mockResolvedValue({
-        valid: true,
-      });
-      (prismaService.tenant_email_config.findUnique as jest.Mock).mockResolvedValue(null);
-      (prismaService.tenant_email_config.create as jest.Mock).mockResolvedValue({
-        ...mockConfig,
-        ...createDto,
-        credentials: 'encrypted-data',
-      });
+      (providerService.getProvider as jest.Mock).mockResolvedValue(
+        mockProvider,
+      );
+      (providerService.validateProviderSettings as jest.Mock).mockResolvedValue(
+        {
+          valid: true,
+        },
+      );
+      (
+        prismaService.tenant_email_config.findUnique as jest.Mock
+      ).mockResolvedValue(null);
+      (prismaService.tenant_email_config.create as jest.Mock).mockResolvedValue(
+        {
+          ...mockConfig,
+          ...createDto,
+          credentials: 'encrypted-data',
+        },
+      );
 
       const result = await service.createOrUpdate(
         'tenant-123',
@@ -162,15 +173,23 @@ describe('TenantEmailConfigService', () => {
     });
 
     it('should update existing config', async () => {
-      (providerService.getProvider as jest.Mock).mockResolvedValue(mockProvider);
-      (providerService.validateProviderSettings as jest.Mock).mockResolvedValue({
-        valid: true,
-      });
-      (prismaService.tenant_email_config.findUnique as jest.Mock).mockResolvedValue(mockConfig);
-      (prismaService.tenant_email_config.update as jest.Mock).mockResolvedValue({
-        ...mockConfig,
-        ...createDto,
-      });
+      (providerService.getProvider as jest.Mock).mockResolvedValue(
+        mockProvider,
+      );
+      (providerService.validateProviderSettings as jest.Mock).mockResolvedValue(
+        {
+          valid: true,
+        },
+      );
+      (
+        prismaService.tenant_email_config.findUnique as jest.Mock
+      ).mockResolvedValue(mockConfig);
+      (prismaService.tenant_email_config.update as jest.Mock).mockResolvedValue(
+        {
+          ...mockConfig,
+          ...createDto,
+        },
+      );
 
       const result = await service.createOrUpdate(
         'tenant-123',
@@ -184,7 +203,9 @@ describe('TenantEmailConfigService', () => {
 
     it('should throw BadRequestException if provider is not active', async () => {
       const inactiveProvider = { ...mockProvider, is_active: false };
-      (providerService.getProvider as jest.Mock).mockResolvedValue(inactiveProvider);
+      (providerService.getProvider as jest.Mock).mockResolvedValue(
+        inactiveProvider,
+      );
 
       await expect(
         service.createOrUpdate('tenant-123', createDto, 'user-123'),
@@ -201,11 +222,15 @@ describe('TenantEmailConfigService', () => {
     });
 
     it('should throw BadRequestException if validation fails', async () => {
-      (providerService.getProvider as jest.Mock).mockResolvedValue(mockProvider);
-      (providerService.validateProviderSettings as jest.Mock).mockResolvedValue({
-        valid: false,
-        errors: { 'credentials.api_key': 'Invalid API key' },
-      });
+      (providerService.getProvider as jest.Mock).mockResolvedValue(
+        mockProvider,
+      );
+      (providerService.validateProviderSettings as jest.Mock).mockResolvedValue(
+        {
+          valid: false,
+          errors: { 'credentials.api_key': 'Invalid API key' },
+        },
+      );
 
       await expect(
         service.createOrUpdate('tenant-123', createDto, 'user-123'),
@@ -213,18 +238,26 @@ describe('TenantEmailConfigService', () => {
     });
 
     it('should reset is_verified to false on update', async () => {
-      (providerService.getProvider as jest.Mock).mockResolvedValue(mockProvider);
-      (providerService.validateProviderSettings as jest.Mock).mockResolvedValue({
-        valid: true,
-      });
-      (prismaService.tenant_email_config.findUnique as jest.Mock).mockResolvedValue({
+      (providerService.getProvider as jest.Mock).mockResolvedValue(
+        mockProvider,
+      );
+      (providerService.validateProviderSettings as jest.Mock).mockResolvedValue(
+        {
+          valid: true,
+        },
+      );
+      (
+        prismaService.tenant_email_config.findUnique as jest.Mock
+      ).mockResolvedValue({
         ...mockConfig,
         is_verified: true,
       });
-      (prismaService.tenant_email_config.update as jest.Mock).mockResolvedValue({
-        ...mockConfig,
-        is_verified: false,
-      });
+      (prismaService.tenant_email_config.update as jest.Mock).mockResolvedValue(
+        {
+          ...mockConfig,
+          is_verified: false,
+        },
+      );
 
       await service.createOrUpdate('tenant-123', createDto, 'user-123');
 
@@ -245,7 +278,9 @@ describe('TenantEmailConfigService', () => {
     };
 
     beforeEach(() => {
-      (prismaService.tenant_email_config.findUnique as jest.Mock).mockResolvedValue({
+      (
+        prismaService.tenant_email_config.findUnique as jest.Mock
+      ).mockResolvedValue({
         ...mockConfig,
         tenant: mockTenant,
       });
@@ -255,7 +290,9 @@ describe('TenantEmailConfigService', () => {
       (emailSender.send as jest.Mock).mockResolvedValue({
         messageId: 'msg-123',
       });
-      (prismaService.tenant_email_config.update as jest.Mock).mockResolvedValue(mockConfig);
+      (prismaService.tenant_email_config.update as jest.Mock).mockResolvedValue(
+        mockConfig,
+      );
 
       const result = await service.sendTestEmail(
         'tenant-123',
@@ -273,7 +310,9 @@ describe('TenantEmailConfigService', () => {
     });
 
     it('should throw NotFoundException if config not found', async () => {
-      (prismaService.tenant_email_config.findUnique as jest.Mock).mockResolvedValue(null);
+      (
+        prismaService.tenant_email_config.findUnique as jest.Mock
+      ).mockResolvedValue(null);
 
       await expect(
         service.sendTestEmail('tenant-123', 'test@example.com', 'user-123'),
@@ -281,7 +320,9 @@ describe('TenantEmailConfigService', () => {
     });
 
     it('should throw BadRequestException if config is not active', async () => {
-      (prismaService.tenant_email_config.findUnique as jest.Mock).mockResolvedValue({
+      (
+        prismaService.tenant_email_config.findUnique as jest.Mock
+      ).mockResolvedValue({
         ...mockConfig,
         is_active: false,
         tenant: mockTenant,
@@ -296,7 +337,9 @@ describe('TenantEmailConfigService', () => {
       (emailSender.send as jest.Mock).mockRejectedValue(
         new Error('SMTP connection failed'),
       );
-      (prismaService.tenant_email_config.update as jest.Mock).mockResolvedValue(mockConfig);
+      (prismaService.tenant_email_config.update as jest.Mock).mockResolvedValue(
+        mockConfig,
+      );
 
       await expect(
         service.sendTestEmail('tenant-123', 'test@example.com', 'user-123'),
@@ -311,7 +354,9 @@ describe('TenantEmailConfigService', () => {
 
   describe('getActiveProvider', () => {
     it('should return active provider config', async () => {
-      (prismaService.tenant_email_config.findUnique as jest.Mock).mockResolvedValue(mockConfig);
+      (
+        prismaService.tenant_email_config.findUnique as jest.Mock
+      ).mockResolvedValue(mockConfig);
 
       const result = await service.getActiveProvider('tenant-123');
 
@@ -319,7 +364,9 @@ describe('TenantEmailConfigService', () => {
     });
 
     it('should throw NotFoundException if config not found', async () => {
-      (prismaService.tenant_email_config.findUnique as jest.Mock).mockResolvedValue(null);
+      (
+        prismaService.tenant_email_config.findUnique as jest.Mock
+      ).mockResolvedValue(null);
 
       await expect(service.getActiveProvider('tenant-123')).rejects.toThrow(
         NotFoundException,
@@ -327,7 +374,9 @@ describe('TenantEmailConfigService', () => {
     });
 
     it('should throw BadRequestException if config is inactive', async () => {
-      (prismaService.tenant_email_config.findUnique as jest.Mock).mockResolvedValue({
+      (
+        prismaService.tenant_email_config.findUnique as jest.Mock
+      ).mockResolvedValue({
         ...mockConfig,
         is_active: false,
       });

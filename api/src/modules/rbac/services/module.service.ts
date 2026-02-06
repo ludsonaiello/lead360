@@ -148,9 +148,7 @@ export class ModuleService {
     });
 
     if (!creator?.is_platform_admin) {
-      throw new ForbiddenException(
-        'Only Platform Admins can create modules',
-      );
+      throw new ForbiddenException('Only Platform Admins can create modules');
     }
 
     // Validate name format (lowercase, no spaces)
@@ -228,9 +226,7 @@ export class ModuleService {
     });
 
     if (!updater?.is_platform_admin) {
-      throw new ForbiddenException(
-        'Only Platform Admins can update modules',
-      );
+      throw new ForbiddenException('Only Platform Admins can update modules');
     }
 
     // Get existing module
@@ -306,9 +302,7 @@ export class ModuleService {
     });
 
     if (!deleter?.is_platform_admin) {
-      throw new ForbiddenException(
-        'Only Platform Admins can delete modules',
-      );
+      throw new ForbiddenException('Only Platform Admins can delete modules');
     }
 
     // Get module
@@ -390,9 +384,7 @@ export class ModuleService {
     });
 
     if (!reorderer?.is_platform_admin) {
-      throw new ForbiddenException(
-        'Only Platform Admins can reorder modules',
-      );
+      throw new ForbiddenException('Only Platform Admins can reorder modules');
     }
 
     // Update all modules in transaction

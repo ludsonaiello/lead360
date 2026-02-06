@@ -100,7 +100,11 @@ export class ImageProcessorService {
         );
       } else if (processingOptions.optimize) {
         // Optimize in original format
-        processedBuffer = await this.optimizeInFormat(image, metadata.format!, processingOptions.webpQuality || 85);
+        processedBuffer = await this.optimizeInFormat(
+          image,
+          metadata.format,
+          processingOptions.webpQuality || 85,
+        );
         wasOptimized = true;
         this.logger.log(
           `Optimized ${metadata.format}: ${originalSize} → ${processedBuffer.length} bytes (${this.calculateSavings(originalSize, processedBuffer.length)}% savings)`,
@@ -124,9 +128,12 @@ export class ImageProcessorService {
       return {
         processedBuffer,
         thumbnailBuffer,
-        width: metadata.width!,
-        height: metadata.height!,
-        format: wasOptimized && processingOptions.convertToWebP ? 'webp' : metadata.format!,
+        width: metadata.width,
+        height: metadata.height,
+        format:
+          wasOptimized && processingOptions.convertToWebP
+            ? 'webp'
+            : metadata.format,
         originalSize,
         processedSize: processedBuffer.length,
         wasOptimized,
@@ -182,7 +189,11 @@ export class ImageProcessorService {
    * @param height - Thumbnail height
    * @returns Thumbnail buffer
    */
-  async generatePdfThumbnail(buffer: Buffer, width: number, height: number): Promise<Buffer> {
+  async generatePdfThumbnail(
+    buffer: Buffer,
+    width: number,
+    height: number,
+  ): Promise<Buffer> {
     // TODO: Implement PDF thumbnail generation using pdf2pic or similar
     // For now, throw an error
     throw new Error('PDF thumbnail generation not yet implemented');
@@ -227,13 +238,19 @@ export class ImageProcessorService {
    * @param quality - Quality setting (1-100)
    * @returns Optimized buffer
    */
-  private async optimizeInFormat(image: sharp.Sharp, format: string, quality: number): Promise<Buffer> {
+  private async optimizeInFormat(
+    image: sharp.Sharp,
+    format: string,
+    quality: number,
+  ): Promise<Buffer> {
     switch (format) {
       case 'jpeg':
       case 'jpg':
         return await image.jpeg({ quality }).toBuffer();
       case 'png':
-        return await image.png({ quality: Math.round(quality / 10) }).toBuffer(); // PNG quality is 0-10
+        return await image
+          .png({ quality: Math.round(quality / 10) })
+          .toBuffer(); // PNG quality is 0-10
       case 'webp':
         return await image.webp({ quality }).toBuffer();
       default:
@@ -248,7 +265,9 @@ export class ImageProcessorService {
    * @param tenantId - Tenant ID
    * @returns Storage configuration
    */
-  private async loadTenantConfig(tenantId: string): Promise<ImageProcessingOptions> {
+  private async loadTenantConfig(
+    tenantId: string,
+  ): Promise<ImageProcessingOptions> {
     const config = await this.prisma.storage_config.findUnique({
       where: { tenant_id: tenantId },
     });
@@ -284,7 +303,10 @@ export class ImageProcessorService {
    * @param options - Provided options (overrides config)
    * @returns Merged options
    */
-  private mergeOptions(config: ImageProcessingOptions, options?: ImageProcessingOptions): ImageProcessingOptions {
+  private mergeOptions(
+    config: ImageProcessingOptions,
+    options?: ImageProcessingOptions,
+  ): ImageProcessingOptions {
     return {
       ...config,
       ...options,

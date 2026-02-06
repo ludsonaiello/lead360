@@ -72,7 +72,8 @@ export class RegisterDto {
   last_name: string;
 
   @ApiPropertyOptional({
-    description: 'User phone number (accepts any format, stores as 10 digits only)',
+    description:
+      'User phone number (accepts any format, stores as 10 digits only)',
     example: '5551234567',
     maxLength: 20,
   })
@@ -121,15 +122,26 @@ export class RegisterDto {
     maxLength: 200,
   })
   @IsString()
-  @MinLength(2, { message: 'Legal business name must be at least 2 characters' })
-  @MaxLength(200, { message: 'Legal business name must be at most 200 characters' })
+  @MinLength(2, {
+    message: 'Legal business name must be at least 2 characters',
+  })
+  @MaxLength(200, {
+    message: 'Legal business name must be at most 200 characters',
+  })
   @Transform(({ value }) => value?.trim())
   legal_business_name: string;
 
   @ApiProperty({
     description: 'Business entity type',
     example: 'llc',
-    enum: ['sole_proprietorship', 'llc', 'corporation', 'partnership', 'dba', 'other'],
+    enum: [
+      'sole_proprietorship',
+      'llc',
+      'corporation',
+      'partnership',
+      'dba',
+      'other',
+    ],
   })
   @IsString()
   business_entity_type: string;
@@ -146,7 +158,8 @@ export class RegisterDto {
   state_of_registration: string;
 
   @ApiProperty({
-    description: 'Employer Identification Number (accepts any format, stores as XX-XXXXXXX)',
+    description:
+      'Employer Identification Number (accepts any format, stores as XX-XXXXXXX)',
     example: '12-3456789',
   })
   @IsString()
@@ -157,7 +170,8 @@ export class RegisterDto {
   ein: string;
 
   @ApiProperty({
-    description: 'Primary contact phone (accepts any format, stores as 10 digits only)',
+    description:
+      'Primary contact phone (accepts any format, stores as 10 digits only)',
     example: '5551234567',
   })
   @IsString()
@@ -175,7 +189,8 @@ export class RegisterDto {
   primary_contact_email: string;
 
   @ApiPropertyOptional({
-    description: 'Business hours for the tenant (optional - defaults to Mon-Fri 9-5 if not provided)',
+    description:
+      'Business hours for the tenant (optional - defaults to Mon-Fri 9-5 if not provided)',
     example: {
       monday_closed: false,
       monday_open1: '08:00',

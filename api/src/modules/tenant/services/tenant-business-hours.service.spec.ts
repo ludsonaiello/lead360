@@ -43,7 +43,9 @@ describe('TenantBusinessHoursService', () => {
       ],
     }).compile();
 
-    service = module.get<TenantBusinessHoursService>(TenantBusinessHoursService);
+    service = module.get<TenantBusinessHoursService>(
+      TenantBusinessHoursService,
+    );
     prisma = module.get<PrismaService>(PrismaService);
 
     jest.clearAllMocks();
@@ -63,16 +65,22 @@ describe('TenantBusinessHoursService', () => {
         monday_close1: '17:00',
       };
 
-      mockPrismaService.tenant_business_hours.findUnique.mockResolvedValue(mockHours);
+      mockPrismaService.tenant_business_hours.findUnique.mockResolvedValue(
+        mockHours,
+      );
 
       const result = await service.findOrCreate('tenant-123');
 
       expect(result).toEqual(mockHours);
-      expect(mockPrismaService.tenant_business_hours.create).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.tenant_business_hours.create,
+      ).not.toHaveBeenCalled();
     });
 
     it('should create default business hours if not found', async () => {
-      mockPrismaService.tenant_business_hours.findUnique.mockResolvedValue(null);
+      mockPrismaService.tenant_business_hours.findUnique.mockResolvedValue(
+        null,
+      );
 
       const defaultHours = {
         id: 'hours-123',
@@ -96,7 +104,9 @@ describe('TenantBusinessHoursService', () => {
         sunday_closed: true,
       };
 
-      mockPrismaService.tenant_business_hours.create.mockResolvedValue(defaultHours);
+      mockPrismaService.tenant_business_hours.create.mockResolvedValue(
+        defaultHours,
+      );
 
       const result = await service.findOrCreate('tenant-123');
 
@@ -126,9 +136,15 @@ describe('TenantBusinessHoursService', () => {
         ...validUpdate,
       };
 
-      mockPrismaService.tenant_business_hours.update.mockResolvedValue(updatedHours);
+      mockPrismaService.tenant_business_hours.update.mockResolvedValue(
+        updatedHours,
+      );
 
-      const result = await service.update('tenant-123', validUpdate, 'user-123');
+      const result = await service.update(
+        'tenant-123',
+        validUpdate,
+        'user-123',
+      );
 
       expect(result).toEqual(updatedHours);
       expect(mockPrismaService.auditLog.create).toHaveBeenCalled();
@@ -142,7 +158,7 @@ describe('TenantBusinessHoursService', () => {
       };
 
       await expect(
-        service.update('tenant-123', invalidUpdate, 'user-123')
+        service.update('tenant-123', invalidUpdate, 'user-123'),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -154,7 +170,7 @@ describe('TenantBusinessHoursService', () => {
       };
 
       await expect(
-        service.update('tenant-123', invalidUpdate, 'user-123')
+        service.update('tenant-123', invalidUpdate, 'user-123'),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -165,7 +181,7 @@ describe('TenantBusinessHoursService', () => {
       };
 
       await expect(
-        service.update('tenant-123', invalidUpdate, 'user-123')
+        service.update('tenant-123', invalidUpdate, 'user-123'),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -180,9 +196,15 @@ describe('TenantBusinessHoursService', () => {
         ...validUpdate,
       };
 
-      mockPrismaService.tenant_business_hours.update.mockResolvedValue(updatedHours);
+      mockPrismaService.tenant_business_hours.update.mockResolvedValue(
+        updatedHours,
+      );
 
-      const result = await service.update('tenant-123', validUpdate, 'user-123');
+      const result = await service.update(
+        'tenant-123',
+        validUpdate,
+        'user-123',
+      );
 
       expect(result).toEqual(updatedHours);
     });
@@ -201,9 +223,15 @@ describe('TenantBusinessHoursService', () => {
         ...validUpdate,
       };
 
-      mockPrismaService.tenant_business_hours.update.mockResolvedValue(updatedHours);
+      mockPrismaService.tenant_business_hours.update.mockResolvedValue(
+        updatedHours,
+      );
 
-      const result = await service.update('tenant-123', validUpdate, 'user-123');
+      const result = await service.update(
+        'tenant-123',
+        validUpdate,
+        'user-123',
+      );
 
       expect(result).toEqual(updatedHours);
     });
@@ -218,7 +246,7 @@ describe('TenantBusinessHoursService', () => {
       };
 
       await expect(
-        service.update('tenant-123', invalidUpdate, 'user-123')
+        service.update('tenant-123', invalidUpdate, 'user-123'),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -232,7 +260,7 @@ describe('TenantBusinessHoursService', () => {
       };
 
       await expect(
-        service.update('tenant-123', invalidUpdate, 'user-123')
+        service.update('tenant-123', invalidUpdate, 'user-123'),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -267,9 +295,15 @@ describe('TenantBusinessHoursService', () => {
         sunday_closed: true,
       };
 
-      mockPrismaService.tenant_business_hours.update.mockResolvedValue(updateAllDays);
+      mockPrismaService.tenant_business_hours.update.mockResolvedValue(
+        updateAllDays,
+      );
 
-      const result = await service.update('tenant-123', updateAllDays, 'user-123');
+      const result = await service.update(
+        'tenant-123',
+        updateAllDays,
+        'user-123',
+      );
 
       expect(result).toBeDefined();
     });

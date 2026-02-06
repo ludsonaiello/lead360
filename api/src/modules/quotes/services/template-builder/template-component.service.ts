@@ -89,10 +89,7 @@ export class TemplateComponentService {
     // Multi-tenant filter
     if (tenant_id) {
       // Show both global components and tenant-specific components
-      where.OR = [
-        { is_global: true },
-        { tenant_id: tenant_id },
-      ];
+      where.OR = [{ is_global: true }, { tenant_id: tenant_id }];
     } else if (is_global === false) {
       // Only tenant-specific components
       where.tenant_id = { not: null };
@@ -109,10 +106,7 @@ export class TemplateComponentService {
     const [components, total] = await Promise.all([
       this.prisma.template_component.findMany({
         where,
-        orderBy: [
-          { sort_order: 'asc' },
-          { name: 'asc' },
-        ],
+        orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
         skip,
         take: limit,
         select: {
@@ -209,7 +203,13 @@ export class TemplateComponentService {
     }
 
     // Validate category
-    const validCategories = ['layout', 'content', 'pricing', 'branding', 'custom'];
+    const validCategories = [
+      'layout',
+      'content',
+      'pricing',
+      'branding',
+      'custom',
+    ];
     if (!validCategories.includes(dto.category)) {
       throw new BadRequestException(
         `Invalid category. Must be one of: ${validCategories.join(', ')}`,
@@ -280,7 +280,10 @@ export class TemplateComponentService {
     }
 
     // Validate structure if provided
-    if (updates.structure !== undefined && typeof updates.structure !== 'object') {
+    if (
+      updates.structure !== undefined &&
+      typeof updates.structure !== 'object'
+    ) {
       throw new BadRequestException('Structure must be a valid JSON object');
     }
 
@@ -316,7 +319,7 @@ export class TemplateComponentService {
     if (usage.usage_count > 0) {
       throw new ConflictException(
         `Cannot delete component "${component.name}" because it is used by ${usage.usage_count} template(s). ` +
-        `Templates using this component: ${usage.templates.slice(0, 3).join(', ')}${usage.templates.length > 3 ? '...' : ''}`,
+          `Templates using this component: ${usage.templates.slice(0, 3).join(', ')}${usage.templates.length > 3 ? '...' : ''}`,
       );
     }
 
@@ -343,7 +346,10 @@ export class TemplateComponentService {
     }
 
     // Merge default props with provided props
-    const defaultProps = component.default_props && typeof component.default_props === 'object' ? component.default_props : {};
+    const defaultProps =
+      component.default_props && typeof component.default_props === 'object'
+        ? component.default_props
+        : {};
     const mergedProps = {
       ...defaultProps,
       ...props,
@@ -425,20 +431,14 @@ export class TemplateComponentService {
     };
 
     if (tenantId) {
-      where.OR = [
-        { is_global: true },
-        { tenant_id: tenantId },
-      ];
+      where.OR = [{ is_global: true }, { tenant_id: tenantId }];
     } else {
       where.is_global = true;
     }
 
     return this.prisma.template_component.findMany({
       where,
-      orderBy: [
-        { sort_order: 'asc' },
-        { name: 'asc' },
-      ],
+      orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
       select: {
         id: true,
         name: true,
@@ -460,27 +460,25 @@ export class TemplateComponentService {
     };
 
     if (tenantId) {
-      where.OR = [
-        { is_global: true },
-        { tenant_id: tenantId },
-      ];
+      where.OR = [{ is_global: true }, { tenant_id: tenantId }];
     } else {
       where.is_global = true;
     }
 
     return this.prisma.template_component.findMany({
       where,
-      orderBy: [
-        { sort_order: 'asc' },
-        { name: 'asc' },
-      ],
+      orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
     });
   }
 
   /**
    * Duplicate component (useful for creating custom versions)
    */
-  async duplicateComponent(componentId: string, userId: string, tenantId?: string) {
+  async duplicateComponent(
+    componentId: string,
+    userId: string,
+    tenantId?: string,
+  ) {
     const source = await this.prisma.template_component.findUnique({
       where: { id: componentId },
     });
@@ -521,18 +519,12 @@ export class TemplateComponentService {
   async searchComponents(query: string, tenantId?: string, limit = 20) {
     const where: any = {
       is_active: true,
-      OR: [
-        { name: { contains: query } },
-        { description: { contains: query } },
-      ],
+      OR: [{ name: { contains: query } }, { description: { contains: query } }],
     };
 
     if (tenantId) {
       where.AND = {
-        OR: [
-          { is_global: true },
-          { tenant_id: tenantId },
-        ],
+        OR: [{ is_global: true }, { tenant_id: tenantId }],
       };
     } else {
       where.is_global = true;
@@ -541,9 +533,7 @@ export class TemplateComponentService {
     return this.prisma.template_component.findMany({
       where,
       take: limit,
-      orderBy: [
-        { name: 'asc' },
-      ],
+      orderBy: [{ name: 'asc' }],
       select: {
         id: true,
         name: true,

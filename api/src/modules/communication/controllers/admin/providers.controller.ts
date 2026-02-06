@@ -45,9 +45,7 @@ import {
 @UseGuards(JwtAuthGuard, PlatformAdminGuard)
 @ApiBearerAuth()
 export class CommunicationProvidersAdminController {
-  constructor(
-    private readonly providerService: CommunicationProviderService,
-  ) {}
+  constructor(private readonly providerService: CommunicationProviderService) {}
 
   @Get()
   @ApiOperation({
@@ -101,7 +99,10 @@ export class CommunicationProvidersAdminController {
       },
     },
   })
-  @ApiResponse({ status: 403, description: 'Platform Admin privileges required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Platform Admin privileges required',
+  })
   async findAll(@Query() filters: FilterProvidersDto) {
     return this.providerService.findAll(filters);
   }
@@ -140,7 +141,10 @@ export class CommunicationProvidersAdminController {
       },
     },
   })
-  @ApiResponse({ status: 403, description: 'Platform Admin privileges required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Platform Admin privileges required',
+  })
   @ApiResponse({ status: 404, description: 'Provider not found' })
   async findOne(@Param('key') key: string) {
     return this.providerService.getProvider(key);
@@ -159,7 +163,10 @@ export class CommunicationProvidersAdminController {
     status: 400,
     description: 'Invalid JSON schema or validation error',
   })
-  @ApiResponse({ status: 403, description: 'Platform Admin privileges required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Platform Admin privileges required',
+  })
   @ApiResponse({
     status: 409,
     description: 'Provider key already exists',
@@ -188,7 +195,10 @@ export class CommunicationProvidersAdminController {
     status: 400,
     description: 'Invalid JSON schema or validation error',
   })
-  @ApiResponse({ status: 403, description: 'Platform Admin privileges required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Platform Admin privileges required',
+  })
   @ApiResponse({ status: 404, description: 'Provider not found' })
   async update(
     @Param('key') key: string,
@@ -211,7 +221,10 @@ export class CommunicationProvidersAdminController {
     status: 200,
     description: 'Provider status toggled successfully',
   })
-  @ApiResponse({ status: 403, description: 'Platform Admin privileges required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Platform Admin privileges required',
+  })
   @ApiResponse({ status: 404, description: 'Provider not found' })
   async toggleActive(
     @Param('key') key: string,
@@ -224,7 +237,8 @@ export class CommunicationProvidersAdminController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete provider (Platform Admin)',
-    description: 'Delete a provider (cannot delete system providers or providers in use)',
+    description:
+      'Delete a provider (cannot delete system providers or providers in use)',
   })
   @ApiParam({
     name: 'key',
@@ -238,7 +252,10 @@ export class CommunicationProvidersAdminController {
     status: 400,
     description: 'Cannot delete system provider or provider in use',
   })
-  @ApiResponse({ status: 403, description: 'Platform Admin privileges required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Platform Admin privileges required',
+  })
   @ApiResponse({ status: 404, description: 'Provider not found' })
   async delete(
     @Param('key') key: string,
@@ -270,7 +287,10 @@ export class CommunicationProvidersAdminController {
       },
     },
   })
-  @ApiResponse({ status: 403, description: 'Platform Admin privileges required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Platform Admin privileges required',
+  })
   @ApiResponse({ status: 404, description: 'Provider not found' })
   async getStats(@Param('key') key: string) {
     return this.providerService.getStats(key);

@@ -34,11 +34,16 @@ export class LoggingInterceptor implements NestInterceptor {
     }
 
     // Log request body for POST, PATCH, PUT (exclude passwords)
-    if (['POST', 'PATCH', 'PUT'].includes(method) && body && Object.keys(body).length > 0) {
+    if (
+      ['POST', 'PATCH', 'PUT'].includes(method) &&
+      body &&
+      Object.keys(body).length > 0
+    ) {
       const sanitizedBody = { ...body };
       // Hide sensitive fields
       if (sanitizedBody.password) sanitizedBody.password = '***';
-      if (sanitizedBody.current_password) sanitizedBody.current_password = '***';
+      if (sanitizedBody.current_password)
+        sanitizedBody.current_password = '***';
       if (sanitizedBody.new_password) sanitizedBody.new_password = '***';
 
       this.logger.log(`  Body: ${JSON.stringify(sanitizedBody)}`);

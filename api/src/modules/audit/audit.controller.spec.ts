@@ -266,11 +266,10 @@ describe('AuditController', () => {
     it('should apply date filters for user logs', async () => {
       readerService.findByUser.mockResolvedValue(mockAuditLogs);
 
-      await controller.findByUser(
-        { user: mockUser },
-        'user-789',
-        { start_date: '2026-01-01', end_date: '2026-01-31' },
-      );
+      await controller.findByUser({ user: mockUser }, 'user-789', {
+        start_date: '2026-01-01',
+        end_date: '2026-01-31',
+      });
 
       expect(readerService.findByUser).toHaveBeenCalledWith(
         'user-789',
@@ -302,11 +301,9 @@ describe('AuditController', () => {
     it('should force tenantId from URL parameter', async () => {
       readerService.findAll.mockResolvedValue(mockAuditLogs);
 
-      await controller.findByTenant(
-        { user: mockPlatformAdmin },
-        'tenant-123',
-        { page: 1 },
-      );
+      await controller.findByTenant({ user: mockPlatformAdmin }, 'tenant-123', {
+        page: 1,
+      });
 
       const callArgs = readerService.findAll.mock.calls[0];
       expect(callArgs[0]).toHaveProperty('tenant_id', 'tenant-123');
@@ -316,11 +313,10 @@ describe('AuditController', () => {
     it('should apply date filters for tenant logs', async () => {
       readerService.findAll.mockResolvedValue(mockAuditLogs);
 
-      await controller.findByTenant(
-        { user: mockPlatformAdmin },
-        'tenant-123',
-        { start_date: '2026-01-01', end_date: '2026-01-31' },
-      );
+      await controller.findByTenant({ user: mockPlatformAdmin }, 'tenant-123', {
+        start_date: '2026-01-01',
+        end_date: '2026-01-31',
+      });
 
       expect(readerService.findAll).toHaveBeenCalledWith(
         expect.objectContaining({

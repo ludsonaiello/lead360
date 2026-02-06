@@ -33,14 +33,20 @@ export class PartitionCreatorJob {
       const monthAfterStart = new Date(year, nextMonth.getMonth() + 1, 1);
 
       this.logger.log(`Creating partition: ${partitionName}`);
-      this.logger.log(`Range: ${nextMonthStart.toISOString()} to ${monthAfterStart.toISOString()}`);
+      this.logger.log(
+        `Range: ${nextMonthStart.toISOString()} to ${monthAfterStart.toISOString()}`,
+      );
 
       // Check if partitioning is enabled
       const isPartitioned = await this.checkIfTableIsPartitioned();
 
       if (!isPartitioned) {
-        this.logger.warn('Audit log table is not partitioned. Skipping partition creation.');
-        this.logger.warn('To enable partitioning, run the partitioning migration first.');
+        this.logger.warn(
+          'Audit log table is not partitioned. Skipping partition creation.',
+        );
+        this.logger.warn(
+          'To enable partitioning, run the partitioning migration first.',
+        );
         return;
       }
 
@@ -48,7 +54,9 @@ export class PartitionCreatorJob {
       const existingPartition = await this.checkPartitionExists(partitionName);
 
       if (existingPartition) {
-        this.logger.log(`Partition ${partitionName} already exists. Skipping creation.`);
+        this.logger.log(
+          `Partition ${partitionName} already exists. Skipping creation.`,
+        );
         return;
       }
 
@@ -59,9 +67,11 @@ export class PartitionCreatorJob {
 
       // Log the partition creation to audit log
       await this.logPartitionCreation(partitionName);
-
     } catch (error) {
-      this.logger.error(`Failed to create monthly partition: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to create monthly partition: ${error.message}`,
+        error.stack,
+      );
       // Don't throw - partition creation failure shouldn't crash the app
     }
   }
@@ -92,13 +102,16 @@ export class PartitionCreatorJob {
    */
   private async checkPartitionExists(partitionName: string): Promise<boolean> {
     try {
-      const result = await this.prisma.$queryRawUnsafe<any[]>(`
+      const result = await this.prisma.$queryRawUnsafe<any[]>(
+        `
         SELECT PARTITION_NAME
         FROM INFORMATION_SCHEMA.PARTITIONS
         WHERE TABLE_SCHEMA = DATABASE()
         AND TABLE_NAME = 'audit_log'
         AND PARTITION_NAME = ?
-      `, partitionName);
+      `,
+        partitionName,
+      );
 
       return result.length > 0;
     } catch (error) {
@@ -110,7 +123,10 @@ export class PartitionCreatorJob {
   /**
    * Create new partition
    */
-  private async createPartition(partitionName: string, lessThanDate: Date): Promise<void> {
+  private async createPartition(
+    partitionName: string,
+    lessThanDate: Date,
+  ): Promise<void> {
     // Calculate TO_DAYS value for MySQL
     const lessThanValue = `TO_DAYS('${lessThanDate.toISOString().split('T')[0]}')`;
 
@@ -132,7 +148,8 @@ export class PartitionCreatorJob {
     try {
       await this.prisma.audit_log.create({
         data: {
-        id: randomBytes(16).toString('hex'),actor_type: 'cron_job',
+          id: randomBytes(16).toString('hex'),
+          actor_type: 'cron_job',
           entity_type: 'audit_log_partition',
           entity_id: partitionName,
           description: `Monthly partition created: ${partitionName}`,

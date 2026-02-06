@@ -49,26 +49,42 @@ export class WebhooksService {
     this.logger.log(
       `Processing SendGrid webhook: ${events.length} events, timestamp=${timestamp}`,
     );
-    this.logger.debug(`[SENDGRID WEBHOOK] Signature received: ${signature ? 'present' : 'missing'}`);
-    this.logger.debug(`[SENDGRID WEBHOOK] Timestamp received: ${timestamp || 'missing'}`);
-    this.logger.debug(`[SENDGRID WEBHOOK] Payload length: ${payload.length} bytes`);
+    this.logger.debug(
+      `[SENDGRID WEBHOOK] Signature received: ${signature ? 'present' : 'missing'}`,
+    );
+    this.logger.debug(
+      `[SENDGRID WEBHOOK] Timestamp received: ${timestamp || 'missing'}`,
+    );
+    this.logger.debug(
+      `[SENDGRID WEBHOOK] Payload length: ${payload.length} bytes`,
+    );
 
     // Get webhook secret from configuration
     const config = await this.getWebhookSecret('sendgrid');
-    this.logger.debug(`[SENDGRID WEBHOOK] Webhook secret configured: ${config.webhook_secret ? 'yes' : 'no'}`);
+    this.logger.debug(
+      `[SENDGRID WEBHOOK] Webhook secret configured: ${config.webhook_secret ? 'yes' : 'no'}`,
+    );
 
     // Verify webhook secret is configured
     if (!config.webhook_secret) {
-      this.logger.error(`[SENDGRID WEBHOOK] Webhook secret not configured in platform settings`);
+      this.logger.error(
+        `[SENDGRID WEBHOOK] Webhook secret not configured in platform settings`,
+      );
       throw new UnauthorizedException('SendGrid webhook secret not configured');
     }
 
     // Verify signature headers are present
     if (!signature || !timestamp) {
       this.logger.error(`[SENDGRID WEBHOOK] Missing signature headers`);
-      this.logger.error(`[SENDGRID WEBHOOK] Signature header (x-twilio-email-event-webhook-signature): ${signature || 'missing'}`);
-      this.logger.error(`[SENDGRID WEBHOOK] Timestamp header (x-twilio-email-event-webhook-timestamp): ${timestamp || 'missing'}`);
-      throw new UnauthorizedException('SendGrid webhook signature headers missing. Enable Signed Event Webhook in SendGrid dashboard.');
+      this.logger.error(
+        `[SENDGRID WEBHOOK] Signature header (x-twilio-email-event-webhook-signature): ${signature || 'missing'}`,
+      );
+      this.logger.error(
+        `[SENDGRID WEBHOOK] Timestamp header (x-twilio-email-event-webhook-timestamp): ${timestamp || 'missing'}`,
+      );
+      throw new UnauthorizedException(
+        'SendGrid webhook signature headers missing. Enable Signed Event Webhook in SendGrid dashboard.',
+      );
     }
 
     // Verify signature using SendGrid's signature verification
@@ -79,17 +95,27 @@ export class WebhooksService {
       timestamp,
       config.webhook_secret,
     );
-    this.logger.debug(`[SENDGRID WEBHOOK] Signature verification result: ${verified}`);
+    this.logger.debug(
+      `[SENDGRID WEBHOOK] Signature verification result: ${verified}`,
+    );
 
     if (!verified) {
       // PRODUCTION FIX: Log verification failure but continue processing
       // This handles edge cases like batched events where SendGrid's signature
       // format may differ from what we can reconstruct
-      this.logger.warn(`[SENDGRID WEBHOOK] ⚠️ Signature verification FAILED - processing anyway`);
+      this.logger.warn(
+        `[SENDGRID WEBHOOK] ⚠️ Signature verification FAILED - processing anyway`,
+      );
       this.logger.warn(`[SENDGRID WEBHOOK] Events count: ${events.length}`);
-      this.logger.warn(`[SENDGRID WEBHOOK] Payload length: ${payload.length} bytes`);
-      this.logger.warn(`[SENDGRID WEBHOOK] Public key: ${config.webhook_secret.substring(0, 20)}...`);
-      this.logger.warn(`[SENDGRID WEBHOOK] Signature: ${signature.substring(0, 30)}...`);
+      this.logger.warn(
+        `[SENDGRID WEBHOOK] Payload length: ${payload.length} bytes`,
+      );
+      this.logger.warn(
+        `[SENDGRID WEBHOOK] Public key: ${config.webhook_secret.substring(0, 20)}...`,
+      );
+      this.logger.warn(
+        `[SENDGRID WEBHOOK] Signature: ${signature.substring(0, 30)}...`,
+      );
       this.logger.warn(`[SENDGRID WEBHOOK] Timestamp: ${timestamp}`);
 
       // Mark as unverified for security monitoring
@@ -156,7 +182,9 @@ export class WebhooksService {
     // Verify signature
     const verified = this.webhookVerification.verifyAmazonSES(payload);
     if (!verified) {
-      throw new UnauthorizedException('Amazon SES signature verification failed');
+      throw new UnauthorizedException(
+        'Amazon SES signature verification failed',
+      );
     }
 
     // Handle notification
@@ -189,12 +217,16 @@ export class WebhooksService {
     this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     if (!messageId) {
-      this.logger.warn('EventBridge event missing messageId in payload.detail.mail.messageId');
+      this.logger.warn(
+        'EventBridge event missing messageId in payload.detail.mail.messageId',
+      );
       return { status: 'invalid', reason: 'missing messageId' };
     }
 
     if (!eventType) {
-      this.logger.warn('EventBridge event missing eventType in payload.detail.eventType');
+      this.logger.warn(
+        'EventBridge event missing eventType in payload.detail.eventType',
+      );
       return { status: 'invalid', reason: 'missing eventType' };
     }
 
@@ -207,30 +239,45 @@ export class WebhooksService {
     });
 
     if (existing) {
-      this.logger.debug(`Duplicate EventBridge event ignored: ${eventType} for ${messageId}`);
+      this.logger.debug(
+        `Duplicate EventBridge event ignored: ${eventType} for ${messageId}`,
+      );
       return { status: 'duplicate', message_id: messageId };
     }
 
     // Find communication event
-    this.logger.log(`🔍 Searching for communication_event with provider_message_id: ${messageId}`);
+    this.logger.log(
+      `🔍 Searching for communication_event with provider_message_id: ${messageId}`,
+    );
     const commEvent = await this.prisma.communication_event.findFirst({
       where: { provider_message_id: messageId },
       include: { provider: true },
     });
 
     if (!commEvent) {
-      this.logger.warn(`Communication event not found for EventBridge message: ${messageId}`);
+      this.logger.warn(
+        `Communication event not found for EventBridge message: ${messageId}`,
+      );
       // Log recent events for debugging
       const recentEvents = await this.prisma.communication_event.findMany({
         take: 5,
         orderBy: { created_at: 'desc' },
-        select: { id: true, provider_message_id: true, to_email: true, status: true },
+        select: {
+          id: true,
+          provider_message_id: true,
+          to_email: true,
+          status: true,
+        },
       });
-      this.logger.debug(`Recent communication events: ${JSON.stringify(recentEvents)}`);
+      this.logger.debug(
+        `Recent communication events: ${JSON.stringify(recentEvents)}`,
+      );
       return { status: 'not_found', message_id: messageId };
     }
 
-    this.logger.log(`✅ Found communication_event: ${commEvent.id}, current status: ${commEvent.status}`);
+    this.logger.log(
+      `✅ Found communication_event: ${commEvent.id}, current status: ${commEvent.status}`,
+    );
 
     // Log webhook event
     const webhookEventId = randomUUID();
@@ -264,7 +311,9 @@ export class WebhooksService {
 
     const newStatus = statusMap[eventType];
     if (newStatus) {
-      this.logger.log(`📊 Updating status from ${commEvent.status} to ${newStatus}`);
+      this.logger.log(
+        `📊 Updating status from ${commEvent.status} to ${newStatus}`,
+      );
 
       await this.prisma.communication_event.update({
         where: { id: commEvent.id },
@@ -272,18 +321,25 @@ export class WebhooksService {
           status: newStatus as any,
           delivered_at: eventType === 'Delivery' ? new Date() : undefined,
           bounced_at:
-            eventType === 'Bounce' || eventType === 'Complaint' || eventType === 'Reject'
+            eventType === 'Bounce' ||
+            eventType === 'Complaint' ||
+            eventType === 'Reject'
               ? new Date()
               : undefined,
-          error_message: payload.detail?.bounce?.bouncedRecipients?.[0]?.diagnosticCode ||
-                         payload.detail?.complaint?.complaintFeedbackType ||
-                         payload.detail?.reject?.reason,
+          error_message:
+            payload.detail?.bounce?.bouncedRecipients?.[0]?.diagnosticCode ||
+            payload.detail?.complaint?.complaintFeedbackType ||
+            payload.detail?.reject?.reason,
         },
       });
 
-      this.logger.log(`✅ EventBridge event processed: ${eventType} -> ${newStatus} for ${messageId}`);
+      this.logger.log(
+        `✅ EventBridge event processed: ${eventType} -> ${newStatus} for ${messageId}`,
+      );
     } else {
-      this.logger.debug(`No status mapping for EventBridge event type: ${eventType}`);
+      this.logger.debug(
+        `No status mapping for EventBridge event type: ${eventType}`,
+      );
     }
 
     this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -301,12 +357,18 @@ export class WebhooksService {
    */
   async processBrevoWebhook(payload: any, token: string) {
     this.logger.log(`Processing Brevo webhook: event=${payload.event}`);
-    this.logger.debug(`[BREVO WEBHOOK] Full payload: ${JSON.stringify(payload)}`);
-    this.logger.debug(`[BREVO WEBHOOK] Token received: ${token ? 'present' : 'missing'}`);
+    this.logger.debug(
+      `[BREVO WEBHOOK] Full payload: ${JSON.stringify(payload)}`,
+    );
+    this.logger.debug(
+      `[BREVO WEBHOOK] Token received: ${token ? 'present' : 'missing'}`,
+    );
 
     // Get webhook secret
     const config = await this.getWebhookSecret('brevo');
-    this.logger.debug(`[BREVO WEBHOOK] Webhook secret retrieved: ${config.webhook_secret ? 'configured' : 'missing'}`);
+    this.logger.debug(
+      `[BREVO WEBHOOK] Webhook secret retrieved: ${config.webhook_secret ? 'configured' : 'missing'}`,
+    );
 
     // Verify token
     const verified = this.webhookVerification.verifyBrevo(
@@ -316,12 +378,16 @@ export class WebhooksService {
     this.logger.debug(`[BREVO WEBHOOK] Token verification result: ${verified}`);
 
     if (!verified) {
-      throw new UnauthorizedException('Brevo webhook token verification failed');
+      throw new UnauthorizedException(
+        'Brevo webhook token verification failed',
+      );
     }
 
     // Process event
     const result = await this.processBrevoEvent(payload);
-    this.logger.debug(`[BREVO WEBHOOK] Processing result: ${JSON.stringify(result)}`);
+    this.logger.debug(
+      `[BREVO WEBHOOK] Processing result: ${JSON.stringify(result)}`,
+    );
 
     return {
       success: true,
@@ -350,7 +416,9 @@ export class WebhooksService {
     );
 
     if (!verified) {
-      throw new UnauthorizedException('Twilio SMS signature verification failed');
+      throw new UnauthorizedException(
+        'Twilio SMS signature verification failed',
+      );
     }
 
     // Process event
@@ -387,7 +455,9 @@ export class WebhooksService {
     );
 
     if (!verified) {
-      throw new UnauthorizedException('Twilio WhatsApp signature verification failed');
+      throw new UnauthorizedException(
+        'Twilio WhatsApp signature verification failed',
+      );
     }
 
     // Process event
@@ -480,7 +550,11 @@ export class WebhooksService {
       );
     }
 
-    return { status: 'processed', event_type: eventType, message_id: messageId };
+    return {
+      status: 'processed',
+      event_type: eventType,
+      message_id: messageId,
+    };
   }
 
   /**
@@ -515,7 +589,9 @@ export class WebhooksService {
     });
 
     if (!commEvent) {
-      this.logger.warn(`Communication event not found for SES message: ${messageId}`);
+      this.logger.warn(
+        `Communication event not found for SES message: ${messageId}`,
+      );
       return { status: 'not_found', message_id: messageId };
     }
 
@@ -558,7 +634,11 @@ export class WebhooksService {
       });
     }
 
-    return { status: 'processed', event_type: eventType, message_id: messageId };
+    return {
+      status: 'processed',
+      event_type: eventType,
+      message_id: messageId,
+    };
   }
 
   /**
@@ -568,8 +648,12 @@ export class WebhooksService {
     const eventType = event.event;
     const messageId = event['message-id'];
 
-    this.logger.debug(`[BREVO EVENT] Processing event type: ${eventType}, message-id: ${messageId}`);
-    this.logger.debug(`[BREVO EVENT] Full event data: ${JSON.stringify(event)}`);
+    this.logger.debug(
+      `[BREVO EVENT] Processing event type: ${eventType}, message-id: ${messageId}`,
+    );
+    this.logger.debug(
+      `[BREVO EVENT] Full event data: ${JSON.stringify(event)}`,
+    );
 
     if (!messageId) {
       this.logger.warn(`[BREVO EVENT] No message-id found in event`);
@@ -585,30 +669,45 @@ export class WebhooksService {
     });
 
     if (existing) {
-      this.logger.debug(`[BREVO EVENT] Duplicate event detected for message: ${messageId}`);
+      this.logger.debug(
+        `[BREVO EVENT] Duplicate event detected for message: ${messageId}`,
+      );
       return { status: 'duplicate', message_id: messageId };
     }
 
     // Find communication event
-    this.logger.debug(`[BREVO EVENT] Searching for communication_event with provider_message_id: ${messageId}`);
+    this.logger.debug(
+      `[BREVO EVENT] Searching for communication_event with provider_message_id: ${messageId}`,
+    );
     const commEvent = await this.prisma.communication_event.findFirst({
       where: { provider_message_id: messageId },
       include: { provider: true },
     });
 
     if (!commEvent) {
-      this.logger.warn(`[BREVO EVENT] Communication event not found for message: ${messageId}`);
+      this.logger.warn(
+        `[BREVO EVENT] Communication event not found for message: ${messageId}`,
+      );
       // Log all recent communication events for debugging
       const recentEvents = await this.prisma.communication_event.findMany({
         take: 5,
         orderBy: { created_at: 'desc' },
-        select: { id: true, provider_message_id: true, to_email: true, status: true },
+        select: {
+          id: true,
+          provider_message_id: true,
+          to_email: true,
+          status: true,
+        },
       });
-      this.logger.debug(`[BREVO EVENT] Recent communication events: ${JSON.stringify(recentEvents)}`);
+      this.logger.debug(
+        `[BREVO EVENT] Recent communication events: ${JSON.stringify(recentEvents)}`,
+      );
       return { status: 'not_found', message_id: messageId };
     }
 
-    this.logger.debug(`[BREVO EVENT] Found communication_event: ${commEvent.id}, current status: ${commEvent.status}`);
+    this.logger.debug(
+      `[BREVO EVENT] Found communication_event: ${commEvent.id}, current status: ${commEvent.status}`,
+    );
 
     // Log webhook event
     const webhookEventId = randomUUID();
@@ -657,7 +756,9 @@ export class WebhooksService {
       case 'delayed':
         // Email delayed - keep current status (usually 'sent')
         // Don't change status, just log it
-        this.logger.log(`[BREVO EVENT] Email delayed for recipient: ${commEvent.to_email}`);
+        this.logger.log(
+          `[BREVO EVENT] Email delayed for recipient: ${commEvent.to_email}`,
+        );
         break;
 
       case 'hard_bounce':
@@ -669,7 +770,8 @@ export class WebhooksService {
         }
         // Only set error_message if not already set (keep first error)
         if (!commEvent.error_message) {
-          updateData.error_message = event.reason || event.error || 'Email bounced';
+          updateData.error_message =
+            event.reason || event.error || 'Email bounced';
         }
 
         // Update quote status to 'email_failed'
@@ -687,7 +789,8 @@ export class WebhooksService {
         newStatus = 'failed';
         // Only set error_message if not already set (keep first error)
         if (!commEvent.error_message) {
-          updateData.error_message = event.reason || event.error || 'Email failed';
+          updateData.error_message =
+            event.reason || event.error || 'Email failed';
         }
 
         // Update quote status to 'email_failed'
@@ -707,9 +810,13 @@ export class WebhooksService {
         // Only set opened_at if not already set (keep first open timestamp)
         if (!commEvent.opened_at) {
           updateData.opened_at = new Date();
-          this.logger.log(`[BREVO EVENT] Email opened by recipient (first time): ${commEvent.to_email}`);
+          this.logger.log(
+            `[BREVO EVENT] Email opened by recipient (first time): ${commEvent.to_email}`,
+          );
         } else {
-          this.logger.debug(`[BREVO EVENT] Email opened again by recipient (keeping first timestamp): ${commEvent.to_email}`);
+          this.logger.debug(
+            `[BREVO EVENT] Email opened again by recipient (keeping first timestamp): ${commEvent.to_email}`,
+          );
         }
 
         // Update quote status to 'read'
@@ -728,20 +835,28 @@ export class WebhooksService {
         // Only set clicked_at if not already set (keep first click timestamp)
         if (!commEvent.clicked_at) {
           updateData.clicked_at = new Date();
-          this.logger.log(`[BREVO EVENT] Email link clicked by recipient (first time): ${commEvent.to_email}`);
+          this.logger.log(
+            `[BREVO EVENT] Email link clicked by recipient (first time): ${commEvent.to_email}`,
+          );
         } else {
-          this.logger.debug(`[BREVO EVENT] Email link clicked again by recipient (keeping first timestamp): ${commEvent.to_email}`);
+          this.logger.debug(
+            `[BREVO EVENT] Email link clicked again by recipient (keeping first timestamp): ${commEvent.to_email}`,
+          );
         }
 
         // Don't update quote status on link click - let the public view tracking handle it
         // Status will be updated to 'read' when the public URL is actually viewed
-        this.logger.debug(`[BREVO EVENT] Email link clicked - quote status will be updated when public URL is viewed`);
+        this.logger.debug(
+          `[BREVO EVENT] Email link clicked - quote status will be updated when public URL is viewed`,
+        );
         break;
 
       case 'unsubscribe':
       case 'unsubscribed':
         // Track unsubscribe but don't change email status
-        this.logger.log(`[BREVO EVENT] Recipient unsubscribed: ${commEvent.to_email}`);
+        this.logger.log(
+          `[BREVO EVENT] Recipient unsubscribed: ${commEvent.to_email}`,
+        );
         break;
 
       default:
@@ -755,8 +870,8 @@ export class WebhooksService {
       delivered: 3,
       opened: 4,
       clicked: 5,
-      failed: 99,    // Terminal state
-      bounced: 99,   // Terminal state
+      failed: 99, // Terminal state
+      bounced: 99, // Terminal state
     };
 
     // Apply status update only if it's a forward progression
@@ -789,12 +904,21 @@ export class WebhooksService {
         where: { id: commEvent.id },
         data: updateData,
       });
-      this.logger.log(`[BREVO EVENT] ✅ Updated communication_event for ${eventType}: ${messageId}`);
+      this.logger.log(
+        `[BREVO EVENT] ✅ Updated communication_event for ${eventType}: ${messageId}`,
+      );
     } else {
-      this.logger.debug(`[BREVO EVENT] No updates needed for event type: ${eventType}`);
+      this.logger.debug(
+        `[BREVO EVENT] No updates needed for event type: ${eventType}`,
+      );
     }
 
-    return { status: 'processed', event_type: eventType, message_id: messageId, new_status: newStatus };
+    return {
+      status: 'processed',
+      event_type: eventType,
+      message_id: messageId,
+      new_status: newStatus,
+    };
   }
 
   /**
@@ -890,7 +1014,9 @@ export class WebhooksService {
     });
 
     if (!commEvent) {
-      this.logger.warn(`Communication event not found for Twilio SMS: ${messageSid}`);
+      this.logger.warn(
+        `Communication event not found for Twilio SMS: ${messageSid}`,
+      );
       return { status: 'not_found', message_id: messageSid };
     }
 
@@ -935,7 +1061,11 @@ export class WebhooksService {
       });
     }
 
-    return { status: 'processed', event_type: messageStatus, message_id: messageSid };
+    return {
+      status: 'processed',
+      event_type: messageStatus,
+      message_id: messageSid,
+    };
   }
 
   /**

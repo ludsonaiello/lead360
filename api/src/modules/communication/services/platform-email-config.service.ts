@@ -82,7 +82,9 @@ export class PlatformEmailConfigService {
     });
 
     if (!config) {
-      throw new NotFoundException('No active platform email configuration found');
+      throw new NotFoundException(
+        'No active platform email configuration found',
+      );
     }
 
     // Hide credentials
@@ -107,7 +109,9 @@ export class PlatformEmailConfigService {
     });
 
     if (!config) {
-      throw new NotFoundException(`Platform email configuration not found: ${configId}`);
+      throw new NotFoundException(
+        `Platform email configuration not found: ${configId}`,
+      );
     }
 
     // Decrypt credentials
@@ -126,7 +130,9 @@ export class PlatformEmailConfigService {
    */
   async createConfiguration(dto: CreatePlatformEmailConfigDto, userId: string) {
     // Validate provider exists and is active
-    const provider = await this.providerService.getProviderById(dto.provider_id);
+    const provider = await this.providerService.getProviderById(
+      dto.provider_id,
+    );
 
     if (!provider.is_active) {
       throw new BadRequestException('Provider is not active');
@@ -215,14 +221,18 @@ export class PlatformEmailConfigService {
     });
 
     if (!existing) {
-      throw new NotFoundException(`Platform email configuration not found: ${configId}`);
+      throw new NotFoundException(
+        `Platform email configuration not found: ${configId}`,
+      );
     }
 
     // If credentials are being updated, validate them
     let encryptedCredentials = existing.credentials;
     if (dto.credentials) {
       if (!existing.provider) {
-        throw new NotFoundException('Provider not found for this configuration');
+        throw new NotFoundException(
+          'Provider not found for this configuration',
+        );
       }
 
       const validation = await this.providerService.validateProviderSettings(
@@ -255,7 +265,8 @@ export class PlatformEmailConfigService {
       where: { id: configId },
       data: {
         credentials: encryptedCredentials as any,
-        provider_config: (dto.provider_config ?? existing.provider_config) as any,
+        provider_config: (dto.provider_config ??
+          existing.provider_config) as any,
         from_email: dto.from_email ?? existing.from_email,
         from_name: dto.from_name ?? existing.from_name,
         reply_to_email: dto.reply_to_email ?? existing.reply_to_email,
@@ -292,7 +303,9 @@ export class PlatformEmailConfigService {
     });
 
     if (!config) {
-      throw new NotFoundException(`Platform email configuration not found: ${configId}`);
+      throw new NotFoundException(
+        `Platform email configuration not found: ${configId}`,
+      );
     }
 
     // Deactivate all others
@@ -333,7 +346,9 @@ export class PlatformEmailConfigService {
     });
 
     if (!config) {
-      throw new NotFoundException(`Platform email configuration not found: ${configId}`);
+      throw new NotFoundException(
+        `Platform email configuration not found: ${configId}`,
+      );
     }
 
     if (config.is_active) {
@@ -362,11 +377,15 @@ export class PlatformEmailConfigService {
     });
 
     if (!config) {
-      throw new NotFoundException(`Platform email configuration not found: ${configId}`);
+      throw new NotFoundException(
+        `Platform email configuration not found: ${configId}`,
+      );
     }
 
     if (!config.provider) {
-      throw new NotFoundException('Platform email configuration is missing provider');
+      throw new NotFoundException(
+        'Platform email configuration is missing provider',
+      );
     }
 
     try {
@@ -417,7 +436,9 @@ export class PlatformEmailConfigService {
     });
 
     if (!config) {
-      throw new NotFoundException('No active platform email configuration found');
+      throw new NotFoundException(
+        'No active platform email configuration found',
+      );
     }
 
     // Decrypt credentials

@@ -86,7 +86,11 @@ describe('FilesController', () => {
 
       mockFilesService.uploadFile.mockResolvedValue(mockResult);
 
-      const result = await controller.uploadFile(mockRequest, mockFile, uploadDto);
+      const result = await controller.uploadFile(
+        mockRequest,
+        mockFile,
+        uploadDto,
+      );
 
       expect(mockFilesService.uploadFile).toHaveBeenCalledWith(
         mockRequest.user.tenant_id,

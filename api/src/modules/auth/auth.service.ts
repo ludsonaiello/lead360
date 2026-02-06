@@ -189,7 +189,9 @@ export class AuthService {
     });
 
     // Queue activation email
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://app.lead360.app';
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') ||
+      'https://app.lead360.app';
     await this.jobQueue.queueEmail({
       to: result.user.email,
       templateKey: 'account-activation',
@@ -222,11 +224,7 @@ export class AuthService {
   /**
    * Login user and return tokens
    */
-  async login(
-    loginDto: LoginDto,
-    ipAddress?: string,
-    userAgent?: string,
-  ) {
+  async login(loginDto: LoginDto, ipAddress?: string, userAgent?: string) {
     // Find user by email
     const user = await this.prisma.user.findFirst({
       where: {
@@ -282,11 +280,16 @@ export class AuthService {
     }
 
     // Get user roles
-    const roles = user.user_role_user_role_user_idTouser.map((ur) => ur.role.name);
+    const roles = user.user_role_user_role_user_idTouser.map(
+      (ur) => ur.role.name,
+    );
 
     // Generate tokens
-    const { accessToken, refreshToken, expiresIn } =
-      await this.generateTokens(user, roles, loginDto.remember_me || false);
+    const { accessToken, refreshToken, expiresIn } = await this.generateTokens(
+      user,
+      roles,
+      loginDto.remember_me || false,
+    );
 
     // Store refresh token hash
     const tokenHash = this.hashToken(refreshToken);
@@ -367,7 +370,9 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    const roles = user.user_role_user_role_user_idTouser.map((ur) => ur.role.name);
+    const roles = user.user_role_user_role_user_idTouser.map(
+      (ur) => ur.role.name,
+    );
 
     // Generate new access token only
     const payload: JwtPayload = {
@@ -498,7 +503,9 @@ export class AuthService {
     });
 
     // Queue password reset email
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://app.lead360.app';
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') ||
+      'https://app.lead360.app';
     await this.jobQueue.queueEmail({
       to: user.email,
       templateKey: 'password-reset',
@@ -664,7 +671,9 @@ export class AuthService {
     });
 
     // Queue activation email
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://app.lead360.app';
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') ||
+      'https://app.lead360.app';
     await this.jobQueue.queueEmail({
       to: user.email,
       templateKey: 'account-activation',
@@ -700,7 +709,9 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
-    const roles = user.user_role_user_role_user_idTouser.map((ur) => ur.role.name);
+    const roles = user.user_role_user_role_user_idTouser.map(
+      (ur) => ur.role.name,
+    );
 
     return {
       id: user.id,
@@ -959,7 +970,12 @@ export class AuthService {
   // ==========================================
 
   private async generateTokens(
-    user: { id: string; email: string; tenant_id: string | null; is_platform_admin: boolean },
+    user: {
+      id: string;
+      email: string;
+      tenant_id: string | null;
+      is_platform_admin: boolean;
+    },
     roles: string[],
     rememberMe: boolean,
   ) {

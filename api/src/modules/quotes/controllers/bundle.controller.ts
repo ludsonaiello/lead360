@@ -73,10 +73,7 @@ export class BundleController {
   @ApiParam({ name: 'id', description: 'Bundle UUID' })
   @ApiResponse({ status: 200, description: 'Bundle retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Bundle not found' })
-  async findOne(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.bundleService.findOne(req.user.tenant_id, id);
   }
 
@@ -84,7 +81,8 @@ export class BundleController {
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({
     summary: 'Update bundle metadata',
-    description: 'Updates bundle name, description, discount. Use item endpoints to modify items.',
+    description:
+      'Updates bundle name, description, discount. Use item endpoints to modify items.',
   })
   @ApiParam({ name: 'id', description: 'Bundle UUID' })
   @ApiResponse({ status: 200, description: 'Bundle updated successfully' })
@@ -107,7 +105,8 @@ export class BundleController {
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({
     summary: 'Replace bundle completely (metadata + items)',
-    description: 'Full replacement: Updates bundle metadata and replaces ALL items. If items are provided, deletes existing items and creates new ones. Use PATCH for metadata-only updates.',
+    description:
+      'Full replacement: Updates bundle metadata and replaces ALL items. If items are provided, deletes existing items and creates new ones. Use PATCH for metadata-only updates.',
   })
   @ApiParam({ name: 'id', description: 'Bundle UUID' })
   @ApiResponse({ status: 200, description: 'Bundle replaced successfully' })
@@ -136,10 +135,7 @@ export class BundleController {
   @ApiParam({ name: 'id', description: 'Bundle UUID' })
   @ApiResponse({ status: 204, description: 'Bundle deleted successfully' })
   @ApiResponse({ status: 404, description: 'Bundle not found' })
-  async delete(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async delete(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.bundleService.delete(req.user.tenant_id, id, req.user.id);
   }
 
@@ -150,12 +146,12 @@ export class BundleController {
     description: 'Switches bundle between active and inactive states',
   })
   @ApiParam({ name: 'id', description: 'Bundle UUID' })
-  @ApiResponse({ status: 200, description: 'Bundle active status toggled successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Bundle active status toggled successfully',
+  })
   @ApiResponse({ status: 404, description: 'Bundle not found' })
-  async toggleActive(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async toggleActive(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.bundleService.toggleActive(req.user.tenant_id, id, req.user.id);
   }
 
@@ -163,15 +159,13 @@ export class BundleController {
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({
     summary: 'Duplicate bundle with all items',
-    description: 'Creates a copy of the bundle with "(Copy)" appended to name, including all items',
+    description:
+      'Creates a copy of the bundle with "(Copy)" appended to name, including all items',
   })
   @ApiParam({ name: 'id', description: 'Bundle UUID to duplicate' })
   @ApiResponse({ status: 201, description: 'Bundle duplicated successfully' })
   @ApiResponse({ status: 404, description: 'Bundle not found' })
-  async duplicate(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async duplicate(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.bundleService.duplicate(req.user.tenant_id, id, req.user.id);
   }
 

@@ -21,8 +21,12 @@ export class LocalStorageProvider implements IStorageProvider {
   private readonly basePath: string;
 
   constructor(private readonly config: StorageProviderConfig) {
-    this.basePath = config.localBasePath || resolve(__dirname, '../../../..', '../uploads/public');
-    this.logger.log(`LocalStorageProvider initialized with base path: ${this.basePath}`);
+    this.basePath =
+      config.localBasePath ||
+      resolve(__dirname, '../../../..', '../uploads/public');
+    this.logger.log(
+      `LocalStorageProvider initialized with base path: ${this.basePath}`,
+    );
   }
 
   /**

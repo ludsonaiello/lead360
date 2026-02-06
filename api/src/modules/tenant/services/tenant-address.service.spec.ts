@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { TenantAddressService } from './tenant-address.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
@@ -68,7 +72,9 @@ describe('TenantAddressService', () => {
       };
 
       mockPrismaService.tenant_address.count.mockResolvedValue(0); // No existing addresses
-      mockPrismaService.tenant_address.updateMany.mockResolvedValue({ count: 0 });
+      mockPrismaService.tenant_address.updateMany.mockResolvedValue({
+        count: 0,
+      });
 
       const createdAddress = {
         id: 'addr-123',
@@ -79,7 +85,11 @@ describe('TenantAddressService', () => {
 
       mockPrismaService.tenant_address.create.mockResolvedValue(createdAddress);
 
-      const result = await service.create('tenant-123', createDto as any, 'user-123');
+      const result = await service.create(
+        'tenant-123',
+        createDto as any,
+        'user-123',
+      );
 
       expect(result.is_default).toBe(true);
       expect(mockPrismaService.auditLog.create).toHaveBeenCalled();
@@ -105,7 +115,11 @@ describe('TenantAddressService', () => {
 
       mockPrismaService.tenant_address.create.mockResolvedValue(createdAddress);
 
-      const result = await service.create('tenant-123', createDto as any, 'user-123');
+      const result = await service.create(
+        'tenant-123',
+        createDto as any,
+        'user-123',
+      );
 
       expect(result.is_default).toBe(false);
     });
@@ -121,7 +135,7 @@ describe('TenantAddressService', () => {
       };
 
       await expect(
-        service.create('tenant-123', createDto as any, 'user-123')
+        service.create('tenant-123', createDto as any, 'user-123'),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -139,15 +153,23 @@ describe('TenantAddressService', () => {
       };
 
       mockPrismaService.tenant_address.findFirst.mockResolvedValue(address);
-      mockPrismaService.tenant_address.updateMany.mockResolvedValue({ count: 1 });
+      mockPrismaService.tenant_address.updateMany.mockResolvedValue({
+        count: 1,
+      });
       mockPrismaService.tenant_address.update.mockResolvedValue({
         ...address,
         is_default: true,
       });
 
-      const result = await service.setAsDefault(tenantId, addressId, 'user-123');
+      const result = await service.setAsDefault(
+        tenantId,
+        addressId,
+        'user-123',
+      );
 
-      expect(result).toEqual({ message: 'Address set as default successfully' });
+      expect(result).toEqual({
+        message: 'Address set as default successfully',
+      });
       expect(mockPrismaService.tenant_address.updateMany).toHaveBeenCalled();
       expect(mockPrismaService.tenant_address.update).toHaveBeenCalled();
     });
@@ -156,7 +178,7 @@ describe('TenantAddressService', () => {
       mockPrismaService.tenant_address.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.setAsDefault('tenant-123', 'nonexistent', 'user-123')
+        service.setAsDefault('tenant-123', 'nonexistent', 'user-123'),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -191,7 +213,7 @@ describe('TenantAddressService', () => {
       mockPrismaService.tenant_address.count.mockResolvedValue(1); // Only 1 legal address
 
       await expect(
-        service.delete('tenant-123', 'addr-123', 'user-123')
+        service.delete('tenant-123', 'addr-123', 'user-123'),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -231,7 +253,7 @@ describe('TenantAddressService', () => {
       mockPrismaService.tenant_address.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.delete('tenant-123', 'nonexistent', 'user-123')
+        service.delete('tenant-123', 'nonexistent', 'user-123'),
       ).rejects.toThrow(NotFoundException);
     });
   });

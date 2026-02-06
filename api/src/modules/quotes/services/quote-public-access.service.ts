@@ -1,8 +1,17 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { QuoteVersionService } from './quote-version.service';
 import { QuoteService } from './quote.service';
-import { GeneratePublicUrlDto, PublicUrlResponseDto } from '../dto/public/generate-public-url.dto';
+import {
+  GeneratePublicUrlDto,
+  PublicUrlResponseDto,
+} from '../dto/public/generate-public-url.dto';
 import { PasswordValidationResponseDto } from '../dto/public/validate-password.dto';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
@@ -28,7 +37,10 @@ export class QuotePublicAccessService {
 
   // In-memory lockout tracking (key: `${token}:${ipAddress}`)
   // In production, use Redis for distributed lockout tracking
-  private readonly lockouts = new Map<string, { attempts: number; lockedUntil?: Date }>();
+  private readonly lockouts = new Map<
+    string,
+    { attempts: number; lockedUntil?: Date }
+  >();
 
   private readonly MAX_FAILED_ATTEMPTS = 3;
   private readonly LOCKOUT_DURATION_MINUTES = 15;
@@ -71,7 +83,16 @@ export class QuotePublicAccessService {
       }
 
       // 2. Validate quote status (must be ready or sent to generate public URL)
-      if (!['ready', 'sent', 'delivered', 'read', 'opened', 'email_failed'].includes(quote.status)) {
+      if (
+        ![
+          'ready',
+          'sent',
+          'delivered',
+          'read',
+          'opened',
+          'email_failed',
+        ].includes(quote.status)
+      ) {
         throw new BadRequestException(
           `Quote must be in 'ready', 'sent', 'delivered', 'read', 'opened', or 'email_failed' status to generate public URL. Current status: ${quote.status}`,
         );
@@ -140,7 +161,9 @@ export class QuotePublicAccessService {
           tx,
         );
 
-        this.logger.log(`Quote ${quoteId} status changed from 'ready' to 'sent' (public URL generated)`);
+        this.logger.log(
+          `Quote ${quoteId} status changed from 'ready' to 'sent' (public URL generated)`,
+        );
       }
 
       // 8. Build public URL
@@ -222,7 +245,9 @@ export class QuotePublicAccessService {
     if (currentAttempts >= this.MAX_FAILED_ATTEMPTS) {
       // Lock out the IP
       const lockedUntil = new Date();
-      lockedUntil.setMinutes(lockedUntil.getMinutes() + this.LOCKOUT_DURATION_MINUTES);
+      lockedUntil.setMinutes(
+        lockedUntil.getMinutes() + this.LOCKOUT_DURATION_MINUTES,
+      );
 
       this.lockouts.set(lockoutKey, {
         attempts: currentAttempts,
@@ -298,7 +323,10 @@ export class QuotePublicAccessService {
 
     // 3. Build public URL
     const tenantSubdomain = quote.tenant.subdomain || quote.tenant.id;
-    const publicUrl = this.buildPublicUrl(tenantSubdomain, publicAccess.access_token);
+    const publicUrl = this.buildPublicUrl(
+      tenantSubdomain,
+      publicAccess.access_token,
+    );
 
     // 4. Return response
     return {
@@ -318,7 +346,10 @@ export class QuotePublicAccessService {
    * @param quoteId - Quote UUID
    * @returns Success message
    */
-  async deactivatePublicUrl(tenantId: string, quoteId: string): Promise<{ message: string }> {
+  async deactivatePublicUrl(
+    tenantId: string,
+    quoteId: string,
+  ): Promise<{ message: string }> {
     // 1. Validate quote belongs to tenant
     const quote = await this.prisma.quote.findFirst({
       where: {
@@ -343,10 +374,14 @@ export class QuotePublicAccessService {
     });
 
     if (result.count === 0) {
-      throw new NotFoundException(`No active public URL found for quote ${quoteId}`);
+      throw new NotFoundException(
+        `No active public URL found for quote ${quoteId}`,
+      );
     }
 
-    this.logger.log(`Deactivated ${result.count} public URL(s) for quote ${quoteId}`);
+    this.logger.log(
+      `Deactivated ${result.count} public URL(s) for quote ${quoteId}`,
+    );
 
     return {
       message: `Successfully deactivated public access for quote ${quoteId}`,
@@ -360,7 +395,10 @@ export class QuotePublicAccessService {
    * @param ipAddress - Client IP
    * @returns Lockout status
    */
-  async checkLockout(token: string, ipAddress: string): Promise<{
+  async checkLockout(
+    token: string,
+    ipAddress: string,
+  ): Promise<{
     is_locked: boolean;
     lockout_expires_at?: string;
     failed_attempts?: number;
@@ -476,8 +514,22 @@ export class QuotePublicAccessService {
     }
 
     // Check quote status (only show sent/delivered/read/opened/downloaded/approved/started/concluded/email_failed quotes publicly)
-    if (!['sent', 'delivered', 'read', 'opened', 'downloaded', 'approved', 'started', 'concluded', 'email_failed'].includes(publicAccess.quote.status)) {
-      throw new ForbiddenException('This quote is not available for public viewing');
+    if (
+      ![
+        'sent',
+        'delivered',
+        'read',
+        'opened',
+        'downloaded',
+        'approved',
+        'started',
+        'concluded',
+        'email_failed',
+      ].includes(publicAccess.quote.status)
+    ) {
+      throw new ForbiddenException(
+        'This quote is not available for public viewing',
+      );
     }
 
     return publicAccess;

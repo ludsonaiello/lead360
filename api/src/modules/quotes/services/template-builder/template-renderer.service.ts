@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { VisualTemplateBuilderService } from './visual-template-builder.service';
 import Handlebars from 'handlebars';
@@ -25,7 +30,11 @@ export class TemplateRendererService {
   /**
    * Render template to HTML (both visual and code types)
    */
-  async renderToHtml(templateId: string, quoteId: string, options: RenderOptions = {}): Promise<string> {
+  async renderToHtml(
+    templateId: string,
+    quoteId: string,
+    options: RenderOptions = {},
+  ): Promise<string> {
     // Check cache first
     // const cacheKey = `template:rendered:${templateId}:${quoteId}`;
     // const cached = await this.cacheManager.get<string>(cacheKey);
@@ -54,7 +63,9 @@ export class TemplateRendererService {
 
     if (template.template_type === 'visual') {
       // Visual template: compile structure to Handlebars first
-      const compiled = await this.visualBuilder.compileToHandlebars(template.visual_structure);
+      const compiled = await this.visualBuilder.compileToHandlebars(
+        template.visual_structure,
+      );
       html = compiled.html;
       css = compiled.css;
     } else {
@@ -79,7 +90,11 @@ export class TemplateRendererService {
   /**
    * Render template to PDF (using Puppeteer)
    */
-  async renderToPdf(templateId: string, quoteId: string, options: RenderOptions = {}): Promise<Buffer> {
+  async renderToPdf(
+    templateId: string,
+    quoteId: string,
+    options: RenderOptions = {},
+  ): Promise<Buffer> {
     // Check PDF cache first
     // const pdfCacheKey = `template:pdf:${templateId}:${quoteId}`;
     // const cachedPdf = await this.cacheManager.get<Buffer>(pdfCacheKey);
@@ -102,7 +117,10 @@ export class TemplateRendererService {
   /**
    * Preview template with sample data
    */
-  async previewTemplate(templateId: string, sampleData?: any): Promise<{ html: string; css: string }> {
+  async previewTemplate(
+    templateId: string,
+    sampleData?: any,
+  ): Promise<{ html: string; css: string }> {
     // Load template
     const template = await this.prisma.quote_template.findUnique({
       where: { id: templateId },
@@ -119,7 +137,9 @@ export class TemplateRendererService {
     let css: string;
 
     if (template.template_type === 'visual') {
-      const compiled = await this.visualBuilder.compileToHandlebars(template.visual_structure);
+      const compiled = await this.visualBuilder.compileToHandlebars(
+        template.visual_structure,
+      );
       html = compiled.html;
       css = compiled.css;
     } else {
@@ -207,33 +227,39 @@ export class TemplateRendererService {
         updated_at: quoteData.updated_at,
 
         // Lead/Customer
-        lead: quoteData.lead ? {
-          full_name: quoteData.lead.full_name,
-          email: quoteData.lead.email,
-          phone: quoteData.lead.phone,
-          company_name: quoteData.lead.company_name,
-        } : null,
+        lead: quoteData.lead
+          ? {
+              full_name: quoteData.lead.full_name,
+              email: quoteData.lead.email,
+              phone: quoteData.lead.phone,
+              company_name: quoteData.lead.company_name,
+            }
+          : null,
 
         // Jobsite Address
-        jobsite_address: quoteData.jobsite_address ? {
-          line1: quoteData.jobsite_address.line1,
-          line2: quoteData.jobsite_address.line2,
-          city: quoteData.jobsite_address.city,
-          state: quoteData.jobsite_address.state,
-          zip_code: quoteData.jobsite_address.zip_code,
-        } : null,
+        jobsite_address: quoteData.jobsite_address
+          ? {
+              line1: quoteData.jobsite_address.line1,
+              line2: quoteData.jobsite_address.line2,
+              city: quoteData.jobsite_address.city,
+              state: quoteData.jobsite_address.state,
+              zip_code: quoteData.jobsite_address.zip_code,
+            }
+          : null,
 
         // Vendor
-        vendor: quoteData.vendor ? {
-          name: quoteData.vendor.name,
-          email: quoteData.vendor.email,
-          phone: quoteData.vendor.phone,
-          address_line1: quoteData.vendor.address_line1,
-          address_line2: quoteData.vendor.address_line2,
-          city: quoteData.vendor.city,
-          state: quoteData.vendor.state,
-          zip_code: quoteData.vendor.zip_code,
-        } : null,
+        vendor: quoteData.vendor
+          ? {
+              name: quoteData.vendor.name,
+              email: quoteData.vendor.email,
+              phone: quoteData.vendor.phone,
+              address_line1: quoteData.vendor.address_line1,
+              address_line2: quoteData.vendor.address_line2,
+              city: quoteData.vendor.city,
+              state: quoteData.vendor.state,
+              zip_code: quoteData.vendor.zip_code,
+            }
+          : null,
 
         // Line Items
         items: quoteData.items.map((item: any) => ({
@@ -260,7 +286,9 @@ export class TemplateRendererService {
         phone: quoteData.tenant.primary_contact_phone,
         email: quoteData.tenant.primary_contact_email,
         website: quoteData.tenant.website_url,
-        logo_url: quoteData.tenant.logo_file_id ? `/files/${quoteData.tenant.logo_file_id}` : null,
+        logo_url: quoteData.tenant.logo_file_id
+          ? `/files/${quoteData.tenant.logo_file_id}`
+          : null,
       },
 
       // System variables
@@ -281,10 +309,10 @@ export class TemplateRendererService {
         quote_number: 'Q-0001',
         title: 'Sample Quote',
         status: 'draft',
-        subtotal: 5000.00,
-        tax_amount: 500.00,
-        discount_amount: 250.00,
-        total: 5250.00,
+        subtotal: 5000.0,
+        tax_amount: 500.0,
+        discount_amount: 250.0,
+        total: 5250.0,
         expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         custom_terms: 'Payment due within 30 days of invoice date.',
         lead: {
@@ -315,14 +343,14 @@ export class TemplateRendererService {
             description: 'Install 10 premium kitchen cabinets',
             quantity: 10,
             unit_measurement: 'each',
-            total_cost: 2500.00,
+            total_cost: 2500.0,
           },
           {
             title: 'Countertop Installation',
             description: 'Granite countertop installation',
             quantity: 25,
             unit_measurement: 'sq ft',
-            total_cost: 2500.00,
+            total_cost: 2500.0,
           },
         ],
         groups: [],
@@ -350,7 +378,10 @@ export class TemplateRendererService {
     }
 
     // If no head, add one
-    return html.replace('<html>', `<html>\n<head>\n<style>${css}</style>\n</head>`);
+    return html.replace(
+      '<html>',
+      `<html>\n<head>\n<style>${css}</style>\n</head>`,
+    );
   }
 
   private async generatePdfFromHtml(html: string): Promise<Buffer> {
@@ -390,9 +421,7 @@ export class TemplateRendererService {
 
       return Buffer.from(pdfBuffer);
     } catch (error) {
-      throw new BadRequestException(
-        `Failed to generate PDF: ${error.message}`,
-      );
+      throw new BadRequestException(`Failed to generate PDF: ${error.message}`);
     } finally {
       await browser.close();
     }

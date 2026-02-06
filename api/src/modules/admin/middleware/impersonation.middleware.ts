@@ -35,9 +35,10 @@ export class ImpersonationMiddleware implements NestMiddleware {
 
     try {
       // Validate impersonation session
-      const session = await this.impersonationService.validateImpersonationSession(
-        impersonationToken,
-      );
+      const session =
+        await this.impersonationService.validateImpersonationSession(
+          impersonationToken,
+        );
 
       // Override current user with impersonated user
       req.user = session.impersonated_user as any;

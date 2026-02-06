@@ -12,12 +12,23 @@ export class GetSuggestionsDto {
   @IsString()
   query: string;
 
-  @ApiProperty({ description: 'Field to search', example: 'customer', enum: ['customer', 'item', 'all'], default: 'all', required: false })
+  @ApiProperty({
+    description: 'Field to search',
+    example: 'customer',
+    enum: ['customer', 'item', 'all'],
+    default: 'all',
+    required: false,
+  })
   @IsOptional()
   @IsEnum(['customer', 'item', 'all'])
   field?: 'customer' | 'item' | 'all' = 'all';
 
-  @ApiProperty({ description: 'Max suggestions', example: 10, default: 10, required: false })
+  @ApiProperty({
+    description: 'Max suggestions',
+    example: 10,
+    default: 10,
+    required: false,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

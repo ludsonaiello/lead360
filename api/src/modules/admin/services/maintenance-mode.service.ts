@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 
@@ -40,7 +37,9 @@ export class MaintenanceModeService {
       // If scheduled mode, check time range
       if (config.mode === 'scheduled') {
         const now = new Date();
-        const startTime = config.start_time ? new Date(config.start_time) : null;
+        const startTime = config.start_time
+          ? new Date(config.start_time)
+          : null;
         const endTime = config.end_time ? new Date(config.end_time) : null;
 
         if (startTime && endTime) {
@@ -50,7 +49,10 @@ export class MaintenanceModeService {
 
       return false;
     } catch (error) {
-      this.logger.error(`Failed to check maintenance mode: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to check maintenance mode: ${error.message}`,
+        error.stack,
+      );
       return false; // Fail safely - default to not in maintenance
     }
   }
@@ -85,7 +87,8 @@ export class MaintenanceModeService {
           data: {
             is_enabled: false,
             mode: 'immediate',
-            message: 'Lead360 is undergoing maintenance. We\'ll be back shortly.',
+            message:
+              "Lead360 is undergoing maintenance. We'll be back shortly.",
             updated_at: new Date(),
           },
         });
@@ -106,7 +109,10 @@ export class MaintenanceModeService {
 
       return config;
     } catch (error) {
-      this.logger.error(`Failed to get maintenance config: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get maintenance config: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -132,16 +138,24 @@ export class MaintenanceModeService {
       const updatedConfig = await this.prisma.maintenance_mode.update({
         where: { id: currentConfig.id },
         data: {
-          ...(updateDto.is_enabled !== undefined && { is_enabled: updateDto.is_enabled }),
+          ...(updateDto.is_enabled !== undefined && {
+            is_enabled: updateDto.is_enabled,
+          }),
           ...(updateDto.mode !== undefined && { mode: updateDto.mode }),
           ...(updateDto.start_time !== undefined && {
-            start_time: updateDto.start_time ? new Date(updateDto.start_time) : null
+            start_time: updateDto.start_time
+              ? new Date(updateDto.start_time)
+              : null,
           }),
           ...(updateDto.end_time !== undefined && {
-            end_time: updateDto.end_time ? new Date(updateDto.end_time) : null
+            end_time: updateDto.end_time ? new Date(updateDto.end_time) : null,
           }),
-          ...(updateDto.message !== undefined && { message: updateDto.message }),
-          ...(updateDto.allowed_ips !== undefined && { allowed_ips: updateDto.allowed_ips }),
+          ...(updateDto.message !== undefined && {
+            message: updateDto.message,
+          }),
+          ...(updateDto.allowed_ips !== undefined && {
+            allowed_ips: updateDto.allowed_ips,
+          }),
           updated_at: new Date(),
           updated_by_user_id: adminUserId,
         },
@@ -177,7 +191,10 @@ export class MaintenanceModeService {
 
       return updatedConfig;
     } catch (error) {
-      this.logger.error(`Failed to update maintenance mode: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to update maintenance mode: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -219,19 +236,25 @@ export class MaintenanceModeService {
             entity_type: 'maintenance_mode',
             entity_id: config.id,
             action_type: 'updated',
-            description: 'Maintenance mode auto-disabled after scheduled end time',
+            description:
+              'Maintenance mode auto-disabled after scheduled end time',
             before_json: { is_enabled: true },
             after_json: { is_enabled: false },
             status: 'success',
           });
 
-          this.logger.log('Maintenance mode auto-disabled after scheduled end time');
+          this.logger.log(
+            'Maintenance mode auto-disabled after scheduled end time',
+          );
 
           return updatedConfig;
         }
       }
     } catch (error) {
-      this.logger.error(`Failed to auto-disable maintenance mode: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to auto-disable maintenance mode: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }

@@ -65,11 +65,7 @@ export class EmailSenderService {
           return await this.sendViaSMTP(credentials, providerConfig, email);
 
         case 'sendgrid':
-          return await this.sendViaSendGrid(
-            credentials,
-            providerConfig,
-            email,
-          );
+          return await this.sendViaSendGrid(credentials, providerConfig, email);
 
         case 'amazon_ses':
           return await this.sendViaAmazonSES(
@@ -232,16 +228,32 @@ export class EmailSenderService {
     this.logger.log('🔍 AMAZON SES DEBUG - FULL Configuration Details');
     this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     this.logger.log(`📍 Region: ${credentials.region || 'NOT SET'}`);
-    this.logger.log(`🔑 Access Key ID (FULL): ${credentials.access_key_id || 'NOT SET'}`);
-    this.logger.log(`🔐 Secret Access Key (FULL): ${credentials.secret_access_key || 'NOT SET'}`);
+    this.logger.log(
+      `🔑 Access Key ID (FULL): ${credentials.access_key_id || 'NOT SET'}`,
+    );
+    this.logger.log(
+      `🔐 Secret Access Key (FULL): ${credentials.secret_access_key || 'NOT SET'}`,
+    );
     this.logger.log(`📧 From: "${email.from_name}" <${email.from_email}>`);
-    this.logger.log(`📬 To: ${Array.isArray(email.to) ? email.to.join(', ') : email.to}`);
+    this.logger.log(
+      `📬 To: ${Array.isArray(email.to) ? email.to.join(', ') : email.to}`,
+    );
     this.logger.log(`📝 Subject: ${email.subject}`);
-    this.logger.log(`⚙️  Configuration Set: ${config?.configuration_set || 'NONE'}`);
-    this.logger.log(`📎 Has Attachments: ${email.attachments && email.attachments.length > 0 ? 'YES (' + email.attachments.length + ')' : 'NO'}`);
-    this.logger.log(`🔧 Provider Config (full): ${JSON.stringify(config, null, 2)}`);
-    this.logger.log(`🔧 Credentials Object (full): ${JSON.stringify(credentials, null, 2)}`);
-    this.logger.log(`🔌 Using SES API (not SMTP) - Endpoint will be: https://email.${credentials.region || 'us-east-1'}.amazonaws.com`);
+    this.logger.log(
+      `⚙️  Configuration Set: ${config?.configuration_set || 'NONE'}`,
+    );
+    this.logger.log(
+      `📎 Has Attachments: ${email.attachments && email.attachments.length > 0 ? 'YES (' + email.attachments.length + ')' : 'NO'}`,
+    );
+    this.logger.log(
+      `🔧 Provider Config (full): ${JSON.stringify(config, null, 2)}`,
+    );
+    this.logger.log(
+      `🔧 Credentials Object (full): ${JSON.stringify(credentials, null, 2)}`,
+    );
+    this.logger.log(
+      `🔌 Using SES API (not SMTP) - Endpoint will be: https://email.${credentials.region || 'us-east-1'}.amazonaws.com`,
+    );
     this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     const ses = new AWS.SES({
@@ -293,23 +305,25 @@ export class EmailSenderService {
       // For emails with attachments, use SendRawEmail with MIME construction
       const nodemailer = await import('nodemailer');
 
-      const rawMessage = await nodemailer.createTransport({
-        streamTransport: true,
-      }).sendMail({
-        from: `"${email.from_name}" <${email.from_email}>`,
-        to: Array.isArray(email.to) ? email.to : [email.to],
-        cc: email.cc,
-        bcc: email.bcc,
-        replyTo: email.reply_to,
-        subject: email.subject,
-        html: email.html_body,
-        text: email.text_body,
-        attachments: email.attachments.map((att) => ({
-          content: Buffer.from(att.content, 'base64'),
-          filename: att.filename,
-          contentType: att.mime_type,
-        })),
-      });
+      const rawMessage = await nodemailer
+        .createTransport({
+          streamTransport: true,
+        })
+        .sendMail({
+          from: `"${email.from_name}" <${email.from_email}>`,
+          to: Array.isArray(email.to) ? email.to : [email.to],
+          cc: email.cc,
+          bcc: email.bcc,
+          replyTo: email.reply_to,
+          subject: email.subject,
+          html: email.html_body,
+          text: email.text_body,
+          attachments: email.attachments.map((att) => ({
+            content: Buffer.from(att.content, 'base64'),
+            filename: att.filename,
+            contentType: att.mime_type,
+          })),
+        });
 
       const params: AWS.SES.SendRawEmailRequest = {
         RawMessage: {

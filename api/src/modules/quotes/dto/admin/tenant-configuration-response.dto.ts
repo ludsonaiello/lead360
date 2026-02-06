@@ -30,7 +30,8 @@ export class QuoteConfigurationDto {
   @ApiProperty({
     example: 10.0,
     nullable: true,
-    description: 'Default overhead percentage (mapped from default_overhead_rate)',
+    description:
+      'Default overhead percentage (mapped from default_overhead_rate)',
   })
   default_overhead: number | null;
 
@@ -81,7 +82,8 @@ export class FeatureFlagsDto {
 
   @ApiProperty({
     example: false,
-    description: 'Whether approval workflow is enabled (based on approval_thresholds)',
+    description:
+      'Whether approval workflow is enabled (based on approval_thresholds)',
   })
   approval_workflow_enabled: boolean;
 }

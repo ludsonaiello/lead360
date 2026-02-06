@@ -103,7 +103,10 @@ export class QuoteSearchService {
           lead: true,
           jobsite_address: true,
         },
-        orderBy: this.buildOrderBy(dto.sort_by || 'created_at', dto.sort_order || 'desc'),
+        orderBy: this.buildOrderBy(
+          dto.sort_by || 'created_at',
+          dto.sort_order || 'desc',
+        ),
         skip,
         take: limit,
       }),
@@ -219,7 +222,9 @@ export class QuoteSearchService {
 
     this.savedSearchesCache.get(cacheKey)!.push(savedSearch);
 
-    this.logger.log(`Saved search "${dto.name}" for user ${userId} (tenant: ${tenantId})`);
+    this.logger.log(
+      `Saved search "${dto.name}" for user ${userId} (tenant: ${tenantId})`,
+    );
 
     return savedSearch;
   }

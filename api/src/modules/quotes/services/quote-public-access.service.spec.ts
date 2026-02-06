@@ -3,7 +3,11 @@ import { QuotePublicAccessService } from './quote-public-access.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { QuoteVersionService } from './quote-version.service';
 import { QuoteService } from './quote.service';
-import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 
 describe('QuotePublicAccessService', () => {
@@ -85,7 +89,9 @@ describe('QuotePublicAccessService', () => {
     it('should generate public URL successfully for quote without password', async () => {
       mockPrismaService.quote.findFirst.mockResolvedValue(mockQuote);
       mockPrismaService.quote_public_access.findUnique.mockResolvedValue(null);
-      mockPrismaService.quote_public_access.updateMany.mockResolvedValue({ count: 0 });
+      mockPrismaService.quote_public_access.updateMany.mockResolvedValue({
+        count: 0,
+      });
       mockPrismaService.quote_public_access.create.mockResolvedValue({
         id: 'public-access-123',
         access_token: 'abc123def456',
@@ -95,13 +101,23 @@ describe('QuotePublicAccessService', () => {
         is_active: true,
         created_at: new Date('2026-01-23T10:00:00Z'),
       });
-      mockPrismaService.quote.update.mockResolvedValue({ ...mockQuote, status: 'sent' });
+      mockPrismaService.quote.update.mockResolvedValue({
+        ...mockQuote,
+        status: 'sent',
+      });
       mockVersionService.createVersion.mockResolvedValue(undefined);
 
-      const result = await service.generatePublicUrl(tenantId, quoteId, {}, userId);
+      const result = await service.generatePublicUrl(
+        tenantId,
+        quoteId,
+        {},
+        userId,
+      );
 
       expect(result).toMatchObject({
-        public_url: expect.stringContaining('https://testcompany.lead360.app/quotes/'),
+        public_url: expect.stringContaining(
+          'https://testcompany.lead360.app/quotes/',
+        ),
         access_token: expect.any(String),
         has_password: false,
       });
@@ -125,7 +141,9 @@ describe('QuotePublicAccessService', () => {
     it('should generate public URL with password protection', async () => {
       mockPrismaService.quote.findFirst.mockResolvedValue(mockQuote);
       mockPrismaService.quote_public_access.findUnique.mockResolvedValue(null);
-      mockPrismaService.quote_public_access.updateMany.mockResolvedValue({ count: 0 });
+      mockPrismaService.quote_public_access.updateMany.mockResolvedValue({
+        count: 0,
+      });
       mockPrismaService.quote_public_access.create.mockResolvedValue({
         id: 'public-access-123',
         access_token: 'abc123def456',
@@ -135,7 +153,10 @@ describe('QuotePublicAccessService', () => {
         is_active: true,
         created_at: new Date('2026-01-23T10:00:00Z'),
       });
-      mockPrismaService.quote.update.mockResolvedValue({ ...mockQuote, status: 'sent' });
+      mockPrismaService.quote.update.mockResolvedValue({
+        ...mockQuote,
+        status: 'sent',
+      });
 
       const result = await service.generatePublicUrl(
         tenantId,
@@ -151,9 +172,9 @@ describe('QuotePublicAccessService', () => {
     it('should throw NotFoundException for non-existent quote', async () => {
       mockPrismaService.quote.findFirst.mockResolvedValue(null);
 
-      await expect(service.generatePublicUrl(tenantId, 'invalid-quote', {}, userId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.generatePublicUrl(tenantId, 'invalid-quote', {}, userId),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException for draft quote', async () => {
@@ -162,16 +183,18 @@ describe('QuotePublicAccessService', () => {
         status: 'draft',
       });
 
-      await expect(service.generatePublicUrl(tenantId, quoteId, {}, userId)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.generatePublicUrl(tenantId, quoteId, {}, userId),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should not change status if quote is already sent', async () => {
       const sentQuote = { ...mockQuote, status: 'sent' };
       mockPrismaService.quote.findFirst.mockResolvedValue(sentQuote);
       mockPrismaService.quote_public_access.findUnique.mockResolvedValue(null);
-      mockPrismaService.quote_public_access.updateMany.mockResolvedValue({ count: 0 });
+      mockPrismaService.quote_public_access.updateMany.mockResolvedValue({
+        count: 0,
+      });
       mockPrismaService.quote_public_access.create.mockResolvedValue({
         id: 'public-access-123',
         access_token: 'abc123def456',
@@ -202,7 +225,11 @@ describe('QuotePublicAccessService', () => {
         is_active: true,
       });
 
-      const result = await service.validatePassword(token, correctPassword, ipAddress);
+      const result = await service.validatePassword(
+        token,
+        correctPassword,
+        ipAddress,
+      );
 
       expect(result.valid).toBe(true);
       expect(result.message).toBe('Password is correct');
@@ -216,7 +243,11 @@ describe('QuotePublicAccessService', () => {
         is_active: true,
       });
 
-      const result = await service.validatePassword(token, wrongPassword, ipAddress);
+      const result = await service.validatePassword(
+        token,
+        wrongPassword,
+        ipAddress,
+      );
 
       expect(result.valid).toBe(false);
       expect(result.message).toBe('Incorrect password');
@@ -230,7 +261,11 @@ describe('QuotePublicAccessService', () => {
         is_active: true,
       });
 
-      const result = await service.validatePassword(token, 'anypass', ipAddress);
+      const result = await service.validatePassword(
+        token,
+        'anypass',
+        ipAddress,
+      );
 
       expect(result.valid).toBe(true);
       expect(result.message).toBe('No password required');
@@ -249,7 +284,11 @@ describe('QuotePublicAccessService', () => {
       await service.validatePassword(token, wrongPassword, ipAddress);
 
       // Third attempt should trigger lockout
-      const result = await service.validatePassword(token, wrongPassword, ipAddress);
+      const result = await service.validatePassword(
+        token,
+        wrongPassword,
+        ipAddress,
+      );
 
       expect(result.valid).toBe(false);
       expect(result.is_locked).toBe(true);
@@ -260,9 +299,9 @@ describe('QuotePublicAccessService', () => {
     it('should throw NotFoundException for invalid token', async () => {
       mockPrismaService.quote_public_access.findUnique.mockResolvedValue(null);
 
-      await expect(service.validatePassword('invalid-token', 'pass', ipAddress)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.validatePassword('invalid-token', 'pass', ipAddress),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -275,12 +314,16 @@ describe('QuotePublicAccessService', () => {
         id: quoteId,
         tenant_id: tenantId,
       });
-      mockPrismaService.quote_public_access.updateMany.mockResolvedValue({ count: 1 });
+      mockPrismaService.quote_public_access.updateMany.mockResolvedValue({
+        count: 1,
+      });
 
       const result = await service.deactivatePublicUrl(tenantId, quoteId);
 
       expect(result.message).toContain('Successfully deactivated');
-      expect(mockPrismaService.quote_public_access.updateMany).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.quote_public_access.updateMany,
+      ).toHaveBeenCalledWith({
         where: { quote_id: quoteId, is_active: true },
         data: { is_active: false },
       });
@@ -289,9 +332,9 @@ describe('QuotePublicAccessService', () => {
     it('should throw NotFoundException for non-existent quote', async () => {
       mockPrismaService.quote.findFirst.mockResolvedValue(null);
 
-      await expect(service.deactivatePublicUrl(tenantId, 'invalid-quote')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.deactivatePublicUrl(tenantId, 'invalid-quote'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw NotFoundException if no active URL found', async () => {
@@ -299,11 +342,13 @@ describe('QuotePublicAccessService', () => {
         id: quoteId,
         tenant_id: tenantId,
       });
-      mockPrismaService.quote_public_access.updateMany.mockResolvedValue({ count: 0 });
+      mockPrismaService.quote_public_access.updateMany.mockResolvedValue({
+        count: 0,
+      });
 
-      await expect(service.deactivatePublicUrl(tenantId, quoteId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.deactivatePublicUrl(tenantId, quoteId),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -352,7 +397,9 @@ describe('QuotePublicAccessService', () => {
           title: 'Test Quote',
         },
       };
-      mockPrismaService.quote_public_access.findUnique.mockResolvedValue(mockPublicAccess);
+      mockPrismaService.quote_public_access.findUnique.mockResolvedValue(
+        mockPublicAccess,
+      );
 
       const result = await service.getByToken(token);
 
@@ -362,7 +409,9 @@ describe('QuotePublicAccessService', () => {
     it('should throw NotFoundException for invalid token', async () => {
       mockPrismaService.quote_public_access.findUnique.mockResolvedValue(null);
 
-      await expect(service.getByToken('invalid-token')).rejects.toThrow(NotFoundException);
+      await expect(service.getByToken('invalid-token')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw ForbiddenException for inactive link', async () => {
@@ -372,7 +421,9 @@ describe('QuotePublicAccessService', () => {
         quote: { status: 'sent' },
       });
 
-      await expect(service.getByToken(token)).rejects.toThrow(ForbiddenException);
+      await expect(service.getByToken(token)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('should throw ForbiddenException for expired link', async () => {
@@ -384,7 +435,9 @@ describe('QuotePublicAccessService', () => {
         quote: { status: 'sent' },
       });
 
-      await expect(service.getByToken(token)).rejects.toThrow(ForbiddenException);
+      await expect(service.getByToken(token)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('should throw ForbiddenException for draft quote', async () => {
@@ -395,7 +448,9 @@ describe('QuotePublicAccessService', () => {
         quote: { status: 'draft' },
       });
 
-      await expect(service.getByToken(token)).rejects.toThrow(ForbiddenException);
+      await expect(service.getByToken(token)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 });

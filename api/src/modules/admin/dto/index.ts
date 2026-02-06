@@ -25,7 +25,10 @@ export class CreateTenantManuallyDto {
   @IsString()
   @MinLength(3)
   @MaxLength(63)
-  @Matches(/^[a-z0-9-]+$/, { message: 'Subdomain must contain only lowercase letters, numbers, and hyphens' })
+  @Matches(/^[a-z0-9-]+$/, {
+    message:
+      'Subdomain must contain only lowercase letters, numbers, and hyphens',
+  })
   subdomain: string;
 
   @ApiProperty({ example: 'Acme Roofing LLC' })
@@ -34,7 +37,10 @@ export class CreateTenantManuallyDto {
   @MaxLength(255)
   business_name: string;
 
-  @ApiPropertyOptional({ example: 'LLC', enum: ['LLC', 'Corporation', 'Sole Proprietorship', 'Partnership'] })
+  @ApiPropertyOptional({
+    example: 'LLC',
+    enum: ['LLC', 'Corporation', 'Sole Proprietorship', 'Partnership'],
+  })
   @IsOptional()
   @IsString()
   business_entity_type?: string;
@@ -85,21 +91,25 @@ export class CreateTenantManuallyDto {
   @ApiPropertyOptional({
     example: ['uuid-of-industry-1', 'uuid-of-industry-2'],
     type: [String],
-    description: 'Array of industry IDs (tenant can have multiple industries)'
+    description: 'Array of industry IDs (tenant can have multiple industries)',
   })
   @IsOptional()
   @IsArray()
   @IsUUID('all', { each: true })
   industry_ids?: string[];
 
-  @ApiPropertyOptional({ example: '11-25', enum: ['1-5', '6-10', '11-25', '26-50', '51-100', '101-250', '251+'] })
+  @ApiPropertyOptional({
+    example: '11-25',
+    enum: ['1-5', '6-10', '11-25', '26-50', '51-100', '101-250', '251+'],
+  })
   @IsOptional()
   @IsEnum(['1-5', '6-10', '11-25', '26-50', '51-100', '101-250', '251+'])
   business_size?: string;
 
   @ApiPropertyOptional({
     example: 'uuid-of-subscription-plan',
-    description: 'Subscription plan ID (defaults to platform default plan if not provided)'
+    description:
+      'Subscription plan ID (defaults to platform default plan if not provided)',
   })
   @IsOptional()
   @IsUUID('all')
@@ -108,7 +118,7 @@ export class CreateTenantManuallyDto {
   @ApiPropertyOptional({
     example: 'active',
     enum: ['trial', 'active', 'past_due', 'canceled'],
-    description: 'Subscription status (defaults to "trial" if not provided)'
+    description: 'Subscription status (defaults to "trial" if not provided)',
   })
   @IsOptional()
   @IsEnum(['trial', 'active', 'past_due', 'canceled'])
@@ -116,7 +126,8 @@ export class CreateTenantManuallyDto {
 
   @ApiPropertyOptional({
     example: '2026-02-15T00:00:00Z',
-    description: 'Trial end date (only applicable if subscription_status is "trial")'
+    description:
+      'Trial end date (only applicable if subscription_status is "trial")',
   })
   @IsOptional()
   @IsDateString()
@@ -125,7 +136,8 @@ export class CreateTenantManuallyDto {
   @ApiPropertyOptional({
     example: 'monthly',
     enum: ['monthly', 'annual'],
-    description: 'Billing cycle (only applicable if subscription_status is "active")'
+    description:
+      'Billing cycle (only applicable if subscription_status is "active")',
   })
   @IsOptional()
   @IsEnum(['monthly', 'annual'])
@@ -133,7 +145,8 @@ export class CreateTenantManuallyDto {
 
   @ApiPropertyOptional({
     example: '2026-02-15T00:00:00Z',
-    description: 'Next billing date (only applicable if subscription_status is "active")'
+    description:
+      'Next billing date (only applicable if subscription_status is "active")',
   })
   @IsOptional()
   @IsDateString()
@@ -185,15 +198,18 @@ export class TenantListFiltersDto {
   search?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter by industry IDs (shows tenants with ANY of these industries)',
-    type: [String]
+    description:
+      'Filter by industry IDs (shows tenants with ANY of these industries)',
+    type: [String],
   })
   @IsOptional()
   @IsArray()
   @IsUUID('all', { each: true })
   industry_ids?: string[];
 
-  @ApiPropertyOptional({ enum: ['1-5', '6-10', '11-25', '26-50', '51-100', '101-250', '251+'] })
+  @ApiPropertyOptional({
+    enum: ['1-5', '6-10', '11-25', '26-50', '51-100', '101-250', '251+'],
+  })
   @IsOptional()
   @IsEnum(['1-5', '6-10', '11-25', '26-50', '51-100', '101-250', '251+'])
   business_size?: string;
@@ -391,7 +407,9 @@ export class CreateIndustryDto {
   @MaxLength(100)
   name: string;
 
-  @ApiPropertyOptional({ example: 'Pool installation, maintenance, and repair services' })
+  @ApiPropertyOptional({
+    example: 'Pool installation, maintenance, and repair services',
+  })
   @IsOptional()
   @IsString()
   description?: string;
@@ -410,7 +428,9 @@ export class UpdateIndustryDto {
   @MaxLength(100)
   name?: string;
 
-  @ApiPropertyOptional({ example: 'Pool installation, maintenance, and repair services' })
+  @ApiPropertyOptional({
+    example: 'Pool installation, maintenance, and repair services',
+  })
   @IsOptional()
   @IsString()
   description?: string;

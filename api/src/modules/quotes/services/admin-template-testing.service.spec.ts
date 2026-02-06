@@ -277,7 +277,9 @@ describe('AdminTemplateTestingService', () => {
 
       expect(result).toBeDefined();
       expect(result.version_number).toBe(3);
-      expect(mockPrismaService.quote_template_version.create).toHaveBeenCalled();
+      expect(
+        mockPrismaService.quote_template_version.create,
+      ).toHaveBeenCalled();
     });
 
     it('should increment version number', async () => {

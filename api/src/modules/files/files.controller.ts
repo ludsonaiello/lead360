@@ -63,7 +63,19 @@ export class FilesController {
         },
         category: {
           type: 'string',
-          enum: ['quote', 'invoice', 'license', 'insurance', 'logo', 'contract', 'receipt', 'photo', 'report', 'signature', 'misc'],
+          enum: [
+            'quote',
+            'invoice',
+            'license',
+            'insurance',
+            'logo',
+            'contract',
+            'receipt',
+            'photo',
+            'report',
+            'signature',
+            'misc',
+          ],
           description: 'File category',
         },
         entity_type: {
@@ -86,26 +98,51 @@ export class FilesController {
     // Debug: Check if file was extracted
     console.log('[FilesController] Upload details:', {
       hasFile: !!file,
-      fileDetails: file ? {
-        fieldname: file.fieldname,
-        originalname: file.originalname,
-        mimetype: file.mimetype,
-        size: file.size
-      } : 'NO FILE',
+      fileDetails: file
+        ? {
+            fieldname: file.fieldname,
+            originalname: file.originalname,
+            mimetype: file.mimetype,
+            size: file.size,
+          }
+        : 'NO FILE',
       contentType: req.headers['content-type'],
       body: uploadDto,
     });
 
     if (!file) {
-      throw new BadRequestException('No file uploaded. The file field is missing from the multipart request.');
+      throw new BadRequestException(
+        'No file uploaded. The file field is missing from the multipart request.',
+      );
     }
 
-    return this.filesService.uploadFile(req.user.tenant_id, req.user.id, file, uploadDto);
+    return this.filesService.uploadFile(
+      req.user.tenant_id,
+      req.user.id,
+      file,
+      uploadDto,
+    );
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all files with filters and pagination' })
-  @ApiQuery({ name: 'category', required: false, enum: ['quote', 'invoice', 'license', 'insurance', 'logo', 'contract', 'receipt', 'photo', 'report', 'signature', 'misc'] })
+  @ApiQuery({
+    name: 'category',
+    required: false,
+    enum: [
+      'quote',
+      'invoice',
+      'license',
+      'insurance',
+      'logo',
+      'contract',
+      'receipt',
+      'photo',
+      'report',
+      'signature',
+      'misc',
+    ],
+  })
   @ApiQuery({ name: 'entity_type', required: false, type: String })
   @ApiQuery({ name: 'entity_id', required: false, type: String })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
@@ -117,8 +154,13 @@ export class FilesController {
 
   @Get('orphans')
   @Roles('Owner', 'Admin')
-  @ApiOperation({ summary: 'Get all orphan files (not attached to any entity)' })
-  @ApiResponse({ status: 200, description: 'Orphan files retrieved successfully' })
+  @ApiOperation({
+    summary: 'Get all orphan files (not attached to any entity)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Orphan files retrieved successfully',
+  })
   async findOrphans(@Request() req) {
     return this.filesService.findOrphans(req.user.tenant_id);
   }
@@ -128,16 +170,27 @@ export class FilesController {
   @ApiOperation({ summary: 'Move orphan files (>30 days) to trash' })
   @ApiResponse({ status: 200, description: 'Orphan files moved to trash' })
   async moveOrphansToTrash(@Request() req) {
-    return this.filesService.moveOrphansToTrash(req.user.tenant_id, req.user.id);
+    return this.filesService.moveOrphansToTrash(
+      req.user.tenant_id,
+      req.user.id,
+    );
   }
 
   @Delete('trash/cleanup')
   @Roles('Owner', 'Admin')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Permanently delete trashed files (>30 days in trash)' })
-  @ApiResponse({ status: 200, description: 'Trashed files permanently deleted' })
+  @ApiOperation({
+    summary: 'Permanently delete trashed files (>30 days in trash)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Trashed files permanently deleted',
+  })
   async cleanupTrashedFiles(@Request() req) {
-    return this.filesService.cleanupTrashedFiles(req.user.tenant_id, req.user.id);
+    return this.filesService.cleanupTrashedFiles(
+      req.user.tenant_id,
+      req.user.id,
+    );
   }
 
   @Get('storage/usage')
@@ -189,13 +242,27 @@ export class FilesController {
   @ApiResponse({ status: 201, description: 'Share link created successfully' })
   @ApiResponse({ status: 404, description: 'File not found' })
   async createShareLink(@Request() req, @Body() dto: CreateShareLinkDto) {
-    return this.filesService.createShareLink(req.user.tenant_id, req.user.id, dto);
+    return this.filesService.createShareLink(
+      req.user.tenant_id,
+      req.user.id,
+      dto,
+    );
   }
 
   @Get('share/list')
-  @ApiOperation({ summary: 'List all share links (optionally filter by file_id)' })
-  @ApiQuery({ name: 'file_id', required: false, type: String, description: 'Filter by file ID' })
-  @ApiResponse({ status: 200, description: 'Share links retrieved successfully' })
+  @ApiOperation({
+    summary: 'List all share links (optionally filter by file_id)',
+  })
+  @ApiQuery({
+    name: 'file_id',
+    required: false,
+    type: String,
+    description: 'Filter by file ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Share links retrieved successfully',
+  })
   async listShareLinks(@Request() req, @Query('file_id') fileId?: string) {
     return this.filesService.listShareLinks(req.user.tenant_id, fileId);
   }
@@ -207,7 +274,11 @@ export class FilesController {
   @ApiParam({ name: 'id', description: 'Share link ID' })
   @ApiResponse({ status: 200, description: 'Share link revoked successfully' })
   async revokeShareLink(@Request() req, @Param('id') id: string) {
-    return this.filesService.revokeShareLink(req.user.tenant_id, req.user.id, id);
+    return this.filesService.revokeShareLink(
+      req.user.tenant_id,
+      req.user.id,
+      id,
+    );
   }
 
   // Bulk Operations
@@ -216,7 +287,10 @@ export class FilesController {
   @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Bulk delete multiple files' })
   @ApiResponse({ status: 200, description: 'Files deleted successfully' })
-  @ApiResponse({ status: 400, description: 'Some files not found or validation error' })
+  @ApiResponse({
+    status: 400,
+    description: 'Some files not found or validation error',
+  })
   async bulkDelete(@Request() req, @Body() dto: BulkDeleteDto) {
     return this.filesService.bulkDelete(req.user.tenant_id, req.user.id, dto);
   }
@@ -227,7 +301,11 @@ export class FilesController {
   @ApiOperation({ summary: 'Bulk download multiple files as ZIP' })
   @ApiResponse({ status: 200, description: 'ZIP file created' })
   async bulkDownload(@Request() req, @Body() dto: BulkDownloadDto, @Res() res) {
-    const zipBuffer = await this.filesService.bulkDownload(req.user.tenant_id, req.user.id, dto);
+    const zipBuffer = await this.filesService.bulkDownload(
+      req.user.tenant_id,
+      req.user.id,
+      dto,
+    );
 
     const zipName = dto.zip_name || 'files.zip';
 
@@ -249,27 +327,59 @@ export class PublicShareController {
 
   @Post(':token/access')
   @Public()
-  @ApiOperation({ summary: 'View a shared file (increments view count, not download count)' })
+  @ApiOperation({
+    summary: 'View a shared file (increments view count, not download count)',
+  })
   @ApiParam({ name: 'token', description: 'Share token (64-char hex)' })
-  @ApiBody({ type: AccessShareLinkDto, description: 'Optional password for protected files' })
-  @ApiResponse({ status: 200, description: 'File information retrieved successfully (view_count incremented)' })
-  @ApiResponse({ status: 401, description: 'Password required or invalid password' })
+  @ApiBody({
+    type: AccessShareLinkDto,
+    description: 'Optional password for protected files',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'File information retrieved successfully (view_count incremented)',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Password required or invalid password',
+  })
   @ApiResponse({ status: 404, description: 'Share link not found' })
   @ApiResponse({ status: 400, description: 'Share link expired or revoked' })
-  async accessShareLink(@Param('token') token: string, @Body() dto: AccessShareLinkDto) {
+  async accessShareLink(
+    @Param('token') token: string,
+    @Body() dto: AccessShareLinkDto,
+  ) {
     return this.filesService.viewShareLink(token, dto);
   }
 
   @Post(':token/download')
   @Public()
-  @ApiOperation({ summary: 'Download a shared file (increments download count)' })
+  @ApiOperation({
+    summary: 'Download a shared file (increments download count)',
+  })
   @ApiParam({ name: 'token', description: 'Share token (64-char hex)' })
-  @ApiBody({ type: AccessShareLinkDto, description: 'Optional password for protected files' })
-  @ApiResponse({ status: 200, description: 'File download link provided (download_count incremented)' })
-  @ApiResponse({ status: 401, description: 'Password required or invalid password' })
+  @ApiBody({
+    type: AccessShareLinkDto,
+    description: 'Optional password for protected files',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'File download link provided (download_count incremented)',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Password required or invalid password',
+  })
   @ApiResponse({ status: 404, description: 'Share link not found' })
-  @ApiResponse({ status: 400, description: 'Share link expired, revoked, or max downloads reached' })
-  async downloadSharedFile(@Param('token') token: string, @Body() dto: AccessShareLinkDto) {
+  @ApiResponse({
+    status: 400,
+    description: 'Share link expired, revoked, or max downloads reached',
+  })
+  async downloadSharedFile(
+    @Param('token') token: string,
+    @Body() dto: AccessShareLinkDto,
+  ) {
     return this.filesService.downloadShareLink(token, dto);
   }
 }

@@ -1,4 +1,12 @@
-import { IsOptional, IsString, IsInt, IsUrl, IsEnum, MaxLength, Min } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsInt,
+  IsUrl,
+  IsEnum,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { grid_layout } from '@prisma/client';
 

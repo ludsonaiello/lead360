@@ -21,7 +21,8 @@ export enum DiscountType {
 export class BundleItemDto {
   @ApiPropertyOptional({
     example: '550e8400-e29b-41d4-a716',
-    description: 'Library item ID - if provided, will auto-populate title, costs, and unit from library'
+    description:
+      'Library item ID - if provided, will auto-populate title, costs, and unit from library',
   })
   @IsUUID()
   @IsOptional()
@@ -29,7 +30,7 @@ export class BundleItemDto {
 
   @ApiPropertyOptional({
     example: 'Kitchen Cabinet Installation',
-    description: 'Required if library_item_id is not provided'
+    description: 'Required if library_item_id is not provided',
   })
   @IsString()
   @Length(1, 200)
@@ -48,7 +49,7 @@ export class BundleItemDto {
 
   @ApiPropertyOptional({
     example: '550e8400-e29b-41d4-a716',
-    description: 'Required if library_item_id is not provided'
+    description: 'Required if library_item_id is not provided',
   })
   @IsUUID()
   @IsOptional()
@@ -56,7 +57,7 @@ export class BundleItemDto {
 
   @ApiPropertyOptional({
     example: 50.0,
-    description: 'Required if library_item_id is not provided'
+    description: 'Required if library_item_id is not provided',
   })
   @IsNumber()
   @Min(0)
@@ -65,7 +66,7 @@ export class BundleItemDto {
 
   @ApiPropertyOptional({
     example: 100.0,
-    description: 'Required if library_item_id is not provided'
+    description: 'Required if library_item_id is not provided',
   })
   @IsNumber()
   @Min(0)

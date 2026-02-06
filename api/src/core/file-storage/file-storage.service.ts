@@ -23,7 +23,8 @@ export class FileStorageService {
 
   constructor(private configService: ConfigService) {
     // Resolve path relative to API directory (../uploads/public from /var/www/lead360.app/api)
-    const uploadsPath = this.configService.get<string>('UPLOADS_PATH') || '../uploads/public';
+    const uploadsPath =
+      this.configService.get<string>('UPLOADS_PATH') || '../uploads/public';
     this.uploadBasePath = resolve(__dirname, '../../..', uploadsPath);
   }
 
@@ -35,7 +36,12 @@ export class FileStorageService {
     file: Express.Multer.File,
   ): Promise<{ file_id: string; url: string }> {
     // Validate file type
-    const allowedMimeTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
+    const allowedMimeTypes = [
+      'image/png',
+      'image/jpeg',
+      'image/jpg',
+      'image/svg+xml',
+    ];
     if (!allowedMimeTypes.includes(file.mimetype)) {
       throw new BadRequestException(
         'Invalid file type. Only PNG, JPG, JPEG, and SVG are allowed for logos.',
@@ -115,7 +121,11 @@ export class FileStorageService {
   /**
    * Delete a file
    */
-  async deleteFile(tenantId: string, fileId: string, fileType: 'image' | 'file'): Promise<void> {
+  async deleteFile(
+    tenantId: string,
+    fileId: string,
+    fileType: 'image' | 'file',
+  ): Promise<void> {
     const folder = fileType === 'image' ? 'images' : 'files';
     const dir = join(this.uploadBasePath, tenantId, folder);
 

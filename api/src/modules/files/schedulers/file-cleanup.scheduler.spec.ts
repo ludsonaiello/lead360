@@ -160,12 +160,14 @@ describe('FileCleanupScheduler', () => {
 
       (mockQueue.add as jest.Mock).mockRejectedValue(error);
 
-      await expect(scheduler.triggerManualCleanup(tenantId, userId)).rejects.toThrow(
-        'Queue error',
-      );
+      await expect(
+        scheduler.triggerManualCleanup(tenantId, userId),
+      ).rejects.toThrow('Queue error');
 
       expect(Logger.prototype.error).toHaveBeenCalledWith(
-        expect.stringContaining(`Failed to trigger manual cleanup for tenant ${tenantId}`),
+        expect.stringContaining(
+          `Failed to trigger manual cleanup for tenant ${tenantId}`,
+        ),
         expect.any(String),
       );
     });

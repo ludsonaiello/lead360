@@ -24,7 +24,11 @@ describe('NotificationCleanupJob', () => {
   });
 
   it('should cleanup expired notifications', async () => {
-    alertService.cleanupExpiredNotifications.mockResolvedValue({ old_deleted: 10, expired_deleted: 5, total_cleaned: 15 });
+    alertService.cleanupExpiredNotifications.mockResolvedValue({
+      old_deleted: 10,
+      expired_deleted: 5,
+      total_cleaned: 15,
+    });
 
     await job.handleCron();
 
@@ -32,7 +36,9 @@ describe('NotificationCleanupJob', () => {
   });
 
   it('should handle errors gracefully', async () => {
-    alertService.cleanupExpiredNotifications.mockRejectedValue(new Error('DB error'));
+    alertService.cleanupExpiredNotifications.mockRejectedValue(
+      new Error('DB error'),
+    );
 
     await expect(job.handleCron()).resolves.not.toThrow();
   });

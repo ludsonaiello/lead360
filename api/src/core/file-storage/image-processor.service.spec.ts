@@ -81,7 +81,11 @@ describe('ImageProcessorService', () => {
     });
 
     it('should convert JPEG to WebP when enabled', async () => {
-      const result = await service.processImage(testImageBuffer, 'image/jpeg', 'tenant-123');
+      const result = await service.processImage(
+        testImageBuffer,
+        'image/jpeg',
+        'tenant-123',
+      );
 
       expect(result.wasOptimized).toBe(true);
       expect(result.width).toBe(100);
@@ -96,7 +100,11 @@ describe('ImageProcessorService', () => {
     it('should not convert WebP to WebP', async () => {
       const webpBuffer = await sharp(testImageBuffer).webp().toBuffer();
 
-      const result = await service.processImage(webpBuffer, 'image/webp', 'tenant-123');
+      const result = await service.processImage(
+        webpBuffer,
+        'image/webp',
+        'tenant-123',
+      );
 
       // WebP won't be converted, but will still be optimized
       expect(result.wasOptimized).toBe(true);
@@ -108,7 +116,11 @@ describe('ImageProcessorService', () => {
     });
 
     it('should generate thumbnail when enabled', async () => {
-      const result = await service.processImage(testImageBuffer, 'image/jpeg', 'tenant-123');
+      const result = await service.processImage(
+        testImageBuffer,
+        'image/jpeg',
+        'tenant-123',
+      );
 
       expect(result.hadThumbnail).toBe(true);
       expect(result.thumbnailBuffer).toBeDefined();
@@ -126,7 +138,11 @@ describe('ImageProcessorService', () => {
         enable_thumbnails: false,
       });
 
-      const result = await service.processImage(testImageBuffer, 'image/jpeg', 'tenant-123');
+      const result = await service.processImage(
+        testImageBuffer,
+        'image/jpeg',
+        'tenant-123',
+      );
 
       expect(result.hadThumbnail).toBe(false);
       expect(result.thumbnailBuffer).toBeUndefined();
@@ -138,7 +154,11 @@ describe('ImageProcessorService', () => {
         enable_thumbnails: false,
       });
 
-      const result = await service.processImage(testImageBuffer, 'image/jpeg', 'tenant-123');
+      const result = await service.processImage(
+        testImageBuffer,
+        'image/jpeg',
+        'tenant-123',
+      );
 
       // Still optimized but not converted to WebP
       expect(result.wasOptimized).toBe(true);
@@ -162,7 +182,11 @@ describe('ImageProcessorService', () => {
         })
         .toBuffer();
 
-      const result = await service.processImage(imageWithExif, 'image/jpeg', 'tenant-123');
+      const result = await service.processImage(
+        imageWithExif,
+        'image/jpeg',
+        'tenant-123',
+      );
 
       // Verify EXIF was stripped
       const metadata = await sharp(result.processedBuffer).metadata();
@@ -181,7 +205,11 @@ describe('ImageProcessorService', () => {
         .png()
         .toBuffer();
 
-      const result = await service.processImage(pngBuffer, 'image/png', 'tenant-123');
+      const result = await service.processImage(
+        pngBuffer,
+        'image/png',
+        'tenant-123',
+      );
 
       expect(result.wasOptimized).toBe(true);
       expect(result.width).toBe(150);
@@ -194,7 +222,11 @@ describe('ImageProcessorService', () => {
     it('should use default config when no tenant config exists', async () => {
       mockPrismaService.storage_config.findUnique.mockResolvedValue(null);
 
-      const result = await service.processImage(testImageBuffer, 'image/jpeg', 'tenant-123');
+      const result = await service.processImage(
+        testImageBuffer,
+        'image/jpeg',
+        'tenant-123',
+      );
 
       expect(result.wasOptimized).toBe(true);
       expect(result.hadThumbnail).toBe(true);
@@ -204,7 +236,7 @@ describe('ImageProcessorService', () => {
       const corruptedBuffer = Buffer.from('not an image');
 
       await expect(
-        service.processImage(corruptedBuffer, 'image/jpeg', 'tenant-123')
+        service.processImage(corruptedBuffer, 'image/jpeg', 'tenant-123'),
       ).rejects.toThrow('Image processing failed');
     });
 
@@ -220,7 +252,11 @@ describe('ImageProcessorService', () => {
         .jpeg()
         .toBuffer();
 
-      const result = await service.processImage(largeImage, 'image/jpeg', 'tenant-123');
+      const result = await service.processImage(
+        largeImage,
+        'image/jpeg',
+        'tenant-123',
+      );
 
       expect(result.width).toBe(3840);
       expect(result.height).toBe(2160);
@@ -238,7 +274,11 @@ describe('ImageProcessorService', () => {
         .jpeg()
         .toBuffer();
 
-      const result = await service.processImage(landscapeImage, 'image/jpeg', 'tenant-123');
+      const result = await service.processImage(
+        landscapeImage,
+        'image/jpeg',
+        'tenant-123',
+      );
 
       expect(result.width).toBe(1920);
       expect(result.height).toBe(1080);
@@ -262,18 +302,28 @@ describe('ImageProcessorService', () => {
         .jpeg()
         .toBuffer();
 
-      const result = await service.processImage(portraitImage, 'image/jpeg', 'tenant-123');
+      const result = await service.processImage(
+        portraitImage,
+        'image/jpeg',
+        'tenant-123',
+      );
 
       expect(result.width).toBe(1080);
       expect(result.height).toBe(1920);
     });
 
     it('should reduce file size after WebP conversion', async () => {
-      const result = await service.processImage(testImageBuffer, 'image/jpeg', 'tenant-123');
+      const result = await service.processImage(
+        testImageBuffer,
+        'image/jpeg',
+        'tenant-123',
+      );
 
       // WebP should typically be smaller than JPEG for most images
       // Note: for very small test images, this might not always be true
-      expect(result.processedBuffer.length).toBeLessThanOrEqual(testImageBuffer.length * 2);
+      expect(result.processedBuffer.length).toBeLessThanOrEqual(
+        testImageBuffer.length * 2,
+      );
     });
 
     it('should convert GIF to WebP when conversion enabled', async () => {
@@ -293,7 +343,11 @@ describe('ImageProcessorService', () => {
         enable_thumbnails: true,
       });
 
-      const result = await service.processImage(gifBuffer, 'image/gif', 'tenant-123');
+      const result = await service.processImage(
+        gifBuffer,
+        'image/gif',
+        'tenant-123',
+      );
 
       // GIFs get converted to WebP when conversion is enabled (animation is lost)
       expect(result.wasOptimized).toBe(true);
@@ -307,27 +361,85 @@ describe('ImageProcessorService', () => {
 
   describe('shouldOptimize (private method behavior)', () => {
     it('should optimize JPEG, PNG, HEIC, HEIF', async () => {
-      const jpegBuffer = await sharp({ create: { width: 10, height: 10, channels: 3, background: { r: 255, g: 0, b: 0 } } }).jpeg().toBuffer();
+      const jpegBuffer = await sharp({
+        create: {
+          width: 10,
+          height: 10,
+          channels: 3,
+          background: { r: 255, g: 0, b: 0 },
+        },
+      })
+        .jpeg()
+        .toBuffer();
 
-      mockPrismaService.storage_config.findUnique.mockResolvedValue({ enable_webp_conversion: true, enable_thumbnails: false });
+      mockPrismaService.storage_config.findUnique.mockResolvedValue({
+        enable_webp_conversion: true,
+        enable_thumbnails: false,
+      });
 
-      const jpegResult = await service.processImage(jpegBuffer, 'image/jpeg', 'tenant-123');
+      const jpegResult = await service.processImage(
+        jpegBuffer,
+        'image/jpeg',
+        'tenant-123',
+      );
       expect(jpegResult.wasOptimized).toBe(true);
 
-      const pngBuffer = await sharp({ create: { width: 10, height: 10, channels: 4, background: { r: 0, g: 255, b: 0, alpha: 1 } } }).png().toBuffer();
-      const pngResult = await service.processImage(pngBuffer, 'image/png', 'tenant-123');
+      const pngBuffer = await sharp({
+        create: {
+          width: 10,
+          height: 10,
+          channels: 4,
+          background: { r: 0, g: 255, b: 0, alpha: 1 },
+        },
+      })
+        .png()
+        .toBuffer();
+      const pngResult = await service.processImage(
+        pngBuffer,
+        'image/png',
+        'tenant-123',
+      );
       expect(pngResult.wasOptimized).toBe(true);
     });
 
     it('should optimize WebP and GIF', async () => {
-      mockPrismaService.storage_config.findUnique.mockResolvedValue({ enable_webp_conversion: true, enable_thumbnails: false });
+      mockPrismaService.storage_config.findUnique.mockResolvedValue({
+        enable_webp_conversion: true,
+        enable_thumbnails: false,
+      });
 
-      const webpBuffer = await sharp({ create: { width: 10, height: 10, channels: 3, background: { r: 0, g: 0, b: 255 } } }).webp().toBuffer();
-      const webpResult = await service.processImage(webpBuffer, 'image/webp', 'tenant-123');
+      const webpBuffer = await sharp({
+        create: {
+          width: 10,
+          height: 10,
+          channels: 3,
+          background: { r: 0, g: 0, b: 255 },
+        },
+      })
+        .webp()
+        .toBuffer();
+      const webpResult = await service.processImage(
+        webpBuffer,
+        'image/webp',
+        'tenant-123',
+      );
       expect(webpResult.wasOptimized).toBe(true);
 
-      const gifBuffer = await sharp({ create: { width: 10, height: 10, channels: 3, background: { r: 255, g: 255, b: 0 } } }).gif().toBuffer();
-      const gifResult = await service.processImage(gifBuffer, 'image/gif', 'tenant-123');
+      const gifBuffer = await sharp({
+        create: {
+          width: 10,
+          height: 10,
+          channels: 3,
+          background: { r: 255, g: 255, b: 0 },
+        },
+      })
+        .gif()
+        .toBuffer();
+      const gifResult = await service.processImage(
+        gifBuffer,
+        'image/gif',
+        'tenant-123',
+      );
       expect(gifResult.wasOptimized).toBe(true);
     });
   });

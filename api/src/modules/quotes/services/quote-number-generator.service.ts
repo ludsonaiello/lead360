@@ -17,10 +17,7 @@ export class QuoteNumberGeneratorService {
    * @param transaction - Optional Prisma transaction client (if called within existing transaction)
    * @returns Formatted quote number string
    */
-  async generate(
-    tenantId: string,
-    transaction?: any,
-  ): Promise<string> {
+  async generate(tenantId: string, transaction?: any): Promise<string> {
     // If already in a transaction, use it directly; otherwise create a new one
     if (transaction) {
       return this.generateInTransaction(transaction, tenantId);
@@ -32,7 +29,10 @@ export class QuoteNumberGeneratorService {
     });
   }
 
-  private async generateInTransaction(tx: any, tenantId: string): Promise<string> {
+  private async generateInTransaction(
+    tx: any,
+    tenantId: string,
+  ): Promise<string> {
     // Lock tenant row and fetch current quote number
     const tenant = await tx.tenant.findFirst({
       where: { id: tenantId },

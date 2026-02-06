@@ -1,34 +1,59 @@
-import { IsString, IsOptional, IsBoolean, IsObject, IsNumber, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsObject,
+  IsNumber,
+  MaxLength,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateComponentLibraryDto {
-  @ApiPropertyOptional({ description: 'Component name', example: 'Updated Header' })
+  @ApiPropertyOptional({
+    description: 'Component name',
+    example: 'Updated Header',
+  })
   @IsString()
   @MaxLength(200)
   @IsOptional()
   name?: string;
 
-  @ApiPropertyOptional({ description: 'Component description', example: 'Updated description' })
+  @ApiPropertyOptional({
+    description: 'Component description',
+    example: 'Updated description',
+  })
   @IsString()
   @IsOptional()
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Component structure', example: { layout: 'grid' } })
+  @ApiPropertyOptional({
+    description: 'Component structure',
+    example: { layout: 'grid' },
+  })
   @IsObject()
   @IsOptional()
   structure?: any;
 
-  @ApiPropertyOptional({ description: 'Default properties', example: { updated: true } })
+  @ApiPropertyOptional({
+    description: 'Default properties',
+    example: { updated: true },
+  })
   @IsObject()
   @IsOptional()
   default_props?: any;
 
-  @ApiPropertyOptional({ description: 'HTML template', example: '<div>Updated</div>' })
+  @ApiPropertyOptional({
+    description: 'HTML template',
+    example: '<div>Updated</div>',
+  })
   @IsString()
   @IsOptional()
   html_template?: string;
 
-  @ApiPropertyOptional({ description: 'CSS template', example: 'div { color: blue; }' })
+  @ApiPropertyOptional({
+    description: 'CSS template',
+    example: 'div { color: blue; }',
+  })
   @IsString()
   @IsOptional()
   css_template?: string;
@@ -38,7 +63,10 @@ export class UpdateComponentLibraryDto {
   @IsOptional()
   thumbnail_url?: string;
 
-  @ApiPropertyOptional({ description: 'Usage notes', example: 'Updated usage notes' })
+  @ApiPropertyOptional({
+    description: 'Usage notes',
+    example: 'Updated usage notes',
+  })
   @IsString()
   @IsOptional()
   usage_notes?: string;

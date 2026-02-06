@@ -34,7 +34,9 @@ describe('DailyStatsEmailJob', () => {
   });
 
   it('should handle errors gracefully', async () => {
-    alertService.sendDailyStatsEmail.mockRejectedValue(new Error('Email service down'));
+    alertService.sendDailyStatsEmail.mockRejectedValue(
+      new Error('Email service down'),
+    );
 
     await expect(job.handleCron()).resolves.not.toThrow();
   });

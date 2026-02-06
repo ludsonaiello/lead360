@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  ConflictException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TenantService } from './tenant.service';
 import { PrismaService } from '../../../core/database/prisma.service';
@@ -56,7 +60,8 @@ describe('TenantService', () => {
 
   const mockConfigService = {
     get: jest.fn((key: string) => {
-      if (key === 'UPLOADS_PATH') return '/var/www/lead360.app/app/uploads/public';
+      if (key === 'UPLOADS_PATH')
+        return '/var/www/lead360.app/app/uploads/public';
       return undefined;
     }),
   };
@@ -131,9 +136,9 @@ describe('TenantService', () => {
     it('should throw NotFoundException if tenant not found', async () => {
       mockPrismaService.tenant.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.findBySubdomain('nonexistent')
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findBySubdomain('nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw ForbiddenException if tenant is inactive', async () => {
@@ -145,14 +150,22 @@ describe('TenantService', () => {
 
       mockPrismaService.tenant.findUnique.mockResolvedValue(inactiveTenant);
 
-      await expect(
-        service.findBySubdomain('inactive-tenant')
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.findBySubdomain('inactive-tenant')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
   describe('checkSubdomainAvailability', () => {
-    const reservedSubdomains = ['www', 'app', 'api', 'admin', 'mail', 'ftp', 'smtp'];
+    const reservedSubdomains = [
+      'www',
+      'app',
+      'api',
+      'admin',
+      'mail',
+      'ftp',
+      'smtp',
+    ];
 
     it('should return unavailable for reserved subdomains', async () => {
       for (const subdomain of reservedSubdomains) {
@@ -226,9 +239,9 @@ describe('TenantService', () => {
     it('should throw NotFoundException if tenant not found', async () => {
       mockPrismaService.tenant.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.findById('nonexistent')
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findById('nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -274,7 +287,7 @@ describe('TenantService', () => {
       mockPrismaService.tenant.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.update('nonexistent', {}, 'user-123')
+        service.update('nonexistent', {}, 'user-123'),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -321,12 +334,16 @@ describe('TenantService', () => {
           original_filename: 'logo.png',
           mime_type: 'image/png',
           size_bytes: 1024 * 1024,
-          storage_path: '/var/www/lead360.app/app/uploads/public/tenant-123/images/file-123.png',
+          storage_path:
+            '/var/www/lead360.app/app/uploads/public/tenant-123/images/file-123.png',
         },
       });
 
       // Verify file upload
-      expect(mockFileStorageService.uploadLogo).toHaveBeenCalledWith(tenantId, mockFile);
+      expect(mockFileStorageService.uploadLogo).toHaveBeenCalledWith(
+        tenantId,
+        mockFile,
+      );
 
       // Verify File record created
       expect(mockPrismaService.file.create).toHaveBeenCalledWith({
@@ -385,7 +402,8 @@ describe('TenantService', () => {
       mockPrismaService.file.findUnique.mockResolvedValue({
         id: 1,
         file_id: oldFileId,
-        storage_path: '/var/www/lead360.app/app/uploads/public/tenant-123/images/old-file-123.png',
+        storage_path:
+          '/var/www/lead360.app/app/uploads/public/tenant-123/images/old-file-123.png',
       });
 
       mockFileStorageService.deleteFileByPath.mockResolvedValue(undefined);

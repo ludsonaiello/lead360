@@ -78,7 +78,11 @@ export class TenantInsuranceService {
   /**
    * Update insurance information
    */
-  async update(tenantId: string, updateInsuranceDto: UpdateInsuranceDto, userId: string) {
+  async update(
+    tenantId: string,
+    updateInsuranceDto: UpdateInsuranceDto,
+    userId: string,
+  ) {
     // Ensure insurance record exists
     const existingInsurance = await this.findOrCreate(tenantId);
 
@@ -228,7 +232,11 @@ export class TenantInsuranceService {
   /**
    * Upload General Liability insurance document
    */
-  async uploadGLDocument(tenantId: string, file: Express.Multer.File, userId: string) {
+  async uploadGLDocument(
+    tenantId: string,
+    file: Express.Multer.File,
+    userId: string,
+  ) {
     // Get or create insurance record
     const insurance = await this.findOrCreate(tenantId);
 
@@ -237,7 +245,12 @@ export class TenantInsuranceService {
       tenantId,
       file,
       {
-        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'],
+        allowedMimeTypes: [
+          'application/pdf',
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+        ],
         maxSizeBytes: 10 * 1024 * 1024, // 10MB
         category: 'insurance',
       },
@@ -302,7 +315,11 @@ export class TenantInsuranceService {
   /**
    * Upload Workers Compensation insurance document
    */
-  async uploadWCDocument(tenantId: string, file: Express.Multer.File, userId: string) {
+  async uploadWCDocument(
+    tenantId: string,
+    file: Express.Multer.File,
+    userId: string,
+  ) {
     // Get or create insurance record
     const insurance = await this.findOrCreate(tenantId);
 
@@ -311,7 +328,12 @@ export class TenantInsuranceService {
       tenantId,
       file,
       {
-        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'],
+        allowedMimeTypes: [
+          'application/pdf',
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+        ],
         maxSizeBytes: 10 * 1024 * 1024, // 10MB
         category: 'insurance',
       },
@@ -471,8 +493,10 @@ export class TenantInsuranceService {
     return {
       ...insurance,
       // Create clean aliases for frontend
-      gl_document_file: insurance.file_tenant_insurance_gl_document_file_idTofile || null,
-      wc_document_file: insurance.file_tenant_insurance_wc_document_file_idTofile || null,
+      gl_document_file:
+        insurance.file_tenant_insurance_gl_document_file_idTofile || null,
+      wc_document_file:
+        insurance.file_tenant_insurance_wc_document_file_idTofile || null,
       // Remove ugly Prisma relation names from response
       file_tenant_insurance_gl_document_file_idTofile: undefined,
       file_tenant_insurance_wc_document_file_idTofile: undefined,

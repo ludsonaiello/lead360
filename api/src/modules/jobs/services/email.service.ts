@@ -22,8 +22,14 @@ export class EmailService {
   }): Promise<{ messageId: string }> {
     const template = await this.templates.getTemplate(options.templateKey);
 
-    const subject = this.templates.renderTemplate(template.subject, options.variables);
-    const html = this.templates.renderTemplate(template.html_body, options.variables);
+    const subject = this.templates.renderTemplate(
+      template.subject,
+      options.variables,
+    );
+    const html = this.templates.renderTemplate(
+      template.html_body,
+      options.variables,
+    );
     const text = template.text_body
       ? this.templates.renderTemplate(template.text_body, options.variables)
       : undefined;
@@ -37,7 +43,9 @@ export class EmailService {
       text,
     });
 
-    this.logger.log(`Email sent to ${options.to} using template ${options.templateKey}`);
+    this.logger.log(
+      `Email sent to ${options.to} using template ${options.templateKey}`,
+    );
 
     return result;
   }

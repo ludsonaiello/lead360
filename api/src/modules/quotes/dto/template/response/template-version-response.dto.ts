@@ -96,7 +96,8 @@ export class TemplateVersionResponseDto {
   created_at: string;
 
   @ApiPropertyOptional({
-    description: 'Creator user details (included if created_by_user_id is not null)',
+    description:
+      'Creator user details (included if created_by_user_id is not null)',
     type: () => UserBasicInfoDto,
   })
   created_by_user?: UserBasicInfoDto;

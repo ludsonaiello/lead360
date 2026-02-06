@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import * as Handlebars from 'handlebars';
@@ -33,7 +38,9 @@ export class EmailTemplateService {
             { description: { contains: filters.search } },
           ],
         }),
-        ...(filters?.is_system !== undefined && { is_system: filters.is_system }),
+        ...(filters?.is_system !== undefined && {
+          is_system: filters.is_system,
+        }),
       },
       orderBy: { created_at: 'desc' },
     });
@@ -50,13 +57,17 @@ export class EmailTemplateService {
     // Validate Handlebars syntax
     const validation = this.validateHandlebars(data.html_body);
     if (!validation.valid) {
-      throw new BadRequestException(`Invalid HTML template: ${validation.error}`);
+      throw new BadRequestException(
+        `Invalid HTML template: ${validation.error}`,
+      );
     }
 
     if (data.text_body) {
       const textValidation = this.validateHandlebars(data.text_body);
       if (!textValidation.valid) {
-        throw new BadRequestException(`Invalid text template: ${textValidation.error}`);
+        throw new BadRequestException(
+          `Invalid text template: ${textValidation.error}`,
+        );
       }
     }
 
@@ -93,14 +104,18 @@ export class EmailTemplateService {
     if (data.html_body) {
       const validation = this.validateHandlebars(data.html_body);
       if (!validation.valid) {
-        throw new BadRequestException(`Invalid HTML template: ${validation.error}`);
+        throw new BadRequestException(
+          `Invalid HTML template: ${validation.error}`,
+        );
       }
     }
 
     if (data.text_body) {
       const textValidation = this.validateHandlebars(data.text_body);
       if (!textValidation.valid) {
-        throw new BadRequestException(`Invalid text template: ${textValidation.error}`);
+        throw new BadRequestException(
+          `Invalid text template: ${textValidation.error}`,
+        );
       }
     }
 
@@ -149,12 +164,18 @@ export class EmailTemplateService {
     });
   }
 
-  renderTemplate(templateString: string, variables: Record<string, any>): string {
+  renderTemplate(
+    templateString: string,
+    variables: Record<string, any>,
+  ): string {
     const compiled = Handlebars.compile(templateString);
     return compiled(variables);
   }
 
-  validateHandlebars(templateString: string): { valid: boolean; error?: string } {
+  validateHandlebars(templateString: string): {
+    valid: boolean;
+    error?: string;
+  } {
     try {
       Handlebars.compile(templateString);
       return { valid: true };

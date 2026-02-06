@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -71,9 +67,7 @@ export class ProfitabilityAnalyzerService {
     if (margin >= thresholds.target) {
       warningLevel = 'green';
       canSend = true;
-      recommendations.push(
-        'Margin is above target - excellent profitability',
-      );
+      recommendations.push('Margin is above target - excellent profitability');
     } else if (margin >= thresholds.minimum) {
       warningLevel = 'yellow';
       canSend = true;
@@ -297,8 +291,7 @@ export class ProfitabilityAnalyzerService {
         margin_percent: item.margin_percent,
         cost: item.cost,
         price_before_discount: item.price_before_discount,
-        recommendation:
-          'Very high margin - verify pricing is competitive',
+        recommendation: 'Very high margin - verify pricing is competitive',
       }));
 
     return {
@@ -319,9 +312,8 @@ export class ProfitabilityAnalyzerService {
         total_items: itemsAnalysis.length,
         healthy_items: itemsAnalysis.filter((i) => i.status === 'healthy')
           .length,
-        acceptable_items: itemsAnalysis.filter(
-          (i) => i.status === 'acceptable',
-        ).length,
+        acceptable_items: itemsAnalysis.filter((i) => i.status === 'acceptable')
+          .length,
         low_margin_items: itemsAnalysis.filter((i) => i.status === 'low_margin')
           .length,
         critical_items: itemsAnalysis.filter((i) => i.status === 'critical')

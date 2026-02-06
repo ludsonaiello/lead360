@@ -353,7 +353,8 @@ export class AdminOperationsService {
     switch (issueType) {
       case 'recalculate_totals':
         // Re-run pricing calculations
-        const calculated = await this.quotePricingService.calculateQuoteFinancials(quoteId);
+        const calculated =
+          await this.quotePricingService.calculateQuoteFinancials(quoteId);
 
         await this.prisma.quote.update({
           where: { id: quoteId },
@@ -382,7 +383,9 @@ export class AdminOperationsService {
       case 'fix_relationships':
         // Find orphaned items (items with null or invalid quote_group_id)
         const orphanedItems = quote.items.filter(
-          (item) => item.quote_group_id && !quote.groups.find((g) => g.id === item.quote_group_id),
+          (item) =>
+            item.quote_group_id &&
+            !quote.groups.find((g) => g.id === item.quote_group_id),
         );
 
         if (orphanedItems.length > 0) {
@@ -409,7 +412,9 @@ export class AdminOperationsService {
             });
           }
 
-          repairsMade.push(`Reassigned ${orphanedItems.length} orphaned items to default group`);
+          repairsMade.push(
+            `Reassigned ${orphanedItems.length} orphaned items to default group`,
+          );
         } else {
           repairsMade.push('No orphaned items found');
         }
@@ -462,14 +467,21 @@ export class AdminOperationsService {
    * @returns Diagnostic results
    */
   async runDiagnostics(
-    testType: 'all' | 'pdf' | 'email' | 'storage' | 'database' | 'cache' = 'all',
+    testType:
+      | 'all'
+      | 'pdf'
+      | 'email'
+      | 'storage'
+      | 'database'
+      | 'cache' = 'all',
   ): Promise<DiagnosticsResponseDto> {
     this.logger.log(`Running diagnostics: ${testType}`);
 
     const results: DiagnosticTestResultDto[] = [];
-    const testsToRun: string[] = testType === 'all'
-      ? ['database', 'cache', 'storage', 'pdf', 'email']
-      : [testType];
+    const testsToRun: string[] =
+      testType === 'all'
+        ? ['database', 'cache', 'storage', 'pdf', 'email']
+        : [testType];
 
     // Database test
     if (testsToRun.includes('database')) {
@@ -611,9 +623,7 @@ export class AdminOperationsService {
     entityType: 'items' | 'groups' | 'attachments' | 'all',
     dryRun: boolean = true,
   ): Promise<CleanupOrphansResponseDto> {
-    this.logger.log(
-      `Cleanup orphans: ${entityType} (dry run: ${dryRun})`,
-    );
+    this.logger.log(`Cleanup orphans: ${entityType} (dry run: ${dryRun})`);
 
     const details: OrphanDetailDto[] = [];
     let totalOrphans = 0;
@@ -624,9 +634,7 @@ export class AdminOperationsService {
 
     // Check quote_item orphans
     if (entitiesToCheck.includes('items')) {
-      const orphanedItems = await this.prisma.$queryRaw<
-        Array<{ id: string }>
-      >`
+      const orphanedItems = await this.prisma.$queryRaw<Array<{ id: string }>>`
         SELECT qi.id
         FROM quote_item qi
         LEFT JOIN quote q ON qi.quote_id = q.id
@@ -652,9 +660,7 @@ export class AdminOperationsService {
 
     // Check quote_group orphans
     if (entitiesToCheck.includes('groups')) {
-      const orphanedGroups = await this.prisma.$queryRaw<
-        Array<{ id: string }>
-      >`
+      const orphanedGroups = await this.prisma.$queryRaw<Array<{ id: string }>>`
         SELECT qg.id
         FROM quote_group qg
         LEFT JOIN quote q ON qg.quote_id = q.id
@@ -816,7 +822,9 @@ export class AdminOperationsService {
         company_name: q.tenant.company_name,
         subdomain: q.tenant.subdomain,
       },
-      customer_name: q.lead ? `${q.lead.first_name} ${q.lead.last_name}`.trim() : undefined,
+      customer_name: q.lead
+        ? `${q.lead.first_name} ${q.lead.last_name}`.trim()
+        : undefined,
     }));
 
     return {

@@ -53,7 +53,8 @@ export class QuoteItemController {
   @ApiResponse({ status: 404, description: 'Quote not found' })
   @ApiResponse({
     status: 400,
-    description: 'At least one cost must be > 0 / Cannot add items to approved quote',
+    description:
+      'At least one cost must be > 0 / Cannot add items to approved quote',
   })
   async create(
     @Request() req,
@@ -70,10 +71,15 @@ export class QuoteItemController {
 
   @Post('from-library/:libraryItemId')
   @Roles('Owner', 'Admin', 'Manager', 'Sales')
-  @ApiOperation({ summary: 'Add item to quote from library (increments usage count)' })
+  @ApiOperation({
+    summary: 'Add item to quote from library (increments usage count)',
+  })
   @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
   @ApiParam({ name: 'libraryItemId', description: 'Library item UUID' })
-  @ApiResponse({ status: 201, description: 'Item added from library successfully' })
+  @ApiResponse({
+    status: 201,
+    description: 'Item added from library successfully',
+  })
   @ApiResponse({ status: 404, description: 'Quote or library item not found' })
   async createFromLibrary(
     @Request() req,
@@ -131,7 +137,9 @@ export class QuoteItemController {
   @Patch('reorder')
   @Roles('Owner', 'Admin', 'Manager', 'Sales')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Reorder items (no version created - cosmetic only)' })
+  @ApiOperation({
+    summary: 'Reorder items (no version created - cosmetic only)',
+  })
   @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
   @ApiResponse({ status: 204, description: 'Items reordered successfully' })
   @ApiResponse({ status: 404, description: 'Quote not found' })
@@ -150,7 +158,10 @@ export class QuoteItemController {
   @ApiParam({ name: 'itemId', description: 'Item UUID' })
   @ApiResponse({ status: 200, description: 'Item updated successfully' })
   @ApiResponse({ status: 404, description: 'Quote or item not found' })
-  @ApiResponse({ status: 400, description: 'Cannot edit items in approved quote' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot edit items in approved quote',
+  })
   async update(
     @Request() req,
     @Param('quoteId', ParseUUIDPipe) quoteId: string,
@@ -174,7 +185,10 @@ export class QuoteItemController {
   @ApiParam({ name: 'itemId', description: 'Item UUID' })
   @ApiResponse({ status: 204, description: 'Item deleted successfully' })
   @ApiResponse({ status: 404, description: 'Quote or item not found' })
-  @ApiResponse({ status: 400, description: 'Cannot delete items from approved quote' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot delete items from approved quote',
+  })
   async delete(
     @Request() req,
     @Param('quoteId', ParseUUIDPipe) quoteId: string,
@@ -190,12 +204,17 @@ export class QuoteItemController {
 
   @Post(':itemId/duplicate')
   @Roles('Owner', 'Admin', 'Manager', 'Sales')
-  @ApiOperation({ summary: 'Duplicate item (inserts after original with " (Copy)")' })
+  @ApiOperation({
+    summary: 'Duplicate item (inserts after original with " (Copy)")',
+  })
   @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
   @ApiParam({ name: 'itemId', description: 'Item UUID to duplicate' })
   @ApiResponse({ status: 201, description: 'Item duplicated successfully' })
   @ApiResponse({ status: 404, description: 'Quote or item not found' })
-  @ApiResponse({ status: 400, description: 'Cannot duplicate items in approved quote' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot duplicate items in approved quote',
+  })
   async duplicate(
     @Request() req,
     @Param('quoteId', ParseUUIDPipe) quoteId: string,
@@ -211,12 +230,20 @@ export class QuoteItemController {
 
   @Patch(':itemId/move-to-group')
   @Roles('Owner', 'Admin', 'Manager', 'Sales')
-  @ApiOperation({ summary: 'Move item to group or ungrouped (creates version +0.1)' })
+  @ApiOperation({
+    summary: 'Move item to group or ungrouped (creates version +0.1)',
+  })
   @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
   @ApiParam({ name: 'itemId', description: 'Item UUID' })
   @ApiResponse({ status: 200, description: 'Item moved successfully' })
-  @ApiResponse({ status: 404, description: 'Quote, item, or target group not found' })
-  @ApiResponse({ status: 400, description: 'Cannot move items in approved quote' })
+  @ApiResponse({
+    status: 404,
+    description: 'Quote, item, or target group not found',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot move items in approved quote',
+  })
   async moveToGroup(
     @Request() req,
     @Param('quoteId', ParseUUIDPipe) quoteId: string,
@@ -237,7 +264,10 @@ export class QuoteItemController {
   @ApiOperation({ summary: 'Save item to library for future reuse' })
   @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
   @ApiParam({ name: 'itemId', description: 'Item UUID' })
-  @ApiResponse({ status: 201, description: 'Item saved to library successfully' })
+  @ApiResponse({
+    status: 201,
+    description: 'Item saved to library successfully',
+  })
   @ApiResponse({ status: 404, description: 'Quote or item not found' })
   async saveToLibrary(
     @Request() req,

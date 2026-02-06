@@ -79,8 +79,6 @@ import { InsuranceExpiryCheckJob } from './jobs/insurance-expiry-check.job';
 export class TenantModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // Apply TenantResolutionMiddleware globally to all routes
-    consumer
-      .apply(TenantResolutionMiddleware)
-      .forRoutes('*'); // Apply to all routes
+    consumer.apply(TenantResolutionMiddleware).forRoutes('*'); // Apply to all routes
   }
 }

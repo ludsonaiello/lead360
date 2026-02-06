@@ -26,7 +26,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
     name: 'Modern Header',
     component_type: 'header',
     category: 'layout',
-    description: 'Clean, modern header with logo and company details in a horizontal layout',
+    description:
+      'Clean, modern header with logo and company details in a horizontal layout',
     structure: {
       sections: ['logo', 'company_info', 'quote_info'],
       layout: 'horizontal',
@@ -123,7 +124,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
   font-size: 12px;
   color: #6b7280;
 }`,
-    usage_notes: 'Perfect for modern, professional quotes. Displays logo, company info, and quote details in a clean horizontal layout.',
+    usage_notes:
+      'Perfect for modern, professional quotes. Displays logo, company info, and quote details in a clean horizontal layout.',
     tags: ['modern', 'professional', 'horizontal'],
     sort_order: 1,
   },
@@ -132,7 +134,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
     name: 'Classic Header',
     component_type: 'header',
     category: 'layout',
-    description: 'Traditional business header with centered company information',
+    description:
+      'Traditional business header with centered company information',
     structure: {
       sections: ['logo', 'company_info'],
       layout: 'centered',
@@ -218,7 +221,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
   color: #6b7280;
   margin: 5px 0;
 }`,
-    usage_notes: 'Traditional centered header suitable for formal business quotes. Great for industries like law, accounting, consulting.',
+    usage_notes:
+      'Traditional centered header suitable for formal business quotes. Great for industries like law, accounting, consulting.',
     tags: ['classic', 'traditional', 'centered', 'formal'],
     sort_order: 2,
   },
@@ -286,7 +290,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
   color: #9ca3af;
   margin-top: 2px;
 }`,
-    usage_notes: 'Perfect for modern, clean quotes where simplicity is key. Great for tech companies, startups, or creative agencies.',
+    usage_notes:
+      'Perfect for modern, clean quotes where simplicity is key. Great for tech companies, startups, or creative agencies.',
     tags: ['minimal', 'clean', 'modern', 'simple'],
     sort_order: 3,
   },
@@ -295,7 +300,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
     name: 'Split Header',
     component_type: 'header',
     category: 'layout',
-    description: 'Two-column header with company on left and quote details on right',
+    description:
+      'Two-column header with company on left and quote details on right',
     structure: {
       sections: ['company_column', 'quote_column'],
       layout: 'split',
@@ -426,7 +432,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
   color: #10b981;
   text-transform: capitalize;
 }`,
-    usage_notes: 'Professional split-column header ideal for displaying detailed company and quote information side by side.',
+    usage_notes:
+      'Professional split-column header ideal for displaying detailed company and quote information side by side.',
     tags: ['split', 'professional', 'detailed', 'two-column'],
     sort_order: 4,
   },
@@ -522,7 +529,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
   color: #374151;
   margin-right: 5px;
 }`,
-    usage_notes: 'Card-style customer info that stands out visually. Great for modern, clean designs.',
+    usage_notes:
+      'Card-style customer info that stands out visually. Great for modern, clean designs.',
     tags: ['card', 'modern', 'customer', 'bordered'],
     sort_order: 5,
   },
@@ -592,7 +600,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
 .customer-details li {
   margin: 3px 0;
 }`,
-    usage_notes: 'Simple, clean list format for customer information. Minimal and easy to read.',
+    usage_notes:
+      'Simple, clean list format for customer information. Minimal and easy to read.',
     tags: ['list', 'simple', 'minimal', 'customer'],
     sort_order: 6,
   },
@@ -683,7 +692,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
   font-style: italic;
   color: #9ca3af;
 }`,
-    usage_notes: 'Perfect for service businesses where billing and service addresses may differ (HVAC, plumbing, landscaping).',
+    usage_notes:
+      'Perfect for service businesses where billing and service addresses may differ (HVAC, plumbing, landscaping).',
     tags: ['two-column', 'service', 'billing', 'address'],
     sort_order: 7,
   },
@@ -736,7 +746,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
   margin: 0 10px;
   color: #d1d5db;
 }`,
-    usage_notes: 'Ultra-compact customer info for quotes where space is limited. All details in one line.',
+    usage_notes:
+      'Ultra-compact customer info for quotes where space is limited. All details in one line.',
     tags: ['inline', 'compact', 'minimal', 'one-line'],
     sort_order: 8,
   },
@@ -748,7 +759,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
     name: 'Line Items Standard',
     component_type: 'line_items',
     category: 'content',
-    description: 'Standard line items table with quantity, description, unit price, and total',
+    description:
+      'Standard line items table with quantity, description, unit price, and total',
     structure: {
       columns: ['description', 'quantity', 'unit_price', 'total'],
       layout: 'table',
@@ -857,7 +869,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
   background-color: {{row_color_odd}};
 }
 {{/if}}`,
-    usage_notes: 'Standard line items table suitable for most quotes. Clean and professional.',
+    usage_notes:
+      'Standard line items table suitable for most quotes. Clean and professional.',
     tags: ['table', 'standard', 'line-items', 'professional'],
     sort_order: 9,
   },
@@ -868,7 +881,15 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
     category: 'content',
     description: 'Detailed line items with SKU, tax, and discount columns',
     structure: {
-      columns: ['sku', 'description', 'quantity', 'unit_price', 'discount', 'tax', 'total'],
+      columns: [
+        'sku',
+        'description',
+        'quantity',
+        'unit_price',
+        'discount',
+        'tax',
+        'total',
+      ],
       layout: 'table',
     },
     default_props: {
@@ -1004,7 +1025,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
   color: #6b7280;
   margin-top: 3px;
 }`,
-    usage_notes: 'Comprehensive line items table with all details. Great for complex quotes with discounts and taxes.',
+    usage_notes:
+      'Comprehensive line items table with all details. Great for complex quotes with discounts and taxes.',
     tags: ['detailed', 'table', 'sku', 'discount', 'tax'],
     sort_order: 10,
   },
@@ -1127,7 +1149,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
   min-width: 120px;
   text-align: right;
 }`,
-    usage_notes: 'Perfect for complex quotes with multiple service categories. Shows subtotals for each category.',
+    usage_notes:
+      'Perfect for complex quotes with multiple service categories. Shows subtotals for each category.',
     tags: ['grouped', 'categories', 'subtotals', 'organized'],
     sort_order: 11,
   },
@@ -1196,7 +1219,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
   min-width: 100px;
   text-align: right;
 }`,
-    usage_notes: 'Ultra-minimal line items for simple quotes. Just description and total.',
+    usage_notes:
+      'Ultra-minimal line items for simple quotes. Just description and total.',
     tags: ['minimal', 'simple', 'clean', 'borderless'],
     sort_order: 12,
   },
@@ -1294,7 +1318,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
   font-weight: bold;
   padding: 15px;
 }`,
-    usage_notes: 'Classic right-aligned totals section. Professional and clean.',
+    usage_notes:
+      'Classic right-aligned totals section. Professional and clean.',
     tags: ['right-aligned', 'standard', 'totals', 'professional'],
     sort_order: 13,
   },
@@ -1393,7 +1418,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
   font-weight: bold;
   color: {{total_accent}};
 }`,
-    usage_notes: 'Totals in a boxed container that stands out visually. Great for highlighting the final amount.',
+    usage_notes:
+      'Totals in a boxed container that stands out visually. Great for highlighting the final amount.',
     tags: ['boxed', 'bordered', 'totals', 'highlighted'],
     sort_order: 14,
   },
@@ -1528,7 +1554,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
   font-weight: bold;
   color: #92400e;
 }`,
-    usage_notes: 'Comprehensive totals section including payment terms, deposits, and balance due. Perfect for projects with payment schedules.',
+    usage_notes:
+      'Comprehensive totals section including payment terms, deposits, and balance due. Perfect for projects with payment schedules.',
     tags: ['detailed', 'payment-terms', 'deposit', 'balance'],
     sort_order: 15,
   },
@@ -1565,7 +1592,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
 .total-amount .label {
   margin-right: 15px;
 }`,
-    usage_notes: 'Ultra-simple totals showing only the final amount. Perfect for minimal quote designs.',
+    usage_notes:
+      'Ultra-simple totals showing only the final amount. Perfect for minimal quote designs.',
     tags: ['simple', 'minimal', 'clean', 'one-line'],
     sort_order: 16,
   },
@@ -1665,7 +1693,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
   font-size: 11px;
   color: #9ca3af;
 }`,
-    usage_notes: 'Comprehensive footer with contact information and business details. Great for building trust.',
+    usage_notes:
+      'Comprehensive footer with contact information and business details. Great for building trust.',
     tags: ['footer', 'contact', 'hours', 'professional'],
     sort_order: 17,
   },
@@ -1744,7 +1773,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
 .footer-bottom strong {
   color: #1f2937;
 }`,
-    usage_notes: 'Legal footer with terms, payment conditions, and warranties. Essential for protecting your business.',
+    usage_notes:
+      'Legal footer with terms, payment conditions, and warranties. Essential for protecting your business.',
     tags: ['footer', 'legal', 'terms', 'warranty'],
     sort_order: 18,
   },
@@ -1788,7 +1818,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
 .page-number {
   font-style: italic;
 }`,
-    usage_notes: 'Ultra-minimal footer for clean, modern quotes. Just the essentials.',
+    usage_notes:
+      'Ultra-minimal footer for clean, modern quotes. Just the essentials.',
     tags: ['footer', 'minimal', 'simple', 'clean'],
     sort_order: 19,
   },
@@ -1890,7 +1921,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
   color: #6b7280;
   margin-bottom: 15px;
 }`,
-    usage_notes: 'Professional signature block for customer acceptance. Essential for converting quotes to contracts.',
+    usage_notes:
+      'Professional signature block for customer acceptance. Essential for converting quotes to contracts.',
     tags: ['signature', 'acceptance', 'contract', 'legal'],
     sort_order: 20,
   },
@@ -2032,7 +2064,8 @@ const COMPONENT_SEEDS: ComponentSeed[] = [
 .total-amount {
   font-size: 16px;
 }`,
-    usage_notes: 'Professional payment schedule for multi-phase projects. Shows milestones, amounts, and due dates clearly.',
+    usage_notes:
+      'Professional payment schedule for multi-phase projects. Shows milestones, amounts, and due dates clearly.',
     tags: ['payment', 'schedule', 'milestones', 'multi-phase'],
     sort_order: 21,
   },
@@ -2055,7 +2088,9 @@ export async function seedTemplateComponents(): Promise<void> {
       });
 
       if (existing) {
-        console.log(`⏭️  Component "${component.name}" already exists, skipping...`);
+        console.log(
+          `⏭️  Component "${component.name}" already exists, skipping...`,
+        );
         continue;
       }
 
@@ -2081,10 +2116,14 @@ export async function seedTemplateComponents(): Promise<void> {
         },
       });
 
-      console.log(`✅ Created component: ${component.name} (${component.component_type})`);
+      console.log(
+        `✅ Created component: ${component.name} (${component.component_type})`,
+      );
     }
 
-    console.log(`\n🎉 Component library seeding complete! Created ${COMPONENT_SEEDS.length} components.`);
+    console.log(
+      `\n🎉 Component library seeding complete! Created ${COMPONENT_SEEDS.length} components.`,
+    );
   } catch (error) {
     console.error('❌ Error seeding components:', error);
     throw error;

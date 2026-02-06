@@ -40,7 +40,12 @@ export class ValidateHandlebarsResponseDto {
 
   @ApiProperty({
     description: 'Extracted Handlebars variables from template',
-    example: ['quote.quote_number', 'quote.created_at', 'company.name', 'customer.name'],
+    example: [
+      'quote.quote_number',
+      'quote.created_at',
+      'company.name',
+      'customer.name',
+    ],
     type: [String],
   })
   variables: string[];

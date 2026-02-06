@@ -66,7 +66,8 @@ export class QuoteTagController {
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({
     summary: 'Create quote tag',
-    description: 'Creates a new tag for organizing quotes. Tag names must be unique per tenant (case-insensitive).',
+    description:
+      'Creates a new tag for organizing quotes. Tag names must be unique per tenant (case-insensitive).',
   })
   @ApiResponse({
     status: 201,
@@ -78,7 +79,9 @@ export class QuoteTagController {
     @Request() req,
     @Body() dto: CreateQuoteTagDto,
   ): Promise<QuoteTagResponseDto> {
-    this.logger.log(`Creating tag "${dto.name}" (tenant: ${req.user.tenant_id})`);
+    this.logger.log(
+      `Creating tag "${dto.name}" (tenant: ${req.user.tenant_id})`,
+    );
     return this.tagService.createTag(req.user.tenant_id, dto, req.user.id);
   }
 
@@ -105,7 +108,10 @@ export class QuoteTagController {
     includeInactive?: boolean,
   ): Promise<QuoteTagResponseDto[]> {
     this.logger.log(`Listing tags (tenant: ${req.user.tenant_id})`);
-    return this.tagService.listTags(req.user.tenant_id, includeInactive || false);
+    return this.tagService.listTags(
+      req.user.tenant_id,
+      includeInactive || false,
+    );
   }
 
   @Get('tags/:id')
@@ -146,7 +152,12 @@ export class QuoteTagController {
     @Body() dto: UpdateQuoteTagDto,
   ): Promise<QuoteTagResponseDto> {
     this.logger.log(`Updating tag ${tagId} (tenant: ${req.user.tenant_id})`);
-    return this.tagService.updateTag(req.user.tenant_id, tagId, dto, req.user.id);
+    return this.tagService.updateTag(
+      req.user.tenant_id,
+      tagId,
+      dto,
+      req.user.id,
+    );
   }
 
   @Delete('tags/:id')
@@ -154,7 +165,8 @@ export class QuoteTagController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete tag',
-    description: 'Deletes tag only if not assigned to any quote. Otherwise, mark as inactive.',
+    description:
+      'Deletes tag only if not assigned to any quote. Otherwise, mark as inactive.',
   })
   @ApiParam({ name: 'id', description: 'Tag UUID' })
   @ApiResponse({ status: 204, description: 'Tag deleted successfully' })
@@ -177,7 +189,8 @@ export class QuoteTagController {
   @Roles('Owner', 'Admin', 'Manager', 'Sales')
   @ApiOperation({
     summary: 'Assign tags to quote',
-    description: 'Assigns one or more tags to a quote. Replaces existing tag assignments.',
+    description:
+      'Assigns one or more tags to a quote. Replaces existing tag assignments.',
   })
   @ApiParam({ name: 'id', description: 'Quote UUID' })
   @ApiResponse({
@@ -191,7 +204,9 @@ export class QuoteTagController {
     @Param('id', ParseUUIDPipe) quoteId: string,
     @Body() dto: AssignTagDto,
   ): Promise<QuoteTagResponseDto[]> {
-    this.logger.log(`Assigning tags to quote ${quoteId} (tenant: ${req.user.tenant_id})`);
+    this.logger.log(
+      `Assigning tags to quote ${quoteId} (tenant: ${req.user.tenant_id})`,
+    );
     return this.tagService.assignTagsToQuote(
       req.user.tenant_id,
       quoteId,
@@ -238,7 +253,9 @@ export class QuoteTagController {
     @Request() req,
     @Param('id', ParseUUIDPipe) quoteId: string,
   ): Promise<QuoteTagResponseDto[]> {
-    this.logger.log(`Getting tags for quote ${quoteId} (tenant: ${req.user.tenant_id})`);
+    this.logger.log(
+      `Getting tags for quote ${quoteId} (tenant: ${req.user.tenant_id})`,
+    );
     return this.tagService.getQuoteTags(req.user.tenant_id, quoteId);
   }
 }

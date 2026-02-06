@@ -180,7 +180,11 @@ export class QuoteJobsiteAddressService {
    * @param transaction - Optional Prisma transaction client
    * @returns Newly created jobsite address record
    */
-  async clone(tenantId: string, sourceAddressId: string, transaction?: any): Promise<any> {
+  async clone(
+    tenantId: string,
+    sourceAddressId: string,
+    transaction?: any,
+  ): Promise<any> {
     const prismaClient = transaction || this.prisma;
 
     const sourceAddress = await this.findOne(tenantId, sourceAddressId);

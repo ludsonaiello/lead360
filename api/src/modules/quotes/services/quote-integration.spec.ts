@@ -211,7 +211,9 @@ describe('Quote Integration Tests', () => {
         OR: [{ tenant_id: tenant1Id }, { tenant_id: tenant2Id }],
       },
     });
-    await prisma.unit_measurement.deleteMany({ where: { tenant_id: tenant1Id } });
+    await prisma.unit_measurement.deleteMany({
+      where: { tenant_id: tenant1Id },
+    });
     await prisma.vendor.deleteMany({ where: { tenant_id: tenant1Id } });
     await prisma.lead.deleteMany({
       where: {
@@ -474,12 +476,18 @@ describe('Quote Integration Tests', () => {
       const sourceQuote = await service.createFromLead(tenant1Id, user1Id, dto);
 
       // Clone the quote
-      const clonedQuote = await service.clone(tenant1Id, sourceQuote.id, user1Id);
+      const clonedQuote = await service.clone(
+        tenant1Id,
+        sourceQuote.id,
+        user1Id,
+      );
 
       expect(clonedQuote.id).not.toBe(sourceQuote.id);
       expect(clonedQuote.tenant_id).toBe(sourceQuote.tenant_id);
       expect(clonedQuote.title).toContain('(Copy)');
-      expect(clonedQuote.jobsite_address_id).not.toBe(sourceQuote.jobsite_address_id);
+      expect(clonedQuote.jobsite_address_id).not.toBe(
+        sourceQuote.jobsite_address_id,
+      );
 
       // Verify jobsite address was cloned with correct tenant_id
       const clonedAddress = await prisma.quote_jobsite_address.findUnique({

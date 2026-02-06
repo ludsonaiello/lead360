@@ -1,9 +1,4 @@
-import {
-  IsArray,
-  IsString,
-  ArrayMinSize,
-  ArrayMaxSize,
-} from 'class-validator';
+import { IsArray, IsString, ArrayMinSize, ArrayMaxSize } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class AssignServicesDto {

@@ -43,35 +43,40 @@ export class QuoteFinancialsDto {
   subtotalBeforeDiscounts: number;
 
   @ApiProperty({
-    description: 'Total discount amount from all discount rules - stored in quote.discount_amount',
+    description:
+      'Total discount amount from all discount rules - stored in quote.discount_amount',
     example: 188.6,
     type: Number,
   })
   discountAmount: number;
 
   @ApiProperty({
-    description: 'Subtotal after applying all discounts (subtotalBeforeDiscounts - discountAmount)',
+    description:
+      'Subtotal after applying all discounts (subtotalBeforeDiscounts - discountAmount)',
     example: 1197.4,
     type: Number,
   })
   subtotalAfterDiscounts: number;
 
   @ApiProperty({
-    description: 'Tax amount (subtotalAfterDiscounts × taxRate) - stored in quote.tax_amount',
+    description:
+      'Tax amount (subtotalAfterDiscounts × taxRate) - stored in quote.tax_amount',
     example: 95.79,
     type: Number,
   })
   taxAmount: number;
 
   @ApiProperty({
-    description: 'Final total (subtotalAfterDiscounts + taxAmount) - stored in quote.total',
+    description:
+      'Final total (subtotalAfterDiscounts + taxAmount) - stored in quote.total',
     example: 1293.19,
     type: Number,
   })
   total: number;
 
   @ApiProperty({
-    description: 'Effective percentages used in calculations (custom or tenant defaults)',
+    description:
+      'Effective percentages used in calculations (custom or tenant defaults)',
     type: Object,
   })
   effectivePercentages: {

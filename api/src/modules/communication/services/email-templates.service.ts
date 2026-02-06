@@ -214,7 +214,7 @@ export class EmailTemplatesService {
     const variables = dto.variables || validation.variables_used || [];
 
     // Determine template type
-    let template_type = dto.template_type || 'tenant';
+    const template_type = dto.template_type || 'tenant';
 
     // Validate permissions for platform/shared templates
     if (template_type === 'platform' && !isPlatformAdmin) {
@@ -485,9 +485,7 @@ export class EmailTemplatesService {
     });
 
     if (!template) {
-      throw new NotFoundException(
-        `Active template '${templateKey}' not found`,
-      );
+      throw new NotFoundException(`Active template '${templateKey}' not found`);
     }
 
     try {

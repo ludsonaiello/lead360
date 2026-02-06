@@ -30,7 +30,8 @@ export class UpdateQuoteStatusDto {
 
   @ApiPropertyOptional({
     example: 'Customer requested changes',
-    description: 'Optional reason for status change (logged in version history)',
+    description:
+      'Optional reason for status change (logged in version history)',
   })
   @IsString()
   @IsOptional()

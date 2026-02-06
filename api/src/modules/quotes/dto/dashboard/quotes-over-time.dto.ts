@@ -49,7 +49,7 @@ export class TimeSeriesDataPointDto {
   @ApiProperty({ description: 'Number of quotes created', example: 12 })
   count: number;
 
-  @ApiProperty({ description: 'Total value of quotes', example: 35000.00 })
+  @ApiProperty({ description: 'Total value of quotes', example: 35000.0 })
   total_value: number;
 
   @ApiProperty({ description: 'Number approved', example: 5 })
@@ -65,15 +65,24 @@ export class TimeSeriesDataPointDto {
  * Time series response
  */
 export class QuotesOverTimeResponseDto {
-  @ApiProperty({ description: 'Time series data', type: [TimeSeriesDataPointDto] })
+  @ApiProperty({
+    description: 'Time series data',
+    type: [TimeSeriesDataPointDto],
+  })
   data: TimeSeriesDataPointDto[];
 
   @ApiProperty({ description: 'Grouping interval', example: 'day' })
   interval: string;
 
-  @ApiProperty({ description: 'Date range start', example: '2024-01-01T00:00:00.000Z' })
+  @ApiProperty({
+    description: 'Date range start',
+    example: '2024-01-01T00:00:00.000Z',
+  })
   date_from: string;
 
-  @ApiProperty({ description: 'Date range end', example: '2024-01-31T23:59:59.999Z' })
+  @ApiProperty({
+    description: 'Date range end',
+    example: '2024-01-31T23:59:59.999Z',
+  })
   date_to: string;
 }

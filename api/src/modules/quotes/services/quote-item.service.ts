@@ -109,8 +109,7 @@ export class QuoteItemService {
       const orderIndex = lastItem ? lastItem.order_index + 1 : 1;
 
       // Calculate total_cost
-      const itemTotalCost =
-        totalCost * dto.quantity;
+      const itemTotalCost = totalCost * dto.quantity;
 
       // Create item
       const item = await tx.quote_item.create({
@@ -124,25 +123,44 @@ export class QuoteItemService {
           unit_measurement_id: dto.unit_measurement_id,
           material_cost_per_unit: new Decimal(dto.material_cost_per_unit),
           labor_cost_per_unit: new Decimal(dto.labor_cost_per_unit),
-          equipment_cost_per_unit: new Decimal(dto.equipment_cost_per_unit || 0),
-          subcontract_cost_per_unit: new Decimal(dto.subcontract_cost_per_unit || 0),
+          equipment_cost_per_unit: new Decimal(
+            dto.equipment_cost_per_unit || 0,
+          ),
+          subcontract_cost_per_unit: new Decimal(
+            dto.subcontract_cost_per_unit || 0,
+          ),
           other_cost_per_unit: new Decimal(dto.other_cost_per_unit || 0),
           total_cost: new Decimal(itemTotalCost),
-          custom_profit_percent: dto.custom_profit_percent !== undefined
-            ? (dto.custom_profit_percent !== null ? new Decimal(dto.custom_profit_percent) : null)
-            : null,
-          custom_overhead_percent: dto.custom_overhead_percent !== undefined
-            ? (dto.custom_overhead_percent !== null ? new Decimal(dto.custom_overhead_percent) : null)
-            : null,
-          custom_contingency_percent: dto.custom_contingency_percent !== undefined
-            ? (dto.custom_contingency_percent !== null ? new Decimal(dto.custom_contingency_percent) : null)
-            : null,
-          custom_discount_percentage: dto.custom_discount_percentage !== undefined
-            ? (dto.custom_discount_percentage !== null ? new Decimal(dto.custom_discount_percentage) : null)
-            : null,
-          custom_discount_amount: dto.custom_discount_amount !== undefined
-            ? (dto.custom_discount_amount !== null ? new Decimal(dto.custom_discount_amount) : null)
-            : null,
+          custom_profit_percent:
+            dto.custom_profit_percent !== undefined
+              ? dto.custom_profit_percent !== null
+                ? new Decimal(dto.custom_profit_percent)
+                : null
+              : null,
+          custom_overhead_percent:
+            dto.custom_overhead_percent !== undefined
+              ? dto.custom_overhead_percent !== null
+                ? new Decimal(dto.custom_overhead_percent)
+                : null
+              : null,
+          custom_contingency_percent:
+            dto.custom_contingency_percent !== undefined
+              ? dto.custom_contingency_percent !== null
+                ? new Decimal(dto.custom_contingency_percent)
+                : null
+              : null,
+          custom_discount_percentage:
+            dto.custom_discount_percentage !== undefined
+              ? dto.custom_discount_percentage !== null
+                ? new Decimal(dto.custom_discount_percentage)
+                : null
+              : null,
+          custom_discount_amount:
+            dto.custom_discount_amount !== undefined
+              ? dto.custom_discount_amount !== null
+                ? new Decimal(dto.custom_discount_amount)
+                : null
+              : null,
           order_index: orderIndex,
         },
         include: {
@@ -175,8 +193,12 @@ export class QuoteItemService {
             default_quantity: new Decimal(dto.quantity),
             material_cost_per_unit: new Decimal(dto.material_cost_per_unit),
             labor_cost_per_unit: new Decimal(dto.labor_cost_per_unit),
-            equipment_cost_per_unit: new Decimal(dto.equipment_cost_per_unit || 0),
-            subcontract_cost_per_unit: new Decimal(dto.subcontract_cost_per_unit || 0),
+            equipment_cost_per_unit: new Decimal(
+              dto.equipment_cost_per_unit || 0,
+            ),
+            subcontract_cost_per_unit: new Decimal(
+              dto.subcontract_cost_per_unit || 0,
+            ),
             other_cost_per_unit: new Decimal(dto.other_cost_per_unit || 0),
             usage_count: 0,
           },
@@ -420,20 +442,27 @@ export class QuoteItemService {
       const updateData: any = {};
 
       if (dto.title) updateData.title = dto.title;
-      if (dto.description !== undefined) updateData.description = dto.description;
+      if (dto.description !== undefined)
+        updateData.description = dto.description;
       if (dto.quantity) {
         updateData.quantity = new Decimal(dto.quantity);
       }
       if (dto.unit_measurement_id)
         updateData.unit_measurement_id = dto.unit_measurement_id;
       if (dto.material_cost_per_unit !== undefined)
-        updateData.material_cost_per_unit = new Decimal(dto.material_cost_per_unit);
+        updateData.material_cost_per_unit = new Decimal(
+          dto.material_cost_per_unit,
+        );
       if (dto.labor_cost_per_unit !== undefined)
         updateData.labor_cost_per_unit = new Decimal(dto.labor_cost_per_unit);
       if (dto.equipment_cost_per_unit !== undefined)
-        updateData.equipment_cost_per_unit = new Decimal(dto.equipment_cost_per_unit);
+        updateData.equipment_cost_per_unit = new Decimal(
+          dto.equipment_cost_per_unit,
+        );
       if (dto.subcontract_cost_per_unit !== undefined)
-        updateData.subcontract_cost_per_unit = new Decimal(dto.subcontract_cost_per_unit);
+        updateData.subcontract_cost_per_unit = new Decimal(
+          dto.subcontract_cost_per_unit,
+        );
       if (dto.other_cost_per_unit !== undefined)
         updateData.other_cost_per_unit = new Decimal(dto.other_cost_per_unit);
       if (dto.quote_group_id !== undefined) {
@@ -454,35 +483,44 @@ export class QuoteItemService {
 
       // Handle custom margin fields (null means 0%, not "use default")
       if (dto.custom_profit_percent !== undefined)
-        updateData.custom_profit_percent = dto.custom_profit_percent !== null
-          ? new Decimal(dto.custom_profit_percent)
-          : null;
+        updateData.custom_profit_percent =
+          dto.custom_profit_percent !== null
+            ? new Decimal(dto.custom_profit_percent)
+            : null;
       if (dto.custom_overhead_percent !== undefined)
-        updateData.custom_overhead_percent = dto.custom_overhead_percent !== null
-          ? new Decimal(dto.custom_overhead_percent)
-          : null;
+        updateData.custom_overhead_percent =
+          dto.custom_overhead_percent !== null
+            ? new Decimal(dto.custom_overhead_percent)
+            : null;
       if (dto.custom_contingency_percent !== undefined)
-        updateData.custom_contingency_percent = dto.custom_contingency_percent !== null
-          ? new Decimal(dto.custom_contingency_percent)
-          : null;
+        updateData.custom_contingency_percent =
+          dto.custom_contingency_percent !== null
+            ? new Decimal(dto.custom_contingency_percent)
+            : null;
       if (dto.custom_discount_percentage !== undefined)
-        updateData.custom_discount_percentage = dto.custom_discount_percentage !== null
-          ? new Decimal(dto.custom_discount_percentage)
-          : null;
+        updateData.custom_discount_percentage =
+          dto.custom_discount_percentage !== null
+            ? new Decimal(dto.custom_discount_percentage)
+            : null;
       if (dto.custom_discount_amount !== undefined)
-        updateData.custom_discount_amount = dto.custom_discount_amount !== null
-          ? new Decimal(dto.custom_discount_amount)
-          : null;
+        updateData.custom_discount_amount =
+          dto.custom_discount_amount !== null
+            ? new Decimal(dto.custom_discount_amount)
+            : null;
 
       // Recalculate total_cost
       const quantity = dto.quantity || Number(item.quantity);
-      const material = dto.material_cost_per_unit ?? Number(item.material_cost_per_unit);
+      const material =
+        dto.material_cost_per_unit ?? Number(item.material_cost_per_unit);
       const labor = dto.labor_cost_per_unit ?? Number(item.labor_cost_per_unit);
-      const equipment = dto.equipment_cost_per_unit ?? Number(item.equipment_cost_per_unit);
-      const subcontract = dto.subcontract_cost_per_unit ?? Number(item.subcontract_cost_per_unit);
+      const equipment =
+        dto.equipment_cost_per_unit ?? Number(item.equipment_cost_per_unit);
+      const subcontract =
+        dto.subcontract_cost_per_unit ?? Number(item.subcontract_cost_per_unit);
       const other = dto.other_cost_per_unit ?? Number(item.other_cost_per_unit);
 
-      const totalCostPerUnit = material + labor + equipment + subcontract + other;
+      const totalCostPerUnit =
+        material + labor + equipment + subcontract + other;
 
       // Validate at least one cost > 0
       if (totalCostPerUnit <= 0) {
@@ -535,7 +573,9 @@ export class QuoteItemService {
         material_cost_per_unit: Number(updatedItem.material_cost_per_unit),
         labor_cost_per_unit: Number(updatedItem.labor_cost_per_unit),
         equipment_cost_per_unit: Number(updatedItem.equipment_cost_per_unit),
-        subcontract_cost_per_unit: Number(updatedItem.subcontract_cost_per_unit),
+        subcontract_cost_per_unit: Number(
+          updatedItem.subcontract_cost_per_unit,
+        ),
         other_cost_per_unit: Number(updatedItem.other_cost_per_unit),
         total_cost: Number(updatedItem.total_cost),
       };
@@ -670,10 +710,16 @@ export class QuoteItemService {
           description: sourceItem.description,
           quantity: new Decimal(sourceItem.quantity),
           unit_measurement_id: sourceItem.unit_measurement_id,
-          material_cost_per_unit: new Decimal(sourceItem.material_cost_per_unit),
+          material_cost_per_unit: new Decimal(
+            sourceItem.material_cost_per_unit,
+          ),
           labor_cost_per_unit: new Decimal(sourceItem.labor_cost_per_unit),
-          equipment_cost_per_unit: new Decimal(sourceItem.equipment_cost_per_unit),
-          subcontract_cost_per_unit: new Decimal(sourceItem.subcontract_cost_per_unit),
+          equipment_cost_per_unit: new Decimal(
+            sourceItem.equipment_cost_per_unit,
+          ),
+          subcontract_cost_per_unit: new Decimal(
+            sourceItem.subcontract_cost_per_unit,
+          ),
           other_cost_per_unit: new Decimal(sourceItem.other_cost_per_unit),
           total_cost: new Decimal(sourceItem.total_cost),
           order_index: sourceItem.order_index + 1,
@@ -708,7 +754,9 @@ export class QuoteItemService {
         description: `Quote item duplicated: ${sourceItem.title}`,
       });
 
-      this.logger.log(`Quote item duplicated: ${itemId} → ${duplicatedItem.id}`);
+      this.logger.log(
+        `Quote item duplicated: ${itemId} → ${duplicatedItem.id}`,
+      );
 
       return {
         ...duplicatedItem,
@@ -716,7 +764,9 @@ export class QuoteItemService {
         material_cost_per_unit: Number(duplicatedItem.material_cost_per_unit),
         labor_cost_per_unit: Number(duplicatedItem.labor_cost_per_unit),
         equipment_cost_per_unit: Number(duplicatedItem.equipment_cost_per_unit),
-        subcontract_cost_per_unit: Number(duplicatedItem.subcontract_cost_per_unit),
+        subcontract_cost_per_unit: Number(
+          duplicatedItem.subcontract_cost_per_unit,
+        ),
         other_cost_per_unit: Number(duplicatedItem.other_cost_per_unit),
         total_cost: Number(duplicatedItem.total_cost),
       };
@@ -849,7 +899,9 @@ export class QuoteItemService {
         material_cost_per_unit: Number(updatedItem.material_cost_per_unit),
         labor_cost_per_unit: Number(updatedItem.labor_cost_per_unit),
         equipment_cost_per_unit: Number(updatedItem.equipment_cost_per_unit),
-        subcontract_cost_per_unit: Number(updatedItem.subcontract_cost_per_unit),
+        subcontract_cost_per_unit: Number(
+          updatedItem.subcontract_cost_per_unit,
+        ),
         other_cost_per_unit: Number(updatedItem.other_cost_per_unit),
         total_cost: Number(updatedItem.total_cost),
       };
@@ -890,7 +942,9 @@ export class QuoteItemService {
       },
     });
 
-    this.logger.log(`Quote item saved to library: ${itemId} → ${libraryItem.id}`);
+    this.logger.log(
+      `Quote item saved to library: ${itemId} → ${libraryItem.id}`,
+    );
 
     return libraryItem;
   }

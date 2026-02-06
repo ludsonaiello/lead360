@@ -48,9 +48,16 @@ export class AlertsController {
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async getUnreadCount() {
-    const result = await this.alertService.getNotifications({ page: 1, limit: 1, unread_only: true });
+    const result = await this.alertService.getNotifications({
+      page: 1,
+      limit: 1,
+      unread_only: true,
+    });
     return { unread_count: result.unread_count };
   }
 
@@ -84,10 +91,16 @@ export class AlertsController {
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async getRecentNotifications(@Query('limit') limit?: string) {
     const limitNum = Math.min(parseInt(limit || '10') || 10, 50);
-    const result = await this.alertService.getNotifications({ page: 1, limit: limitNum });
+    const result = await this.alertService.getNotifications({
+      page: 1,
+      limit: limitNum,
+    });
     return result.data;
   }
 
@@ -102,7 +115,12 @@ export class AlertsController {
   })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
-  @ApiQuery({ name: 'unread_only', required: false, type: Boolean, example: false })
+  @ApiQuery({
+    name: 'unread_only',
+    required: false,
+    type: Boolean,
+    example: false,
+  })
   @ApiResponse({
     status: 200,
     description: 'Notifications retrieved successfully',
@@ -117,11 +135,22 @@ export class AlertsController {
               id: { type: 'string' },
               type: { type: 'string', example: 'new_tenant' },
               title: { type: 'string', example: 'New Tenant Registered' },
-              message: { type: 'string', example: 'Acme Roofing LLC has registered' },
-              link: { type: 'string', nullable: true, example: '/admin/tenants/abc123' },
+              message: {
+                type: 'string',
+                example: 'Acme Roofing LLC has registered',
+              },
+              link: {
+                type: 'string',
+                nullable: true,
+                example: '/admin/tenants/abc123',
+              },
               is_read: { type: 'boolean' },
               created_at: { type: 'string', format: 'date-time' },
-              expires_at: { type: 'string', format: 'date-time', nullable: true },
+              expires_at: {
+                type: 'string',
+                format: 'date-time',
+                nullable: true,
+              },
             },
           },
         },
@@ -139,7 +168,10 @@ export class AlertsController {
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async getNotifications(@Query() query: any) {
     const page = parseInt(query.page) || 1;
     const limit = Math.min(parseInt(query.limit) || 20, 50); // Max 50
@@ -174,7 +206,10 @@ export class AlertsController {
   })
   @ApiResponse({ status: 404, description: 'Notification not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async markAsRead(@Param('id', ParseUUIDPipe) id: string) {
     return this.alertService.markAsRead(id);
   }
@@ -196,7 +231,10 @@ export class AlertsController {
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async markAllAsRead() {
     return this.alertService.markAllAsRead();
   }
@@ -214,13 +252,19 @@ export class AlertsController {
     schema: {
       type: 'object',
       properties: {
-        message: { type: 'string', example: 'Notification deleted successfully' },
+        message: {
+          type: 'string',
+          example: 'Notification deleted successfully',
+        },
       },
     },
   })
   @ApiResponse({ status: 404, description: 'Notification not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async deleteNotification(@Param('id', ParseUUIDPipe) id: string) {
     return this.alertService.deleteNotification(id);
   }

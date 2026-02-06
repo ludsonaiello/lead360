@@ -38,7 +38,9 @@ export class ImpersonationService {
       });
 
       if (!admin || !admin.is_platform_admin) {
-        throw new ForbiddenException('Only Platform Admins can impersonate users');
+        throw new ForbiddenException(
+          'Only Platform Admins can impersonate users',
+        );
       }
 
       // Validate impersonated user exists
@@ -60,7 +62,9 @@ export class ImpersonationService {
       }
 
       if (!impersonatedUser.tenant_id) {
-        throw new ForbiddenException('Cannot impersonate users without a tenant');
+        throw new ForbiddenException(
+          'Cannot impersonate users without a tenant',
+        );
       }
 
       // End any existing impersonation session for this admin
@@ -116,7 +120,10 @@ export class ImpersonationService {
         },
       };
     } catch (error) {
-      this.logger.error(`Failed to start impersonation: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to start impersonation: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -172,7 +179,9 @@ export class ImpersonationService {
       // Check if admin still has platform admin privileges
       if (!session.admin_user.is_platform_admin) {
         await this.endImpersonation(sessionToken);
-        throw new ForbiddenException('Admin no longer has platform admin privileges');
+        throw new ForbiddenException(
+          'Admin no longer has platform admin privileges',
+        );
       }
 
       return {
@@ -249,7 +258,10 @@ export class ImpersonationService {
 
       return { message: 'Impersonation session ended successfully' };
     } catch (error) {
-      this.logger.error(`Failed to end impersonation: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to end impersonation: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -305,7 +317,9 @@ export class ImpersonationService {
         },
       });
 
-      this.logger.log(`Cleaned up ${result.count} expired impersonation sessions`);
+      this.logger.log(
+        `Cleaned up ${result.count} expired impersonation sessions`,
+      );
 
       return { cleaned: result.count };
     } catch (error) {

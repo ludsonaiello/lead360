@@ -26,12 +26,20 @@ export class WebhookVerificationService {
     publicKeyBase64: string,
   ): boolean {
     try {
-      this.logger.debug(`[SENDGRID VERIFY] Starting verification with official library`);
+      this.logger.debug(
+        `[SENDGRID VERIFY] Starting verification with official library`,
+      );
       this.logger.debug(`[SENDGRID VERIFY] Signature: ${signature}`);
       this.logger.debug(`[SENDGRID VERIFY] Timestamp: ${timestamp}`);
-      this.logger.debug(`[SENDGRID VERIFY] Public key (base64): ${publicKeyBase64}`);
-      this.logger.debug(`[SENDGRID VERIFY] Payload type: ${Buffer.isBuffer(payload) ? 'Buffer' : typeof payload}`);
-      this.logger.debug(`[SENDGRID VERIFY] Payload length: ${payload.length} bytes`);
+      this.logger.debug(
+        `[SENDGRID VERIFY] Public key (base64): ${publicKeyBase64}`,
+      );
+      this.logger.debug(
+        `[SENDGRID VERIFY] Payload type: ${Buffer.isBuffer(payload) ? 'Buffer' : typeof payload}`,
+      );
+      this.logger.debug(
+        `[SENDGRID VERIFY] Payload length: ${payload.length} bytes`,
+      );
 
       // Initialize SendGrid EventWebhook
       const eventWebhook = new EventWebhook();
@@ -39,17 +47,27 @@ export class WebhookVerificationService {
       // Convert base64 public key to PEM format (required by SendGrid library)
       // The library expects PEM format: -----BEGIN PUBLIC KEY-----...-----END PUBLIC KEY-----
       const publicKeyPEM = `-----BEGIN PUBLIC KEY-----\n${publicKeyBase64}\n-----END PUBLIC KEY-----`;
-      this.logger.debug(`[SENDGRID VERIFY] Public key PEM format:\n${publicKeyPEM}`);
+      this.logger.debug(
+        `[SENDGRID VERIFY] Public key PEM format:\n${publicKeyPEM}`,
+      );
 
       // Convert public key to ECDSA format
       let ecPublicKey;
       try {
         ecPublicKey = eventWebhook.convertPublicKeyToECDSA(publicKeyPEM);
-        this.logger.debug(`[SENDGRID VERIFY] Public key converted to ECDSA format successfully`);
-        this.logger.debug(`[SENDGRID VERIFY] ECDSA key type: ${typeof ecPublicKey}`);
-        this.logger.debug(`[SENDGRID VERIFY] ECDSA key object keys: ${Object.keys(ecPublicKey).join(', ')}`);
+        this.logger.debug(
+          `[SENDGRID VERIFY] Public key converted to ECDSA format successfully`,
+        );
+        this.logger.debug(
+          `[SENDGRID VERIFY] ECDSA key type: ${typeof ecPublicKey}`,
+        );
+        this.logger.debug(
+          `[SENDGRID VERIFY] ECDSA key object keys: ${Object.keys(ecPublicKey).join(', ')}`,
+        );
       } catch (keyError) {
-        this.logger.error(`[SENDGRID VERIFY] Failed to convert public key: ${keyError.message}`);
+        this.logger.error(
+          `[SENDGRID VERIFY] Failed to convert public key: ${keyError.message}`,
+        );
         throw keyError;
       }
 
@@ -57,12 +75,16 @@ export class WebhookVerificationService {
       // SendGrid signs the EXACT raw bytes sent over HTTP
       // Do NOT convert to string - that breaks verification for batched webhooks
       // The verifySignature method accepts Buffer even though types say string
-      this.logger.debug(`[SENDGRID VERIFY] Verifying raw Buffer (${payload.length} bytes)`);
-      this.logger.debug(`[SENDGRID VERIFY] First 20 bytes (hex): ${payload.slice(0, 20).toString('hex')}`);
+      this.logger.debug(
+        `[SENDGRID VERIFY] Verifying raw Buffer (${payload.length} bytes)`,
+      );
+      this.logger.debug(
+        `[SENDGRID VERIFY] First 20 bytes (hex): ${payload.slice(0, 20).toString('hex')}`,
+      );
 
       const verified = eventWebhook.verifySignature(
         ecPublicKey,
-        payload as any,  // Pass Buffer directly (types say string, but Buffer is correct)
+        payload as any, // Pass Buffer directly (types say string, but Buffer is correct)
         signature,
         timestamp,
       );
@@ -72,19 +94,27 @@ export class WebhookVerificationService {
         this.logger.warn(`Payload length: ${payload.length} bytes`);
         this.logger.warn(`Signature: ${signature}`);
         this.logger.warn(`Timestamp: ${timestamp}`);
-        this.logger.warn(`First 50 bytes of payload: ${payload.toString('utf8').substring(0, 50)}`);
+        this.logger.warn(
+          `First 50 bytes of payload: ${payload.toString('utf8').substring(0, 50)}`,
+        );
         return false;
       }
 
-      this.logger.debug(`[SENDGRID VERIFY] ✅ Signature verified successfully (raw Buffer)`);
+      this.logger.debug(
+        `[SENDGRID VERIFY] ✅ Signature verified successfully (raw Buffer)`,
+      );
 
       // Prevent replay attacks (5 minute window)
       const now = Math.floor(Date.now() / 1000);
       const webhookTimestamp = parseInt(timestamp, 10);
 
       this.logger.debug(`[SENDGRID VERIFY] Current timestamp: ${now}`);
-      this.logger.debug(`[SENDGRID VERIFY] Webhook timestamp: ${webhookTimestamp}`);
-      this.logger.debug(`[SENDGRID VERIFY] Time difference: ${Math.abs(now - webhookTimestamp)}s`);
+      this.logger.debug(
+        `[SENDGRID VERIFY] Webhook timestamp: ${webhookTimestamp}`,
+      );
+      this.logger.debug(
+        `[SENDGRID VERIFY] Time difference: ${Math.abs(now - webhookTimestamp)}s`,
+      );
 
       if (Math.abs(now - webhookTimestamp) > 300) {
         this.logger.warn(
@@ -154,37 +184,35 @@ export class WebhookVerificationService {
       }
 
       // Download and cache certificate
-      const certificate = await this.downloadAndCacheCertificate(
-        SigningCertURL,
-      );
+      const certificate =
+        await this.downloadAndCacheCertificate(SigningCertURL);
 
       // Build canonical signing string based on message type
       let signingString: string;
 
-      if (Type === 'SubscriptionConfirmation' || Type === 'UnsubscribeConfirmation') {
-        signingString = [
-          'Message',
-          Message,
-          'MessageId',
-          MessageId,
-          'SubscribeURL',
-          SubscribeURL,
-          'Timestamp',
-          Timestamp,
-          'Token',
-          Token,
-          'TopicArn',
-          TopicArn,
-          'Type',
-          Type,
-        ].join('\n') + '\n';
+      if (
+        Type === 'SubscriptionConfirmation' ||
+        Type === 'UnsubscribeConfirmation'
+      ) {
+        signingString =
+          [
+            'Message',
+            Message,
+            'MessageId',
+            MessageId,
+            'SubscribeURL',
+            SubscribeURL,
+            'Timestamp',
+            Timestamp,
+            'Token',
+            Token,
+            'TopicArn',
+            TopicArn,
+            'Type',
+            Type,
+          ].join('\n') + '\n';
       } else if (Type === 'Notification') {
-        const parts = [
-          'Message',
-          Message,
-          'MessageId',
-          MessageId,
-        ];
+        const parts = ['Message', Message, 'MessageId', MessageId];
 
         if (Subject) {
           parts.push('Subject', Subject);
@@ -203,11 +231,7 @@ export class WebhookVerificationService {
       const verifier = crypto.createVerify('SHA256WithRSA');
       verifier.update(signingString, 'utf8');
 
-      const verified = verifier.verify(
-        certificate,
-        Signature,
-        'base64',
-      );
+      const verified = verifier.verify(certificate, Signature, 'base64');
 
       if (!verified) {
         this.logger.warn('Amazon SES signature verification failed');
@@ -227,7 +251,10 @@ export class WebhookVerificationService {
    * Download and cache SNS certificate
    * Certificates are cached for 24 hours to avoid repeated downloads
    */
-  private certificateCache = new Map<string, { cert: string; expires: number }>();
+  private certificateCache = new Map<
+    string,
+    { cert: string; expires: number }
+  >();
 
   private async downloadAndCacheCertificate(url: string): Promise<string> {
     const now = Date.now();
@@ -301,7 +328,12 @@ export class WebhookVerificationService {
       const twilio = require('twilio');
 
       // Use Twilio's official validation
-      const verified = twilio.validateRequest(authToken, signature, url, params);
+      const verified = twilio.validateRequest(
+        authToken,
+        signature,
+        url,
+        params,
+      );
 
       if (!verified) {
         this.logger.warn('Twilio webhook signature verification failed');

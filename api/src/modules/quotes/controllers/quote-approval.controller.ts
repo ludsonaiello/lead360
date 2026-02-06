@@ -89,8 +89,7 @@ export class QuoteApprovalController {
   })
   @ApiResponse({
     status: 400,
-    description:
-      'Approval already decided / Previous level not approved yet',
+    description: 'Approval already decided / Previous level not approved yet',
   })
   async approve(
     @Request() req,
@@ -166,8 +165,10 @@ export class QuoteApprovalController {
   @Get('quotes/:quoteId/approvals/history')
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Field')
   @ApiOperation({
-    summary: 'Get complete approval history for quote (all workflows with full audit trail)',
-    description: 'Returns all approval workflows for this quote, including rejected and completed workflows. Each workflow represents a submission for approval.',
+    summary:
+      'Get complete approval history for quote (all workflows with full audit trail)',
+    description:
+      'Returns all approval workflows for this quote, including rejected and completed workflows. Each workflow represents a submission for approval.',
   })
   @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
   @ApiResponse({
@@ -188,7 +189,8 @@ export class QuoteApprovalController {
   @Get('users/me/pending-approvals')
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({
-    summary: 'Get pending approvals for current user (quotes awaiting approval)',
+    summary:
+      'Get pending approvals for current user (quotes awaiting approval)',
   })
   @ApiResponse({
     status: 200,

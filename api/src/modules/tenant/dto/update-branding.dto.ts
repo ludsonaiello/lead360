@@ -1,10 +1,4 @@
-import {
-  IsString,
-  IsOptional,
-  Matches,
-  Length,
-  IsUrl,
-} from 'class-validator';
+import { IsString, IsOptional, Matches, Length, IsUrl } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateBrandingDto {

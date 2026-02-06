@@ -165,7 +165,10 @@ export class PlatformEmailConfigAdminController {
     @Body() dto: CreatePlatformEmailConfigDto,
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
-    return this.platformEmailConfigService.createConfiguration(dto, currentUser.id);
+    return this.platformEmailConfigService.createConfiguration(
+      dto,
+      currentUser.id,
+    );
   }
 
   /**
@@ -211,7 +214,8 @@ export class PlatformEmailConfigAdminController {
   @Post('configurations/:configId/activate')
   @ApiOperation({
     summary: 'Activate platform email configuration (Platform Admin)',
-    description: 'Set this configuration as the active provider (deactivates all others)',
+    description:
+      'Set this configuration as the active provider (deactivates all others)',
   })
   @ApiParam({
     name: 'configId',
@@ -243,7 +247,8 @@ export class PlatformEmailConfigAdminController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete platform email configuration (Platform Admin)',
-    description: 'Remove an email provider configuration (cannot delete active config)',
+    description:
+      'Remove an email provider configuration (cannot delete active config)',
   })
   @ApiParam({
     name: 'configId',
@@ -266,7 +271,10 @@ export class PlatformEmailConfigAdminController {
     @Param('configId') configId: string,
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
-    return this.platformEmailConfigService.deleteConfiguration(configId, currentUser.id);
+    return this.platformEmailConfigService.deleteConfiguration(
+      configId,
+      currentUser.id,
+    );
   }
 
   /**

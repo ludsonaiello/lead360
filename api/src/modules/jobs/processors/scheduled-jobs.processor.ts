@@ -37,7 +37,10 @@ export class ScheduledJobsProcessor extends WorkerHost {
           return await this.jobRetentionHandler.execute(jobId, job.data);
 
         case 'partition-maintenance':
-          return await this.partitionMaintenanceHandler.execute(jobId, job.data);
+          return await this.partitionMaintenanceHandler.execute(
+            jobId,
+            job.data,
+          );
 
         default:
           this.logger.warn(`❌ Unknown job type: ${job.name} - skipping`);

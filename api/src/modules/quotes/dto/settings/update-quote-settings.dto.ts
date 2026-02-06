@@ -1,4 +1,14 @@
-import { IsNumber, IsString, IsOptional, Min, Max, IsUUID, IsObject, IsBoolean, ValidateBy } from 'class-validator';
+import {
+  IsNumber,
+  IsString,
+  IsOptional,
+  Min,
+  Max,
+  IsUUID,
+  IsObject,
+  IsBoolean,
+  ValidateBy,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 // Custom validator to accept both array and object for approval_thresholds
@@ -7,7 +17,9 @@ function IsArrayOrObject() {
     name: 'isArrayOrObject',
     validator: {
       validate: (value) => {
-        return value === null || value === undefined || typeof value === 'object';
+        return (
+          value === null || value === undefined || typeof value === 'object'
+        );
       },
       defaultMessage: () => 'approval_thresholds must be an array or object',
     },
@@ -93,7 +105,7 @@ export class UpdateQuoteSettingsDto {
 
   @ApiPropertyOptional({
     example: { min_margin: 15, target_margin: 25, warning_threshold: 10 },
-    description: 'JSON object for profitability thresholds'
+    description: 'JSON object for profitability thresholds',
   })
   @IsObject()
   @IsOptional()
@@ -106,7 +118,7 @@ export class UpdateQuoteSettingsDto {
 
   @ApiPropertyOptional({
     example: true,
-    description: 'Show line items by default in quote PDFs'
+    description: 'Show line items by default in quote PDFs',
   })
   @IsBoolean()
   @IsOptional()
@@ -114,7 +126,8 @@ export class UpdateQuoteSettingsDto {
 
   @ApiPropertyOptional({
     example: false,
-    description: 'Show cost breakdown (material, labor, etc.) by default in quote PDFs'
+    description:
+      'Show cost breakdown (material, labor, etc.) by default in quote PDFs',
   })
   @IsBoolean()
   @IsOptional()
@@ -125,10 +138,11 @@ export class UpdateQuoteSettingsDto {
       approval_levels: [
         { level: 1, role: 'Manager', min_amount: 0, max_amount: 10000 },
         { level: 2, role: 'Admin', min_amount: 10000, max_amount: 50000 },
-        { level: 3, role: 'Owner', min_amount: 50000, max_amount: null }
-      ]
+        { level: 3, role: 'Owner', min_amount: 50000, max_amount: null },
+      ],
     },
-    description: 'JSON object containing approval_levels array OR array directly (will be normalized)'
+    description:
+      'JSON object containing approval_levels array OR array directly (will be normalized)',
   })
   @IsArrayOrObject()
   @IsOptional()
@@ -136,7 +150,7 @@ export class UpdateQuoteSettingsDto {
 
   @ApiPropertyOptional({
     example: false,
-    description: 'Computed field (read-only, ignored if provided)'
+    description: 'Computed field (read-only, ignored if provided)',
   })
   @IsBoolean()
   @IsOptional()

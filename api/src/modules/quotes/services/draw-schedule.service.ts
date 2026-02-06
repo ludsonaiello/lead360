@@ -198,7 +198,10 @@ export class DrawScheduleService {
 
     // Calculate validation info
     const valueSum = entries.reduce((total, e) => total + e.value, 0);
-    const amountSum = entries.reduce((total, e) => total + e.calculated_amount, 0);
+    const amountSum = entries.reduce(
+      (total, e) => total + e.calculated_amount,
+      0,
+    );
     const quoteTotal = Number(quote.total);
 
     let isValid = false;
@@ -218,8 +221,7 @@ export class DrawScheduleService {
         percentage_sum: calculationType === 'percentage' ? valueSum : null,
         amount_sum: amountSum,
         variance: amountSum - quoteTotal,
-        variance_percent:
-          ((amountSum - quoteTotal) / quoteTotal) * 100,
+        variance_percent: ((amountSum - quoteTotal) / quoteTotal) * 100,
       },
     };
   }

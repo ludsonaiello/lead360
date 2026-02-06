@@ -20,9 +20,7 @@ import * as crypto from 'crypto';
 export class QuoteViewTrackingService {
   private readonly logger = new Logger(QuoteViewTrackingService.name);
 
-  constructor(
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Log a quote view
@@ -78,14 +76,19 @@ export class QuoteViewTrackingService {
       where: { quote_id: quoteId },
     });
 
-    if (viewCount === 1 && ['sent', 'delivered', 'opened'].includes(publicAccess.quote.status)) {
+    if (
+      viewCount === 1 &&
+      ['sent', 'delivered', 'opened'].includes(publicAccess.quote.status)
+    ) {
       // First view detected, update status to 'read'
       await this.prisma.quote.update({
         where: { id: quoteId },
         data: { status: 'read' },
       });
 
-      this.logger.log(`Quote ${quoteId} status changed from '${publicAccess.quote.status}' to 'read' (first public URL view)`);
+      this.logger.log(
+        `Quote ${quoteId} status changed from '${publicAccess.quote.status}' to 'read' (first public URL view)`,
+      );
     }
   }
 
@@ -141,14 +144,19 @@ export class QuoteViewTrackingService {
       where: { quote_id: quoteId },
     });
 
-    if (downloadCount === 1 && ['read', 'opened'].includes(publicAccess.quote.status)) {
+    if (
+      downloadCount === 1 &&
+      ['read', 'opened'].includes(publicAccess.quote.status)
+    ) {
       // First download detected, update status to 'downloaded'
       await this.prisma.quote.update({
         where: { id: quoteId },
         data: { status: 'downloaded' },
       });
 
-      this.logger.log(`Quote ${quoteId} status changed from '${publicAccess.quote.status}' to 'downloaded' (first PDF download)`);
+      this.logger.log(
+        `Quote ${quoteId} status changed from '${publicAccess.quote.status}' to 'downloaded' (first PDF download)`,
+      );
     }
   }
 
@@ -219,19 +227,24 @@ export class QuoteViewTrackingService {
     }
 
     // Calculate unique viewers (distinct IP addresses) - only if we have views
-    const uniqueIps = totalViews > 0 ? new Set(viewLogs.map((log) => log.ip_address)) : new Set();
+    const uniqueIps =
+      totalViews > 0
+        ? new Set(viewLogs.map((log) => log.ip_address))
+        : new Set();
     const uniqueViewers = uniqueIps.size;
 
     // Calculate average duration - only if we have views
-    const durationsWithValues = totalViews > 0
-      ? viewLogs
-          .filter((log) => log.view_duration_seconds !== null)
-          .map((log) => log.view_duration_seconds as number)
-      : [];
+    const durationsWithValues =
+      totalViews > 0
+        ? viewLogs
+            .filter((log) => log.view_duration_seconds !== null)
+            .map((log) => log.view_duration_seconds as number)
+        : [];
 
     const averageDuration =
       durationsWithValues.length > 0
-        ? durationsWithValues.reduce((sum, d) => sum + d, 0) / durationsWithValues.length
+        ? durationsWithValues.reduce((sum, d) => sum + d, 0) /
+          durationsWithValues.length
         : null;
 
     // Calculate engagement score
@@ -256,15 +269,28 @@ export class QuoteViewTrackingService {
 
     // Group views by device type
     const viewsByDevice = {
-      desktop: totalViews > 0 ? viewLogs.filter((log) => log.device_type === 'desktop').length : 0,
-      mobile: totalViews > 0 ? viewLogs.filter((log) => log.device_type === 'mobile').length : 0,
-      tablet: totalViews > 0 ? viewLogs.filter((log) => log.device_type === 'tablet').length : 0,
-      unknown: totalViews > 0 ? viewLogs.filter((log) => log.device_type === 'unknown').length : 0,
+      desktop:
+        totalViews > 0
+          ? viewLogs.filter((log) => log.device_type === 'desktop').length
+          : 0,
+      mobile:
+        totalViews > 0
+          ? viewLogs.filter((log) => log.device_type === 'mobile').length
+          : 0,
+      tablet:
+        totalViews > 0
+          ? viewLogs.filter((log) => log.device_type === 'tablet').length
+          : 0,
+      unknown:
+        totalViews > 0
+          ? viewLogs.filter((log) => log.device_type === 'unknown').length
+          : 0,
     };
 
     // First and last viewed times
     const firstViewedAt = viewLogs[0]?.viewed_at.toISOString() || null;
-    const lastViewedAt = viewLogs[viewLogs.length - 1]?.viewed_at.toISOString() || null;
+    const lastViewedAt =
+      viewLogs[viewLogs.length - 1]?.viewed_at.toISOString() || null;
 
     // Group downloads by date
     const downloadsByDateMap = new Map<string, number>();
@@ -281,15 +307,30 @@ export class QuoteViewTrackingService {
 
     // Group downloads by device type
     const downloadsByDevice = {
-      desktop: totalDownloads > 0 ? downloadLogs.filter((log) => log.device_type === 'desktop').length : 0,
-      mobile: totalDownloads > 0 ? downloadLogs.filter((log) => log.device_type === 'mobile').length : 0,
-      tablet: totalDownloads > 0 ? downloadLogs.filter((log) => log.device_type === 'tablet').length : 0,
-      unknown: totalDownloads > 0 ? downloadLogs.filter((log) => log.device_type === 'unknown').length : 0,
+      desktop:
+        totalDownloads > 0
+          ? downloadLogs.filter((log) => log.device_type === 'desktop').length
+          : 0,
+      mobile:
+        totalDownloads > 0
+          ? downloadLogs.filter((log) => log.device_type === 'mobile').length
+          : 0,
+      tablet:
+        totalDownloads > 0
+          ? downloadLogs.filter((log) => log.device_type === 'tablet').length
+          : 0,
+      unknown:
+        totalDownloads > 0
+          ? downloadLogs.filter((log) => log.device_type === 'unknown').length
+          : 0,
     };
 
     // First and last download times
-    const firstDownloadedAt = downloadLogs[0]?.downloaded_at.toISOString() || null;
-    const lastDownloadedAt = downloadLogs[downloadLogs.length - 1]?.downloaded_at.toISOString() || null;
+    const firstDownloadedAt =
+      downloadLogs[0]?.downloaded_at.toISOString() || null;
+    const lastDownloadedAt =
+      downloadLogs[downloadLogs.length - 1]?.downloaded_at.toISOString() ||
+      null;
 
     return {
       quote_id: quoteId,
@@ -319,7 +360,12 @@ export class QuoteViewTrackingService {
    * @param limit - Items per page
    * @returns Paginated view logs
    */
-  async getViewHistory(tenantId: string, quoteId: string, page: number, limit: number) {
+  async getViewHistory(
+    tenantId: string,
+    quoteId: string,
+    page: number,
+    limit: number,
+  ) {
     // Validate quote belongs to tenant
     const quote = await this.prisma.quote.findFirst({
       where: {
@@ -381,7 +427,9 @@ export class QuoteViewTrackingService {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 90);
 
-    this.logger.log(`Anonymizing view logs older than ${cutoffDate.toISOString()}`);
+    this.logger.log(
+      `Anonymizing view logs older than ${cutoffDate.toISOString()}`,
+    );
 
     // Find all view logs older than 90 days that haven't been anonymized yet
     const logsToAnonymize = await this.prisma.quote_view_log.findMany({
@@ -428,7 +476,9 @@ export class QuoteViewTrackingService {
    * @param userAgent - Browser User-Agent string
    * @returns Device type
    */
-  private detectDeviceType(userAgent: string): 'desktop' | 'mobile' | 'tablet' | 'unknown' {
+  private detectDeviceType(
+    userAgent: string,
+  ): 'desktop' | 'mobile' | 'tablet' | 'unknown' {
     const ua = userAgent.toLowerCase();
     if (/mobile|android|iphone/i.test(ua)) return 'mobile';
     if (/tablet|ipad/i.test(ua)) return 'tablet';

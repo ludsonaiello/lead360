@@ -55,9 +55,7 @@ export class QuoteNotesService {
     }
 
     if (noteData.note_text.length > 5000) {
-      throw new BadRequestException(
-        'Note text cannot exceed 5000 characters',
-      );
+      throw new BadRequestException('Note text cannot exceed 5000 characters');
     }
 
     const noteId = this.generateUUID();

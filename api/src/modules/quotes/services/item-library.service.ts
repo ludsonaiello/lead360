@@ -43,7 +43,8 @@ export class ItemLibraryService {
       equipment_cost_per_unit: equipmentCost,
       subcontract_cost_per_unit: subcontractCost,
       other_cost_per_unit: otherCost,
-      total_cost_per_unit: materialCost + laborCost + equipmentCost + subcontractCost + otherCost,
+      total_cost_per_unit:
+        materialCost + laborCost + equipmentCost + subcontractCost + otherCost,
     };
   }
 
@@ -99,7 +100,9 @@ export class ItemLibraryService {
         material_cost_per_unit: new Decimal(dto.material_cost_per_unit),
         labor_cost_per_unit: new Decimal(dto.labor_cost_per_unit),
         equipment_cost_per_unit: new Decimal(dto.equipment_cost_per_unit || 0),
-        subcontract_cost_per_unit: new Decimal(dto.subcontract_cost_per_unit || 0),
+        subcontract_cost_per_unit: new Decimal(
+          dto.subcontract_cost_per_unit || 0,
+        ),
         other_cost_per_unit: new Decimal(dto.other_cost_per_unit || 0),
         usage_count: 0,
       },
@@ -132,10 +135,7 @@ export class ItemLibraryService {
    * @param listDto - List filters
    * @returns Paginated library items
    */
-  async findAll(
-    tenantId: string,
-    listDto: ListLibraryItemsDto,
-  ): Promise<any> {
+  async findAll(tenantId: string, listDto: ListLibraryItemsDto): Promise<any> {
     const {
       page = 1,
       limit = 50,
@@ -253,16 +253,24 @@ export class ItemLibraryService {
 
     if (dto.title) updateData.title = dto.title;
     if (dto.description !== undefined) updateData.description = dto.description;
-    if (dto.unit_measurement_id) updateData.unit_measurement_id = dto.unit_measurement_id;
-    if (dto.default_quantity) updateData.default_quantity = new Decimal(dto.default_quantity);
+    if (dto.unit_measurement_id)
+      updateData.unit_measurement_id = dto.unit_measurement_id;
+    if (dto.default_quantity)
+      updateData.default_quantity = new Decimal(dto.default_quantity);
     if (dto.material_cost_per_unit !== undefined)
-      updateData.material_cost_per_unit = new Decimal(dto.material_cost_per_unit);
+      updateData.material_cost_per_unit = new Decimal(
+        dto.material_cost_per_unit,
+      );
     if (dto.labor_cost_per_unit !== undefined)
       updateData.labor_cost_per_unit = new Decimal(dto.labor_cost_per_unit);
     if (dto.equipment_cost_per_unit !== undefined)
-      updateData.equipment_cost_per_unit = new Decimal(dto.equipment_cost_per_unit);
+      updateData.equipment_cost_per_unit = new Decimal(
+        dto.equipment_cost_per_unit,
+      );
     if (dto.subcontract_cost_per_unit !== undefined)
-      updateData.subcontract_cost_per_unit = new Decimal(dto.subcontract_cost_per_unit);
+      updateData.subcontract_cost_per_unit = new Decimal(
+        dto.subcontract_cost_per_unit,
+      );
     if (dto.other_cost_per_unit !== undefined)
       updateData.other_cost_per_unit = new Decimal(dto.other_cost_per_unit);
     if (dto.is_active !== undefined) updateData.is_active = dto.is_active;
@@ -299,7 +307,11 @@ export class ItemLibraryService {
    * @param itemId - Library item UUID
    * @param userId - User UUID
    */
-  async delete(tenantId: string, itemId: string, userId: string): Promise<void> {
+  async delete(
+    tenantId: string,
+    itemId: string,
+    userId: string,
+  ): Promise<void> {
     const item = await this.findOne(tenantId, itemId);
 
     if (item.usage_count > 0) {
@@ -465,8 +477,12 @@ export class ItemLibraryService {
             default_quantity: new Decimal(itemDto.default_quantity),
             material_cost_per_unit: new Decimal(itemDto.material_cost_per_unit),
             labor_cost_per_unit: new Decimal(itemDto.labor_cost_per_unit),
-            equipment_cost_per_unit: new Decimal(itemDto.equipment_cost_per_unit || 0),
-            subcontract_cost_per_unit: new Decimal(itemDto.subcontract_cost_per_unit || 0),
+            equipment_cost_per_unit: new Decimal(
+              itemDto.equipment_cost_per_unit || 0,
+            ),
+            subcontract_cost_per_unit: new Decimal(
+              itemDto.subcontract_cost_per_unit || 0,
+            ),
             other_cost_per_unit: new Decimal(itemDto.other_cost_per_unit || 0),
             usage_count: 0,
           },
@@ -490,7 +506,9 @@ export class ItemLibraryService {
         description: `Bulk import: ${createdItems.length} library items created`,
       });
 
-      this.logger.log(`Bulk import: ${createdItems.length} library items created`);
+      this.logger.log(
+        `Bulk import: ${createdItems.length} library items created`,
+      );
 
       return createdItems.map((item) => this.formatLibraryItem(item));
     });

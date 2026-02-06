@@ -1,4 +1,12 @@
-import { IsBoolean, IsOptional, IsNumber, IsString, IsIn, Min, Max } from 'class-validator';
+import {
+  IsBoolean,
+  IsOptional,
+  IsNumber,
+  IsString,
+  IsIn,
+  Min,
+  Max,
+} from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -28,7 +36,10 @@ export class ListBundlesDto {
   @Type(() => Number)
   limit?: number;
 
-  @ApiPropertyOptional({ example: 'name', enum: ['name', 'created_at', 'updated_at'] })
+  @ApiPropertyOptional({
+    example: 'name',
+    enum: ['name', 'created_at', 'updated_at'],
+  })
   @IsString()
   @IsOptional()
   @IsIn(['name', 'created_at', 'updated_at'])

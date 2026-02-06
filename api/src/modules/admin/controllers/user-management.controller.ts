@@ -43,16 +43,46 @@ export class UserManagementController {
   @Get()
   @ApiOperation({
     summary: 'List all users',
-    description: 'Get paginated list of users across all tenants with optional filters',
+    description:
+      'Get paginated list of users across all tenants with optional filters',
   })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
-  @ApiQuery({ name: 'tenant_id', required: false, type: String, description: 'Filter by tenant ID' })
-  @ApiQuery({ name: 'role', required: false, type: String, description: 'Filter by role name' })
-  @ApiQuery({ name: 'status', required: false, enum: ['active', 'inactive', 'deleted'] })
-  @ApiQuery({ name: 'last_login_from', required: false, type: String, description: 'ISO date string' })
-  @ApiQuery({ name: 'last_login_to', required: false, type: String, description: 'ISO date string' })
-  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search email or name' })
+  @ApiQuery({
+    name: 'tenant_id',
+    required: false,
+    type: String,
+    description: 'Filter by tenant ID',
+  })
+  @ApiQuery({
+    name: 'role',
+    required: false,
+    type: String,
+    description: 'Filter by role name',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['active', 'inactive', 'deleted'],
+  })
+  @ApiQuery({
+    name: 'last_login_from',
+    required: false,
+    type: String,
+    description: 'ISO date string',
+  })
+  @ApiQuery({
+    name: 'last_login_to',
+    required: false,
+    type: String,
+    description: 'ISO date string',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search email or name',
+  })
   @ApiResponse({
     status: 200,
     description: 'Users list retrieved successfully',
@@ -73,7 +103,11 @@ export class UserManagementController {
               tenant_id: { type: 'string', nullable: true },
               tenant_subdomain: { type: 'string', nullable: true },
               roles: { type: 'array', items: { type: 'string' } },
-              last_login_at: { type: 'string', format: 'date-time', nullable: true },
+              last_login_at: {
+                type: 'string',
+                format: 'date-time',
+                nullable: true,
+              },
               created_at: { type: 'string', format: 'date-time' },
             },
           },
@@ -91,7 +125,10 @@ export class UserManagementController {
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async listUsers(@Query() filters: any) {
     const page = parseInt(filters.page) || 1;
     const limit = Math.min(parseInt(filters.limit) || 20, 100); // Max 100
@@ -191,7 +228,10 @@ export class UserManagementController {
    * Get user details
    */
   @Get(':id')
-  @ApiOperation({ summary: 'Get user details', description: 'Get full user details including roles and activity' })
+  @ApiOperation({
+    summary: 'Get user details',
+    description: 'Get full user details including roles and activity',
+  })
   @ApiParam({ name: 'id', description: 'User ID (UUID)' })
   @ApiResponse({
     status: 200,
@@ -218,7 +258,10 @@ export class UserManagementController {
   })
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async getUserDetails(@Param('id', ParseUUIDPipe) id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
@@ -278,7 +321,10 @@ export class UserManagementController {
   @ApiResponse({ status: 200, description: 'Password reset email sent' })
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async resetPassword(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
@@ -315,13 +361,19 @@ export class UserManagementController {
    * Deactivate user account
    */
   @Post(':id/deactivate')
-  @ApiOperation({ summary: 'Deactivate user', description: 'Set user account to inactive' })
+  @ApiOperation({
+    summary: 'Deactivate user',
+    description: 'Set user account to inactive',
+  })
   @ApiParam({ name: 'id', description: 'User ID (UUID)' })
   @ApiResponse({ status: 200, description: 'User deactivated successfully' })
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 409, description: 'User is already inactive' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async deactivateUser(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
@@ -379,13 +431,19 @@ export class UserManagementController {
    * Activate user account
    */
   @Post(':id/activate')
-  @ApiOperation({ summary: 'Activate user', description: 'Set user account to active' })
+  @ApiOperation({
+    summary: 'Activate user',
+    description: 'Set user account to active',
+  })
   @ApiParam({ name: 'id', description: 'User ID (UUID)' })
   @ApiResponse({ status: 200, description: 'User activated successfully' })
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 409, description: 'User is already active' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async activateUser(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
@@ -438,13 +496,19 @@ export class UserManagementController {
    * Soft delete user
    */
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete user', description: 'Soft delete user (sets deleted_at timestamp)' })
+  @ApiOperation({
+    summary: 'Delete user',
+    description: 'Soft delete user (sets deleted_at timestamp)',
+  })
   @ApiParam({ name: 'id', description: 'User ID (UUID)' })
   @ApiResponse({ status: 200, description: 'User deleted successfully' })
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 409, description: 'User is already deleted' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async deleteUser(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },

@@ -86,13 +86,12 @@ export class QuoteSettingsService {
       default_quote_footer: tenant.default_quote_footer || null,
       default_invoice_footer: tenant.default_invoice_footer || null,
       sales_tax_rate:
-        tenant.sales_tax_rate !== null
-          ? Number(tenant.sales_tax_rate)
-          : null,
+        tenant.sales_tax_rate !== null ? Number(tenant.sales_tax_rate) : null,
       profitability_thresholds: tenant.profitability_thresholds || null,
       active_quote_template_id: tenant.active_quote_template_id || null,
       show_line_items_by_default: tenant.show_line_items_by_default ?? true,
-      show_cost_breakdown_by_default: tenant.show_cost_breakdown_by_default ?? false,
+      show_cost_breakdown_by_default:
+        tenant.show_cost_breakdown_by_default ?? false,
       approval_thresholds: tenant.approval_thresholds || null,
       is_using_system_defaults: this.isUsingSystemDefaults(tenant),
     };
@@ -108,7 +107,11 @@ export class QuoteSettingsService {
     }
 
     // If it's already an object with approval_levels, return as-is
-    if (typeof value === 'object' && !Array.isArray(value) && value.approval_levels) {
+    if (
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      value.approval_levels
+    ) {
       return value;
     }
 
@@ -166,7 +169,8 @@ export class QuoteSettingsService {
       updateData.default_quote_terms = dto.default_quote_terms;
     }
     if (dto.default_payment_instructions !== undefined) {
-      updateData.default_payment_instructions = dto.default_payment_instructions;
+      updateData.default_payment_instructions =
+        dto.default_payment_instructions;
     }
     if (dto.default_quote_validity_days !== undefined) {
       updateData.default_quote_validity_days = dto.default_quote_validity_days;
@@ -190,7 +194,8 @@ export class QuoteSettingsService {
       updateData.default_invoice_footer = dto.default_invoice_footer;
     }
     if (dto.sales_tax_rate !== undefined) {
-      updateData.sales_tax_rate = dto.sales_tax_rate !== null ? new Decimal(dto.sales_tax_rate) : null;
+      updateData.sales_tax_rate =
+        dto.sales_tax_rate !== null ? new Decimal(dto.sales_tax_rate) : null;
     }
     if (dto.profitability_thresholds !== undefined) {
       updateData.profitability_thresholds = dto.profitability_thresholds;
@@ -202,11 +207,14 @@ export class QuoteSettingsService {
       updateData.show_line_items_by_default = dto.show_line_items_by_default;
     }
     if (dto.show_cost_breakdown_by_default !== undefined) {
-      updateData.show_cost_breakdown_by_default = dto.show_cost_breakdown_by_default;
+      updateData.show_cost_breakdown_by_default =
+        dto.show_cost_breakdown_by_default;
     }
     if (dto.approval_thresholds !== undefined) {
       // Normalize approval_thresholds (accept both array and object formats)
-      updateData.approval_thresholds = this.normalizeApprovalThresholds(dto.approval_thresholds);
+      updateData.approval_thresholds = this.normalizeApprovalThresholds(
+        dto.approval_thresholds,
+      );
     }
     // Note: is_using_system_defaults is computed/read-only, not persisted
 

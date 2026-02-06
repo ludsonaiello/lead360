@@ -12,13 +12,15 @@ export class TemplateDetailResponseDto extends TemplateResponseDto {
   category?: CategoryResponseDto;
 
   @ApiPropertyOptional({
-    description: 'Creator user details (included if created_by_user_id is not null)',
+    description:
+      'Creator user details (included if created_by_user_id is not null)',
     type: () => UserBasicInfoDto,
   })
   created_by_user?: UserBasicInfoDto;
 
   @ApiPropertyOptional({
-    description: 'Source template basic info (included if source_template_id is not null)',
+    description:
+      'Source template basic info (included if source_template_id is not null)',
     type: () => TemplateBasicInfoDto,
   })
   source_template?: TemplateBasicInfoDto;

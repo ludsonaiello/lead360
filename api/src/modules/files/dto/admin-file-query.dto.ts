@@ -1,4 +1,11 @@
-import { IsOptional, IsString, IsInt, Min, IsEnum, IsBoolean } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsInt,
+  Min,
+  IsEnum,
+  IsBoolean,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -8,8 +15,9 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
  */
 export class AdminFileQueryDto {
   @ApiPropertyOptional({
-    description: 'Filter by tenant ID (optional - if not provided, returns all tenants)',
-    example: 'tenant-123'
+    description:
+      'Filter by tenant ID (optional - if not provided, returns all tenants)',
+    example: 'tenant-123',
   })
   @IsOptional()
   @IsString()
@@ -18,7 +26,7 @@ export class AdminFileQueryDto {
   @ApiPropertyOptional({
     description: 'Page number',
     default: 1,
-    minimum: 1
+    minimum: 1,
   })
   @IsOptional()
   @Type(() => Number)
@@ -30,7 +38,7 @@ export class AdminFileQueryDto {
     description: 'Items per page (max 100)',
     default: 50,
     minimum: 1,
-    maximum: 100
+    maximum: 100,
   })
   @IsOptional()
   @Type(() => Number)
@@ -41,7 +49,7 @@ export class AdminFileQueryDto {
   @ApiPropertyOptional({
     description: 'Filter by status',
     enum: ['active', 'deleted'],
-    example: 'active'
+    example: 'active',
   })
   @IsOptional()
   @IsEnum(['active', 'deleted'])
@@ -49,7 +57,7 @@ export class AdminFileQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by MIME type',
-    example: 'application/pdf'
+    example: 'application/pdf',
   })
   @IsOptional()
   @IsString()
@@ -57,7 +65,7 @@ export class AdminFileQueryDto {
 
   @ApiPropertyOptional({
     description: 'Search filename (partial match)',
-    example: 'invoice'
+    example: 'invoice',
   })
   @IsOptional()
   @IsString()
@@ -65,8 +73,20 @@ export class AdminFileQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by file category',
-    enum: ['quote', 'invoice', 'license', 'insurance', 'logo', 'contract', 'receipt', 'photo', 'report', 'signature', 'misc'],
-    example: 'invoice'
+    enum: [
+      'quote',
+      'invoice',
+      'license',
+      'insurance',
+      'logo',
+      'contract',
+      'receipt',
+      'photo',
+      'report',
+      'signature',
+      'misc',
+    ],
+    example: 'invoice',
   })
   @IsOptional()
   @IsString()
@@ -74,7 +94,7 @@ export class AdminFileQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by entity type (e.g., "invoice", "user", "quote")',
-    example: 'invoice'
+    example: 'invoice',
   })
   @IsOptional()
   @IsString()
@@ -83,7 +103,7 @@ export class AdminFileQueryDto {
   @ApiPropertyOptional({
     description: 'Filter by file type: "image", "document", or "other"',
     enum: ['image', 'document', 'other'],
-    example: 'image'
+    example: 'image',
   })
   @IsOptional()
   @IsString()
@@ -97,7 +117,7 @@ export class AdminFileQueryDto {
 export class AdminShareLinksQueryDto {
   @ApiPropertyOptional({
     description: 'Filter by tenant ID (optional)',
-    example: 'tenant-123'
+    example: 'tenant-123',
   })
   @IsOptional()
   @IsString()
@@ -105,7 +125,7 @@ export class AdminShareLinksQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by active status only',
-    default: false
+    default: false,
   })
   @IsOptional()
   @Type(() => Boolean)
@@ -115,7 +135,7 @@ export class AdminShareLinksQueryDto {
   @ApiPropertyOptional({
     description: 'Page number',
     default: 1,
-    minimum: 1
+    minimum: 1,
   })
   @IsOptional()
   @Type(() => Number)
@@ -127,7 +147,7 @@ export class AdminShareLinksQueryDto {
     description: 'Items per page (max 100)',
     default: 50,
     minimum: 1,
-    maximum: 100
+    maximum: 100,
   })
   @IsOptional()
   @Type(() => Number)

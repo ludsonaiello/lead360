@@ -47,15 +47,24 @@ export class UnitMeasurementAdminController {
   @Roles('Platform Admin')
   @ApiOperation({ summary: 'Create global unit measurement (admin only)' })
   @ApiResponse({ status: 201, description: 'Global unit created successfully' })
-  @ApiResponse({ status: 409, description: 'Global unit with this name already exists' })
-  async createGlobal(@Request() req, @Body() createUnitDto: CreateGlobalUnitDto) {
+  @ApiResponse({
+    status: 409,
+    description: 'Global unit with this name already exists',
+  })
+  async createGlobal(
+    @Request() req,
+    @Body() createUnitDto: CreateGlobalUnitDto,
+  ) {
     return this.unitService.createGlobal(req.user.id, createUnitDto);
   }
 
   @Get()
   @Roles('Platform Admin')
   @ApiOperation({ summary: 'Get all global units (admin only)' })
-  @ApiResponse({ status: 200, description: 'Global units retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Global units retrieved successfully',
+  })
   async findAllGlobal(@Query() listUnitsDto: ListUnitsDto) {
     return this.unitService.findAllGlobal(listUnitsDto);
   }
@@ -66,7 +75,10 @@ export class UnitMeasurementAdminController {
   @ApiParam({ name: 'id', description: 'Unit UUID' })
   @ApiResponse({ status: 200, description: 'Global unit updated successfully' })
   @ApiResponse({ status: 404, description: 'Global unit not found' })
-  @ApiResponse({ status: 409, description: 'Global unit with this name already exists' })
+  @ApiResponse({
+    status: 409,
+    description: 'Global unit with this name already exists',
+  })
   async updateGlobal(
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
@@ -79,9 +91,13 @@ export class UnitMeasurementAdminController {
   @Roles('Platform Admin')
   @ApiOperation({
     summary: 'Seed default global units (idempotent)',
-    description: 'Creates 10 standard units: Each, Square Foot, Linear Foot, Hour, Cubic Yard, Ton, Gallon, Pound, Box, Bundle',
+    description:
+      'Creates 10 standard units: Each, Square Foot, Linear Foot, Hour, Cubic Yard, Ton, Gallon, Pound, Box, Bundle',
   })
-  @ApiResponse({ status: 200, description: 'Default units seeded successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Default units seeded successfully',
+  })
   async seedDefaults(@Request() req) {
     return this.unitService.seedDefaultUnits(req.user.id);
   }
@@ -102,7 +118,10 @@ export class UnitMeasurementController {
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({ summary: 'Create tenant custom unit' })
   @ApiResponse({ status: 201, description: 'Tenant unit created successfully' })
-  @ApiResponse({ status: 409, description: 'Unit with this name already exists for your tenant' })
+  @ApiResponse({
+    status: 409,
+    description: 'Unit with this name already exists for your tenant',
+  })
   async createTenantUnit(@Request() req, @Body() createUnitDto: CreateUnitDto) {
     return this.unitService.createTenantUnit(
       req.user.tenant_id,
@@ -115,7 +134,8 @@ export class UnitMeasurementController {
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Employee')
   @ApiOperation({
     summary: 'Get all available units (global + tenant custom)',
-    description: 'Returns global units created by admin plus tenant-specific custom units',
+    description:
+      'Returns global units created by admin plus tenant-specific custom units',
   })
   @ApiResponse({ status: 200, description: 'Units retrieved successfully' })
   async findAll(@Request() req, @Query() listUnitsDto: ListUnitsDto) {
@@ -142,7 +162,10 @@ export class UnitMeasurementController {
   @ApiResponse({ status: 200, description: 'Tenant unit updated successfully' })
   @ApiResponse({ status: 403, description: 'Cannot edit global units' })
   @ApiResponse({ status: 404, description: 'Unit not found' })
-  @ApiResponse({ status: 409, description: 'Unit with this name already exists for your tenant' })
+  @ApiResponse({
+    status: 409,
+    description: 'Unit with this name already exists for your tenant',
+  })
   async update(
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
@@ -176,7 +199,10 @@ export class UnitMeasurementController {
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({ summary: 'Get unit usage statistics' })
   @ApiParam({ name: 'id', description: 'Unit UUID' })
-  @ApiResponse({ status: 200, description: 'Statistics retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistics retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'Unit not found' })
   async getStatistics(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.unitService.getUsageStatistics(req.user.tenant_id, id);

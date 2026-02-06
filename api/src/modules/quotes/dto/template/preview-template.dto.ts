@@ -25,7 +25,8 @@ export class PreviewTemplateDto {
 
   @ApiProperty({
     required: false,
-    description: 'Quote ID to use for preview (required if use_real_quote is true)',
+    description:
+      'Quote ID to use for preview (required if use_real_quote is true)',
   })
   @IsOptional()
   @IsUUID()
@@ -39,7 +40,9 @@ export class PreviewTemplateResponseDto {
   @ApiProperty({ description: 'Rendered CSS content' })
   rendered_css: string;
 
-  @ApiProperty({ description: 'Temporary preview URL (expires after 15 minutes)' })
+  @ApiProperty({
+    description: 'Temporary preview URL (expires after 15 minutes)',
+  })
   preview_url: string;
 
   @ApiProperty({ description: 'Preview expiration timestamp' })

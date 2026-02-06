@@ -12,7 +12,11 @@ import {
   ValidatedAddress,
 } from '../../leads/services/google-maps.service';
 import { FilesService } from '../../files/files.service';
-import { CreateVendorDto, UpdateVendorDto, ListVendorsDto } from '../dto/vendor';
+import {
+  CreateVendorDto,
+  UpdateVendorDto,
+  ListVendorsDto,
+} from '../dto/vendor';
 import { randomUUID } from 'crypto';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -101,7 +105,9 @@ export class VendorService {
         latitude: new Decimal(validatedAddress.latitude),
         longitude: new Decimal(validatedAddress.longitude),
         google_place_id: validatedAddress.google_place_id,
-        signature_file_id: hasValidSignature ? dto.signature_file_id : undefined,
+        signature_file_id: hasValidSignature
+          ? dto.signature_file_id
+          : undefined,
         is_default: dto.is_default || false,
         created_by_user_id: userId,
       },
@@ -246,12 +252,19 @@ export class VendorService {
     ) {
       const partialAddress: PartialAddress = {
         address_line1: dto.address_line1 || vendor.address_line1,
-        address_line2: dto.address_line2 !== undefined ? dto.address_line2 : (vendor.address_line2 || undefined),
+        address_line2:
+          dto.address_line2 !== undefined
+            ? dto.address_line2
+            : vendor.address_line2 || undefined,
         city: dto.city || vendor.city,
         state: dto.state || vendor.state,
         zip_code: dto.zip_code || vendor.zip_code,
-        latitude: dto.latitude !== undefined ? dto.latitude : Number(vendor.latitude),
-        longitude: dto.longitude !== undefined ? dto.longitude : Number(vendor.longitude),
+        latitude:
+          dto.latitude !== undefined ? dto.latitude : Number(vendor.latitude),
+        longitude:
+          dto.longitude !== undefined
+            ? dto.longitude
+            : Number(vendor.longitude),
       };
       validatedAddress =
         await this.googleMapsService.validateAddress(partialAddress);

@@ -32,7 +32,10 @@ export class GetRevenueByVendorDto {
  * Performance metrics for a vendor
  */
 export class VendorPerformanceDto {
-  @ApiProperty({ description: 'Vendor ID', example: '123e4567-e89b-12d3-a456-426614174000' })
+  @ApiProperty({
+    description: 'Vendor ID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
   vendor_id: string;
 
   @ApiProperty({ description: 'Vendor name', example: 'ABC Supply Co.' })
@@ -41,10 +44,10 @@ export class VendorPerformanceDto {
   @ApiProperty({ description: 'Number of quotes', example: 25 })
   quote_count: number;
 
-  @ApiProperty({ description: 'Total revenue', example: 125000.00 })
+  @ApiProperty({ description: 'Total revenue', example: 125000.0 })
   total_revenue: number;
 
-  @ApiProperty({ description: 'Average quote value', example: 5000.00 })
+  @ApiProperty({ description: 'Average quote value', example: 5000.0 })
   avg_quote_value: number;
 
   @ApiProperty({ description: 'Approval rate percentage', example: 68.0 })
@@ -57,12 +60,21 @@ export class VendorPerformanceDto {
  * Revenue by vendor response
  */
 export class RevenueByVendorResponseDto {
-  @ApiProperty({ description: 'Vendor performance metrics', type: [VendorPerformanceDto] })
+  @ApiProperty({
+    description: 'Vendor performance metrics',
+    type: [VendorPerformanceDto],
+  })
   vendors: VendorPerformanceDto[];
 
-  @ApiProperty({ description: 'Date range start', example: '2024-01-01T00:00:00.000Z' })
+  @ApiProperty({
+    description: 'Date range start',
+    example: '2024-01-01T00:00:00.000Z',
+  })
   date_from: string;
 
-  @ApiProperty({ description: 'Date range end', example: '2024-01-31T23:59:59.999Z' })
+  @ApiProperty({
+    description: 'Date range end',
+    example: '2024-01-31T23:59:59.999Z',
+  })
   date_to: string;
 }

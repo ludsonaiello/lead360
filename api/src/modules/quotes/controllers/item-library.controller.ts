@@ -46,7 +46,10 @@ export class ItemLibraryController {
   @Post()
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({ summary: 'Create library item' })
-  @ApiResponse({ status: 201, description: 'Library item created successfully' })
+  @ApiResponse({
+    status: 201,
+    description: 'Library item created successfully',
+  })
   @ApiResponse({
     status: 400,
     description: 'At least one cost must be > 0',
@@ -80,9 +83,13 @@ export class ItemLibraryController {
   @Get()
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Employee')
   @ApiOperation({
-    summary: 'List library items with filters (sorted by usage_count by default)',
+    summary:
+      'List library items with filters (sorted by usage_count by default)',
   })
-  @ApiResponse({ status: 200, description: 'Library items retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Library items retrieved successfully',
+  })
   async findAll(@Request() req, @Query() listDto: ListLibraryItemsDto) {
     return this.itemLibraryService.findAll(req.user.tenant_id, listDto);
   }
@@ -91,7 +98,10 @@ export class ItemLibraryController {
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Employee')
   @ApiOperation({ summary: 'Get single library item' })
   @ApiParam({ name: 'id', description: 'Library item UUID' })
-  @ApiResponse({ status: 200, description: 'Library item retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Library item retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'Library item not found' })
   async findOne(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.itemLibraryService.findOne(req.user.tenant_id, id);
@@ -103,7 +113,10 @@ export class ItemLibraryController {
     summary: 'Get library item statistics (usage count, quotes, revenue)',
   })
   @ApiParam({ name: 'id', description: 'Library item UUID' })
-  @ApiResponse({ status: 200, description: 'Statistics retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistics retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'Library item not found' })
   async getStatistics(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.itemLibraryService.getStatistics(req.user.tenant_id, id);
@@ -112,10 +125,14 @@ export class ItemLibraryController {
   @Patch(':id')
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({
-    summary: 'Update library item (only affects future uses, not existing quotes)',
+    summary:
+      'Update library item (only affects future uses, not existing quotes)',
   })
   @ApiParam({ name: 'id', description: 'Library item UUID' })
-  @ApiResponse({ status: 200, description: 'Library item updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Library item updated successfully',
+  })
   @ApiResponse({ status: 404, description: 'Library item not found' })
   async update(
     @Request() req,
@@ -156,7 +173,10 @@ export class ItemLibraryController {
     summary: 'Delete library item (only if usage_count = 0)',
   })
   @ApiParam({ name: 'id', description: 'Library item UUID' })
-  @ApiResponse({ status: 204, description: 'Library item deleted successfully' })
+  @ApiResponse({
+    status: 204,
+    description: 'Library item deleted successfully',
+  })
   @ApiResponse({ status: 404, description: 'Library item not found' })
   @ApiResponse({
     status: 409,

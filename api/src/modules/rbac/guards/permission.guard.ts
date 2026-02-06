@@ -81,7 +81,8 @@ export class PermissionGuard implements CanActivate {
       const now = Date.now();
       const lastLogged = this.failedCheckCache.get(cacheKey) || 0;
 
-      if (now - lastLogged > 30000) { // 30 seconds
+      if (now - lastLogged > 30000) {
+        // 30 seconds
         this.failedCheckCache.set(cacheKey, now);
 
         // Log failed permission check
@@ -97,7 +98,10 @@ export class PermissionGuard implements CanActivate {
             required_permission: `${requiredPermission.module}:${requiredPermission.action}`,
             user_role: user.roles || [],
           },
-          ipAddress: request.ip || request.headers['x-forwarded-for'] || request.connection?.remoteAddress,
+          ipAddress:
+            request.ip ||
+            request.headers['x-forwarded-for'] ||
+            request.connection?.remoteAddress,
           userAgent: request.headers['user-agent'],
         });
       }

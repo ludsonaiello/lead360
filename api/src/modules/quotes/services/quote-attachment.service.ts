@@ -61,7 +61,9 @@ export class QuoteAttachmentService {
     dto: CreateQuoteAttachmentDto,
     userId: string,
   ): Promise<QuoteAttachmentResponseDto> {
-    this.logger.log(`Creating attachment for quote ${quoteId} (tenant: ${tenantId})`);
+    this.logger.log(
+      `Creating attachment for quote ${quoteId} (tenant: ${tenantId})`,
+    );
 
     // 1. Validate quote exists and belongs to tenant, get tenant subdomain
     const quote = await this.prisma.quote.findFirst({
@@ -81,9 +83,15 @@ export class QuoteAttachmentService {
     this.validateAttachmentType(dto);
 
     // 3. For photo types: validate file exists and belongs to tenant
-    if (['cover_photo', 'full_page_photo', 'grid_photo'].includes(dto.attachment_type)) {
+    if (
+      ['cover_photo', 'full_page_photo', 'grid_photo'].includes(
+        dto.attachment_type,
+      )
+    ) {
       if (!dto.file_id) {
-        throw new BadRequestException('file_id is required for photo attachments');
+        throw new BadRequestException(
+          'file_id is required for photo attachments',
+        );
       }
       await this.validatePhotoFile(tenantId, dto.file_id);
     }
@@ -98,8 +106,15 @@ export class QuoteAttachmentService {
       });
 
       if (existingCoverPhoto) {
-        this.logger.log(`Deleting existing cover photo ${existingCoverPhoto.id} before creating new one`);
-        await this.deleteAttachment(tenantId, quoteId, existingCoverPhoto.id, userId);
+        this.logger.log(
+          `Deleting existing cover photo ${existingCoverPhoto.id} before creating new one`,
+        );
+        await this.deleteAttachment(
+          tenantId,
+          quoteId,
+          existingCoverPhoto.id,
+          userId,
+        );
       }
     }
 
@@ -113,15 +128,20 @@ export class QuoteAttachmentService {
           userId,
           quoteId,
         );
-        this.logger.log(`QR code generated for URL attachment: ${qrCodeFileId}`);
+        this.logger.log(
+          `QR code generated for URL attachment: ${qrCodeFileId}`,
+        );
       } catch (error) {
-        this.logger.warn(`Failed to generate QR code: ${error.message}. Continuing without QR code.`);
+        this.logger.warn(
+          `Failed to generate QR code: ${error.message}. Continuing without QR code.`,
+        );
         // Graceful degradation - attachment created without QR code
       }
     }
 
     // 6. Determine order_index (max + 1 if not provided)
-    const orderIndex = dto.order_index ?? await this.getNextOrderIndex(quoteId);
+    const orderIndex =
+      dto.order_index ?? (await this.getNextOrderIndex(quoteId));
 
     // 7. Create attachment record
     const attachment = await this.prisma.quote_attachment.create({
@@ -174,7 +194,9 @@ export class QuoteAttachmentService {
     dto: UpdateQuoteAttachmentDto,
     userId: string,
   ): Promise<QuoteAttachmentResponseDto> {
-    this.logger.log(`Updating attachment ${attachmentId} (quote: ${quoteId}, tenant: ${tenantId})`);
+    this.logger.log(
+      `Updating attachment ${attachmentId} (quote: ${quoteId}, tenant: ${tenantId})`,
+    );
 
     // 1. Get tenant subdomain
     const tenant = await this.prisma.tenant.findUnique({
@@ -187,11 +209,19 @@ export class QuoteAttachmentService {
     }
 
     // 2. Validate attachment exists and belongs to tenant/quote
-    const attachment = await this.getAttachmentOrFail(tenantId, quoteId, attachmentId);
+    const attachment = await this.getAttachmentOrFail(
+      tenantId,
+      quoteId,
+      attachmentId,
+    );
 
     // 2. If URL changed: regenerate QR code
     let qrCodeFileId = attachment.qr_code_file_id;
-    if (dto.url && dto.url !== attachment.url && attachment.attachment_type === 'url_attachment') {
+    if (
+      dto.url &&
+      dto.url !== attachment.url &&
+      attachment.attachment_type === 'url_attachment'
+    ) {
       this.logger.log(`URL changed, regenerating QR code`);
       try {
         // Delete old QR code file if exists
@@ -266,10 +296,16 @@ export class QuoteAttachmentService {
     attachmentId: string,
     userId: string,
   ): Promise<void> {
-    this.logger.log(`Deleting attachment ${attachmentId} (quote: ${quoteId}, tenant: ${tenantId})`);
+    this.logger.log(
+      `Deleting attachment ${attachmentId} (quote: ${quoteId}, tenant: ${tenantId})`,
+    );
 
     // 1. Validate attachment exists and get file references
-    const attachment = await this.getAttachmentOrFail(tenantId, quoteId, attachmentId);
+    const attachment = await this.getAttachmentOrFail(
+      tenantId,
+      quoteId,
+      attachmentId,
+    );
 
     // 2. Delete associated files from storage BEFORE deleting attachment record
     // This ensures files are cleaned up properly
@@ -279,7 +315,9 @@ export class QuoteAttachmentService {
         await this.filesService.delete(tenantId, attachment.file_id, userId);
         this.logger.log(`File ${attachment.file_id} deleted successfully`);
       } catch (error) {
-        this.logger.warn(`Failed to delete file ${attachment.file_id}: ${error.message}`);
+        this.logger.warn(
+          `Failed to delete file ${attachment.file_id}: ${error.message}`,
+        );
         // Continue with attachment deletion even if file deletion fails
         // This prevents orphaned attachment records
       }
@@ -288,11 +326,21 @@ export class QuoteAttachmentService {
     // 3. Delete QR code file if exists
     if (attachment.qr_code_file_id) {
       try {
-        this.logger.log(`Deleting QR code file ${attachment.qr_code_file_id} from storage`);
-        await this.filesService.delete(tenantId, attachment.qr_code_file_id, userId);
-        this.logger.log(`QR code file ${attachment.qr_code_file_id} deleted successfully`);
+        this.logger.log(
+          `Deleting QR code file ${attachment.qr_code_file_id} from storage`,
+        );
+        await this.filesService.delete(
+          tenantId,
+          attachment.qr_code_file_id,
+          userId,
+        );
+        this.logger.log(
+          `QR code file ${attachment.qr_code_file_id} deleted successfully`,
+        );
       } catch (error) {
-        this.logger.warn(`Failed to delete QR code file ${attachment.qr_code_file_id}: ${error.message}`);
+        this.logger.warn(
+          `Failed to delete QR code file ${attachment.qr_code_file_id}: ${error.message}`,
+        );
         // Continue with attachment deletion
       }
     }
@@ -313,7 +361,9 @@ export class QuoteAttachmentService {
       description: `Quote attachment deleted: ${attachment.attachment_type}`,
     });
 
-    this.logger.log(`Attachment ${attachmentId} and associated files deleted successfully`);
+    this.logger.log(
+      `Attachment ${attachmentId} and associated files deleted successfully`,
+    );
   }
 
   /**
@@ -327,7 +377,9 @@ export class QuoteAttachmentService {
     tenantId: string,
     quoteId: string,
   ): Promise<QuoteAttachmentResponseDto[]> {
-    this.logger.log(`Listing attachments for quote ${quoteId} (tenant: ${tenantId})`);
+    this.logger.log(
+      `Listing attachments for quote ${quoteId} (tenant: ${tenantId})`,
+    );
 
     // 1. Validate quote exists and get tenant subdomain
     const quote = await this.prisma.quote.findFirst({
@@ -356,7 +408,9 @@ export class QuoteAttachmentService {
       ],
     });
 
-    return attachments.map((att) => this.mapToResponseDto(att, quote.tenant.subdomain));
+    return attachments.map((att) =>
+      this.mapToResponseDto(att, quote.tenant.subdomain),
+    );
   }
 
   /**
@@ -372,7 +426,9 @@ export class QuoteAttachmentService {
     quoteId: string,
     attachmentId: string,
   ): Promise<QuoteAttachmentResponseDto> {
-    this.logger.log(`Getting attachment ${attachmentId} (quote: ${quoteId}, tenant: ${tenantId})`);
+    this.logger.log(
+      `Getting attachment ${attachmentId} (quote: ${quoteId}, tenant: ${tenantId})`,
+    );
 
     // Get tenant subdomain
     const tenant = await this.prisma.tenant.findUnique({
@@ -417,7 +473,9 @@ export class QuoteAttachmentService {
     dto: ReorderAttachmentsDto,
     userId: string,
   ): Promise<void> {
-    this.logger.log(`Reordering ${dto.attachments.length} attachments for quote ${quoteId}`);
+    this.logger.log(
+      `Reordering ${dto.attachments.length} attachments for quote ${quoteId}`,
+    );
 
     // 1. Validate quote exists
     const quote = await this.prisma.quote.findFirst({
@@ -475,25 +533,39 @@ export class QuoteAttachmentService {
   private validateAttachmentType(dto: CreateQuoteAttachmentDto): void {
     if (dto.attachment_type === 'url_attachment') {
       if (!dto.url) {
-        throw new BadRequestException('url is required for url_attachment type');
+        throw new BadRequestException(
+          'url is required for url_attachment type',
+        );
       }
       if (dto.file_id) {
-        throw new BadRequestException('file_id must be null for url_attachment type');
+        throw new BadRequestException(
+          'file_id must be null for url_attachment type',
+        );
       }
     }
 
-    if (['cover_photo', 'full_page_photo', 'grid_photo'].includes(dto.attachment_type)) {
+    if (
+      ['cover_photo', 'full_page_photo', 'grid_photo'].includes(
+        dto.attachment_type,
+      )
+    ) {
       if (!dto.file_id) {
-        throw new BadRequestException(`file_id is required for ${dto.attachment_type} type`);
+        throw new BadRequestException(
+          `file_id is required for ${dto.attachment_type} type`,
+        );
       }
       if (dto.url) {
-        throw new BadRequestException('url must be null for photo attachment types');
+        throw new BadRequestException(
+          'url must be null for photo attachment types',
+        );
       }
     }
 
     if (dto.attachment_type === 'grid_photo') {
       if (!dto.grid_layout) {
-        throw new BadRequestException('grid_layout is required for grid_photo type');
+        throw new BadRequestException(
+          'grid_layout is required for grid_photo type',
+        );
       }
     } else {
       if (dto.grid_layout) {
@@ -507,7 +579,10 @@ export class QuoteAttachmentService {
   /**
    * Validate photo file exists and belongs to tenant
    */
-  private async validatePhotoFile(tenantId: string, fileId: string): Promise<void> {
+  private async validatePhotoFile(
+    tenantId: string,
+    fileId: string,
+  ): Promise<void> {
     const file = await this.prisma.file.findFirst({
       where: {
         file_id: fileId,
@@ -516,7 +591,9 @@ export class QuoteAttachmentService {
     });
 
     if (!file) {
-      throw new NotFoundException(`File ${fileId} not found or does not belong to tenant`);
+      throw new NotFoundException(
+        `File ${fileId} not found or does not belong to tenant`,
+      );
     }
 
     // Validate it's an image
@@ -565,7 +642,10 @@ export class QuoteAttachmentService {
   /**
    * Map Prisma model to response DTO
    */
-  private mapToResponseDto(attachment: any, tenantSubdomain: string): QuoteAttachmentResponseDto {
+  private mapToResponseDto(
+    attachment: any,
+    tenantSubdomain: string,
+  ): QuoteAttachmentResponseDto {
     return {
       id: attachment.id,
       quote_id: attachment.quote_id,
@@ -577,7 +657,9 @@ export class QuoteAttachmentService {
       grid_layout: attachment.grid_layout,
       order_index: attachment.order_index,
       created_at: attachment.created_at,
-      file: attachment.file ? this.mapFileInfo(attachment.file, tenantSubdomain) : undefined,
+      file: attachment.file
+        ? this.mapFileInfo(attachment.file, tenantSubdomain)
+        : undefined,
       qr_code_file: attachment.qr_code_file
         ? this.mapFileInfo(attachment.qr_code_file, tenantSubdomain)
         : undefined,

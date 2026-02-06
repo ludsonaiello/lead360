@@ -44,7 +44,8 @@ export class ExportsController {
   @Post('tenants')
   @ApiOperation({
     summary: 'Export tenants',
-    description: 'Queue export job for tenants data. Returns job ID for polling status.',
+    description:
+      'Queue export job for tenants data. Returns job ID for polling status.',
   })
   @ApiBody({
     schema: {
@@ -55,7 +56,10 @@ export class ExportsController {
         filters: {
           type: 'object',
           properties: {
-            status: { type: 'string', enum: ['active', 'suspended', 'deleted'] },
+            status: {
+              type: 'string',
+              enum: ['active', 'suspended', 'deleted'],
+            },
             created_from: { type: 'string', format: 'date-time' },
             created_to: { type: 'string', format: 'date-time' },
           },
@@ -76,9 +80,19 @@ export class ExportsController {
   })
   @ApiResponse({ status: 400, description: 'Invalid format' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
-  async exportTenants(@Request() req, @Body() body: { format: string; filters?: any }) {
-    return this.exportService.exportTenants(body.filters || {}, body.format, req.user.id);
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
+  async exportTenants(
+    @Request() req,
+    @Body() body: { format: string; filters?: any },
+  ) {
+    return this.exportService.exportTenants(
+      body.filters || {},
+      body.format,
+      req.user.id,
+    );
   }
 
   /**
@@ -88,7 +102,8 @@ export class ExportsController {
   @Post('users')
   @ApiOperation({
     summary: 'Export users',
-    description: 'Queue export job for users data. Returns job ID for polling status.',
+    description:
+      'Queue export job for users data. Returns job ID for polling status.',
   })
   @ApiBody({
     schema: {
@@ -119,9 +134,19 @@ export class ExportsController {
   })
   @ApiResponse({ status: 400, description: 'Invalid format' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
-  async exportUsers(@Request() req, @Body() body: { format: string; filters?: any }) {
-    return this.exportService.exportUsers(body.filters || {}, body.format, req.user.id);
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
+  async exportUsers(
+    @Request() req,
+    @Body() body: { format: string; filters?: any },
+  ) {
+    return this.exportService.exportUsers(
+      body.filters || {},
+      body.format,
+      req.user.id,
+    );
   }
 
   /**
@@ -131,7 +156,8 @@ export class ExportsController {
   @Post('audit-logs')
   @ApiOperation({
     summary: 'Export audit logs',
-    description: 'Queue export job for audit logs. Returns job ID for polling status. Max 1000 rows.',
+    description:
+      'Queue export job for audit logs. Returns job ID for polling status. Max 1000 rows.',
   })
   @ApiBody({
     schema: {
@@ -166,9 +192,19 @@ export class ExportsController {
   })
   @ApiResponse({ status: 400, description: 'Invalid format' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
-  async exportAuditLogs(@Request() req, @Body() body: { format: string; filters?: any }) {
-    return this.exportService.exportAuditLogs(body.filters || {}, body.format, req.user.id);
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
+  async exportAuditLogs(
+    @Request() req,
+    @Body() body: { format: string; filters?: any },
+  ) {
+    return this.exportService.exportAuditLogs(
+      body.filters || {},
+      body.format,
+      req.user.id,
+    );
   }
 
   /**
@@ -178,9 +214,16 @@ export class ExportsController {
   @Get('history')
   @ApiOperation({
     summary: 'Get export history',
-    description: 'Returns list of export jobs created by current admin (last 10 by default)',
+    description:
+      'Returns list of export jobs created by current admin (last 10 by default)',
   })
-  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10, maximum: 50 })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    example: 10,
+    maximum: 50,
+  })
   @ApiResponse({
     status: 200,
     description: 'Export history retrieved successfully',
@@ -192,7 +235,10 @@ export class ExportsController {
           id: { type: 'string' },
           export_type: { type: 'string', example: 'tenants' },
           format: { type: 'string', example: 'csv' },
-          status: { type: 'string', enum: ['pending', 'processing', 'completed', 'failed'] },
+          status: {
+            type: 'string',
+            enum: ['pending', 'processing', 'completed', 'failed'],
+          },
           row_count: { type: 'number', nullable: true },
           file_path: { type: 'string', nullable: true },
           error_message: { type: 'string', nullable: true },
@@ -203,7 +249,10 @@ export class ExportsController {
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async getExportHistory(@Request() req, @Query('limit') limit?: number) {
     const exportLimit = Math.min(limit || 10, 50); // Max 50
     return this.exportService.getExportHistory(req.user.id, exportLimit);
@@ -228,9 +277,15 @@ export class ExportsController {
       'application/pdf': {},
     },
   })
-  @ApiResponse({ status: 404, description: 'Export job not found or file not ready' })
+  @ApiResponse({
+    status: 404,
+    description: 'Export job not found or file not ready',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async downloadExport(@Param('id', ParseUUIDPipe) id: string) {
     // Get export job
     const exportJob = await this.prisma.export_job.findUnique({
@@ -242,7 +297,9 @@ export class ExportsController {
     }
 
     if (exportJob.status !== 'completed' || !exportJob.file_path) {
-      throw new NotFoundException('Export file not ready. Status: ' + exportJob.status);
+      throw new NotFoundException(
+        'Export file not ready. Status: ' + exportJob.status,
+      );
     }
 
     // Check if file exists
@@ -254,7 +311,8 @@ export class ExportsController {
     const fileBuffer = fs.readFileSync(exportJob.file_path);
 
     // Determine content type
-    const contentType = exportJob.format === 'csv' ? 'text/csv' : 'application/pdf';
+    const contentType =
+      exportJob.format === 'csv' ? 'text/csv' : 'application/pdf';
     const filename = `${exportJob.export_type}_${id}.${exportJob.format}`;
 
     return new StreamableFile(fileBuffer, {

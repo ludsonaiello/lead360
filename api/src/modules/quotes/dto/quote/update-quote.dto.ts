@@ -79,7 +79,8 @@ export class UpdateQuoteDto {
 
   @ApiPropertyOptional({
     example: 8.5,
-    description: 'Custom tax rate for this quote (overrides tenant sales tax rate)',
+    description:
+      'Custom tax rate for this quote (overrides tenant sales tax rate)',
   })
   @IsNumber()
   @IsOptional()
@@ -120,7 +121,8 @@ export class UpdateQuoteDto {
   custom_terms?: string;
 
   @ApiPropertyOptional({
-    example: '50% deposit required to begin work. Remaining balance due upon completion.',
+    example:
+      '50% deposit required to begin work. Remaining balance due upon completion.',
     description: 'Custom payment instructions for this quote',
   })
   @IsString()

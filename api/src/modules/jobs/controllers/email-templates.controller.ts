@@ -14,7 +14,14 @@ import {
   BadRequestException,
   Req,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PlatformAdminGuard } from '../../rbac/guards/platform-admin.guard';
@@ -41,7 +48,9 @@ export class EmailTemplatesController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'List all email templates with filters and pagination' })
+  @ApiOperation({
+    summary: 'List all email templates with filters and pagination',
+  })
   @ApiResponse({ status: 200, description: 'Email templates retrieved' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin only' })
@@ -58,7 +67,9 @@ export class EmailTemplatesController {
   // /variables/* routes must be before /:templateKey
 
   @Get('variables/registry')
-  @ApiOperation({ summary: 'Get all available template variables from registry' })
+  @ApiOperation({
+    summary: 'Get all available template variables from registry',
+  })
   @ApiQuery({
     name: 'category',
     required: false,
@@ -129,7 +140,10 @@ export class EmailTemplatesController {
   @Post()
   @ApiOperation({ summary: 'Create new email template' })
   @ApiResponse({ status: 201, description: 'Template created' })
-  @ApiResponse({ status: 400, description: 'Invalid Handlebars syntax or duplicate key' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid Handlebars syntax or duplicate key',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin only' })
   async createTemplate(@Body() dto: CreateEmailTemplateDto) {
@@ -137,7 +151,9 @@ export class EmailTemplatesController {
   }
 
   @Patch(':templateKey')
-  @ApiOperation({ summary: 'Update email template (including system templates)' })
+  @ApiOperation({
+    summary: 'Update email template (including system templates)',
+  })
   @ApiParam({ name: 'templateKey', description: 'Template Key', type: String })
   @ApiResponse({ status: 200, description: 'Template updated' })
   @ApiResponse({ status: 400, description: 'Invalid syntax' })
@@ -168,7 +184,9 @@ export class EmailTemplatesController {
 
   @Post(':templateKey/preview')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Preview rendered email template with sample variables' })
+  @ApiOperation({
+    summary: 'Preview rendered email template with sample variables',
+  })
   @ApiParam({ name: 'templateKey', description: 'Template Key', type: String })
   @ApiResponse({ status: 200, description: 'Template rendered successfully' })
   @ApiResponse({ status: 404, description: 'Template not found' })
@@ -195,7 +213,10 @@ export class EmailTemplatesController {
         dto.variables,
       );
       const renderedText = template.text_body
-        ? this.emailTemplateService.renderTemplate(template.text_body, dto.variables)
+        ? this.emailTemplateService.renderTemplate(
+            template.text_body,
+            dto.variables,
+          )
         : null;
 
       return {

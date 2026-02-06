@@ -8,7 +8,10 @@ import { PrismaService } from '../../../core/database/prisma.service';
 import { EncryptionService } from '../../../core/encryption/encryption.service';
 import { CommunicationProviderService } from './communication-provider.service';
 import { EmailSenderService } from './email-sender.service';
-import { UpdateTenantEmailConfigDto, CreateTenantEmailConfigDto } from '../dto/email-config.dto';
+import {
+  UpdateTenantEmailConfigDto,
+  CreateTenantEmailConfigDto,
+} from '../dto/email-config.dto';
 import { randomUUID } from 'crypto';
 
 /**
@@ -59,7 +62,7 @@ export class TenantEmailConfigService {
     });
 
     // Hide credentials in list view
-    return configs.map(config => {
+    return configs.map((config) => {
       const { credentials, ...safeConfig } = config;
       return safeConfig;
     });
@@ -145,7 +148,9 @@ export class TenantEmailConfigService {
     userId: string,
   ) {
     // 1. Validate provider exists and is active
-    const provider = await this.providerService.getProviderById(dto.provider_id);
+    const provider = await this.providerService.getProviderById(
+      dto.provider_id,
+    );
 
     if (!provider.is_active) {
       throw new BadRequestException(
@@ -251,7 +256,9 @@ export class TenantEmailConfigService {
 
     // 2. If changing provider, validate it
     if (dto.provider_id && dto.provider_id !== existing.provider_id) {
-      const newProvider = await this.providerService.getProviderById(dto.provider_id);
+      const newProvider = await this.providerService.getProviderById(
+        dto.provider_id,
+      );
 
       if (!newProvider.is_active) {
         throw new BadRequestException(
@@ -274,9 +281,9 @@ export class TenantEmailConfigService {
     // 3. Validate credentials if provided
     if (dto.credentials) {
       const existingConfig = existing.provider_config
-        ? (typeof existing.provider_config === 'string'
-            ? JSON.parse(existing.provider_config)
-            : existing.provider_config)
+        ? typeof existing.provider_config === 'string'
+          ? JSON.parse(existing.provider_config)
+          : existing.provider_config
         : {};
 
       const validation = await this.providerService.validateProviderSettings(
@@ -391,7 +398,11 @@ export class TenantEmailConfigService {
   /**
    * Delete provider configuration
    */
-  async deleteProviderConfig(tenantId: string, configId: string, userId: string) {
+  async deleteProviderConfig(
+    tenantId: string,
+    configId: string,
+    userId: string,
+  ) {
     const config = await this.prisma.tenant_email_config.findFirst({
       where: { id: configId, tenant_id: tenantId },
       include: { provider: true },

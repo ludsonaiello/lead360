@@ -10,7 +10,12 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -45,14 +50,20 @@ export class QuoteSearchController {
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Field')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Advanced multi-field search' })
-  @ApiResponse({ status: 200, description: 'Search results returned', type: AdvancedSearchResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Search results returned',
+    type: AdvancedSearchResponseDto,
+  })
   async advancedSearch(
     @Query() dto: AdvancedSearchDto,
     @Request() req,
   ): Promise<AdvancedSearchResponseDto> {
     const tenantId = req.user.tenant_id;
 
-    this.logger.log(`Advanced search for tenant ${tenantId}: ${JSON.stringify(dto)}`);
+    this.logger.log(
+      `Advanced search for tenant ${tenantId}: ${JSON.stringify(dto)}`,
+    );
 
     return await this.searchService.advancedSearch(tenantId, dto);
   }
@@ -61,7 +72,11 @@ export class QuoteSearchController {
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Field')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get autocomplete suggestions' })
-  @ApiResponse({ status: 200, description: 'Suggestions returned', type: SuggestionsResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Suggestions returned',
+    type: SuggestionsResponseDto,
+  })
   async getSuggestions(
     @Query() query: GetSuggestionsDto,
     @Request() req,
@@ -80,8 +95,15 @@ export class QuoteSearchController {
   @Roles('Owner', 'Admin', 'Manager')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Save search for reuse' })
-  @ApiResponse({ status: 201, description: 'Search saved', type: SavedSearchDto })
-  async saveSearch(@Body() dto: SaveSearchDto, @Request() req): Promise<SavedSearchDto> {
+  @ApiResponse({
+    status: 201,
+    description: 'Search saved',
+    type: SavedSearchDto,
+  })
+  async saveSearch(
+    @Body() dto: SaveSearchDto,
+    @Request() req,
+  ): Promise<SavedSearchDto> {
     const tenantId = req.user.tenant_id;
     const userId = req.user.user_id;
 
@@ -92,7 +114,11 @@ export class QuoteSearchController {
   @Roles('Owner', 'Admin', 'Manager')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get saved searches' })
-  @ApiResponse({ status: 200, description: 'Saved searches returned', type: SavedSearchesResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Saved searches returned',
+    type: SavedSearchesResponseDto,
+  })
   async getSavedSearches(@Request() req): Promise<SavedSearchesResponseDto> {
     const tenantId = req.user.tenant_id;
     const userId = req.user.user_id;

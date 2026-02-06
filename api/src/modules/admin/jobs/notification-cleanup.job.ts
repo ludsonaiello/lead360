@@ -29,7 +29,10 @@ export class NotificationCleanupJob {
         `Notification cleanup complete: ${result.total_cleaned} notifications deleted (${result.old_deleted} old, ${result.expired_deleted} expired)`,
       );
     } catch (error) {
-      this.logger.error(`Notification cleanup job failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `Notification cleanup job failed: ${error.message}`,
+        error.stack,
+      );
     }
   }
 }

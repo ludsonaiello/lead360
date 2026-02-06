@@ -85,10 +85,7 @@ export class NotificationRulesService {
       const template = await this.prisma.email_template.findFirst({
         where: {
           template_key: dto.email_template_key,
-          OR: [
-            { tenant_id: tenantId },
-            { is_system: true },
-          ],
+          OR: [{ tenant_id: tenantId }, { is_system: true }],
           is_active: true,
         },
       });
@@ -169,8 +166,12 @@ export class NotificationRulesService {
     }
 
     // Validate: if notify_email is being set to true, email_template_key must be provided
-    const notifyEmail = dto.notify_email !== undefined ? dto.notify_email : rule.notify_email;
-    const emailTemplateKey = dto.email_template_key !== undefined ? dto.email_template_key : rule.email_template_key;
+    const notifyEmail =
+      dto.notify_email !== undefined ? dto.notify_email : rule.notify_email;
+    const emailTemplateKey =
+      dto.email_template_key !== undefined
+        ? dto.email_template_key
+        : rule.email_template_key;
 
     if (notifyEmail && !emailTemplateKey) {
       throw new BadRequestException(
@@ -183,10 +184,7 @@ export class NotificationRulesService {
       const template = await this.prisma.email_template.findFirst({
         where: {
           template_key: dto.email_template_key,
-          OR: [
-            { tenant_id: tenantId },
-            { is_system: true },
-          ],
+          OR: [{ tenant_id: tenantId }, { is_system: true }],
           is_active: true,
         },
       });
@@ -199,8 +197,14 @@ export class NotificationRulesService {
     }
 
     // Validate: if recipient_type is being changed to specific_users, specific_user_ids must be provided
-    const recipientType = dto.recipient_type !== undefined ? dto.recipient_type : rule.recipient_type;
-    const specificUserIds = dto.specific_user_ids !== undefined ? dto.specific_user_ids : (rule.specific_user_ids as string[] | null);
+    const recipientType =
+      dto.recipient_type !== undefined
+        ? dto.recipient_type
+        : rule.recipient_type;
+    const specificUserIds =
+      dto.specific_user_ids !== undefined
+        ? dto.specific_user_ids
+        : (rule.specific_user_ids as string[] | null);
 
     if (recipientType === 'specific_users') {
       if (!specificUserIds || specificUserIds.length === 0) {
@@ -237,9 +241,7 @@ export class NotificationRulesService {
       },
     });
 
-    this.logger.log(
-      `Notification rule updated: ${id} by user ${userId}`,
-    );
+    this.logger.log(`Notification rule updated: ${id} by user ${userId}`);
 
     return updated;
   }

@@ -23,9 +23,15 @@ export class QuoteTagResponseDto {
   @ApiProperty({ description: 'Number of quotes using this tag', example: 15 })
   usage_count?: number;
 
-  @ApiProperty({ description: 'Creation timestamp', example: '2026-01-24T10:00:00.000Z' })
+  @ApiProperty({
+    description: 'Creation timestamp',
+    example: '2026-01-24T10:00:00.000Z',
+  })
   created_at: Date;
 
-  @ApiProperty({ description: 'Last update timestamp', example: '2026-01-24T10:00:00.000Z' })
+  @ApiProperty({
+    description: 'Last update timestamp',
+    example: '2026-01-24T10:00:00.000Z',
+  })
   updated_at: Date;
 }

@@ -26,10 +26,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { ServiceRequestsService } from '../services/service-requests.service';
-import {
-  CreateServiceRequestDto,
-  UpdateServiceRequestDto,
-} from '../dto';
+import { CreateServiceRequestDto, UpdateServiceRequestDto } from '../dto';
 
 @ApiTags('Service Requests')
 @ApiBearerAuth()
@@ -47,12 +44,23 @@ export class ServiceRequestsController {
   @Get()
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Employee')
   @ApiOperation({ summary: 'Get all service requests with filters' })
-  @ApiQuery({ name: 'status', required: false, enum: ['pending', 'scheduled', 'completed', 'cancelled'] })
-  @ApiQuery({ name: 'urgency', required: false, enum: ['low', 'medium', 'high', 'emergency'] })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['pending', 'scheduled', 'completed', 'cancelled'],
+  })
+  @ApiQuery({
+    name: 'urgency',
+    required: false,
+    enum: ['low', 'medium', 'high', 'emergency'],
+  })
   @ApiQuery({ name: 'service_type', required: false, type: String })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 50 })
-  @ApiResponse({ status: 200, description: 'Service requests retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Service requests retrieved successfully',
+  })
   async findAll(
     @Request() req,
     @Query('status') status?: string,
@@ -73,12 +81,12 @@ export class ServiceRequestsController {
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Employee')
   @ApiOperation({ summary: 'Get a single service request by ID' })
   @ApiParam({ name: 'id', description: 'Service Request UUID' })
-  @ApiResponse({ status: 200, description: 'Service request retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Service request retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'Service request not found' })
-  async findOne(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.serviceRequestsService.findOne(req.user.tenant_id, id);
   }
 
@@ -86,7 +94,10 @@ export class ServiceRequestsController {
   @Roles('Owner', 'Admin', 'Manager', 'Sales')
   @ApiOperation({ summary: 'Update a service request' })
   @ApiParam({ name: 'id', description: 'Service Request UUID' })
-  @ApiResponse({ status: 200, description: 'Service request updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Service request updated successfully',
+  })
   @ApiResponse({ status: 400, description: 'Invalid urgency or status' })
   @ApiResponse({ status: 404, description: 'Service request not found' })
   async update(
@@ -107,12 +118,12 @@ export class ServiceRequestsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a service request (hard delete)' })
   @ApiParam({ name: 'id', description: 'Service Request UUID' })
-  @ApiResponse({ status: 204, description: 'Service request deleted successfully' })
+  @ApiResponse({
+    status: 204,
+    description: 'Service request deleted successfully',
+  })
   @ApiResponse({ status: 404, description: 'Service request not found' })
-  async delete(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async delete(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     await this.serviceRequestsService.delete(
       req.user.tenant_id,
       id,
@@ -124,8 +135,15 @@ export class ServiceRequestsController {
   @Roles('Owner', 'Admin', 'Manager', 'Sales')
   @ApiOperation({ summary: 'Create a service request for a lead' })
   @ApiParam({ name: 'leadId', description: 'Lead UUID' })
-  @ApiQuery({ name: 'addressId', required: true, description: 'Address UUID where service will be performed' })
-  @ApiResponse({ status: 201, description: 'Service request created successfully' })
+  @ApiQuery({
+    name: 'addressId',
+    required: true,
+    description: 'Address UUID where service will be performed',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Service request created successfully',
+  })
   @ApiResponse({ status: 404, description: 'Lead or address not found' })
   async create(
     @Request() req,

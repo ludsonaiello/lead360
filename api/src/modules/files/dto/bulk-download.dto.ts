@@ -1,4 +1,10 @@
-import { IsArray, IsUUID, ArrayMinSize, IsString, IsOptional } from 'class-validator';
+import {
+  IsArray,
+  IsUUID,
+  ArrayMinSize,
+  IsString,
+  IsOptional,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class BulkDownloadDto {

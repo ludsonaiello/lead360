@@ -112,7 +112,9 @@ describe('AdminTenantService', () => {
     it('should return paginated list of tenants with stats', async () => {
       jest.spyOn(cacheService, 'get').mockResolvedValue(null);
       jest.spyOn(prismaService.tenant, 'count').mockResolvedValue(2);
-      jest.spyOn(prismaService.tenant, 'findMany').mockResolvedValue(mockTenants);
+      jest
+        .spyOn(prismaService.tenant, 'findMany')
+        .mockResolvedValue(mockTenants);
 
       const result = await service.listTenantsWithQuoteActivity(
         { status: 'active' },
@@ -129,7 +131,9 @@ describe('AdminTenantService', () => {
     it('should filter by subscription status', async () => {
       jest.spyOn(cacheService, 'get').mockResolvedValue(null);
       jest.spyOn(prismaService.tenant, 'count').mockResolvedValue(1);
-      jest.spyOn(prismaService.tenant, 'findMany').mockResolvedValue([mockTenants[0]]);
+      jest
+        .spyOn(prismaService.tenant, 'findMany')
+        .mockResolvedValue([mockTenants[0]]);
 
       await service.listTenantsWithQuoteActivity(
         { status: 'active' },
@@ -148,7 +152,9 @@ describe('AdminTenantService', () => {
     it('should search by company name', async () => {
       jest.spyOn(cacheService, 'get').mockResolvedValue(null);
       jest.spyOn(prismaService.tenant, 'count').mockResolvedValue(1);
-      jest.spyOn(prismaService.tenant, 'findMany').mockResolvedValue([mockTenants[0]]);
+      jest
+        .spyOn(prismaService.tenant, 'findMany')
+        .mockResolvedValue([mockTenants[0]]);
 
       await service.listTenantsWithQuoteActivity(
         { status: 'active', search: 'acme' },
@@ -169,7 +175,9 @@ describe('AdminTenantService', () => {
     it('should calculate quote_stats correctly', async () => {
       jest.spyOn(cacheService, 'get').mockResolvedValue(null);
       jest.spyOn(prismaService.tenant, 'count').mockResolvedValue(1);
-      jest.spyOn(prismaService.tenant, 'findMany').mockResolvedValue([mockTenants[0]]);
+      jest
+        .spyOn(prismaService.tenant, 'findMany')
+        .mockResolvedValue([mockTenants[0]]);
 
       const result = await service.listTenantsWithQuoteActivity(
         { status: 'active' },
@@ -197,7 +205,9 @@ describe('AdminTenantService', () => {
     it('should sort by revenue when specified', async () => {
       jest.spyOn(cacheService, 'get').mockResolvedValue(null);
       jest.spyOn(prismaService.tenant, 'count').mockResolvedValue(2);
-      jest.spyOn(prismaService.tenant, 'findMany').mockResolvedValue(mockTenants);
+      jest
+        .spyOn(prismaService.tenant, 'findMany')
+        .mockResolvedValue(mockTenants);
 
       const result = await service.listTenantsWithQuoteActivity(
         { status: 'active', sortBy: 'revenue' },
@@ -207,9 +217,9 @@ describe('AdminTenantService', () => {
       expect(result.tenants).toBeDefined();
       // First tenant should have higher revenue
       if (result.tenants.length > 1) {
-        expect(result.tenants[0].quote_stats.total_revenue).toBeGreaterThanOrEqual(
-          result.tenants[1].quote_stats.total_revenue,
-        );
+        expect(
+          result.tenants[0].quote_stats.total_revenue,
+        ).toBeGreaterThanOrEqual(result.tenants[1].quote_stats.total_revenue);
       }
     });
   });
@@ -221,7 +231,8 @@ describe('AdminTenantService', () => {
         id: 'tenant-1',
         company_name: 'Acme Roofing',
       });
-      jest.spyOn(prismaService.quote, 'findMany')
+      jest
+        .spyOn(prismaService.quote, 'findMany')
         .mockResolvedValueOnce(mockTenants[0].quotes)
         .mockResolvedValueOnce([]);
       jest.spyOn(prismaService.quote_item, 'groupBy').mockResolvedValue([
@@ -256,7 +267,8 @@ describe('AdminTenantService', () => {
         id: 'tenant-1',
         company_name: 'Acme Roofing',
       });
-      jest.spyOn(prismaService.quote, 'findMany')
+      jest
+        .spyOn(prismaService.quote, 'findMany')
         .mockResolvedValueOnce(mockTenants[0].quotes)
         .mockResolvedValueOnce([]);
       jest.spyOn(prismaService.quote_item, 'groupBy').mockResolvedValue([]);
@@ -283,7 +295,9 @@ describe('AdminTenantService', () => {
   describe('compareTenantsByMetric', () => {
     it('should rank tenants by revenue', async () => {
       jest.spyOn(cacheService, 'get').mockResolvedValue(null);
-      jest.spyOn(prismaService.tenant, 'findMany').mockResolvedValue(mockTenants);
+      jest
+        .spyOn(prismaService.tenant, 'findMany')
+        .mockResolvedValue(mockTenants);
 
       const result = await service.compareTenantsByMetric('revenue', 10);
 
@@ -296,7 +310,9 @@ describe('AdminTenantService', () => {
 
     it('should include supplementary metrics', async () => {
       jest.spyOn(cacheService, 'get').mockResolvedValue(null);
-      jest.spyOn(prismaService.tenant, 'findMany').mockResolvedValue(mockTenants);
+      jest
+        .spyOn(prismaService.tenant, 'findMany')
+        .mockResolvedValue(mockTenants);
 
       const result = await service.compareTenantsByMetric('revenue', 10);
 
@@ -308,7 +324,9 @@ describe('AdminTenantService', () => {
 
     it('should calculate platform average and median', async () => {
       jest.spyOn(cacheService, 'get').mockResolvedValue(null);
-      jest.spyOn(prismaService.tenant, 'findMany').mockResolvedValue(mockTenants);
+      jest
+        .spyOn(prismaService.tenant, 'findMany')
+        .mockResolvedValue(mockTenants);
 
       const result = await service.compareTenantsByMetric('revenue', 10);
 
@@ -320,7 +338,9 @@ describe('AdminTenantService', () => {
 
     it('should limit results to specified limit', async () => {
       jest.spyOn(cacheService, 'get').mockResolvedValue(null);
-      jest.spyOn(prismaService.tenant, 'findMany').mockResolvedValue(mockTenants);
+      jest
+        .spyOn(prismaService.tenant, 'findMany')
+        .mockResolvedValue(mockTenants);
 
       const result = await service.compareTenantsByMetric('revenue', 1);
 
@@ -334,7 +354,9 @@ describe('AdminTenantService', () => {
         id: 'tenant-1',
         company_name: 'Acme Roofing',
       });
-      jest.spyOn(prismaService.audit_log, 'findMany').mockResolvedValue(mockAuditLogs);
+      jest
+        .spyOn(prismaService.audit_log, 'findMany')
+        .mockResolvedValue(mockAuditLogs);
 
       const result = await service.getTenantActivityTimeline('tenant-1');
 
@@ -357,7 +379,9 @@ describe('AdminTenantService', () => {
         id: 'tenant-1',
         company_name: 'Acme Roofing',
       });
-      jest.spyOn(prismaService.audit_log, 'findMany').mockResolvedValue(mockAuditLogs);
+      jest
+        .spyOn(prismaService.audit_log, 'findMany')
+        .mockResolvedValue(mockAuditLogs);
 
       const result = await service.getTenantActivityTimeline('tenant-1');
 
@@ -383,7 +407,9 @@ describe('AdminTenantService', () => {
         id: 'tenant-1',
         company_name: 'Acme Roofing',
       });
-      jest.spyOn(prismaService.audit_log, 'findMany').mockResolvedValue(mockAuditLogs);
+      jest
+        .spyOn(prismaService.audit_log, 'findMany')
+        .mockResolvedValue(mockAuditLogs);
 
       await service.getTenantActivityTimeline('tenant-1');
 
@@ -457,7 +483,11 @@ describe('AdminTenantService', () => {
         default_quote_validity_days: 30,
         approval_thresholds: null,
         active_quote_template: null,
-        unit_measurements: [{ id: 'unit-1' }, { id: 'unit-2' }, { id: 'unit-3' }],
+        unit_measurements: [
+          { id: 'unit-1' },
+          { id: 'unit-2' },
+          { id: 'unit-3' },
+        ],
         quote_templates: [{ id: 'template-1' }],
       });
 

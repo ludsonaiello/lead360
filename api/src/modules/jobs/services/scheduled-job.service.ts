@@ -86,7 +86,10 @@ export class ScheduledJobService {
       }
 
       // Recalculate next run time if schedule or timezone changed
-      updates['next_run_at'] = this.calculateNextRun(updates.schedule, timezone);
+      updates['next_run_at'] = this.calculateNextRun(
+        updates.schedule,
+        timezone,
+      );
     }
 
     const updated = await this.prisma.scheduled_job.update({

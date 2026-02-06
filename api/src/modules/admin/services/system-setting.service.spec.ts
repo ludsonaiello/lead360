@@ -61,7 +61,9 @@ describe('SystemSettingService', () => {
 
     it('should throw error for non-existent setting', async () => {
       prismaService.system_setting.findUnique.mockResolvedValue(null);
-      await expect(service.getSetting('invalid')).rejects.toThrow(NotFoundException);
+      await expect(service.getSetting('invalid')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -73,7 +75,11 @@ describe('SystemSettingService', () => {
         setting_value: '15',
       });
 
-      const result = await service.setSetting('max_file_upload_size_mb', 15, 'admin-123');
+      const result = await service.setSetting(
+        'max_file_upload_size_mb',
+        15,
+        'admin-123',
+      );
       expect(result.setting_value).toBe(15);
     });
   });

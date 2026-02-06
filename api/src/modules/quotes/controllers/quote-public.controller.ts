@@ -12,11 +12,21 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiHeader } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiHeader,
+} from '@nestjs/swagger';
 import { QuotePublicAccessService } from '../services/quote-public-access.service';
 import { QuoteViewTrackingService } from '../services/quote-view-tracking.service';
 import { ValidatePasswordDto } from '../dto/public/validate-password.dto';
-import { LogViewDto, LogDownloadDto, PublicQuoteResponseDto } from '../dto/public/public-quote-response.dto';
+import {
+  LogViewDto,
+  LogDownloadDto,
+  PublicQuoteResponseDto,
+} from '../dto/public/public-quote-response.dto';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../../auth/decorators/public.decorator';
 
@@ -50,21 +60,36 @@ export class QuotePublicController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'View quote via public URL (NO AUTH)' })
   @ApiParam({ name: 'token', description: '32-char access token' })
-  @ApiHeader({ name: 'X-Password', required: false, description: 'Password for protected quotes' })
+  @ApiHeader({
+    name: 'X-Password',
+    required: false,
+    description: 'Password for protected quotes',
+  })
   @ApiResponse({ status: 200, description: 'Quote data returned' })
   @ApiResponse({ status: 403, description: 'Invalid password' })
   @ApiResponse({ status: 404, description: 'Token not found or inactive' })
-  @ApiResponse({ status: 410, description: 'Quote expired or no longer available' })
-  @ApiResponse({ status: 429, description: 'Too many failed attempts (locked out)' })
+  @ApiResponse({
+    status: 410,
+    description: 'Quote expired or no longer available',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many failed attempts (locked out)',
+  })
   async getPublicQuote(
     @Param('token') token: string,
     @Headers('x-password') password: string | undefined,
     @Ip() ipAddress: string,
   ): Promise<PublicQuoteResponseDto> {
-    this.logger.log(`Public quote access attempt for token: ${token} from IP: ${ipAddress}`);
+    this.logger.log(
+      `Public quote access attempt for token: ${token} from IP: ${ipAddress}`,
+    );
 
     // 1. Check lockout status
-    const lockoutStatus = await this.publicAccessService.checkLockout(token, ipAddress);
+    const lockoutStatus = await this.publicAccessService.checkLockout(
+      token,
+      ipAddress,
+    );
     if (lockoutStatus.is_locked) {
       this.logger.warn(`IP ${ipAddress} is locked out for token ${token}`);
       throw new ForbiddenException({
@@ -86,7 +111,11 @@ export class QuotePublicController {
         });
       }
 
-      const validation = await this.publicAccessService.validatePassword(token, password, ipAddress);
+      const validation = await this.publicAccessService.validatePassword(
+        token,
+        password,
+        ipAddress,
+      );
       if (!validation.valid) {
         throw new ForbiddenException({
           message: validation.message,
@@ -100,7 +129,9 @@ export class QuotePublicController {
     // 4. Transform quote data to public DTO (exclude private info)
     const publicQuote = this.transformToPublicDto(publicAccess.quote);
 
-    this.logger.log(`Successfully served public quote ${publicAccess.quote.id} via token ${token}`);
+    this.logger.log(
+      `Successfully served public quote ${publicAccess.quote.id} via token ${token}`,
+    );
 
     return publicQuote;
   }
@@ -115,9 +146,15 @@ export class QuotePublicController {
     @Body() dto: ValidatePasswordDto,
     @Ip() ipAddress: string,
   ) {
-    this.logger.log(`Password validation attempt for token: ${token} from IP: ${ipAddress}`);
+    this.logger.log(
+      `Password validation attempt for token: ${token} from IP: ${ipAddress}`,
+    );
 
-    const result = await this.publicAccessService.validatePassword(token, dto.password, ipAddress);
+    const result = await this.publicAccessService.validatePassword(
+      token,
+      dto.password,
+      ipAddress,
+    );
 
     if (!result.valid) {
       this.logger.warn(
@@ -164,7 +201,9 @@ export class QuotePublicController {
     @Headers('user-agent') userAgent: string,
     @Body() dto: LogDownloadDto,
   ) {
-    this.logger.log(`Logging PDF download for token: ${token} from IP: ${ipAddress}`);
+    this.logger.log(
+      `Logging PDF download for token: ${token} from IP: ${ipAddress}`,
+    );
 
     await this.viewTrackingService.logDownload(
       token,
@@ -200,17 +239,19 @@ export class QuotePublicController {
             id: quote.lead.id,
             first_name: quote.lead.first_name,
             last_name: quote.lead.last_name,
-            emails: quote.lead.emails?.map((e: any) => ({
-              id: e.id,
-              email: e.email,
-              is_primary: e.is_primary,
-            })) || [],
-            phones: quote.lead.phones?.map((p: any) => ({
-              id: p.id,
-              phone: p.phone,
-              phone_type: p.phone_type,
-              is_primary: p.is_primary,
-            })) || [],
+            emails:
+              quote.lead.emails?.map((e: any) => ({
+                id: e.id,
+                email: e.email,
+                is_primary: e.is_primary,
+              })) || [],
+            phones:
+              quote.lead.phones?.map((p: any) => ({
+                id: p.id,
+                phone: p.phone,
+                phone_type: p.phone_type,
+                is_primary: p.is_primary,
+              })) || [],
           }
         : undefined,
       jobsite_address: quote.jobsite_address
@@ -241,32 +282,49 @@ export class QuotePublicController {
             signature_url: quote.vendor.signature_file?.url,
           }
         : undefined,
-      items: quote.items?.map((item: any) => ({
-        id: item.id,
-        title: item.title,
-        description: item.description,
-        quantity: parseFloat(item.quantity.toString()),
-        unit: item.unit_measurement?.name || 'unit',
-        material_cost_per_unit: parseFloat(item.material_cost_per_unit?.toString() || '0'),
-        labor_cost_per_unit: parseFloat(item.labor_cost_per_unit?.toString() || '0'),
-        equipment_cost_per_unit: parseFloat(item.equipment_cost_per_unit?.toString() || '0'),
-        subcontract_cost_per_unit: parseFloat(item.subcontract_cost_per_unit?.toString() || '0'),
-        other_cost_per_unit: parseFloat(item.other_cost_per_unit?.toString() || '0'),
-        total_cost: parseFloat(item.total_cost?.toString() || '0'),
-        custom_markup_percent: item.custom_markup_percent ? parseFloat(item.custom_markup_percent.toString()) : undefined,
-        custom_discount_amount: item.custom_discount_amount ? parseFloat(item.custom_discount_amount.toString()) : undefined,
-        custom_tax_rate: item.custom_tax_rate ? parseFloat(item.custom_tax_rate.toString()) : undefined,
-        group: item.quote_group
-          ? {
-              id: item.quote_group.id,
-              name: item.quote_group.name,
-              description: item.quote_group.description,
-              display_order: item.quote_group.order_index,
-            }
-          : undefined,
-        display_order: item.order_index,
-        is_optional: item.is_optional,
-      })) || [],
+      items:
+        quote.items?.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          quantity: parseFloat(item.quantity.toString()),
+          unit: item.unit_measurement?.name || 'unit',
+          material_cost_per_unit: parseFloat(
+            item.material_cost_per_unit?.toString() || '0',
+          ),
+          labor_cost_per_unit: parseFloat(
+            item.labor_cost_per_unit?.toString() || '0',
+          ),
+          equipment_cost_per_unit: parseFloat(
+            item.equipment_cost_per_unit?.toString() || '0',
+          ),
+          subcontract_cost_per_unit: parseFloat(
+            item.subcontract_cost_per_unit?.toString() || '0',
+          ),
+          other_cost_per_unit: parseFloat(
+            item.other_cost_per_unit?.toString() || '0',
+          ),
+          total_cost: parseFloat(item.total_cost?.toString() || '0'),
+          custom_markup_percent: item.custom_markup_percent
+            ? parseFloat(item.custom_markup_percent.toString())
+            : undefined,
+          custom_discount_amount: item.custom_discount_amount
+            ? parseFloat(item.custom_discount_amount.toString())
+            : undefined,
+          custom_tax_rate: item.custom_tax_rate
+            ? parseFloat(item.custom_tax_rate.toString())
+            : undefined,
+          group: item.quote_group
+            ? {
+                id: item.quote_group.id,
+                name: item.quote_group.name,
+                description: item.quote_group.description,
+                display_order: item.quote_group.order_index,
+              }
+            : undefined,
+          display_order: item.order_index,
+          is_optional: item.is_optional,
+        })) || [],
       branding: {
         company_name: quote.tenant.company_name,
         logo_file_id: quote.tenant.file_tenant_logo_file_idTofile?.file_id, // Storage file ID
@@ -329,8 +387,11 @@ export class QuotePublicController {
         };
       }),
       public_notes: undefined, // No public_notes field in schema
-      terms_and_conditions: quote.custom_terms || quote.tenant.default_quote_terms,
-      payment_instructions: quote.custom_payment_instructions || quote.tenant.default_payment_instructions,
+      terms_and_conditions:
+        quote.custom_terms || quote.tenant.default_quote_terms,
+      payment_instructions:
+        quote.custom_payment_instructions ||
+        quote.tenant.default_payment_instructions,
       po_number: quote.po_number,
       discount_rules: quote.discount_rules?.map((rule: any) => ({
         id: rule.id,

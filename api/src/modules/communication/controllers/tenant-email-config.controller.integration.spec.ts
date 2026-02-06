@@ -29,7 +29,9 @@ describe('TenantEmailConfigController (Integration)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
 
     prisma = moduleFixture.get<PrismaService>(PrismaService);
@@ -155,7 +157,9 @@ describe('TenantEmailConfigController (Integration)', () => {
           id: 'config-tenant-a',
           tenant_id: 'tenant-a',
           provider_id: mockProviderId,
-          credentials: encryptionService.encrypt(JSON.stringify({ api_key: 'SG.key-a' })),
+          credentials: encryptionService.encrypt(
+            JSON.stringify({ api_key: 'SG.key-a' }),
+          ),
           provider_config: {},
           from_email: 'a@example.com',
           from_name: 'Tenant A',
@@ -180,7 +184,9 @@ describe('TenantEmailConfigController (Integration)', () => {
           id: 'config-initial',
           tenant_id: mockTenantId,
           provider_id: mockProviderId,
-          credentials: encryptionService.encrypt(JSON.stringify({ api_key: 'SG.old-key' })),
+          credentials: encryptionService.encrypt(
+            JSON.stringify({ api_key: 'SG.old-key' }),
+          ),
           provider_config: { click_tracking: false },
           from_email: 'old@example.com',
           from_name: 'Old Name',
@@ -226,7 +232,9 @@ describe('TenantEmailConfigController (Integration)', () => {
           id: 'config-get-test',
           tenant_id: mockTenantId,
           provider_id: mockProviderId,
-          credentials: encryptionService.encrypt(JSON.stringify({ api_key: 'SG.secret' })),
+          credentials: encryptionService.encrypt(
+            JSON.stringify({ api_key: 'SG.secret' }),
+          ),
           provider_config: {},
           from_email: 'test@example.com',
           from_name: 'Test',
@@ -271,8 +279,12 @@ describe('TenantEmailConfigController (Integration)', () => {
         .set('X-Tenant-ID', mockTenantId);
 
       // Verify no credentials in any response
-      expect(JSON.stringify(createResponse.body)).not.toContain('super-secret-key');
-      expect(JSON.stringify(getResponse.body)).not.toContain('super-secret-key');
+      expect(JSON.stringify(createResponse.body)).not.toContain(
+        'super-secret-key',
+      );
+      expect(JSON.stringify(getResponse.body)).not.toContain(
+        'super-secret-key',
+      );
       expect(createResponse.body.credentials).toBeUndefined();
       expect(getResponse.body.credentials).toBeUndefined();
     });

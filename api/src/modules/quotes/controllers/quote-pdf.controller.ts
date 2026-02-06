@@ -13,7 +13,13 @@ import {
   ParseBoolPipe,
   Logger,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -42,10 +48,15 @@ export class QuotePdfController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Generate PDF for quote',
-    description: 'Generates PDF with optional cost breakdown. Returns cached PDF if available and unchanged, or regenerates if force_regenerate=true or quote content changed.',
+    description:
+      'Generates PDF with optional cost breakdown. Returns cached PDF if available and unchanged, or regenerates if force_regenerate=true or quote content changed.',
   })
   @ApiParam({ name: 'id', description: 'Quote UUID' })
-  @ApiResponse({ status: 200, description: 'PDF generated successfully (or cached PDF returned)', type: PdfResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'PDF generated successfully (or cached PDF returned)',
+    type: PdfResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'Quote not ready (missing data)' })
   @ApiResponse({ status: 500, description: 'PDF generation failed' })
   async generatePdf(
@@ -56,7 +67,9 @@ export class QuotePdfController {
     const tenantId = req.user.tenant_id;
     const userId = req.user.id;
 
-    this.logger.log(`Generating PDF for quote ${id} (tenant: ${tenantId}, user: ${userId}, include_cost_breakdown: ${dto.include_cost_breakdown || false}, force: ${dto.force_regenerate || false})`);
+    this.logger.log(
+      `Generating PDF for quote ${id} (tenant: ${tenantId}, user: ${userId}, include_cost_breakdown: ${dto.include_cost_breakdown || false}, force: ${dto.force_regenerate || false})`,
+    );
 
     const result = await this.pdfService.generatePdf(
       tenantId,
@@ -67,9 +80,13 @@ export class QuotePdfController {
     );
 
     if (result.regenerated) {
-      this.logger.log(`PDF generated successfully for quote ${id} (file: ${result.file_id})`);
+      this.logger.log(
+        `PDF generated successfully for quote ${id} (file: ${result.file_id})`,
+      );
     } else {
-      this.logger.log(`Returned cached PDF for quote ${id} (file: ${result.file_id})`);
+      this.logger.log(
+        `Returned cached PDF for quote ${id} (file: ${result.file_id})`,
+      );
     }
 
     return result;
@@ -80,10 +97,15 @@ export class QuotePdfController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get PDF download URL for quote',
-    description: 'Returns existing PDF if available and up-to-date. Generates new PDF only if needed. Fast response time for cached PDFs.',
+    description:
+      'Returns existing PDF if available and up-to-date. Generates new PDF only if needed. Fast response time for cached PDFs.',
   })
   @ApiParam({ name: 'id', description: 'Quote UUID' })
-  @ApiResponse({ status: 200, description: 'PDF download URL returned', type: PdfResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'PDF download URL returned',
+    type: PdfResponseDto,
+  })
   async downloadPdf(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req,
@@ -91,10 +113,18 @@ export class QuotePdfController {
     const tenantId = req.user.tenant_id;
     const userId = req.user.id;
 
-    this.logger.log(`Getting PDF download URL for quote ${id} (tenant: ${tenantId})`);
+    this.logger.log(
+      `Getting PDF download URL for quote ${id} (tenant: ${tenantId})`,
+    );
 
     // Returns cached PDF if available and up-to-date, regenerates only if needed
-    const result = await this.pdfService.generatePdf(tenantId, id, userId, false, false);
+    const result = await this.pdfService.generatePdf(
+      tenantId,
+      id,
+      userId,
+      false,
+      false,
+    );
 
     if (result.regenerated) {
       this.logger.log(`Generated new PDF for download: ${result.file_id}`);
@@ -110,20 +140,28 @@ export class QuotePdfController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Preview PDF without regeneration',
-    description: 'Returns existing PDF if available, generates only if missing or stale. Optimized for fast response time (<100ms for cached PDFs). Never forces regeneration.',
+    description:
+      'Returns existing PDF if available, generates only if missing or stale. Optimized for fast response time (<100ms for cached PDFs). Never forces regeneration.',
   })
   @ApiParam({ name: 'id', description: 'Quote UUID' })
-  @ApiResponse({ status: 200, description: 'PDF preview URL returned', type: PdfResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'PDF preview URL returned',
+    type: PdfResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Quote not found' })
   async previewPdf(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req,
-    @Query('include_cost_breakdown', new ParseBoolPipe({ optional: true })) includeCostBreakdown?: boolean,
+    @Query('include_cost_breakdown', new ParseBoolPipe({ optional: true }))
+    includeCostBreakdown?: boolean,
   ): Promise<PdfResponseDto> {
     const tenantId = req.user.tenant_id;
     const userId = req.user.id;
 
-    this.logger.log(`Previewing PDF for quote ${id} (tenant: ${tenantId}, include_cost_breakdown: ${includeCostBreakdown || false})`);
+    this.logger.log(
+      `Previewing PDF for quote ${id} (tenant: ${tenantId}, include_cost_breakdown: ${includeCostBreakdown || false})`,
+    );
 
     // ALWAYS returns cached PDF if valid, generates only if needed, NEVER forces regeneration
     const result = await this.pdfService.generatePdf(
@@ -137,7 +175,9 @@ export class QuotePdfController {
     if (result.regenerated) {
       this.logger.log(`Generated new PDF for preview: ${result.file_id}`);
     } else {
-      this.logger.log(`Returned cached PDF for preview: ${result.file_id} (instant)`);
+      this.logger.log(
+        `Returned cached PDF for preview: ${result.file_id} (instant)`,
+      );
     }
 
     return result;

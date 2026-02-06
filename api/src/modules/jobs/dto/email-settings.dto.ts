@@ -1,4 +1,12 @@
-import { IsString, IsInt, IsEnum, IsEmail, Min, Max, MinLength } from 'class-validator';
+import {
+  IsString,
+  IsInt,
+  IsEnum,
+  IsEmail,
+  Min,
+  Max,
+  MinLength,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateEmailConfigDto {
@@ -38,7 +46,8 @@ export class UpdateEmailConfigDto {
   @ApiProperty({
     example: 'your-smtp-password',
     minLength: 8,
-    description: 'SMTP password or app-specific password (minimum 8 characters)',
+    description:
+      'SMTP password or app-specific password (minimum 8 characters)',
   })
   @IsString()
   @MinLength(8)

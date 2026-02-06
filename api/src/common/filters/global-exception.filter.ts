@@ -8,10 +8,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ErrorResponse } from '../interfaces/error-response.interface';
-import {
-  ErrorCode,
-  getErrorCodeFromMessage,
-} from '../enums/error-codes.enum';
+import { ErrorCode, getErrorCodeFromMessage } from '../enums/error-codes.enum';
 import { randomBytes } from 'crypto';
 
 /**
@@ -158,10 +155,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
    */
   private setCorsHeaders(response: Response, request: Request): void {
     const origin = request.get('origin');
-    const allowedOrigins = [
-      'https://app.lead360.app',
-      'http://localhost:3000',
-    ];
+    const allowedOrigins = ['https://app.lead360.app', 'http://localhost:3000'];
 
     // Check if origin is allowed (exact match or subdomain match)
     const isAllowed =

@@ -18,8 +18,7 @@ export class CleanupOrphansDto {
     example: 'all',
   })
   @IsEnum(['items', 'groups', 'attachments', 'all'], {
-    message:
-      'Invalid entity type. Must be: items, groups, attachments, or all',
+    message: 'Invalid entity type. Must be: items, groups, attachments, or all',
   })
   entity_type: 'items' | 'groups' | 'attachments' | 'all';
 }

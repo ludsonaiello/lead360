@@ -277,7 +277,9 @@ export class UserRolesController {
    */
   @Get('role/:roleId/users')
   @Roles('Owner', 'Admin')
-  @ApiOperation({ summary: 'Get all users with specific role in current tenant' })
+  @ApiOperation({
+    summary: 'Get all users with specific role in current tenant',
+  })
   @ApiParam({ name: 'roleId', description: 'Role ID' })
   @ApiResponse({
     status: 200,
@@ -299,7 +301,9 @@ export class UserRolesController {
    */
   @Get('permissions/matrix')
   @Roles('Owner', 'Admin')
-  @ApiOperation({ summary: 'Get permission matrix (all roles and permissions)' })
+  @ApiOperation({
+    summary: 'Get permission matrix (all roles and permissions)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Permission matrix retrieved successfully',

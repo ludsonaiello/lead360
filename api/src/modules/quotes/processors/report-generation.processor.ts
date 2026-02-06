@@ -24,11 +24,14 @@ export class ReportGenerationProcessor extends WorkerHost {
       return; // Let ScheduledReportProcessor handle this
     }
 
-    const { exportJobId, exportType, filters, format, scheduledReportId } = job.data;
+    const { exportJobId, exportType, filters, format, scheduledReportId } =
+      job.data;
 
     // DEBUG: Log full job data to trace scheduledReportId
     this.logger.log(`[DEBUG] Full job.data: ${JSON.stringify(job.data)}`);
-    this.logger.log(`[DEBUG] scheduledReportId extracted: ${scheduledReportId}`);
+    this.logger.log(
+      `[DEBUG] scheduledReportId extracted: ${scheduledReportId}`,
+    );
 
     this.logger.log(
       `Processing report generation job: ${exportJobId}, type: ${exportType}`,
@@ -56,7 +59,7 @@ export class ReportGenerationProcessor extends WorkerHost {
 
       const startTime = Date.now();
       let filePath: string;
-      let rowCount = 0;
+      const rowCount = 0;
 
       // Parse date filters
       const params = {
@@ -69,31 +72,35 @@ export class ReportGenerationProcessor extends WorkerHost {
       // Generate report based on type
       switch (exportType) {
         case ReportType.QUOTE_SUMMARY:
-          filePath = await this.adminReportingService.generateQuoteSummaryReport(
-            params,
-            format as ExportFormat,
-          );
+          filePath =
+            await this.adminReportingService.generateQuoteSummaryReport(
+              params,
+              format as ExportFormat,
+            );
           break;
 
         case ReportType.TENANT_PERFORMANCE:
-          filePath = await this.adminReportingService.generateTenantPerformanceReport(
-            params,
-            format as ExportFormat,
-          );
+          filePath =
+            await this.adminReportingService.generateTenantPerformanceReport(
+              params,
+              format as ExportFormat,
+            );
           break;
 
         case ReportType.REVENUE_ANALYSIS:
-          filePath = await this.adminReportingService.generateRevenueAnalysisReport(
-            params,
-            format as ExportFormat,
-          );
+          filePath =
+            await this.adminReportingService.generateRevenueAnalysisReport(
+              params,
+              format as ExportFormat,
+            );
           break;
 
         case ReportType.CONVERSION_ANALYSIS:
-          filePath = await this.adminReportingService.generateConversionAnalysisReport(
-            params,
-            format as ExportFormat,
-          );
+          filePath =
+            await this.adminReportingService.generateConversionAnalysisReport(
+              params,
+              format as ExportFormat,
+            );
           break;
 
         default:
@@ -118,11 +125,15 @@ export class ReportGenerationProcessor extends WorkerHost {
       );
 
       // DEBUG: Check if we should send email
-      this.logger.log(`[DEBUG] Checking email sending: scheduledReportId=${scheduledReportId}, type: ${typeof scheduledReportId}`);
+      this.logger.log(
+        `[DEBUG] Checking email sending: scheduledReportId=${scheduledReportId}, type: ${typeof scheduledReportId}`,
+      );
 
       // If this is from a scheduled report, send emails to recipients
       if (scheduledReportId) {
-        this.logger.log(`[DEBUG] Condition passed - calling sendScheduledReportEmail`);
+        this.logger.log(
+          `[DEBUG] Condition passed - calling sendScheduledReportEmail`,
+        );
         await this.sendScheduledReportEmail(
           scheduledReportId,
           filePath,
@@ -130,7 +141,9 @@ export class ReportGenerationProcessor extends WorkerHost {
           format,
         );
       } else {
-        this.logger.log(`[DEBUG] Condition failed - scheduledReportId is falsy, NOT sending email`);
+        this.logger.log(
+          `[DEBUG] Condition failed - scheduledReportId is falsy, NOT sending email`,
+        );
       }
 
       return { success: true, filePath, duration };
@@ -163,7 +176,9 @@ export class ReportGenerationProcessor extends WorkerHost {
     reportType: string,
     format: string,
   ): Promise<void> {
-    this.logger.log(`[DEBUG] sendScheduledReportEmail called with scheduledReportId: ${scheduledReportId}`);
+    this.logger.log(
+      `[DEBUG] sendScheduledReportEmail called with scheduledReportId: ${scheduledReportId}`,
+    );
 
     try {
       // Fetch scheduled report with recipients
@@ -171,7 +186,9 @@ export class ReportGenerationProcessor extends WorkerHost {
         where: { id: scheduledReportId },
       });
 
-      this.logger.log(`[DEBUG] Fetched scheduled report: ${scheduledReport ? 'FOUND' : 'NOT FOUND'}`);
+      this.logger.log(
+        `[DEBUG] Fetched scheduled report: ${scheduledReport ? 'FOUND' : 'NOT FOUND'}`,
+      );
 
       if (!scheduledReport) {
         this.logger.warn(

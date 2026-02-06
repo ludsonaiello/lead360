@@ -1,4 +1,11 @@
-import { IsString, IsArray, IsOptional, IsBoolean, IsObject, MinLength } from 'class-validator';
+import {
+  IsString,
+  IsArray,
+  IsOptional,
+  IsBoolean,
+  IsObject,
+  MinLength,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { PaginationDto } from './common.dto';
 
@@ -22,7 +29,8 @@ export class CreateEmailTemplateDto {
   subject: string;
 
   @ApiProperty({
-    example: '<h1>Welcome {{user_name}}!</h1><p>Thanks for joining {{company_name}}.</p>',
+    example:
+      '<h1>Welcome {{user_name}}!</h1><p>Thanks for joining {{company_name}}.</p>',
     description: 'HTML email body (supports Handlebars variables)',
     minLength: 10,
   })
@@ -32,7 +40,8 @@ export class CreateEmailTemplateDto {
 
   @ApiPropertyOptional({
     example: 'Welcome {{user_name}}! Thanks for joining {{company_name}}.',
-    description: 'Plain text email body (optional, supports Handlebars variables)',
+    description:
+      'Plain text email body (optional, supports Handlebars variables)',
   })
   @IsOptional()
   @IsString()
@@ -56,7 +65,9 @@ export class CreateEmailTemplateDto {
   description?: string;
 }
 
-export class UpdateEmailTemplateDto extends PartialType(CreateEmailTemplateDto) {
+export class UpdateEmailTemplateDto extends PartialType(
+  CreateEmailTemplateDto,
+) {
   @ApiPropertyOptional()
   template_key?: never; // Cannot update template_key
 }

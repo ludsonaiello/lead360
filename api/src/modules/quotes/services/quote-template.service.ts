@@ -20,7 +20,13 @@ export class QuoteTemplateService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogger: AuditLoggerService,
-    @Inject(forwardRef(() => require('./admin-template-testing.service').AdminTemplateTestingService))
+    @Inject(
+      forwardRef(
+        () =>
+          require('./admin-template-testing.service')
+            .AdminTemplateTestingService,
+      ),
+    )
     private readonly templateTestingService: any,
   ) {}
 
@@ -36,7 +42,8 @@ export class QuoteTemplateService {
    */
   async createTemplate(userId: string, dto: CreateTemplateDto) {
     // Validate global vs tenant template
-    const isGlobal = dto.is_global !== undefined ? dto.is_global : dto.tenant_id === null;
+    const isGlobal =
+      dto.is_global !== undefined ? dto.is_global : dto.tenant_id === null;
     const tenantId = dto.tenant_id || null;
 
     // If setting as default, unset other defaults
@@ -112,7 +119,11 @@ export class QuoteTemplateService {
         where,
         skip,
         take: limit,
-        orderBy: [{ is_default: 'desc' }, { is_global: 'desc' }, { name: 'asc' }],
+        orderBy: [
+          { is_default: 'desc' },
+          { is_global: 'desc' },
+          { name: 'asc' },
+        ],
         include: {
           _count: {
             select: { quotes: true },
@@ -156,7 +167,11 @@ export class QuoteTemplateService {
         where,
         skip,
         take: limit,
-        orderBy: [{ is_default: 'desc' }, { is_global: 'desc' }, { name: 'asc' }],
+        orderBy: [
+          { is_default: 'desc' },
+          { is_global: 'desc' },
+          { name: 'asc' },
+        ],
         select: {
           id: true,
           tenant_id: true,
@@ -265,10 +280,20 @@ export class QuoteTemplateService {
     // Create version snapshot before updating (on any change)
     const changesSummary: string[] = [];
     if (dto.name && dto.name !== template.name) changesSummary.push('name');
-    if (dto.description !== undefined && dto.description !== template.description) changesSummary.push('description');
-    if (dto.html_content && dto.html_content !== template.html_content) changesSummary.push('html_content');
-    if (dto.thumbnail_url !== undefined && dto.thumbnail_url !== template.thumbnail_url) changesSummary.push('thumbnail_url');
-    if (dto.is_default !== undefined && dto.is_default !== template.is_default) changesSummary.push('is_default');
+    if (
+      dto.description !== undefined &&
+      dto.description !== template.description
+    )
+      changesSummary.push('description');
+    if (dto.html_content && dto.html_content !== template.html_content)
+      changesSummary.push('html_content');
+    if (
+      dto.thumbnail_url !== undefined &&
+      dto.thumbnail_url !== template.thumbnail_url
+    )
+      changesSummary.push('thumbnail_url');
+    if (dto.is_default !== undefined && dto.is_default !== template.is_default)
+      changesSummary.push('is_default');
 
     if (changesSummary.length > 0 && this.templateTestingService) {
       try {
@@ -289,7 +314,9 @@ export class QuoteTemplateService {
         ...(dto.name && { name: dto.name }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.html_content && { html_content: dto.html_content }),
-        ...(dto.thumbnail_url !== undefined && { thumbnail_url: dto.thumbnail_url }),
+        ...(dto.thumbnail_url !== undefined && {
+          thumbnail_url: dto.thumbnail_url,
+        }),
         ...(dto.is_default !== undefined && { is_default: dto.is_default }),
       },
     });
@@ -369,11 +396,7 @@ export class QuoteTemplateService {
   /**
    * Admin clones template
    */
-  async cloneTemplate(
-    templateId: string,
-    userId: string,
-    newName?: string,
-  ) {
+  async cloneTemplate(templateId: string, userId: string, newName?: string) {
     const template = await this.findOneAdmin(templateId);
 
     const clonedName = newName || `${template.name} (Copy)`;
@@ -417,7 +440,9 @@ export class QuoteTemplateService {
     const template = await this.findOneAdmin(templateId);
 
     if (!template.is_global) {
-      throw new ForbiddenException('Only global templates can be set as platform default');
+      throw new ForbiddenException(
+        'Only global templates can be set as platform default',
+      );
     }
 
     // Unset all global defaults
@@ -486,35 +511,128 @@ export class QuoteTemplateService {
   async getTemplateVariables() {
     return {
       quote: {
-        id: { type: 'string', description: 'Quote UUID', example: '550e8400-e29b-41d4-a716' },
-        quote_number: { type: 'string', description: 'Sequential quote number', example: 'Q-2024-001' },
-        title: { type: 'string', description: 'Quote title', example: 'Kitchen Renovation' },
-        status: { type: 'string', enum: ['draft', 'pending', 'approved', 'rejected', 'accepted', 'declined', 'expired', 'converted'], description: 'Quote status' },
-        created_at: { type: 'datetime', format: 'ISO 8601', description: 'Creation timestamp', example: '2024-01-15T10:30:00Z' },
-        valid_until: { type: 'datetime', format: 'ISO 8601', description: 'Expiration date', example: '2024-02-15T10:30:00Z' },
+        id: {
+          type: 'string',
+          description: 'Quote UUID',
+          example: '550e8400-e29b-41d4-a716',
+        },
+        quote_number: {
+          type: 'string',
+          description: 'Sequential quote number',
+          example: 'Q-2024-001',
+        },
+        title: {
+          type: 'string',
+          description: 'Quote title',
+          example: 'Kitchen Renovation',
+        },
+        status: {
+          type: 'string',
+          enum: [
+            'draft',
+            'pending',
+            'approved',
+            'rejected',
+            'accepted',
+            'declined',
+            'expired',
+            'converted',
+          ],
+          description: 'Quote status',
+        },
+        created_at: {
+          type: 'datetime',
+          format: 'ISO 8601',
+          description: 'Creation timestamp',
+          example: '2024-01-15T10:30:00Z',
+        },
+        valid_until: {
+          type: 'datetime',
+          format: 'ISO 8601',
+          description: 'Expiration date',
+          example: '2024-02-15T10:30:00Z',
+        },
       },
       customer: {
-        first_name: { type: 'string', description: 'Customer first name', example: 'John' },
-        last_name: { type: 'string', description: 'Customer last name', example: 'Doe' },
-        email: { type: 'string', description: 'Customer email', example: 'john.doe@example.com' },
-        phone: { type: 'string', format: 'formatted', description: 'Customer phone', example: '(555) 123-4567' },
+        first_name: {
+          type: 'string',
+          description: 'Customer first name',
+          example: 'John',
+        },
+        last_name: {
+          type: 'string',
+          description: 'Customer last name',
+          example: 'Doe',
+        },
+        email: {
+          type: 'string',
+          description: 'Customer email',
+          example: 'john.doe@example.com',
+        },
+        phone: {
+          type: 'string',
+          format: 'formatted',
+          description: 'Customer phone',
+          example: '(555) 123-4567',
+        },
       },
       vendor: {
-        name: { type: 'string', description: 'Vendor company name', example: 'ABC Construction Inc' },
-        email: { type: 'string', description: 'Vendor email', example: 'vendor@abc.com' },
-        phone: { type: 'string', format: 'formatted', description: 'Vendor phone', example: '(555) 234-5678' },
-        address_line1: { type: 'string', description: 'Vendor address line 1', example: '123 Main St' },
+        name: {
+          type: 'string',
+          description: 'Vendor company name',
+          example: 'ABC Construction Inc',
+        },
+        email: {
+          type: 'string',
+          description: 'Vendor email',
+          example: 'vendor@abc.com',
+        },
+        phone: {
+          type: 'string',
+          format: 'formatted',
+          description: 'Vendor phone',
+          example: '(555) 234-5678',
+        },
+        address_line1: {
+          type: 'string',
+          description: 'Vendor address line 1',
+          example: '123 Main St',
+        },
         city: { type: 'string', description: 'Vendor city', example: 'Boston' },
         state: { type: 'string', description: 'Vendor state', example: 'MA' },
-        zip_code: { type: 'string', description: 'Vendor ZIP code', example: '02101' },
-        signature_url: { type: 'string', description: 'Vendor signature image URL', example: 'https://cdn.example.com/signatures/abc.png' },
+        zip_code: {
+          type: 'string',
+          description: 'Vendor ZIP code',
+          example: '02101',
+        },
+        signature_url: {
+          type: 'string',
+          description: 'Vendor signature image URL',
+          example: 'https://cdn.example.com/signatures/abc.png',
+        },
       },
       jobsite: {
-        address_line1: { type: 'string', description: 'Job site address line 1', example: '456 Oak Ave' },
-        address_line2: { type: 'string', description: 'Job site address line 2', example: 'Unit 5B' },
-        city: { type: 'string', description: 'Job site city', example: 'Cambridge' },
+        address_line1: {
+          type: 'string',
+          description: 'Job site address line 1',
+          example: '456 Oak Ave',
+        },
+        address_line2: {
+          type: 'string',
+          description: 'Job site address line 2',
+          example: 'Unit 5B',
+        },
+        city: {
+          type: 'string',
+          description: 'Job site city',
+          example: 'Cambridge',
+        },
         state: { type: 'string', description: 'Job site state', example: 'MA' },
-        zip_code: { type: 'string', description: 'Job site ZIP code', example: '02139' },
+        zip_code: {
+          type: 'string',
+          description: 'Job site ZIP code',
+          example: '02139',
+        },
       },
       items: {
         _description: 'Array of items, iterate with {{#each items}}',
@@ -536,26 +654,70 @@ export class QuoteTemplateService {
             name: 'Bathroom Renovation',
             description: 'Complete bathroom remodel',
             items: [
-              { title: 'Tile Installation', quantity: 100, unit: 'sq ft', total_price: 825.0 },
+              {
+                title: 'Tile Installation',
+                quantity: 100,
+                unit: 'sq ft',
+                total_price: 825.0,
+              },
             ],
             subtotal: 825.0,
           },
         ],
       },
       totals: {
-        subtotal: { type: 'number', format: 'currency', description: 'Sum of all items', example: 12500.0 },
-        profit_amount: { type: 'number', format: 'currency', description: 'Profit calculation', example: 2500.0 },
-        overhead_amount: { type: 'number', format: 'currency', description: 'Overhead calculation', example: 1250.0 },
-        contingency_amount: { type: 'number', format: 'currency', description: 'Contingency amount', example: 625.0 },
-        discount_amount: { type: 'number', format: 'currency', description: 'Total discounts applied', example: 500.0 },
-        total: { type: 'number', format: 'currency', description: 'Final quote total', example: 16375.0 },
+        subtotal: {
+          type: 'number',
+          format: 'currency',
+          description: 'Sum of all items',
+          example: 12500.0,
+        },
+        profit_amount: {
+          type: 'number',
+          format: 'currency',
+          description: 'Profit calculation',
+          example: 2500.0,
+        },
+        overhead_amount: {
+          type: 'number',
+          format: 'currency',
+          description: 'Overhead calculation',
+          example: 1250.0,
+        },
+        contingency_amount: {
+          type: 'number',
+          format: 'currency',
+          description: 'Contingency amount',
+          example: 625.0,
+        },
+        discount_amount: {
+          type: 'number',
+          format: 'currency',
+          description: 'Total discounts applied',
+          example: 500.0,
+        },
+        total: {
+          type: 'number',
+          format: 'currency',
+          description: 'Final quote total',
+          example: 16375.0,
+        },
       },
       terms: {
-        quote_terms: { type: 'string', description: 'Terms and conditions', example: 'Payment due upon completion' },
-        payment_instructions: { type: 'string', description: 'Payment instructions', example: 'Check or cash accepted' },
+        quote_terms: {
+          type: 'string',
+          description: 'Terms and conditions',
+          example: 'Payment due upon completion',
+        },
+        payment_instructions: {
+          type: 'string',
+          description: 'Payment instructions',
+          example: 'Check or cash accepted',
+        },
       },
       attachments: {
-        _description: 'Array of attachments, iterate with {{#each attachments}}',
+        _description:
+          'Array of attachments, iterate with {{#each attachments}}',
         _example: [
           {
             filename: 'floorplan.pdf',
@@ -565,7 +727,8 @@ export class QuoteTemplateService {
         ],
       },
       draw_schedule: {
-        _description: 'Array of draw schedule entries, iterate with {{#each draw_schedule}}',
+        _description:
+          'Array of draw schedule entries, iterate with {{#each draw_schedule}}',
         _example: [
           {
             sequence_number: 1,

@@ -173,17 +173,19 @@ export class QuoteService {
         last_name: dto.customer.last_name,
         emails: [{ email: dto.customer.email, is_primary: true }],
         phones: [{ phone: dto.customer.phone, is_primary: true }],
-        addresses: [{
-          address_line1: dto.jobsite_address.address_line1,
-          address_line2: dto.jobsite_address.address_line2,
-          city: dto.jobsite_address.city,
-          state: dto.jobsite_address.state,
-          zip_code: dto.jobsite_address.zip_code,
-          latitude: dto.jobsite_address.latitude,
-          longitude: dto.jobsite_address.longitude,
-          address_type: AddressType.SERVICE,
-          is_primary: true,
-        }],
+        addresses: [
+          {
+            address_line1: dto.jobsite_address.address_line1,
+            address_line2: dto.jobsite_address.address_line2,
+            city: dto.jobsite_address.city,
+            state: dto.jobsite_address.state,
+            zip_code: dto.jobsite_address.zip_code,
+            latitude: dto.jobsite_address.latitude,
+            longitude: dto.jobsite_address.longitude,
+            address_type: AddressType.SERVICE,
+            is_primary: true,
+          },
+        ],
         source: 'manual',
       });
 
@@ -365,9 +367,7 @@ export class QuoteService {
         description: `Quote created: ${quoteNumber} - ${dto.title}`,
       });
 
-      this.logger.log(
-        `Quote created: ${quoteNumber} for tenant: ${tenantId}`,
-      );
+      this.logger.log(`Quote created: ${quoteNumber} for tenant: ${tenantId}`);
 
       return quote.id;
     });
@@ -488,16 +488,18 @@ export class QuoteService {
     return {
       data: quotes.map((quote) => {
         // Calculate total with approved change orders
-        const approvedChangeOrders = (quote as any).change_orders?.filter(
-          (co: any) => co.status === 'approved'
-        ) || [];
+        const approvedChangeOrders =
+          (quote as any).change_orders?.filter(
+            (co: any) => co.status === 'approved',
+          ) || [];
 
         const approvedChangeOrdersTotal = approvedChangeOrders.reduce(
           (sum: number, co: any) => sum + Number(co.total || 0),
-          0
+          0,
         );
 
-        const totalWithChangeOrders = Number(quote.total) + approvedChangeOrdersTotal;
+        const totalWithChangeOrders =
+          Number(quote.total) + approvedChangeOrdersTotal;
 
         return {
           ...quote,
@@ -602,16 +604,18 @@ export class QuoteService {
     }
 
     // Calculate total with approved change orders
-    const approvedChangeOrders = (quote as any).change_orders?.filter(
-      (co: any) => co.status === 'approved'
-    ) || [];
+    const approvedChangeOrders =
+      (quote as any).change_orders?.filter(
+        (co: any) => co.status === 'approved',
+      ) || [];
 
     const approvedChangeOrdersTotal = approvedChangeOrders.reduce(
       (sum: number, co: any) => sum + Number(co.total || 0),
-      0
+      0,
     );
 
-    const totalWithChangeOrders = Number(quote.total) + approvedChangeOrdersTotal;
+    const totalWithChangeOrders =
+      Number(quote.total) + approvedChangeOrdersTotal;
 
     // Convert Decimal fields to numbers
     return {
@@ -638,28 +642,32 @@ export class QuoteService {
             longitude: Number((quote as any).jobsite_address.longitude),
           }
         : null,
-      items: (quote as any).items?.map((item) => ({
-        ...item,
-        quantity: Number(item.quantity),
-        material_cost_per_unit: Number(item.material_cost_per_unit),
-        labor_cost_per_unit: Number(item.labor_cost_per_unit),
-        equipment_cost_per_unit: Number(item.equipment_cost_per_unit),
-        subcontract_cost_per_unit: Number(item.subcontract_cost_per_unit),
-        other_cost_per_unit: Number(item.other_cost_per_unit),
-        total_cost: Number(item.total_cost),
-      })) || [],
-      discount_rules: (quote as any).discount_rules?.map((rule) => ({
-        ...rule,
-        value: Number(rule.value),
-      })) || [],
-      draw_schedule: (quote as any).draw_schedule?.map((draw) => ({
-        ...draw,
-        value: Number(draw.value),
-      })) || [],
-      change_orders: (quote as any).change_orders?.map((co: any) => ({
-        ...co,
-        total: Number(co.total),
-      })) || [],
+      items:
+        (quote as any).items?.map((item) => ({
+          ...item,
+          quantity: Number(item.quantity),
+          material_cost_per_unit: Number(item.material_cost_per_unit),
+          labor_cost_per_unit: Number(item.labor_cost_per_unit),
+          equipment_cost_per_unit: Number(item.equipment_cost_per_unit),
+          subcontract_cost_per_unit: Number(item.subcontract_cost_per_unit),
+          other_cost_per_unit: Number(item.other_cost_per_unit),
+          total_cost: Number(item.total_cost),
+        })) || [],
+      discount_rules:
+        (quote as any).discount_rules?.map((rule) => ({
+          ...rule,
+          value: Number(rule.value),
+        })) || [],
+      draw_schedule:
+        (quote as any).draw_schedule?.map((draw) => ({
+          ...draw,
+          value: Number(draw.value),
+        })) || [],
+      change_orders:
+        (quote as any).change_orders?.map((co: any) => ({
+          ...co,
+          total: Number(co.total),
+        })) || [],
     };
   }
 
@@ -718,7 +726,8 @@ export class QuoteService {
       }
       if (dto.title) updateData.title = dto.title;
       if (dto.po_number !== undefined) updateData.po_number = dto.po_number;
-      if (dto.expiration_date) updateData.expires_at = new Date(dto.expiration_date);
+      if (dto.expiration_date)
+        updateData.expires_at = new Date(dto.expiration_date);
       if (dto.custom_profit_percent !== undefined)
         updateData.custom_profit_percent =
           dto.custom_profit_percent !== null
@@ -748,7 +757,8 @@ export class QuoteService {
       if (dto.custom_terms !== undefined)
         updateData.custom_terms = dto.custom_terms;
       if (dto.custom_payment_instructions !== undefined)
-        updateData.custom_payment_instructions = dto.custom_payment_instructions;
+        updateData.custom_payment_instructions =
+          dto.custom_payment_instructions;
 
       // Update quote
       const updatedQuote = await tx.quote.update({
@@ -807,7 +817,15 @@ export class QuoteService {
       draft: ['pending_approval', 'ready'],
       pending_approval: ['ready', 'draft'],
       ready: ['sent', 'draft'],
-      sent: ['delivered', 'read', 'opened', 'downloaded', 'approved', 'denied', 'lost'],
+      sent: [
+        'delivered',
+        'read',
+        'opened',
+        'downloaded',
+        'approved',
+        'denied',
+        'lost',
+      ],
       delivered: ['opened', 'read', 'downloaded', 'approved', 'denied', 'lost'],
       opened: ['read', 'downloaded', 'approved', 'denied', 'lost'],
       read: ['downloaded', 'approved', 'denied', 'lost'],
@@ -867,23 +885,40 @@ export class QuoteService {
     // Auto-update lead status based on quote progression
     if (quote.lead_id) {
       const wonStatuses = ['approved', 'started', 'concluded'];
-      const activeStatuses = ['sent', 'delivered', 'read', 'opened', 'downloaded', 'email_failed'];
+      const activeStatuses = [
+        'sent',
+        'delivered',
+        'read',
+        'opened',
+        'downloaded',
+        'email_failed',
+      ];
 
       try {
         // Convert to customer when quote is won
         if (wonStatuses.includes(dto.status)) {
-          await this.leadsService.updateStatus(tenantId, quote.lead_id, userId, {
-            status: 'customer',
-          });
+          await this.leadsService.updateStatus(
+            tenantId,
+            quote.lead_id,
+            userId,
+            {
+              status: 'customer',
+            },
+          );
           this.logger.log(
             `Lead ${quote.lead_id} automatically converted to customer (quote ${quoteId} → ${dto.status})`,
           );
         }
         // Convert to prospect when quote becomes active (sent, etc.)
         else if (activeStatuses.includes(dto.status)) {
-          await this.leadsService.updateStatus(tenantId, quote.lead_id, userId, {
-            status: 'prospect',
-          });
+          await this.leadsService.updateStatus(
+            tenantId,
+            quote.lead_id,
+            userId,
+            {
+              status: 'prospect',
+            },
+          );
           this.logger.log(
             `Lead ${quote.lead_id} automatically converted to prospect (quote ${quoteId} → ${dto.status})`,
           );
@@ -912,11 +947,15 @@ export class QuoteService {
     }
 
     if (!quote.vendor_id) {
-      throw new BadRequestException('Quote must have a vendor to be marked as ready');
+      throw new BadRequestException(
+        'Quote must have a vendor to be marked as ready',
+      );
     }
 
     if (!quote.jobsite_address_id) {
-      throw new BadRequestException('Quote must have a valid address to be marked as ready');
+      throw new BadRequestException(
+        'Quote must have a valid address to be marked as ready',
+      );
     }
 
     if (new Date(quote.expiration_date) <= new Date()) {
@@ -1005,7 +1044,11 @@ export class QuoteService {
    * @param quoteId - Quote UUID
    * @param userId - User UUID
    */
-  async delete(tenantId: string, quoteId: string, userId: string): Promise<void> {
+  async delete(
+    tenantId: string,
+    quoteId: string,
+    userId: string,
+  ): Promise<void> {
     const quote = await this.prisma.quote.findFirst({
       where: { id: quoteId, tenant_id: tenantId },
       include: {
@@ -1042,7 +1085,9 @@ export class QuoteService {
       description: `Quote permanently deleted: ${quote.quote_number}`,
     });
 
-    this.logger.log(`Quote permanently deleted: ${quoteId} (${quote.quote_number})`);
+    this.logger.log(
+      `Quote permanently deleted: ${quoteId} (${quote.quote_number})`,
+    );
   }
 
   /**
@@ -1069,11 +1114,16 @@ export class QuoteService {
       );
 
       // 2. Generate new quote number
-      const newQuoteNumber = await this.quoteNumberService.generate(tenantId, tx);
+      const newQuoteNumber = await this.quoteNumberService.generate(
+        tenantId,
+        tx,
+      );
 
       // 3. Calculate new expiration date based on expiration_days
       const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + (sourceQuote.expiration_days || 30));
+      expiresAt.setDate(
+        expiresAt.getDate() + (sourceQuote.expiration_days || 30),
+      );
 
       // 4. Create new quote
       const newQuote = await tx.quote.create({
@@ -1140,7 +1190,9 @@ export class QuoteService {
             material_cost_per_unit: new Decimal(item.material_cost_per_unit),
             labor_cost_per_unit: new Decimal(item.labor_cost_per_unit),
             equipment_cost_per_unit: new Decimal(item.equipment_cost_per_unit),
-            subcontract_cost_per_unit: new Decimal(item.subcontract_cost_per_unit),
+            subcontract_cost_per_unit: new Decimal(
+              item.subcontract_cost_per_unit,
+            ),
             other_cost_per_unit: new Decimal(item.other_cost_per_unit),
             total_cost: new Decimal(item.total_cost),
             order_index: item.order_index,
@@ -1210,7 +1262,9 @@ export class QuoteService {
         description: `Quote cloned from ${sourceQuote.quote_number}: ${newQuoteNumber}`,
       });
 
-      this.logger.log(`Quote cloned: ${sourceQuote.quote_number} → ${newQuoteNumber}`);
+      this.logger.log(
+        `Quote cloned: ${sourceQuote.quote_number} → ${newQuoteNumber}`,
+      );
 
       return newQuote.id;
     });
@@ -1338,7 +1392,9 @@ export class QuoteService {
           select: { order_index: true },
         });
 
-        const groupOrderIndex = maxGroupIndex ? maxGroupIndex.order_index + 1 : 0;
+        const groupOrderIndex = maxGroupIndex
+          ? maxGroupIndex.order_index + 1
+          : 0;
 
         const group = await tx.quote_group.create({
           data: {
@@ -1378,7 +1434,7 @@ export class QuoteService {
           quote_id: quoteId,
           quote_group_id: quoteGroupId || null,
           item_library_id: bundleItem.item_library_id,
-          quote_bundle_id: bundleId,  // Track source bundle
+          quote_bundle_id: bundleId, // Track source bundle
           title: bundleItem.title,
           description: bundleItem.description,
           quantity: bundleItem.quantity,
@@ -1464,8 +1520,7 @@ export class QuoteService {
         message: `Bundle '${bundle.name}' added to quote`,
         quote_group_id: quoteGroupId,
         items_created: bundle.items.length,
-        discount_applied:
-          dto.apply_discount !== false && !!discountRuleId,
+        discount_applied: dto.apply_discount !== false && !!discountRuleId,
         discount_rule_id: discountRuleId,
       };
     });
@@ -1523,7 +1578,13 @@ export class QuoteService {
       this.prisma.quote.aggregate({
         where: {
           ...where,
-          status: { in: [QuoteStatus.APPROVED, QuoteStatus.STARTED, QuoteStatus.CONCLUDED] },
+          status: {
+            in: [
+              QuoteStatus.APPROVED,
+              QuoteStatus.STARTED,
+              QuoteStatus.CONCLUDED,
+            ],
+          },
         },
         _sum: { total: true },
       }),
@@ -1536,10 +1597,13 @@ export class QuoteService {
       }),
     ]);
 
-    const statusCounts = byStatus.reduce((acc, item) => {
-      acc[item.status] = item._count.id;
-      return acc;
-    }, {} as Record<string, number>);
+    const statusCounts = byStatus.reduce(
+      (acc, item) => {
+        acc[item.status] = item._count.id;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     // Calculate conversion rate: successful quotes / all quotes that were sent
     const approvedCount =
@@ -1565,7 +1629,19 @@ export class QuoteService {
       sentCount > 0 ? (approvedCount / sentCount) * 100 : 0;
 
     // Calculate new metrics
-    const sentStatuses = ['sent', 'delivered', 'read', 'opened', 'downloaded', 'approved', 'started', 'concluded', 'denied', 'lost', 'email_failed'];
+    const sentStatuses = [
+      'sent',
+      'delivered',
+      'read',
+      'opened',
+      'downloaded',
+      'approved',
+      'started',
+      'concluded',
+      'denied',
+      'lost',
+      'email_failed',
+    ];
     const amountSent = allQuotes
       .filter((q) => sentStatuses.includes(q.status))
       .reduce((sum, q) => sum + Number(q.total || 0), 0);
@@ -1584,8 +1660,12 @@ export class QuoteService {
 
     // Average quote value (excluding drafts)
     const generatedQuotes = allQuotes.filter((q) => q.status !== 'draft');
-    const totalGenerated = generatedQuotes.reduce((sum, q) => sum + Number(q.total || 0), 0);
-    const avgQuoteValue = generatedQuotes.length > 0 ? totalGenerated / generatedQuotes.length : 0;
+    const totalGenerated = generatedQuotes.reduce(
+      (sum, q) => sum + Number(q.total || 0),
+      0,
+    );
+    const avgQuoteValue =
+      generatedQuotes.length > 0 ? totalGenerated / generatedQuotes.length : 0;
 
     return {
       total_quotes: totalQuotes,

@@ -133,7 +133,9 @@ export class AdminTenantService {
         'denied',
         'lost',
       ];
-      const sentQuotes = allQuotes.filter((q) => sentStatuses.includes(q.status));
+      const sentQuotes = allQuotes.filter((q) =>
+        sentStatuses.includes(q.status),
+      );
       const conversionRate = this.calculateConversionRate(
         acceptedQuotes.length,
         sentQuotes.length,
@@ -291,8 +293,10 @@ export class AdminTenantService {
 
     const avgQuoteValue =
       sentQuotes.length > 0
-        ? sentQuotes.reduce((sum, q) => sum + parseFloat(q.total.toString()), 0) /
-          sentQuotes.length
+        ? sentQuotes.reduce(
+            (sum, q) => sum + parseFloat(q.total.toString()),
+            0,
+          ) / sentQuotes.length
         : 0;
 
     // Quotes by status
@@ -350,7 +354,8 @@ export class AdminTenantService {
         quotes_by_status: quotesByStatus,
         revenue: {
           total: totalRevenue,
-          average_per_quote: quotes.length > 0 ? totalRevenue / quotes.length : 0,
+          average_per_quote:
+            quotes.length > 0 ? totalRevenue / quotes.length : 0,
         },
         conversion_rate: this.calculateConversionRate(
           acceptedQuotes.length,
@@ -435,7 +440,9 @@ export class AdminTenantService {
 
     const tenantsWithMetrics = tenants.map((tenant) => {
       const allQuotes = tenant.quotes;
-      const sentQuotes = allQuotes.filter((q) => sentStatuses.includes(q.status));
+      const sentQuotes = allQuotes.filter((q) =>
+        sentStatuses.includes(q.status),
+      );
       const acceptedQuotes = allQuotes.filter((q) =>
         acceptedStatuses.includes(q.status),
       );
@@ -740,10 +747,7 @@ export class AdminTenantService {
    * @param previous - Previous value
    * @returns Percentage change string with +/- prefix
    */
-  private calculatePercentageChange(
-    current: number,
-    previous: number,
-  ): string {
+  private calculatePercentageChange(current: number, previous: number): string {
     if (previous === 0) {
       return current > 0 ? '+100.0%' : '0.0%';
     }

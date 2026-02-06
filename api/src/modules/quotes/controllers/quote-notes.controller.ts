@@ -55,7 +55,8 @@ export class QuoteNotesController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Add a note to a quote',
-    description: 'Creates a new note attached to a quote with automatic user tracking and timestamps',
+    description:
+      'Creates a new note attached to a quote with automatic user tracking and timestamps',
   })
   @ApiParam({
     name: 'id',
@@ -95,7 +96,8 @@ export class QuoteNotesController {
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Field')
   @ApiOperation({
     summary: 'List all notes for a quote',
-    description: 'Returns all notes for a quote, ordered by pinned status and creation date (newest first)',
+    description:
+      'Returns all notes for a quote, ordered by pinned status and creation date (newest first)',
   })
   @ApiParam({
     name: 'id',

@@ -11,7 +11,13 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PlatformAdminGuard } from '../../rbac/guards/platform-admin.guard';
 import { PrismaService } from '../../../core/database/prisma.service';
@@ -36,8 +42,18 @@ export class JobsAdminController {
   @ApiResponse({ status: 200, description: 'Jobs retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin only' })
-  async listJobs(@Query() filters: JobFilterDto): Promise<PaginatedResponseDto<any>> {
-    const { page = 1, limit = 50, status, job_type, tenant_id, date_from, date_to } = filters;
+  async listJobs(
+    @Query() filters: JobFilterDto,
+  ): Promise<PaginatedResponseDto<any>> {
+    const {
+      page = 1,
+      limit = 50,
+      status,
+      job_type,
+      tenant_id,
+      date_from,
+      date_to,
+    } = filters;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -128,7 +144,8 @@ export class JobsAdminController {
     });
 
     // Re-queue to appropriate queue
-    const queue = job.job_type === 'send-email' ? this.emailQueue : this.scheduledQueue;
+    const queue =
+      job.job_type === 'send-email' ? this.emailQueue : this.scheduledQueue;
     await queue.add(job.job_type, job.payload, { jobId: id });
 
     return { message: 'Job requeued successfully', job_id: id };
@@ -224,10 +241,13 @@ export class JobsAdminController {
         processing: 0,
         completed: 0,
         failed: 0,
-        ...jobStats.reduce((acc, stat) => {
-          acc[stat.status] = stat._count;
-          return acc;
-        }, {} as Record<string, number>),
+        ...jobStats.reduce(
+          (acc, stat) => {
+            acc[stat.status] = stat._count;
+            return acc;
+          },
+          {} as Record<string, number>,
+        ),
       },
     };
   }

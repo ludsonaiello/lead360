@@ -32,7 +32,8 @@ export class PasswordValidationResponseDto {
   failed_attempts?: number;
 
   @ApiProperty({
-    description: 'Whether the account is locked due to too many failed attempts',
+    description:
+      'Whether the account is locked due to too many failed attempts',
     example: false,
     required: false,
   })

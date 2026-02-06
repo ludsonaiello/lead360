@@ -1,4 +1,11 @@
-import { Injectable, NotFoundException, BadRequestException, UnauthorizedException, ForbiddenException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  UnauthorizedException,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { FileStorageService } from '../../core/file-storage/file-storage.service';
 import { StorageProviderFactory } from '../../core/file-storage/storage-provider.factory';
@@ -29,7 +36,10 @@ export class FilesService {
    * Check storage quota before upload
    * Throws ForbiddenException if tenant exceeds their storage limit
    */
-  async checkStorageQuota(tenantId: string, newFileSizeBytes: number): Promise<void> {
+  async checkStorageQuota(
+    tenantId: string,
+    newFileSizeBytes: number,
+  ): Promise<void> {
     // Get tenant's subscription plan
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -53,7 +63,8 @@ export class FilesService {
     });
 
     const currentBytes = currentUsage._sum.size_bytes || 0;
-    const maxBytes = Number(tenant.subscription_plan.max_storage_gb) * 1024 * 1024 * 1024; // GB to bytes
+    const maxBytes =
+      Number(tenant.subscription_plan.max_storage_gb) * 1024 * 1024 * 1024; // GB to bytes
     const newTotalBytes = currentBytes + newFileSizeBytes;
 
     if (newTotalBytes > maxBytes) {
@@ -63,14 +74,14 @@ export class FilesService {
 
       throw new ForbiddenException(
         `Storage quota exceeded. You are using ${currentGB} GB of ${maxGB} GB. ` +
-        `This file (${fileSizeMB} MB) would exceed your limit. ` +
-        `Please upgrade your plan or delete some files to free up space.`
+          `This file (${fileSizeMB} MB) would exceed your limit. ` +
+          `Please upgrade your plan or delete some files to free up space.`,
       );
     }
 
     this.logger.log(
       `Storage quota check passed for tenant ${tenantId}: ` +
-      `${((currentBytes / maxBytes) * 100).toFixed(1)}% used (${(currentBytes / (1024 * 1024 * 1024)).toFixed(2)} GB / ${Number(tenant.subscription_plan.max_storage_gb).toFixed(2)} GB)`
+        `${((currentBytes / maxBytes) * 100).toFixed(1)}% used (${(currentBytes / (1024 * 1024 * 1024)).toFixed(2)} GB / ${Number(tenant.subscription_plan.max_storage_gb).toFixed(2)} GB)`,
     );
   }
 
@@ -111,13 +122,16 @@ export class FilesService {
       : null;
 
     const isUnlimited = maxStorageGB === null;
-    const percentageUsed = isUnlimited ? null : (currentGB / maxStorageGB) * 100;
+    const percentageUsed = isUnlimited
+      ? null
+      : (currentGB / maxStorageGB) * 100;
 
     return {
       current_usage_bytes: currentBytes,
       current_usage_gb: Number(currentGB.toFixed(2)),
       max_storage_gb: maxStorageGB,
-      percentage_used: percentageUsed !== null ? Number(percentageUsed.toFixed(2)) : null,
+      percentage_used:
+        percentageUsed !== null ? Number(percentageUsed.toFixed(2)) : null,
       is_unlimited: isUnlimited,
       file_count: fileCount,
     };
@@ -143,19 +157,43 @@ export class FilesService {
         maxSizeBytes: 10 * 1024 * 1024, // 10MB
       },
       invoice: {
-        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
+        allowedMimeTypes: [
+          'application/pdf',
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+          'image/webp',
+        ],
         maxSizeBytes: 10 * 1024 * 1024, // 10MB
       },
       license: {
-        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
+        allowedMimeTypes: [
+          'application/pdf',
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+          'image/webp',
+        ],
         maxSizeBytes: 10 * 1024 * 1024, // 10MB
       },
       insurance: {
-        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
+        allowedMimeTypes: [
+          'application/pdf',
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+          'image/webp',
+        ],
         maxSizeBytes: 10 * 1024 * 1024, // 10MB
       },
       logo: {
-        allowedMimeTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml', 'image/webp'],
+        allowedMimeTypes: [
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+          'image/svg+xml',
+          'image/webp',
+        ],
         maxSizeBytes: 5 * 1024 * 1024, // 5MB
       },
       contract: {
@@ -167,7 +205,13 @@ export class FilesService {
         maxSizeBytes: 15 * 1024 * 1024, // 15MB
       },
       receipt: {
-        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
+        allowedMimeTypes: [
+          'application/pdf',
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+          'image/webp',
+        ],
         maxSizeBytes: 5 * 1024 * 1024, // 5MB
       },
       photo: {
@@ -192,7 +236,12 @@ export class FilesService {
         maxSizeBytes: 25 * 1024 * 1024, // 25MB
       },
       signature: {
-        allowedMimeTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
+        allowedMimeTypes: [
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+          'image/webp',
+        ],
         maxSizeBytes: 2 * 1024 * 1024, // 2MB
       },
       misc: {
@@ -419,7 +468,17 @@ export class FilesService {
    * Find all files with filters and pagination
    */
   async findAll(tenantId: string | null, query: FileQueryDto) {
-    const { category, entity_type, entity_id, file_type, start_date, end_date, search, page = 1, limit = 20 } = query;
+    const {
+      category,
+      entity_type,
+      entity_id,
+      file_type,
+      start_date,
+      end_date,
+      search,
+      page = 1,
+      limit = 20,
+    } = query;
 
     // Build where clause
     const where: any = {
@@ -510,7 +569,10 @@ export class FilesService {
     // Add URLs to files
     const filesWithUrls = await Promise.all(
       files.map(async (file) => {
-        const fileInfo = await this.fileStorage.getFileInfo(file.tenant_id, file.file_id);
+        const fileInfo = await this.fileStorage.getFileInfo(
+          file.tenant_id,
+          file.file_id,
+        );
         return {
           ...file,
           url: fileInfo.url,
@@ -552,9 +614,13 @@ export class FilesService {
     if (file.has_thumbnail && file.thumbnail_path) {
       try {
         await this.fileStorage.deleteFileByPath(file.thumbnail_path);
-        this.logger.log(`Deleted thumbnail for file ${fileId}: ${file.thumbnail_path}`);
+        this.logger.log(
+          `Deleted thumbnail for file ${fileId}: ${file.thumbnail_path}`,
+        );
       } catch (error) {
-        this.logger.warn(`Failed to delete thumbnail for file ${fileId}: ${error.message}`);
+        this.logger.warn(
+          `Failed to delete thumbnail for file ${fileId}: ${error.message}`,
+        );
         // Don't fail the whole operation if thumbnail deletion fails
       }
     }
@@ -653,13 +719,22 @@ export class FilesService {
     // Add URLs to orphans
     const orphansWithUrls = await Promise.all(
       orphans.map(async (file) => {
-        const fileInfo = await this.fileStorage.getFileInfo(tenantId, file.file_id);
+        const fileInfo = await this.fileStorage.getFileInfo(
+          tenantId,
+          file.file_id,
+        );
         return {
           ...file,
           url: fileInfo.url,
           days_orphaned: file.orphaned_at
-            ? Math.floor((Date.now() - new Date(file.orphaned_at).getTime()) / (1000 * 60 * 60 * 24))
-            : Math.floor((Date.now() - new Date(file.created_at).getTime()) / (1000 * 60 * 60 * 24)),
+            ? Math.floor(
+                (Date.now() - new Date(file.orphaned_at).getTime()) /
+                  (1000 * 60 * 60 * 24),
+              )
+            : Math.floor(
+                (Date.now() - new Date(file.created_at).getTime()) /
+                  (1000 * 60 * 60 * 24),
+              ),
         };
       }),
     );
@@ -760,7 +835,9 @@ export class FilesService {
 
     // Hard delete from filesystem - delete main files
     await Promise.all(
-      trashedFiles.map((file) => this.fileStorage.deleteFileByPath(file.storage_path)),
+      trashedFiles.map((file) =>
+        this.fileStorage.deleteFileByPath(file.storage_path),
+      ),
     );
 
     // Delete thumbnails if they exist
@@ -770,9 +847,13 @@ export class FilesService {
         .map(async (file) => {
           try {
             await this.fileStorage.deleteFileByPath(file.thumbnail_path!);
-            this.logger.log(`Deleted thumbnail for trashed file ${file.file_id}`);
+            this.logger.log(
+              `Deleted thumbnail for trashed file ${file.file_id}`,
+            );
           } catch (error) {
-            this.logger.warn(`Failed to delete thumbnail for file ${file.file_id}: ${error.message}`);
+            this.logger.warn(
+              `Failed to delete thumbnail for file ${file.file_id}: ${error.message}`,
+            );
           }
         }),
     );
@@ -838,7 +919,9 @@ export class FilesService {
       .map((q) => q.latest_pdf_file_id)
       .filter((id): id is string => id !== null);
 
-    this.logger.debug(`Found ${fileIds.length} linked PDF files for tenant ${tenantId} (excluded from orphan detection)`);
+    this.logger.debug(
+      `Found ${fileIds.length} linked PDF files for tenant ${tenantId} (excluded from orphan detection)`,
+    );
 
     return fileIds;
   }
@@ -846,7 +929,11 @@ export class FilesService {
   /**
    * Create a temporary share link for a file
    */
-  async createShareLink(tenantId: string, userId: string, dto: CreateShareLinkDto) {
+  async createShareLink(
+    tenantId: string,
+    userId: string,
+    dto: CreateShareLinkDto,
+  ) {
     // Verify file exists and belongs to tenant
     const file = await this.prisma.file.findFirst({
       where: {
@@ -962,7 +1049,11 @@ export class FilesService {
     }
 
     // Check download limit only for downloads, not views
-    if (checkDownloadLimit && shareLink.max_downloads && shareLink.download_count >= shareLink.max_downloads) {
+    if (
+      checkDownloadLimit &&
+      shareLink.max_downloads &&
+      shareLink.download_count >= shareLink.max_downloads
+    ) {
       throw new BadRequestException('Maximum download limit reached');
     }
 
@@ -971,7 +1062,10 @@ export class FilesService {
       if (!password) {
         throw new UnauthorizedException('Password required');
       }
-      const passwordValid = await bcrypt.compare(password, shareLink.password_hash);
+      const passwordValid = await bcrypt.compare(
+        password,
+        shareLink.password_hash,
+      );
       if (!passwordValid) {
         throw new UnauthorizedException('Invalid password');
       }
@@ -990,7 +1084,11 @@ export class FilesService {
    */
   async viewShareLink(shareToken: string, dto: AccessShareLinkDto) {
     // Validate share link (no download limit check for views)
-    const shareLink = await this.validateShareLink(shareToken, dto.password, false);
+    const shareLink = await this.validateShareLink(
+      shareToken,
+      dto.password,
+      false,
+    );
 
     // Increment view_count (not download_count)
     await this.prisma.file_share_link.update({
@@ -1002,7 +1100,9 @@ export class FilesService {
     });
 
     // Get file URL from storage
-    const storageProvider = await this.storageFactory.getProvider(shareLink.tenant_id);
+    const storageProvider = await this.storageFactory.getProvider(
+      shareLink.tenant_id,
+    );
     const fileUrl = await storageProvider.getFileUrl(
       shareLink.file.file_id,
       shareLink.file.storage_path,
@@ -1039,7 +1139,11 @@ export class FilesService {
    */
   async downloadShareLink(shareToken: string, dto: AccessShareLinkDto) {
     // Validate share link (check download limit for downloads)
-    const shareLink = await this.validateShareLink(shareToken, dto.password, true);
+    const shareLink = await this.validateShareLink(
+      shareToken,
+      dto.password,
+      true,
+    );
 
     // Increment download_count
     await this.prisma.file_share_link.update({
@@ -1051,7 +1155,9 @@ export class FilesService {
     });
 
     // Get file URL from storage
-    const storageProvider = await this.storageFactory.getProvider(shareLink.tenant_id);
+    const storageProvider = await this.storageFactory.getProvider(
+      shareLink.tenant_id,
+    );
     const fileUrl = await storageProvider.getFileUrl(
       shareLink.file.file_id,
       shareLink.file.storage_path,
@@ -1106,7 +1212,10 @@ export class FilesService {
     }
 
     // Check if max downloads reached
-    if (shareLink.max_downloads && shareLink.download_count >= shareLink.max_downloads) {
+    if (
+      shareLink.max_downloads &&
+      shareLink.download_count >= shareLink.max_downloads
+    ) {
       throw new BadRequestException('Maximum download limit reached');
     }
 
@@ -1116,7 +1225,10 @@ export class FilesService {
         throw new UnauthorizedException('Password required');
       }
 
-      const passwordValid = await bcrypt.compare(dto.password, shareLink.password_hash);
+      const passwordValid = await bcrypt.compare(
+        dto.password,
+        shareLink.password_hash,
+      );
       if (!passwordValid) {
         throw new UnauthorizedException('Invalid password');
       }
@@ -1132,7 +1244,9 @@ export class FilesService {
     });
 
     // Get file URL from storage
-    const storageProvider = await this.storageFactory.getProvider(shareLink.tenant_id);
+    const storageProvider = await this.storageFactory.getProvider(
+      shareLink.tenant_id,
+    );
     const fileUrl = await storageProvider.getFileUrl(
       shareLink.file.file_id,
       shareLink.file.storage_path,
@@ -1257,7 +1371,9 @@ export class FilesService {
     });
 
     if (files.length !== dto.file_ids.length) {
-      throw new BadRequestException('Some files not found or do not belong to this tenant');
+      throw new BadRequestException(
+        'Some files not found or do not belong to this tenant',
+      );
     }
 
     // Get storage provider
@@ -1265,14 +1381,18 @@ export class FilesService {
 
     // Delete from storage
     await Promise.all(
-      files.map((file) => storageProvider.delete(file.file_id, file.storage_path)),
+      files.map((file) =>
+        storageProvider.delete(file.file_id, file.storage_path),
+      ),
     );
 
     // Delete thumbnails if they exist
     await Promise.all(
       files
         .filter((f) => f.has_thumbnail && f.thumbnail_path)
-        .map((file) => storageProvider.delete(file.file_id, file.thumbnail_path!)),
+        .map((file) =>
+          storageProvider.delete(file.file_id, file.thumbnail_path!),
+        ),
     );
 
     // Delete from database
@@ -1319,7 +1439,11 @@ export class FilesService {
    * @param dto - Bulk download DTO
    * @returns ZIP buffer
    */
-  async bulkDownload(tenantId: string, userId: string, dto: BulkDownloadDto): Promise<Buffer> {
+  async bulkDownload(
+    tenantId: string,
+    userId: string,
+    dto: BulkDownloadDto,
+  ): Promise<Buffer> {
     const { file_ids, zip_name } = dto;
 
     // Validation
@@ -1328,7 +1452,9 @@ export class FilesService {
     }
 
     if (file_ids.length > 50) {
-      throw new BadRequestException('Cannot download more than 50 files at once');
+      throw new BadRequestException(
+        'Cannot download more than 50 files at once',
+      );
     }
 
     // Get storage provider for tenant
@@ -1379,7 +1505,9 @@ export class FilesService {
         const fileBuffer = await provider.download(file.id, file.storage_path);
         archive.append(fileBuffer, { name: file.original_filename });
       } catch (error) {
-        this.logger.warn(`Failed to download file ${file.id}: ${error.message}`);
+        this.logger.warn(
+          `Failed to download file ${file.id}: ${error.message}`,
+        );
         // Continue with other files
       }
     }
@@ -1424,7 +1552,17 @@ export class FilesService {
    * Optionally filter by tenant_id if provided
    */
   async findAllForAdmin(query: any) {
-    const { tenant_id, page = 1, limit = 50, status, mime_type, search, category, entity_type, file_type } = query;
+    const {
+      tenant_id,
+      page = 1,
+      limit = 50,
+      status,
+      mime_type,
+      search,
+      category,
+      entity_type,
+      file_type,
+    } = query;
 
     // Enforce max limit
     const safeLimit = Math.min(limit, 100);
@@ -1657,18 +1795,20 @@ export class FilesService {
 
     const tenantMap = new Map(tenants.map((t) => [t.id, t]));
 
-    return stats.map((stat) => {
-      const tenant = tenantMap.get(stat.tenant_id);
-      const fileCount = stat._count?.id || 0;
-      const totalBytes = stat._sum?.size_bytes || 0;
-      return {
-        tenant_id: stat.tenant_id,
-        tenant_name: tenant?.company_name || 'Unknown',
-        file_count: fileCount,
-        total_bytes: totalBytes,
-        total_mb: (totalBytes / (1024 * 1024)).toFixed(2),
-      };
-    }).sort((a, b) => b.total_bytes - a.total_bytes); // Sort by size descending
+    return stats
+      .map((stat) => {
+        const tenant = tenantMap.get(stat.tenant_id);
+        const fileCount = stat._count?.id || 0;
+        const totalBytes = stat._sum?.size_bytes || 0;
+        return {
+          tenant_id: stat.tenant_id,
+          tenant_name: tenant?.company_name || 'Unknown',
+          file_count: fileCount,
+          total_bytes: totalBytes,
+          total_mb: (totalBytes / (1024 * 1024)).toFixed(2),
+        };
+      })
+      .sort((a, b) => b.total_bytes - a.total_bytes); // Sort by size descending
   }
 
   /**
@@ -1689,10 +1829,7 @@ export class FilesService {
 
     if (active_only) {
       where.is_active = true;
-      where.OR = [
-        { expires_at: null },
-        { expires_at: { gt: new Date() } },
-      ];
+      where.OR = [{ expires_at: null }, { expires_at: { gt: new Date() } }];
     }
 
     const [shareLinks, total] = await Promise.all([
@@ -1781,7 +1918,9 @@ export class FilesService {
       total_files: totalFiles,
       total_deleted: totalDeleted,
       total_size_bytes: totalSize._sum.size_bytes || 0,
-      total_size_mb: ((totalSize._sum.size_bytes || 0) / (1024 * 1024)).toFixed(2),
+      total_size_mb: ((totalSize._sum.size_bytes || 0) / (1024 * 1024)).toFixed(
+        2,
+      ),
       orphan_files: orphanFiles,
       by_category: filesByCategory.map((item) => ({
         category: item.category,
@@ -1816,10 +1955,7 @@ export class FilesService {
             public_access: {
               some: {
                 is_active: true,
-                OR: [
-                  { expires_at: null },
-                  { expires_at: { gt: new Date() } },
-                ],
+                OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
               },
             },
           },
@@ -1837,10 +1973,7 @@ export class FilesService {
             public_access: {
               some: {
                 is_active: true,
-                OR: [
-                  { expires_at: null },
-                  { expires_at: { gt: new Date() } },
-                ],
+                OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
               },
             },
           },
@@ -1863,10 +1996,7 @@ export class FilesService {
         public_access: {
           some: {
             is_active: true,
-            OR: [
-              { expires_at: null },
-              { expires_at: { gt: new Date() } },
-            ],
+            OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
           },
         },
       },

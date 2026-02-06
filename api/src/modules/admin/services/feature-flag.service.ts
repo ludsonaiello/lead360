@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 
@@ -54,7 +50,10 @@ export class FeatureFlagService {
 
       return flag.is_enabled;
     } catch (error) {
-      this.logger.error(`Failed to check feature flag ${flagKey}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to check feature flag ${flagKey}: ${error.message}`,
+        error.stack,
+      );
       return false; // Fail safely - default to disabled
     }
   }
@@ -102,11 +101,16 @@ export class FeatureFlagService {
         status: 'success',
       });
 
-      this.logger.log(`Feature flag '${flagKey}' toggled to ${newState} by admin ${adminUserId}`);
+      this.logger.log(
+        `Feature flag '${flagKey}' toggled to ${newState} by admin ${adminUserId}`,
+      );
 
       return updatedFlag;
     } catch (error) {
-      this.logger.error(`Failed to toggle feature flag: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to toggle feature flag: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -146,7 +150,10 @@ export class FeatureFlagService {
           : null,
       }));
     } catch (error) {
-      this.logger.error(`Failed to list feature flags: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to list feature flags: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -175,8 +182,12 @@ export class FeatureFlagService {
         where: { flag_key: flagKey },
         data: {
           ...(updateDto.name !== undefined && { name: updateDto.name }),
-          ...(updateDto.description !== undefined && { description: updateDto.description }),
-          ...(updateDto.is_enabled !== undefined && { is_enabled: updateDto.is_enabled }),
+          ...(updateDto.description !== undefined && {
+            description: updateDto.description,
+          }),
+          ...(updateDto.is_enabled !== undefined && {
+            is_enabled: updateDto.is_enabled,
+          }),
           updated_at: new Date(),
           updated_by_user_id: adminUserId,
         },
@@ -203,11 +214,16 @@ export class FeatureFlagService {
         status: 'success',
       });
 
-      this.logger.log(`Feature flag '${flagKey}' updated by admin ${adminUserId}`);
+      this.logger.log(
+        `Feature flag '${flagKey}' updated by admin ${adminUserId}`,
+      );
 
       return updatedFlag;
     } catch (error) {
-      this.logger.error(`Failed to update feature flag: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to update feature flag: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }

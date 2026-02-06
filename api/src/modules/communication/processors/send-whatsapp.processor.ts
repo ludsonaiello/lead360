@@ -55,11 +55,49 @@ export class SendWhatsAppProcessor extends WorkerHost {
         return { success: false, reason: 'Already processed' };
       }
 
-      // 2. Load tenant WhatsApp config (TODO: Create tenant_whatsapp_config table in future)
-      // For now, assuming credentials are stored in tenant settings or similar
-      // This is a placeholder - actual implementation depends on how WhatsApp config is stored
+      // 2. Load tenant WhatsApp config from database
+      if (!event.tenant_id) {
+        this.logger.error(
+          `❌ No tenant_id found in communication event ${communicationEventId}`,
+        );
+        await this.prisma.communication_event.update({
+          where: { id: communicationEventId },
+          data: {
+            status: 'failed',
+            error_message: 'No tenant_id found in communication event',
+          },
+        });
+        return {
+          success: false,
+          reason: 'No tenant_id in event',
+        };
+      }
 
-      const encryptedCredentials = {}; // TODO: Load from tenant_whatsapp_config
+      const config = await this.prisma.tenant_whatsapp_config.findFirst({
+        where: {
+          tenant_id: event.tenant_id,
+          is_active: true,
+        },
+      });
+
+      if (!config) {
+        this.logger.error(
+          `❌ No active WhatsApp configuration found for tenant ${event.tenant_id}`,
+        );
+        await this.prisma.communication_event.update({
+          where: { id: communicationEventId },
+          data: {
+            status: 'failed',
+            error_message: 'No active WhatsApp configuration found for tenant',
+          },
+        });
+        return {
+          success: false,
+          reason: 'No active WhatsApp configuration',
+        };
+      }
+
+      const encryptedCredentials = config.credentials;
 
       // 3. Send WhatsApp message via provider
       const startTime = Date.now();

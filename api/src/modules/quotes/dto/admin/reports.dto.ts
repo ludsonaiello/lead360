@@ -47,7 +47,8 @@ export class GenerateReportDto {
   report_type: ReportType;
 
   @ApiPropertyOptional({
-    description: 'Start date (ISO 8601) - Can be provided at root level or inside parameters',
+    description:
+      'Start date (ISO 8601) - Can be provided at root level or inside parameters',
     example: '2024-01-01T00:00:00.000Z',
   })
   @IsOptional()
@@ -55,7 +56,8 @@ export class GenerateReportDto {
   date_from?: string;
 
   @ApiPropertyOptional({
-    description: 'End date (ISO 8601) - Can be provided at root level or inside parameters',
+    description:
+      'End date (ISO 8601) - Can be provided at root level or inside parameters',
     example: '2024-01-31T23:59:59.999Z',
   })
   @IsOptional()
@@ -63,7 +65,8 @@ export class GenerateReportDto {
   date_to?: string;
 
   @ApiPropertyOptional({
-    description: 'Report parameters (date range, filters, etc.) - Alternative to root-level date fields',
+    description:
+      'Report parameters (date range, filters, etc.) - Alternative to root-level date fields',
     example: {
       date_from: '2024-01-01T00:00:00.000Z',
       date_to: '2024-01-31T23:59:59.999Z',

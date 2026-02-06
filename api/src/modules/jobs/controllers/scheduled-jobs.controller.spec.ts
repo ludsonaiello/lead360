@@ -141,7 +141,9 @@ describe('ScheduledJobsController', () => {
         next_run_at: new Date(),
       };
 
-      mockPrismaService.scheduled_job.findUnique.mockResolvedValue(mockSchedule);
+      mockPrismaService.scheduled_job.findUnique.mockResolvedValue(
+        mockSchedule,
+      );
 
       const result = await controller.getScheduledJob('schedule-1');
 
@@ -154,9 +156,9 @@ describe('ScheduledJobsController', () => {
     it('should throw NotFoundException when schedule not found', async () => {
       mockPrismaService.scheduled_job.findUnique.mockResolvedValue(null);
 
-      await expect(
-        controller.getScheduledJob('non-existent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(controller.getScheduledJob('non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -187,9 +189,9 @@ describe('ScheduledJobsController', () => {
       const result = await controller.createScheduledJob(createDto);
 
       expect(result).toEqual(mockCreatedSchedule);
-      expect(
-        mockScheduledJobService.registerScheduledJob,
-      ).toHaveBeenCalledWith(createDto);
+      expect(mockScheduledJobService.registerScheduledJob).toHaveBeenCalledWith(
+        createDto,
+      );
     });
 
     it('should use default values for optional fields', async () => {
@@ -215,9 +217,9 @@ describe('ScheduledJobsController', () => {
 
       await controller.createScheduledJob(createDto);
 
-      expect(
-        mockScheduledJobService.registerScheduledJob,
-      ).toHaveBeenCalledWith(createDto);
+      expect(mockScheduledJobService.registerScheduledJob).toHaveBeenCalledWith(
+        createDto,
+      );
     });
   });
 
@@ -359,9 +361,7 @@ describe('ScheduledJobsController', () => {
         },
       ];
 
-      mockScheduledJobService.getScheduleHistory.mockResolvedValue(
-        mockHistory,
-      );
+      mockScheduledJobService.getScheduleHistory.mockResolvedValue(mockHistory);
 
       const result = await controller.getScheduleHistory('schedule-1', 100);
 

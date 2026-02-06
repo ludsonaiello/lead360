@@ -22,7 +22,7 @@ export class SubscriptionService {
    */
   async findAllPlans(includeInactive = false) {
     return this.prisma.subscription_plan.findMany({
-      where: includeInactive ? {} : { is_active: true } as any,
+      where: includeInactive ? {} : ({ is_active: true } as any),
       orderBy: { monthly_price: 'asc' } as any,
     });
   }
@@ -111,7 +111,11 @@ export class SubscriptionService {
   /**
    * Update a subscription plan (admin-only)
    */
-  async updatePlan(planId: string, updateDto: UpdateSubscriptionPlanDto, adminUserId: string) {
+  async updatePlan(
+    planId: string,
+    updateDto: UpdateSubscriptionPlanDto,
+    adminUserId: string,
+  ) {
     // Verify plan exists
     const existing = await this.findPlanById(planId);
 
@@ -259,7 +263,10 @@ export class SubscriptionService {
   /**
    * Check if tenant has access to a specific feature
    */
-  async checkFeatureAccess(tenantId: string, featureName: string): Promise<boolean> {
+  async checkFeatureAccess(
+    tenantId: string,
+    featureName: string,
+  ): Promise<boolean> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId } as any,
       include: { subscription_plan: true } as any,
@@ -273,10 +280,8 @@ export class SubscriptionService {
       return false; // No plan = no features
     }
 
-    const featureFlags = (tenant.subscription_plan as any).feature_flags as Record<
-      string,
-      boolean
-    >;
+    const featureFlags = (tenant.subscription_plan as any)
+      .feature_flags as Record<string, boolean>;
 
     return featureFlags[featureName] === true;
   }
@@ -295,10 +300,14 @@ export class SubscriptionService {
     }
 
     const now = new Date();
-    const trialEndsAt = tenant.trial_end_date ? new Date(tenant.trial_end_date) : null;
+    const trialEndsAt = tenant.trial_end_date
+      ? new Date(tenant.trial_end_date)
+      : null;
     const isTrialActive = trialEndsAt ? trialEndsAt > now : false;
     const trialDaysRemaining = trialEndsAt
-      ? Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      ? Math.ceil(
+          (trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+        )
       : 0;
 
     return {

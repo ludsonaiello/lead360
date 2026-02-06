@@ -25,7 +25,9 @@ export class RetentionEnforcerJob {
       const isPartitioned = await this.checkIfTableIsPartitioned();
 
       if (!isPartitioned) {
-        this.logger.warn('Audit log table is not partitioned. Skipping retention enforcement.');
+        this.logger.warn(
+          'Audit log table is not partitioned. Skipping retention enforcement.',
+        );
         return;
       }
 
@@ -42,14 +44,19 @@ export class RetentionEnforcerJob {
       this.logger.log(`Found ${partitions.length} partitions`);
 
       // Identify old partitions
-      const oldPartitions = await this.identifyOldPartitions(partitions, cutoffDate);
+      const oldPartitions = await this.identifyOldPartitions(
+        partitions,
+        cutoffDate,
+      );
 
       if (oldPartitions.length === 0) {
         this.logger.log('No old partitions to archive/drop');
         return;
       }
 
-      this.logger.log(`Found ${oldPartitions.length} old partitions to process`);
+      this.logger.log(
+        `Found ${oldPartitions.length} old partitions to process`,
+      );
 
       // Process each old partition
       for (const partition of oldPartitions) {
@@ -60,9 +67,11 @@ export class RetentionEnforcerJob {
 
       // Log retention enforcement
       await this.logRetentionEnforcement(oldPartitions);
-
     } catch (error) {
-      this.logger.error(`Failed to enforce retention policy: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to enforce retention policy: ${error.message}`,
+        error.stack,
+      );
       // Don't throw - retention failure shouldn't crash the app
     }
   }
@@ -108,7 +117,10 @@ export class RetentionEnforcerJob {
   /**
    * Identify partitions older than cutoff date
    */
-  private async identifyOldPartitions(partitions: string[], cutoffDate: Date): Promise<string[]> {
+  private async identifyOldPartitions(
+    partitions: string[],
+    cutoffDate: Date,
+  ): Promise<string[]> {
     const oldPartitions: string[] = [];
 
     for (const partition of partitions) {
@@ -147,9 +159,11 @@ export class RetentionEnforcerJob {
       await this.dropPartition(partitionName);
 
       this.logger.log(`Successfully dropped partition: ${partitionName}`);
-
     } catch (error) {
-      this.logger.error(`Failed to process partition ${partitionName}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to process partition ${partitionName}: ${error.message}`,
+        error.stack,
+      );
       // Continue with next partition
     }
   }
@@ -181,11 +195,14 @@ export class RetentionEnforcerJob {
   /**
    * Log retention enforcement to audit log
    */
-  private async logRetentionEnforcement(droppedPartitions: string[]): Promise<void> {
+  private async logRetentionEnforcement(
+    droppedPartitions: string[],
+  ): Promise<void> {
     try {
       await this.prisma.audit_log.create({
         data: {
-        id: randomBytes(16).toString('hex'),actor_type: 'cron_job',
+          id: randomBytes(16).toString('hex'),
+          actor_type: 'cron_job',
           entity_type: 'audit_log_retention',
           entity_id: 'retention_enforcement',
           description: `Retention policy enforced: ${droppedPartitions.length} old partitions dropped`,
@@ -199,7 +216,9 @@ export class RetentionEnforcerJob {
         },
       });
     } catch (error) {
-      this.logger.error(`Failed to log retention enforcement: ${error.message}`);
+      this.logger.error(
+        `Failed to log retention enforcement: ${error.message}`,
+      );
       // Don't throw - logging failure shouldn't fail retention enforcement
     }
   }

@@ -154,7 +154,8 @@ export class RoleService {
       // Assign permissions
       await tx.role_permission.createMany({
         data: permissionIds.map((permissionId) => ({
-        id: randomBytes(16).toString('hex'),role_id: newRole.id,
+          id: randomBytes(16).toString('hex'),
+          role_id: newRole.id,
           permission_id: permissionId,
           granted_by_user_id: createdByUserId,
         })),
@@ -465,9 +466,7 @@ export class RoleService {
     });
 
     if (!creator?.is_platform_admin) {
-      throw new ForbiddenException(
-        'Only Platform Admins can clone roles',
-      );
+      throw new ForbiddenException('Only Platform Admins can clone roles');
     }
 
     // Clone role + permissions (atomic transaction)

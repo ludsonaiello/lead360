@@ -45,7 +45,10 @@ export class ExportProcessorProcessor extends WorkerHost {
         duration,
       };
     } catch (error) {
-      this.logger.error(`❌ Export job ${jobId} failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `❌ Export job ${jobId} failed: ${error.message}`,
+        error.stack,
+      );
       throw error; // BullMQ will retry based on attempts config
     }
   }

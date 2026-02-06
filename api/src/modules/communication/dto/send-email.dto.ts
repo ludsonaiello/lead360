@@ -137,7 +137,10 @@ export class SendRawEmailDto {
     items: {
       type: 'object',
       properties: {
-        file_id: { type: 'string', description: 'File ID from file management' },
+        file_id: {
+          type: 'string',
+          description: 'File ID from file management',
+        },
       },
     },
   })

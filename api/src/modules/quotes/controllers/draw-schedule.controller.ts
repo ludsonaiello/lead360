@@ -40,8 +40,7 @@ export class DrawScheduleController {
   @Post()
   @Roles('Owner', 'Admin', 'Manager', 'Sales')
   @ApiOperation({
-    summary:
-      'Create draw schedule (payment schedule throughout project)',
+    summary: 'Create draw schedule (payment schedule throughout project)',
   })
   @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
   @ApiResponse({
@@ -70,13 +69,13 @@ export class DrawScheduleController {
   @Get()
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Field')
   @ApiOperation({
-    summary:
-      'Get draw schedule with calculated amounts and validation',
+    summary: 'Get draw schedule with calculated amounts and validation',
   })
   @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
   @ApiResponse({
     status: 200,
-    description: 'Draw schedule with calculated amounts, running totals, and validation',
+    description:
+      'Draw schedule with calculated amounts, running totals, and validation',
   })
   @ApiResponse({ status: 404, description: 'Quote not found' })
   async findByQuote(

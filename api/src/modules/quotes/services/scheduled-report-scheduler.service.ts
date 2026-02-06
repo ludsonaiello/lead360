@@ -12,9 +12,7 @@ import { AdminReportingService } from './admin-reporting.service';
 export class ScheduledReportSchedulerService {
   private readonly logger = new Logger(ScheduledReportSchedulerService.name);
 
-  constructor(
-    private readonly adminReportingService: AdminReportingService,
-  ) {}
+  constructor(private readonly adminReportingService: AdminReportingService) {}
 
   /**
    * Cron job to execute scheduled reports

@@ -74,7 +74,9 @@ export class JobRetentionHandler {
         { jobsDeleted: totalDeleted },
       );
 
-      this.logger.log(`Job retention cleanup completed: ${totalDeleted} jobs deleted`);
+      this.logger.log(
+        `Job retention cleanup completed: ${totalDeleted} jobs deleted`,
+      );
 
       return { success: true, jobsDeleted: totalDeleted };
     } catch (error) {

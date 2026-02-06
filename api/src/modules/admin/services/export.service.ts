@@ -75,7 +75,10 @@ export class ExportService {
 
       return { export_job_id: exportJobId, status: 'pending' };
     } catch (error) {
-      this.logger.error(`Failed to queue tenants export: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to queue tenants export: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -125,7 +128,10 @@ export class ExportService {
 
       return { export_job_id: exportJobId, status: 'pending' };
     } catch (error) {
-      this.logger.error(`Failed to queue users export: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to queue users export: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -175,7 +181,10 @@ export class ExportService {
 
       return { export_job_id: exportJobId, status: 'pending' };
     } catch (error) {
-      this.logger.error(`Failed to queue audit logs export: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to queue audit logs export: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -217,20 +226,37 @@ export class ExportService {
         case 'tenant_performance':
         case 'revenue_analysis':
         case 'conversion_analysis':
-          data = await this.fetchQuoteReportData(exportJob.export_type, exportJob.filters);
+          data = await this.fetchQuoteReportData(
+            exportJob.export_type,
+            exportJob.filters,
+          );
           break;
         default:
-          throw new BadRequestException(`Unknown export type: ${exportJob.export_type}`);
+          throw new BadRequestException(
+            `Unknown export type: ${exportJob.export_type}`,
+          );
       }
 
       // Generate file
       let filePath: string;
       if (exportJob.format === 'csv') {
-        filePath = await this.generateCSV(data, exportJob.export_type, exportJobId);
+        filePath = await this.generateCSV(
+          data,
+          exportJob.export_type,
+          exportJobId,
+        );
       } else if (exportJob.format === 'xlsx') {
-        filePath = await this.generateXLSX(data, exportJob.export_type, exportJobId);
+        filePath = await this.generateXLSX(
+          data,
+          exportJob.export_type,
+          exportJobId,
+        );
       } else if (exportJob.format === 'pdf') {
-        filePath = await this.generatePDF(data, exportJob.export_type, exportJobId);
+        filePath = await this.generatePDF(
+          data,
+          exportJob.export_type,
+          exportJobId,
+        );
       } else {
         throw new BadRequestException(`Unknown format: ${exportJob.format}`);
       }
@@ -246,11 +272,16 @@ export class ExportService {
         },
       });
 
-      this.logger.log(`Export job ${exportJobId} completed - ${data.length} rows`);
+      this.logger.log(
+        `Export job ${exportJobId} completed - ${data.length} rows`,
+      );
 
       return { success: true, filePath, rowCount: data.length };
     } catch (error) {
-      this.logger.error(`Export job ${exportJobId} failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `Export job ${exportJobId} failed: ${error.message}`,
+        error.stack,
+      );
 
       // Update export job status
       await this.prisma.export_job.update({
@@ -269,7 +300,11 @@ export class ExportService {
   /**
    * Generate CSV file
    */
-  async generateCSV(data: any[], exportType: string, exportJobId: string): Promise<string> {
+  async generateCSV(
+    data: any[],
+    exportType: string,
+    exportJobId: string,
+  ): Promise<string> {
     try {
       const fields = this.getFieldsForExportType(exportType);
       const parser = new Parser({ fields });
@@ -284,7 +319,10 @@ export class ExportService {
 
       return filePath;
     } catch (error) {
-      this.logger.error(`Failed to generate CSV: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to generate CSV: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -292,7 +330,11 @@ export class ExportService {
   /**
    * Generate PDF file
    */
-  async generatePDF(data: any[], exportType: string, exportJobId: string): Promise<string> {
+  async generatePDF(
+    data: any[],
+    exportType: string,
+    exportJobId: string,
+  ): Promise<string> {
     try {
       const filename = `${exportType}_${exportJobId}_${Date.now()}.pdf`;
       const filePath = path.join(this.EXPORTS_DIR, filename);
@@ -303,8 +345,12 @@ export class ExportService {
       doc.pipe(stream);
 
       // Header
-      doc.fontSize(18).text(`${exportType.toUpperCase()} Export`, { align: 'center' });
-      doc.fontSize(10).text(`Generated: ${new Date().toISOString()}`, { align: 'center' });
+      doc
+        .fontSize(18)
+        .text(`${exportType.toUpperCase()} Export`, { align: 'center' });
+      doc
+        .fontSize(10)
+        .text(`Generated: ${new Date().toISOString()}`, { align: 'center' });
       doc.moveDown();
 
       // Table header
@@ -317,7 +363,9 @@ export class ExportService {
           doc.addPage(); // New page every 30 rows
         }
 
-        const rowText = fields.map(field => `${field}: ${row[field] || 'N/A'}`).join(' | ');
+        const rowText = fields
+          .map((field) => `${field}: ${row[field] || 'N/A'}`)
+          .join(' | ');
         doc.text(rowText);
         doc.moveDown(0.5);
       });
@@ -334,7 +382,10 @@ export class ExportService {
 
       return filePath;
     } catch (error) {
-      this.logger.error(`Failed to generate PDF: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to generate PDF: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -342,7 +393,11 @@ export class ExportService {
   /**
    * Generate XLSX file
    */
-  async generateXLSX(data: any[], exportType: string, exportJobId: string): Promise<string> {
+  async generateXLSX(
+    data: any[],
+    exportType: string,
+    exportJobId: string,
+  ): Promise<string> {
     try {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet(exportType.toUpperCase());
@@ -351,7 +406,7 @@ export class ExportService {
       const fields = this.getFieldsForExportType(exportType);
 
       // Add header row
-      worksheet.columns = fields.map(field => ({
+      worksheet.columns = fields.map((field) => ({
         header: field.replace(/_/g, ' ').toUpperCase(),
         key: field,
         width: 20,
@@ -366,7 +421,7 @@ export class ExportService {
       };
 
       // Add data rows
-      data.forEach(row => {
+      data.forEach((row) => {
         worksheet.addRow(row);
       });
 
@@ -385,7 +440,10 @@ export class ExportService {
 
       return filePath;
     } catch (error) {
-      this.logger.error(`Failed to generate XLSX: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to generate XLSX: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -413,7 +471,10 @@ export class ExportService {
         completed_at: exp.completed_at,
       }));
     } catch (error) {
-      this.logger.error(`Failed to get export history: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get export history: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -441,8 +502,10 @@ export class ExportService {
 
     if (filters.created_from || filters.created_to) {
       where.created_at = {};
-      if (filters.created_from) where.created_at.gte = new Date(filters.created_from);
-      if (filters.created_to) where.created_at.lte = new Date(filters.created_to);
+      if (filters.created_from)
+        where.created_at.gte = new Date(filters.created_from);
+      if (filters.created_to)
+        where.created_at.lte = new Date(filters.created_to);
     }
 
     const tenants = await this.prisma.tenant.findMany({
@@ -499,7 +562,9 @@ export class ExportService {
       last_name: u.last_name,
       is_active: u.is_active,
       tenant_subdomain: u.tenant?.subdomain,
-      roles: u.user_role_user_role_user_idTouser.map((ur) => ur.role.name).join(', '),
+      roles: u.user_role_user_role_user_idTouser
+        .map((ur) => ur.role.name)
+        .join(', '),
       created_at: u.created_at,
       last_login_at: u.last_login_at,
     }));
@@ -514,8 +579,10 @@ export class ExportService {
 
     if (filters.created_from || filters.created_to) {
       where.created_at = {};
-      if (filters.created_from) where.created_at.gte = new Date(filters.created_from);
-      if (filters.created_to) where.created_at.lte = new Date(filters.created_to);
+      if (filters.created_from)
+        where.created_at.gte = new Date(filters.created_from);
+      if (filters.created_to)
+        where.created_at.lte = new Date(filters.created_to);
     }
 
     const logs = await this.prisma.audit_log.findMany({
@@ -537,7 +604,9 @@ export class ExportService {
       id: log.id,
       tenant_id: log.tenant_id,
       actor_email: log.user?.email,
-      actor_name: log.user ? `${log.user.first_name} ${log.user.last_name}` : null,
+      actor_name: log.user
+        ? `${log.user.first_name} ${log.user.last_name}`
+        : null,
       entity_type: log.entity_type,
       entity_id: log.entity_id,
       action_type: log.action_type,
@@ -551,7 +620,10 @@ export class ExportService {
    * Fetch quote report data (delegated to quote module processor)
    * For now, returns placeholder data. The actual implementation should be in the quote module's processor.
    */
-  private async fetchQuoteReportData(reportType: string, filters: any): Promise<any[]> {
+  private async fetchQuoteReportData(
+    reportType: string,
+    filters: any,
+  ): Promise<any[]> {
     // Query quotes based on date range and filters
     const { date_from, date_to, tenant_ids } = filters || {};
 
@@ -576,14 +648,16 @@ export class ExportService {
         tenant: { select: { company_name: true, subdomain: true } },
         lead: { select: { first_name: true, last_name: true } },
         vendor: { select: { name: true } },
-        created_by_user: { select: { first_name: true, last_name: true, email: true } },
+        created_by_user: {
+          select: { first_name: true, last_name: true, email: true },
+        },
       },
       orderBy: { created_at: 'desc' },
       take: 5000, // Limit to prevent memory issues
     });
 
     // Transform for export
-    return quotes.map(q => ({
+    return quotes.map((q) => ({
       quote_number: q.quote_number,
       tenant: q.tenant?.company_name || '',
       customer_name: q.lead ? `${q.lead.first_name} ${q.lead.last_name}` : '',
@@ -591,7 +665,9 @@ export class ExportService {
       status: q.status,
       subtotal: q.subtotal ? parseFloat(q.subtotal.toString()) : 0,
       total: q.total ? parseFloat(q.total.toString()) : 0,
-      created_by: q.created_by_user ? `${q.created_by_user.first_name} ${q.created_by_user.last_name}` : '',
+      created_by: q.created_by_user
+        ? `${q.created_by_user.first_name} ${q.created_by_user.last_name}`
+        : '',
       created_at: q.created_at.toISOString(),
       expires_at: q.expires_at?.toISOString() || '',
     }));
@@ -600,16 +676,57 @@ export class ExportService {
   private getFieldsForExportType(exportType: string): string[] {
     switch (exportType) {
       case 'tenants':
-        return ['id', 'subdomain', 'company_name', 'is_active', 'user_count', 'primary_contact_email', 'created_at', 'deleted_at'];
+        return [
+          'id',
+          'subdomain',
+          'company_name',
+          'is_active',
+          'user_count',
+          'primary_contact_email',
+          'created_at',
+          'deleted_at',
+        ];
       case 'users':
-        return ['id', 'email', 'first_name', 'last_name', 'is_active', 'tenant_subdomain', 'roles', 'created_at', 'last_login_at'];
+        return [
+          'id',
+          'email',
+          'first_name',
+          'last_name',
+          'is_active',
+          'tenant_subdomain',
+          'roles',
+          'created_at',
+          'last_login_at',
+        ];
       case 'audit_logs':
-        return ['id', 'tenant_id', 'actor_email', 'actor_name', 'entity_type', 'entity_id', 'action_type', 'description', 'status', 'created_at'];
+        return [
+          'id',
+          'tenant_id',
+          'actor_email',
+          'actor_name',
+          'entity_type',
+          'entity_id',
+          'action_type',
+          'description',
+          'status',
+          'created_at',
+        ];
       case 'quote_summary':
       case 'tenant_performance':
       case 'revenue_analysis':
       case 'conversion_analysis':
-        return ['quote_number', 'tenant', 'customer_name', 'vendor', 'status', 'subtotal', 'total', 'created_by', 'created_at', 'expires_at'];
+        return [
+          'quote_number',
+          'tenant',
+          'customer_name',
+          'vendor',
+          'status',
+          'subtotal',
+          'total',
+          'created_by',
+          'created_at',
+          'expires_at',
+        ];
       default:
         return [];
     }

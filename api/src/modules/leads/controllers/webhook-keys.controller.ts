@@ -61,7 +61,8 @@ export class WebhookKeysController {
   })
   @ApiResponse({
     status: 201,
-    description: 'API key created successfully (SAVE THE KEY - shown only once)',
+    description:
+      'API key created successfully (SAVE THE KEY - shown only once)',
   })
   async create(
     @Request() req,
@@ -91,13 +92,15 @@ export class WebhookKeysController {
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({
     summary: 'List all webhook API keys for current tenant',
-    description: 'Returns metadata only - API keys themselves are hashed and not retrievable',
+    description:
+      'Returns metadata only - API keys themselves are hashed and not retrievable',
   })
   @ApiResponse({ status: 200, description: 'API keys retrieved successfully' })
   async list(@Request() req) {
     const keys = await this.webhookAuthService.listApiKeys(req.user.tenant_id);
 
-    const tenantSubdomain = keys[0]?.tenant?.subdomain || req.user.tenant?.subdomain;
+    const tenantSubdomain =
+      keys[0]?.tenant?.subdomain || req.user.tenant?.subdomain;
     const webhookUrl = tenantSubdomain
       ? `https://${tenantSubdomain}.lead360.app/api/v1/public/leads/webhook`
       : null;
@@ -128,12 +131,12 @@ export class WebhookKeysController {
     description: 'Activate or deactivate an API key',
   })
   @ApiParam({ name: 'id', description: 'Webhook API key UUID' })
-  @ApiResponse({ status: 200, description: 'API key status toggled successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'API key status toggled successfully',
+  })
   @ApiResponse({ status: 404, description: 'API key not found' })
-  async toggle(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async toggle(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     const updated = await this.webhookAuthService.toggleApiKey(
       req.user.tenant_id,
       id,
@@ -165,10 +168,7 @@ export class WebhookKeysController {
   @ApiParam({ name: 'id', description: 'Webhook API key UUID' })
   @ApiResponse({ status: 204, description: 'API key deactivated successfully' })
   @ApiResponse({ status: 404, description: 'API key not found' })
-  async delete(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async delete(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     await this.webhookAuthService.deactivateApiKey(req.user.tenant_id, id);
   }
 }

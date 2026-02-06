@@ -698,6 +698,108 @@ unknown unknown
     }
   
 
+  "tenant_sms_config" {
+    String id "🗝️"
+    String credentials 
+    String from_phone 
+    Boolean is_active 
+    Boolean is_verified 
+    String webhook_secret "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "tenant_whatsapp_config" {
+    String id "🗝️"
+    String credentials 
+    String from_phone 
+    Boolean is_active 
+    Boolean is_verified 
+    String webhook_secret "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "call_record" {
+    String id "🗝️"
+    String twilio_config_id "❓"
+    String twilio_call_sid 
+    String direction 
+    String from_number 
+    String to_number 
+    String status 
+    String call_type 
+    String call_reason "❓"
+    String recording_url "❓"
+    Int recording_duration_seconds "❓"
+    String recording_status 
+    String transcription_id "❓"
+    Json ivr_action_taken "❓"
+    Boolean consent_message_played 
+    Decimal cost "❓"
+    DateTime started_at "❓"
+    DateTime ended_at "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "ivr_configuration" {
+    String id "🗝️"
+    String twilio_config_id "❓"
+    Boolean ivr_enabled 
+    String greeting_message 
+    Json menu_options 
+    Json default_action 
+    Int timeout_seconds 
+    Int max_retries 
+    String status 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "office_number_whitelist" {
+    String id "🗝️"
+    String phone_number 
+    String label 
+    String status 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "call_transcription" {
+    String id "🗝️"
+    String transcription_provider 
+    String status 
+    String transcription_text "❓"
+    String language_detected "❓"
+    Decimal confidence_score "❓"
+    Int processing_duration_seconds "❓"
+    Decimal cost "❓"
+    String error_message "❓"
+    DateTime created_at 
+    DateTime completed_at "❓"
+    }
+  
+
+  "transcription_provider_configuration" {
+    String id "🗝️"
+    String provider_name 
+    Boolean is_system_default 
+    String status 
+    String configuration_json 
+    Int usage_limit "❓"
+    Int usage_current 
+    Decimal cost_per_minute "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
   "job" {
     String id "🗝️"
     String job_type 
@@ -996,6 +1098,43 @@ unknown unknown
     Boolean is_active 
     DateTime created_at 
     DateTime updated_at 
+    }
+  
+
+  "twilio_usage_record" {
+    String id "🗝️"
+    String category 
+    Int count 
+    String usage_unit 
+    Decimal price 
+    String price_unit 
+    DateTime start_date 
+    DateTime end_date 
+    DateTime synced_at 
+    DateTime created_at 
+    }
+  
+
+  "system_health_check" {
+    String id "🗝️"
+    String check_type 
+    String status 
+    Int response_time_ms "❓"
+    String error_message "❓"
+    Json details "❓"
+    DateTime checked_at 
+    }
+  
+
+  "admin_alert" {
+    String id "🗝️"
+    String type 
+    String severity 
+    String message 
+    Json details "❓"
+    Boolean acknowledged 
+    DateTime acknowledged_at "❓"
+    DateTime created_at 
     }
   
 
@@ -1404,6 +1543,18 @@ unknown unknown
     "system_setting" }o--|o "user" : "updated_by_user"
     "export_job" }o--|| "user" : "admin_user"
     "scheduled_report" }o--|| "user" : "admin_user"
+    "tenant_sms_config" }o--|| "tenant" : "tenant"
+    "tenant_sms_config" }o--|| communication_provider : "provider"
+    "tenant_whatsapp_config" }o--|| "tenant" : "tenant"
+    "tenant_whatsapp_config" }o--|| communication_provider : "provider"
+    "call_record" }o--|o "tenant" : "tenant"
+    "call_record" }o--|o lead : "lead"
+    "call_record" }o--|o "user" : "initiated_by_user"
+    "ivr_configuration" |o--|| "tenant" : "tenant"
+    "office_number_whitelist" }o--|| "tenant" : "tenant"
+    "call_transcription" }o--|o "tenant" : "tenant"
+    "call_transcription" |o--|| call_record : "call_record"
+    "transcription_provider_configuration" }o--|o "tenant" : "tenant"
     "job_log" }o--|| "job" : "job"
     "email_queue" |o--|| "job" : "job"
     "lead" }o--|| "tenant" : "tenant"
@@ -1439,6 +1590,8 @@ unknown unknown
     "notification" }o--|o "user" : "user"
     "notification_rule" |o--|| "notification_recipient_type" : "enum:recipient_type"
     "notification_rule" }o--|| "tenant" : "tenant"
+    "twilio_usage_record" }o--|o "tenant" : "tenant"
+    "admin_alert" }o--|o "user" : "acknowledged_by_user"
     "unit_measurement" }o--|o "tenant" : "tenant"
     "quote_template" }o--|o "tenant" : "tenant"
     "quote_template" }o--|o "user" : "created_by_user"

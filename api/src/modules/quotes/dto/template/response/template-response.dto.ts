@@ -24,7 +24,8 @@ export class TemplateResponseDto {
 
   @ApiPropertyOptional({
     description: 'Detailed template description',
-    example: 'Clean, contemporary template with horizontal header and card-style customer info',
+    example:
+      'Clean, contemporary template with horizontal header and card-style customer info',
     type: String,
     nullable: true,
   })
@@ -108,7 +109,8 @@ export class TemplateResponseDto {
   is_prebuilt: boolean;
 
   @ApiPropertyOptional({
-    description: 'Source template UUID if this was cloned from another template (NULL if original)',
+    description:
+      'Source template UUID if this was cloned from another template (NULL if original)',
     example: 'source-template-uuid',
     type: String,
     nullable: true,
@@ -116,7 +118,8 @@ export class TemplateResponseDto {
   source_template_id: string | null;
 
   @ApiProperty({
-    description: 'Is this a global/platform template accessible to all tenants?',
+    description:
+      'Is this a global/platform template accessible to all tenants?',
     example: false,
     type: Boolean,
   })

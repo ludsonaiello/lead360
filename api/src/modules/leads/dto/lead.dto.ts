@@ -16,7 +16,11 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { SanitizePhone, SanitizeDate, ToArray } from '../../../common/validators/formatted-inputs';
+import {
+  SanitizePhone,
+  SanitizeDate,
+  ToArray,
+} from '../../../common/validators/formatted-inputs';
 
 // ============================================
 // ENUMS
@@ -422,7 +426,13 @@ export class CreateLeadDto {
   @ApiProperty({
     description: 'Email addresses (at least 1 email OR 1 phone required)',
     type: [CreateEmailDto],
-    example: [{ email: 'john.doe@example.com', email_type: 'personal', is_primary: true }],
+    example: [
+      {
+        email: 'john.doe@example.com',
+        email_type: 'personal',
+        is_primary: true,
+      },
+    ],
   })
   @IsArray()
   @ValidateNested({ each: true })

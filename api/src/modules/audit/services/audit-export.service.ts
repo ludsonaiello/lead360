@@ -33,10 +33,16 @@ export class AuditExportService {
 
     // Apply filters
     if (filters.start_date) {
-      where.created_at = { ...where.created_at, gte: new Date(filters.start_date) };
+      where.created_at = {
+        ...where.created_at,
+        gte: new Date(filters.start_date),
+      };
     }
     if (filters.end_date) {
-      where.created_at = { ...where.created_at, lte: new Date(filters.end_date) };
+      where.created_at = {
+        ...where.created_at,
+        lte: new Date(filters.end_date),
+      };
     }
     if (filters.actor_user_id) {
       where.actor_user_id = filters.actor_user_id;
@@ -70,7 +76,9 @@ export class AuditExportService {
     }
 
     if (count === 0) {
-      throw new BadRequestException('No audit logs found matching your filters.');
+      throw new BadRequestException(
+        'No audit logs found matching your filters.',
+      );
     }
 
     // Fetch all logs
@@ -95,8 +103,12 @@ export class AuditExportService {
     });
 
     // Generate filename
-    const startDate = filters.start_date ? new Date(filters.start_date).toISOString().split('T')[0] : 'all';
-    const endDate = filters.end_date ? new Date(filters.end_date).toISOString().split('T')[0] : 'all';
+    const startDate = filters.start_date
+      ? new Date(filters.start_date).toISOString().split('T')[0]
+      : 'all';
+    const endDate = filters.end_date
+      ? new Date(filters.end_date).toISOString().split('T')[0]
+      : 'all';
     const tenantName = logs[0]?.tenant?.subdomain || 'platform';
     const filename = `audit-log-${tenantName}-${startDate}-${endDate}.${format}`;
 
@@ -110,7 +122,10 @@ export class AuditExportService {
   /**
    * Export to CSV format
    */
-  private exportToCSV(logs: any[], filename: string): { data: string; filename: string; contentType: string } {
+  private exportToCSV(
+    logs: any[],
+    filename: string,
+  ): { data: string; filename: string; contentType: string } {
     // Flatten data for CSV
     const flattenedLogs = logs.map((log) => ({
       Timestamp: log.created_at.toISOString(),
@@ -156,7 +171,10 @@ export class AuditExportService {
   /**
    * Export to JSON format
    */
-  private exportToJSON(logs: any[], filename: string): { data: string; filename: string; contentType: string } {
+  private exportToJSON(
+    logs: any[],
+    filename: string,
+  ): { data: string; filename: string; contentType: string } {
     // Format logs for JSON export
     const formattedLogs = logs.map((log) => ({
       id: log.id,

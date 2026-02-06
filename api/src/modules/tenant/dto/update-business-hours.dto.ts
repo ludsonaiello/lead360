@@ -64,147 +64,216 @@ export class UpdateBusinessHoursDto {
   monday_close2?: string;
 
   // Tuesday
-  @ApiPropertyOptional({ description: 'Tuesday is closed (true = closed, false = open)', example: false })
+  @ApiPropertyOptional({
+    description: 'Tuesday is closed (true = closed, false = open)',
+    example: false,
+  })
   @IsBoolean()
   @IsOptional()
   tuesday_closed?: boolean;
 
-  @ApiPropertyOptional({ description: 'Tuesday opening time 1', example: '08:00' })
+  @ApiPropertyOptional({
+    description: 'Tuesday opening time 1',
+    example: '08:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
   @ValidateIf((o) => o.tuesday_closed === false)
   tuesday_open1?: string;
 
-  @ApiPropertyOptional({ description: 'Tuesday closing time 1', example: '12:00' })
+  @ApiPropertyOptional({
+    description: 'Tuesday closing time 1',
+    example: '12:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
   @ValidateIf((o) => o.tuesday_closed === false)
   tuesday_close1?: string;
 
-  @ApiPropertyOptional({ description: 'Tuesday opening time 2', example: '13:00' })
+  @ApiPropertyOptional({
+    description: 'Tuesday opening time 2',
+    example: '13:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
   tuesday_open2?: string;
 
-  @ApiPropertyOptional({ description: 'Tuesday closing time 2', example: '17:00' })
+  @ApiPropertyOptional({
+    description: 'Tuesday closing time 2',
+    example: '17:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
   tuesday_close2?: string;
 
   // Wednesday
-  @ApiPropertyOptional({ description: 'Wednesday is closed (true = closed, false = open)', example: false })
+  @ApiPropertyOptional({
+    description: 'Wednesday is closed (true = closed, false = open)',
+    example: false,
+  })
   @IsBoolean()
   @IsOptional()
   wednesday_closed?: boolean;
 
-  @ApiPropertyOptional({ description: 'Wednesday opening time 1', example: '08:00' })
+  @ApiPropertyOptional({
+    description: 'Wednesday opening time 1',
+    example: '08:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
   @ValidateIf((o) => o.wednesday_closed === false)
   wednesday_open1?: string;
 
-  @ApiPropertyOptional({ description: 'Wednesday closing time 1', example: '12:00' })
+  @ApiPropertyOptional({
+    description: 'Wednesday closing time 1',
+    example: '12:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
   @ValidateIf((o) => o.wednesday_closed === false)
   wednesday_close1?: string;
 
-  @ApiPropertyOptional({ description: 'Wednesday opening time 2', example: '13:00' })
+  @ApiPropertyOptional({
+    description: 'Wednesday opening time 2',
+    example: '13:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
   wednesday_open2?: string;
 
-  @ApiPropertyOptional({ description: 'Wednesday closing time 2', example: '17:00' })
+  @ApiPropertyOptional({
+    description: 'Wednesday closing time 2',
+    example: '17:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
   wednesday_close2?: string;
 
   // Thursday
-  @ApiPropertyOptional({ description: 'Thursday is closed (true = closed, false = open)', example: false })
+  @ApiPropertyOptional({
+    description: 'Thursday is closed (true = closed, false = open)',
+    example: false,
+  })
   @IsBoolean()
   @IsOptional()
   thursday_closed?: boolean;
 
-  @ApiPropertyOptional({ description: 'Thursday opening time 1', example: '08:00' })
+  @ApiPropertyOptional({
+    description: 'Thursday opening time 1',
+    example: '08:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
   @ValidateIf((o) => o.thursday_closed === false)
   thursday_open1?: string;
 
-  @ApiPropertyOptional({ description: 'Thursday closing time 1', example: '12:00' })
+  @ApiPropertyOptional({
+    description: 'Thursday closing time 1',
+    example: '12:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
   @ValidateIf((o) => o.thursday_closed === false)
   thursday_close1?: string;
 
-  @ApiPropertyOptional({ description: 'Thursday opening time 2', example: '13:00' })
+  @ApiPropertyOptional({
+    description: 'Thursday opening time 2',
+    example: '13:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
   thursday_open2?: string;
 
-  @ApiPropertyOptional({ description: 'Thursday closing time 2', example: '17:00' })
+  @ApiPropertyOptional({
+    description: 'Thursday closing time 2',
+    example: '17:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
   thursday_close2?: string;
 
   // Friday
-  @ApiPropertyOptional({ description: 'Friday is closed (true = closed, false = open)', example: false })
+  @ApiPropertyOptional({
+    description: 'Friday is closed (true = closed, false = open)',
+    example: false,
+  })
   @IsBoolean()
   @IsOptional()
   friday_closed?: boolean;
 
-  @ApiPropertyOptional({ description: 'Friday opening time 1', example: '08:00' })
+  @ApiPropertyOptional({
+    description: 'Friday opening time 1',
+    example: '08:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
   @ValidateIf((o) => o.friday_closed === false)
   friday_open1?: string;
 
-  @ApiPropertyOptional({ description: 'Friday closing time 1', example: '12:00' })
+  @ApiPropertyOptional({
+    description: 'Friday closing time 1',
+    example: '12:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
   @ValidateIf((o) => o.friday_closed === false)
   friday_close1?: string;
 
-  @ApiPropertyOptional({ description: 'Friday opening time 2', example: '13:00' })
+  @ApiPropertyOptional({
+    description: 'Friday opening time 2',
+    example: '13:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
   friday_open2?: string;
 
-  @ApiPropertyOptional({ description: 'Friday closing time 2', example: '17:00' })
+  @ApiPropertyOptional({
+    description: 'Friday closing time 2',
+    example: '17:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
   friday_close2?: string;
 
   // Saturday
-  @ApiPropertyOptional({ description: 'Saturday is closed (true = closed, false = open)', example: true })
+  @ApiPropertyOptional({
+    description: 'Saturday is closed (true = closed, false = open)',
+    example: true,
+  })
   @IsBoolean()
   @IsOptional()
   saturday_closed?: boolean;
 
-  @ApiPropertyOptional({ description: 'Saturday opening time 1', example: '09:00' })
+  @ApiPropertyOptional({
+    description: 'Saturday opening time 1',
+    example: '09:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
   @ValidateIf((o) => o.saturday_closed === false)
   saturday_open1?: string;
 
-  @ApiPropertyOptional({ description: 'Saturday closing time 1', example: '13:00' })
+  @ApiPropertyOptional({
+    description: 'Saturday closing time 1',
+    example: '13:00',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
@@ -224,7 +293,10 @@ export class UpdateBusinessHoursDto {
   saturday_close2?: string;
 
   // Sunday
-  @ApiPropertyOptional({ description: 'Sunday is closed (true = closed, false = open)', example: true })
+  @ApiPropertyOptional({
+    description: 'Sunday is closed (true = closed, false = open)',
+    example: true,
+  })
   @IsBoolean()
   @IsOptional()
   sunday_closed?: boolean;

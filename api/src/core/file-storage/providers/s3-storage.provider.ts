@@ -1,5 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
 import type {
@@ -25,7 +31,9 @@ export class S3StorageProvider implements IStorageProvider {
   constructor(private readonly config: StorageProviderConfig) {
     // Validate S3 configuration
     if (!config.s3Bucket || !config.s3AccessKeyId || !config.s3SecretKey) {
-      throw new Error('S3 configuration is incomplete. Required: bucket, accessKeyId, secretKey');
+      throw new Error(
+        'S3 configuration is incomplete. Required: bucket, accessKeyId, secretKey',
+      );
     }
 
     this.bucket = config.s3Bucket;
@@ -43,7 +51,9 @@ export class S3StorageProvider implements IStorageProvider {
       tls: config.s3UseSsl ?? true,
     });
 
-    this.logger.log(`S3StorageProvider initialized: bucket=${this.bucket}, region=${this.region}`);
+    this.logger.log(
+      `S3StorageProvider initialized: bucket=${this.bucket}, region=${this.region}`,
+    );
   }
 
   /**
@@ -154,7 +164,9 @@ export class S3StorageProvider implements IStorageProvider {
       this.logger.log(`File downloaded from S3: ${fileId} (${storagePath})`);
       return buffer;
     } catch (error) {
-      this.logger.error(`Failed to download file ${fileId} from S3: ${error.message}`);
+      this.logger.error(
+        `Failed to download file ${fileId} from S3: ${error.message}`,
+      );
       throw new Error(`File not found: ${fileId}`);
     }
   }
@@ -172,7 +184,9 @@ export class S3StorageProvider implements IStorageProvider {
       await this.s3Client.send(command);
       this.logger.log(`File deleted from S3: ${fileId} (${storagePath})`);
     } catch (error) {
-      this.logger.warn(`Failed to delete file ${fileId} from S3: ${error.message}`);
+      this.logger.warn(
+        `Failed to delete file ${fileId} from S3: ${error.message}`,
+      );
     }
   }
 

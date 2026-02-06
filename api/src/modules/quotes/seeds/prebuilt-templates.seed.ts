@@ -21,7 +21,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
   // ========================================
   {
     name: 'Modern Professional',
-    description: 'Clean, contemporary template with horizontal header and card-style customer info. Perfect for tech, consulting, and professional services.',
+    description:
+      'Clean, contemporary template with horizontal header and card-style customer info. Perfect for tech, consulting, and professional services.',
     template_type: 'visual',
     category_name: 'Modern',
     tags: ['modern', 'professional', 'clean', 'minimal'],
@@ -107,7 +108,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
 
   {
     name: 'Modern Minimal',
-    description: 'Ultra-clean minimal template with essential information only. Great for startups and creative agencies.',
+    description:
+      'Ultra-clean minimal template with essential information only. Great for startups and creative agencies.',
     template_type: 'visual',
     category_name: 'Modern',
     tags: ['modern', 'minimal', 'clean', 'simple'],
@@ -175,7 +177,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
 
   {
     name: 'Modern Bold',
-    description: 'Bold, high-contrast template with strong visual hierarchy. Perfect for making quotes stand out.',
+    description:
+      'Bold, high-contrast template with strong visual hierarchy. Perfect for making quotes stand out.',
     template_type: 'visual',
     category_name: 'Modern',
     tags: ['modern', 'bold', 'high-contrast', 'standout'],
@@ -261,7 +264,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
   // ========================================
   {
     name: 'Classic Business',
-    description: 'Traditional business template with centered layout. Formal and professional for established companies.',
+    description:
+      'Traditional business template with centered layout. Formal and professional for established companies.',
     template_type: 'code',
     category_name: 'Classic',
     tags: ['classic', 'traditional', 'formal', 'centered'],
@@ -529,7 +533,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
 
   {
     name: 'Classic Formal',
-    description: 'Highly formal template for law firms, accounting, and professional services requiring traditional aesthetics.',
+    description:
+      'Highly formal template for law firms, accounting, and professional services requiring traditional aesthetics.',
     template_type: 'visual',
     category_name: 'Classic',
     tags: ['classic', 'formal', 'traditional', 'professional'],
@@ -616,7 +621,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
   // ========================================
   {
     name: 'HVAC Service Quote',
-    description: 'Specialized template for HVAC companies with service address and detailed payment terms.',
+    description:
+      'Specialized template for HVAC companies with service address and detailed payment terms.',
     template_type: 'visual',
     category_name: 'Industry',
     tags: ['hvac', 'service', 'industry', 'two-address'],
@@ -707,7 +713,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
 
   {
     name: 'HVAC Maintenance Agreement',
-    description: 'Template for HVAC maintenance contracts with payment schedule.',
+    description:
+      'Template for HVAC maintenance contracts with payment schedule.',
     template_type: 'visual',
     category_name: 'Industry',
     tags: ['hvac', 'maintenance', 'contract', 'schedule'],
@@ -799,7 +806,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
   // ========================================
   {
     name: 'Plumbing Service Estimate',
-    description: 'Professional plumbing quote template with detailed line items and emergency service options.',
+    description:
+      'Professional plumbing quote template with detailed line items and emergency service options.',
     template_type: 'visual',
     category_name: 'Industry',
     tags: ['plumbing', 'service', 'industry', 'emergency'],
@@ -892,7 +900,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
   // ========================================
   {
     name: 'Electrical Service Quote',
-    description: 'Electrical contractor template with detailed SKU tracking and safety compliance.',
+    description:
+      'Electrical contractor template with detailed SKU tracking and safety compliance.',
     template_type: 'visual',
     category_name: 'Industry',
     tags: ['electrical', 'service', 'industry', 'compliance'],
@@ -985,7 +994,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
   // ========================================
   {
     name: 'Landscaping Project Proposal',
-    description: 'Comprehensive landscaping template with grouped services and payment milestones.',
+    description:
+      'Comprehensive landscaping template with grouped services and payment milestones.',
     template_type: 'visual',
     category_name: 'Industry',
     tags: ['landscaping', 'project', 'industry', 'milestones'],
@@ -1077,7 +1087,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
   // ========================================
   {
     name: 'Roofing Estimate',
-    description: 'Roofing contractor template with material breakdown and warranty information.',
+    description:
+      'Roofing contractor template with material breakdown and warranty information.',
     template_type: 'visual',
     category_name: 'Industry',
     tags: ['roofing', 'contractor', 'industry', 'warranty'],
@@ -1168,7 +1179,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
   // ========================================
   {
     name: 'General Contractor Proposal',
-    description: 'Comprehensive construction proposal with payment schedule and detailed breakdown.',
+    description:
+      'Comprehensive construction proposal with payment schedule and detailed breakdown.',
     template_type: 'visual',
     category_name: 'Industry',
     tags: ['contractor', 'construction', 'industry', 'comprehensive'],
@@ -1266,7 +1278,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
   // ========================================
   {
     name: 'Compact Single Page',
-    description: 'Ultra-compact template that fits everything on one page. Perfect for simple quotes.',
+    description:
+      'Ultra-compact template that fits everything on one page. Perfect for simple quotes.',
     template_type: 'visual',
     category_name: 'Minimal',
     tags: ['compact', 'single-page', 'minimal', 'simple'],
@@ -1340,7 +1353,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
 
   {
     name: 'Photo Gallery Quote',
-    description: 'Template with space for before/after photos. Great for remodeling and restoration projects.',
+    description:
+      'Template with space for before/after photos. Great for remodeling and restoration projects.',
     template_type: 'visual',
     category_name: 'Creative',
     tags: ['photo', 'gallery', 'visual', 'remodeling'],
@@ -1411,7 +1425,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
 
   {
     name: 'Service Agreement Annual',
-    description: 'Template for annual service agreements with recurring billing schedule.',
+    description:
+      'Template for annual service agreements with recurring billing schedule.',
     template_type: 'visual',
     category_name: 'Contract',
     tags: ['agreement', 'annual', 'recurring', 'contract'],
@@ -1502,7 +1517,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
 
   {
     name: 'Emergency Service Quote',
-    description: 'Quick-turnaround template for emergency services with priority pricing.',
+    description:
+      'Quick-turnaround template for emergency services with priority pricing.',
     template_type: 'visual',
     category_name: 'Service',
     tags: ['emergency', 'urgent', 'service', 'priority'],
@@ -1593,7 +1609,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
 
   {
     name: 'Premium Luxury Service',
-    description: 'High-end template for luxury services with elegant design and attention to detail.',
+    description:
+      'High-end template for luxury services with elegant design and attention to detail.',
     template_type: 'visual',
     category_name: 'Premium',
     tags: ['luxury', 'premium', 'elegant', 'high-end'],
@@ -1685,7 +1702,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
 
   {
     name: 'Tech Startup Modern',
-    description: 'Ultra-modern template for tech companies with clean lines and bold typography.',
+    description:
+      'Ultra-modern template for tech companies with clean lines and bold typography.',
     template_type: 'visual',
     category_name: 'Modern',
     tags: ['tech', 'startup', 'modern', 'bold'],
@@ -1761,7 +1779,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
 
   {
     name: 'Consulting Services Proposal',
-    description: 'Professional services template with hourly rates and project phases.',
+    description:
+      'Professional services template with hourly rates and project phases.',
     template_type: 'visual',
     category_name: 'Professional',
     tags: ['consulting', 'professional', 'hourly', 'phases'],
@@ -1843,7 +1862,8 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
 
   {
     name: 'Multi-Phase Construction',
-    description: 'Detailed construction template with multiple project phases and material breakdown.',
+    description:
+      'Detailed construction template with multiple project phases and material breakdown.',
     template_type: 'visual',
     category_name: 'Industry',
     tags: ['construction', 'multi-phase', 'detailed', 'materials'],
@@ -1937,15 +1957,52 @@ const TEMPLATE_SEEDS: TemplateSeed[] = [
 
 // Category seeds
 const CATEGORY_SEEDS = [
-  { name: 'Modern', description: 'Clean, contemporary templates for modern businesses', sort_order: 1 },
-  { name: 'Classic', description: 'Traditional, formal templates for established companies', sort_order: 2 },
-  { name: 'Minimal', description: 'Simple, streamlined templates with essential information', sort_order: 3 },
-  { name: 'Industry', description: 'Industry-specific templates optimized for trade businesses', sort_order: 4 },
-  { name: 'Professional', description: 'Professional services templates for consulting and specialized services', sort_order: 5 },
-  { name: 'Contract', description: 'Agreement and contract templates with legal provisions', sort_order: 6 },
-  { name: 'Service', description: 'Service-oriented templates with customer focus', sort_order: 7 },
-  { name: 'Premium', description: 'High-end luxury templates for premium services', sort_order: 8 },
-  { name: 'Creative', description: 'Creative templates with unique layouts', sort_order: 9 },
+  {
+    name: 'Modern',
+    description: 'Clean, contemporary templates for modern businesses',
+    sort_order: 1,
+  },
+  {
+    name: 'Classic',
+    description: 'Traditional, formal templates for established companies',
+    sort_order: 2,
+  },
+  {
+    name: 'Minimal',
+    description: 'Simple, streamlined templates with essential information',
+    sort_order: 3,
+  },
+  {
+    name: 'Industry',
+    description: 'Industry-specific templates optimized for trade businesses',
+    sort_order: 4,
+  },
+  {
+    name: 'Professional',
+    description:
+      'Professional services templates for consulting and specialized services',
+    sort_order: 5,
+  },
+  {
+    name: 'Contract',
+    description: 'Agreement and contract templates with legal provisions',
+    sort_order: 6,
+  },
+  {
+    name: 'Service',
+    description: 'Service-oriented templates with customer focus',
+    sort_order: 7,
+  },
+  {
+    name: 'Premium',
+    description: 'High-end luxury templates for premium services',
+    sort_order: 8,
+  },
+  {
+    name: 'Creative',
+    description: 'Creative templates with unique layouts',
+    sort_order: 9,
+  },
 ];
 
 // Seed execution
@@ -1965,7 +2022,9 @@ export async function seedPrebuiltTemplates(): Promise<void> {
       });
 
       if (existing) {
-        console.log(`⏭️  Category "${category.name}" already exists, skipping...`);
+        console.log(
+          `⏭️  Category "${category.name}" already exists, skipping...`,
+        );
         categoryMap.set(category.name, existing.id);
         continue;
       }
@@ -2015,7 +2074,9 @@ export async function seedPrebuiltTemplates(): Promise<void> {
       });
 
       if (existing) {
-        console.log(`⏭️  Template "${template.name}" already exists, skipping...`);
+        console.log(
+          `⏭️  Template "${template.name}" already exists, skipping...`,
+        );
         continue;
       }
 
@@ -2028,8 +2089,8 @@ export async function seedPrebuiltTemplates(): Promise<void> {
             (match, key) => {
               const componentId = componentMap.get(key);
               return componentId ? `"component_id": "${componentId}"` : match;
-            }
-          )
+            },
+          ),
         );
       }
 
@@ -2070,10 +2131,14 @@ export async function seedPrebuiltTemplates(): Promise<void> {
         },
       });
 
-      console.log(`✅ Created template: ${template.name} (${template.template_type})`);
+      console.log(
+        `✅ Created template: ${template.name} (${template.template_type})`,
+      );
     }
 
-    console.log(`\n🎉 Pre-built template seeding complete! Created ${TEMPLATE_SEEDS.length} templates across ${CATEGORY_SEEDS.length} categories.`);
+    console.log(
+      `\n🎉 Pre-built template seeding complete! Created ${TEMPLATE_SEEDS.length} templates across ${CATEGORY_SEEDS.length} categories.`,
+    );
   } catch (error) {
     console.error('❌ Error seeding templates:', error);
     throw error;

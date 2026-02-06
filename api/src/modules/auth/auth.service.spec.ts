@@ -428,9 +428,7 @@ describe('AuthService', () => {
 
       const result = await service.forgotPassword({ email: 'noone@test.com' });
 
-      expect(result.message).toContain(
-        'If an account with that email exists',
-      );
+      expect(result.message).toContain('If an account with that email exists');
     });
 
     it('should generate reset token for existing user', async () => {

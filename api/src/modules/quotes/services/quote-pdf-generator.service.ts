@@ -1,4 +1,10 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { QuotePricingService } from './quote-pricing.service';
 import { QuoteTemplateService } from './quote-template.service';
@@ -61,7 +67,10 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
       });
       this.logger.log('Puppeteer browser launched successfully');
     } catch (error) {
-      this.logger.error(`Failed to launch Puppeteer browser: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to launch Puppeteer browser: ${error.message}`,
+        error.stack,
+      );
       // Don't throw - allow app to start even if PDF generation is unavailable
     }
   }
@@ -101,7 +110,9 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
     forceRegenerate: boolean = false,
   ): Promise<PdfResponseDto> {
     if (!this.browser) {
-      throw new Error('PDF generation unavailable - Puppeteer browser not initialized');
+      throw new Error(
+        'PDF generation unavailable - Puppeteer browser not initialized',
+      );
     }
 
     // 1. Fetch quote with PDF metadata and latest_pdf_file relation
@@ -132,10 +143,7 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
             file: true,
             qr_code_file: true,
           },
-          orderBy: [
-            { attachment_type: 'asc' },
-            { order_index: 'asc' },
-          ],
+          orderBy: [{ attachment_type: 'asc' }, { order_index: 'asc' }],
         },
         latest_pdf_file: true, // Include the PDF file relation
       },
@@ -146,17 +154,28 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
     }
 
     // 2. Check if regeneration is needed
-    const needsRegeneration = await this.shouldRegeneratePdf(quote, includeCostBreakdown, forceRegenerate);
+    const needsRegeneration = await this.shouldRegeneratePdf(
+      quote,
+      includeCostBreakdown,
+      forceRegenerate,
+    );
 
     // 3. Return existing PDF if still valid
     if (!needsRegeneration && quote.latest_pdf_file) {
-      this.logger.log(`Using cached PDF for quote ${quoteId} (file: ${quote.latest_pdf_file.id})`);
+      this.logger.log(
+        `Using cached PDF for quote ${quoteId} (file: ${quote.latest_pdf_file.id})`,
+      );
 
       // Get file with URL from FilesService
-      const fileWithUrl = await this.filesService.findOne(tenantId, quote.latest_pdf_file.file_id);
+      const fileWithUrl = await this.filesService.findOne(
+        tenantId,
+        quote.latest_pdf_file.file_id,
+      );
 
       if (!fileWithUrl.url) {
-        this.logger.warn(`Cached PDF file ${quote.latest_pdf_file.file_id} has no URL, will regenerate`);
+        this.logger.warn(
+          `Cached PDF file ${quote.latest_pdf_file.file_id} has no URL, will regenerate`,
+        );
         // Fall through to regeneration if URL is not available
       } else {
         return {
@@ -164,21 +183,33 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
           download_url: fileWithUrl.url,
           filename: quote.latest_pdf_file.original_filename,
           file_size: quote.latest_pdf_file.size_bytes,
-          generated_at: quote.pdf_last_generated_at?.toISOString() || new Date().toISOString(),
+          generated_at:
+            quote.pdf_last_generated_at?.toISOString() ||
+            new Date().toISOString(),
           regenerated: false, // Indicates cached PDF
         };
       }
     }
 
-    this.logger.log(`Generating new PDF for quote ${quoteId} (include_cost_breakdown: ${includeCostBreakdown}, force: ${forceRegenerate})...`);
+    this.logger.log(
+      `Generating new PDF for quote ${quoteId} (include_cost_breakdown: ${includeCostBreakdown}, force: ${forceRegenerate})...`,
+    );
 
     // 4. Delete old PDF if exists (CRITICAL: Prevents accumulation)
     if (quote.latest_pdf_file_id && quote.latest_pdf_file) {
       try {
-        await this.filesService.delete(tenantId, quote.latest_pdf_file.file_id, userId);
-        this.logger.log(`Deleted old PDF ${quote.latest_pdf_file.file_id} for quote ${quoteId}`);
+        await this.filesService.delete(
+          tenantId,
+          quote.latest_pdf_file.file_id,
+          userId,
+        );
+        this.logger.log(
+          `Deleted old PDF ${quote.latest_pdf_file.file_id} for quote ${quoteId}`,
+        );
       } catch (error) {
-        this.logger.warn(`Failed to delete old PDF ${quote.latest_pdf_file.file_id}: ${error.message}`);
+        this.logger.warn(
+          `Failed to delete old PDF ${quote.latest_pdf_file.file_id}: ${error.message}`,
+        );
         // Continue even if deletion fails
       }
     }
@@ -193,7 +224,10 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
     const pdfBuffer = await this.htmlToPdf(html);
 
     // 8. Calculate content hash for future change detection
-    const contentHash = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
+    const contentHash = crypto
+      .createHash('sha256')
+      .update(pdfBuffer)
+      .digest('hex');
 
     // 9. Upload to file storage
     const filename = `${quote.quote_number}.pdf`;
@@ -212,11 +246,16 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
       path: '',
     };
 
-    const uploadedFile = await this.filesService.uploadFile(tenantId, userId, fakeFile, {
-      category: FileCategory.QUOTE,
-      entity_type: 'quote',
-      entity_id: quoteId,
-    });
+    const uploadedFile = await this.filesService.uploadFile(
+      tenantId,
+      userId,
+      fakeFile,
+      {
+        category: FileCategory.QUOTE,
+        entity_type: 'quote',
+        entity_id: quoteId,
+      },
+    );
 
     // 10. Update quote with new PDF metadata (CRITICAL: Links PDF to quote)
     await this.prisma.quote.update({
@@ -229,7 +268,9 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-    this.logger.log(`Generated new PDF ${uploadedFile.file_id} for quote ${quoteId} (${pdfBuffer.length} bytes, hash: ${contentHash.substring(0, 16)}...)`);
+    this.logger.log(
+      `Generated new PDF ${uploadedFile.file_id} for quote ${quoteId} (${pdfBuffer.length} bytes, hash: ${contentHash.substring(0, 16)}...)`,
+    );
 
     return {
       file_id: uploadedFile.file_id,
@@ -263,13 +304,17 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
   ): Promise<boolean> {
     // 1. No PDF exists yet
     if (!quote.latest_pdf_file_id) {
-      this.logger.debug(`Regeneration needed: No PDF exists for quote ${quote.id}`);
+      this.logger.debug(
+        `Regeneration needed: No PDF exists for quote ${quote.id}`,
+      );
       return true;
     }
 
     // 2. Force regenerate flag was passed
     if (forceRegenerate) {
-      this.logger.debug(`Regeneration needed: Force regenerate flag set for quote ${quote.id}`);
+      this.logger.debug(
+        `Regeneration needed: Force regenerate flag set for quote ${quote.id}`,
+      );
       return true;
     }
 
@@ -283,7 +328,10 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
     }
 
     // 4. Quote content changed (detect via updated_at vs pdf_last_generated_at)
-    if (quote.pdf_last_generated_at && quote.updated_at > quote.pdf_last_generated_at) {
+    if (
+      quote.pdf_last_generated_at &&
+      quote.updated_at > quote.pdf_last_generated_at
+    ) {
       this.logger.debug(
         `Regeneration needed: Quote ${quote.id} modified after last PDF generation (updated: ${quote.updated_at.toISOString()}, pdf: ${quote.pdf_last_generated_at.toISOString()})`,
       );
@@ -297,7 +345,11 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
       select: { created_at: true },
     });
 
-    if (latestVersion && quote.pdf_last_generated_at && latestVersion.created_at > quote.pdf_last_generated_at) {
+    if (
+      latestVersion &&
+      quote.pdf_last_generated_at &&
+      latestVersion.created_at > quote.pdf_last_generated_at
+    ) {
       this.logger.debug(
         `Regeneration needed: New version created for quote ${quote.id} after last PDF generation`,
       );
@@ -305,7 +357,9 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
     }
 
     // PDF is still valid, no regeneration needed
-    this.logger.debug(`PDF cache valid for quote ${quote.id}, using existing PDF`);
+    this.logger.debug(
+      `PDF cache valid for quote ${quote.id}, using existing PDF`,
+    );
     return false;
   }
 
@@ -346,7 +400,10 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`Template rendered successfully: ${template.name}`);
       return html;
     } catch (error) {
-      this.logger.error(`Template rendering failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `Template rendering failed: ${error.message}`,
+        error.stack,
+      );
       throw new Error(`Failed to render template: ${error.message}`);
     }
   }
@@ -404,7 +461,11 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
       if (format === 'short') {
         return date.toLocaleDateString();
       }
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
     });
 
     // Percentage formatter
@@ -418,7 +479,9 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
 
     // Math helpers
     Handlebars.registerHelper('multiply', (a: any, b: any) => {
-      return (parseFloat(a?.toString() || '0') * parseFloat(b?.toString() || '0')).toFixed(2);
+      return (
+        parseFloat(a?.toString() || '0') * parseFloat(b?.toString() || '0')
+      ).toFixed(2);
     });
   }
 
@@ -429,15 +492,24 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
    * @param images - Image URLs mapped to keys
    * @returns HTML with embedded images
    */
-  private async embedImages(html: string, images: { [key: string]: string }): Promise<string> {
+  private async embedImages(
+    html: string,
+    images: { [key: string]: string },
+  ): Promise<string> {
     try {
       let processedHtml = html;
 
       for (const [key, imageUrl] of Object.entries(images)) {
         if (imageUrl.startsWith('data:')) {
           // Already base64, use as-is
-          processedHtml = processedHtml.replace(new RegExp(`{{${key}}}`, 'g'), imageUrl);
-        } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+          processedHtml = processedHtml.replace(
+            new RegExp(`{{${key}}}`, 'g'),
+            imageUrl,
+          );
+        } else if (
+          imageUrl.startsWith('http://') ||
+          imageUrl.startsWith('https://')
+        ) {
           // Fetch image and convert to base64
           const response = await fetch(imageUrl);
           const arrayBuffer = await response.arrayBuffer();
@@ -445,13 +517,19 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
           const base64 = buffer.toString('base64');
           const mimeType = response.headers.get('content-type') || 'image/png';
           const dataUrl = `data:${mimeType};base64,${base64}`;
-          processedHtml = processedHtml.replace(new RegExp(`{{${key}}}`, 'g'), dataUrl);
+          processedHtml = processedHtml.replace(
+            new RegExp(`{{${key}}}`, 'g'),
+            dataUrl,
+          );
         }
       }
 
       return processedHtml;
     } catch (error) {
-      this.logger.error(`Image embedding failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `Image embedding failed: ${error.message}`,
+        error.stack,
+      );
       // Return original HTML if embedding fails
       return html;
     }
@@ -463,7 +541,9 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
    * @param attachments - Quote attachments
    * @returns Image URLs mapped to keys
    */
-  private async fetchImages(attachments: any[]): Promise<{ [key: string]: string }> {
+  private async fetchImages(
+    attachments: any[],
+  ): Promise<{ [key: string]: string }> {
     const images: { [key: string]: string } = {};
 
     if (!attachments || attachments.length === 0) {
@@ -482,7 +562,10 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
       this.logger.debug(`Fetched ${Object.keys(images).length} images for PDF`);
       return images;
     } catch (error) {
-      this.logger.error(`Failed to fetch images: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to fetch images: ${error.message}`,
+        error.stack,
+      );
       return {};
     }
   }
@@ -525,7 +608,10 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
         logo_file_id: tenant.logo_file_id || null,
       };
     } catch (error) {
-      this.logger.error(`Failed to fetch tenant branding: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to fetch tenant branding: ${error.message}`,
+        error.stack,
+      );
       // Return default branding on error
       return {
         company_name: 'Company',
@@ -572,10 +658,7 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
             file: true,
             qr_code_file: true,
           },
-          orderBy: [
-            { attachment_type: 'asc' },
-            { order_index: 'asc' },
-          ],
+          orderBy: [{ attachment_type: 'asc' }, { order_index: 'asc' }],
         },
       },
     });
@@ -595,7 +678,10 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
    * @param includeCostBreakdown - Whether to include cost breakdown (vendor costs, profit margins)
    * @returns HTML string
    */
-  private generateSimpleHtml(quote: any, includeCostBreakdown: boolean = false): string {
+  private generateSimpleHtml(
+    quote: any,
+    includeCostBreakdown: boolean = false,
+  ): string {
     const items = quote.items || [];
     const itemsHtml = items
       .map(

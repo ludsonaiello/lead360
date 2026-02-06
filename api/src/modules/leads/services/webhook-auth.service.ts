@@ -32,7 +32,9 @@ export class WebhookAuthService {
       },
     });
 
-    this.logger.log(`Found ${webhookKeys.length} active webhook API keys for tenant ${tenantId}`);
+    this.logger.log(
+      `Found ${webhookKeys.length} active webhook API keys for tenant ${tenantId}`,
+    );
 
     if (!webhookKeys || webhookKeys.length === 0) {
       this.logger.warn(
@@ -45,7 +47,9 @@ export class WebhookAuthService {
     for (const keyRecord of webhookKeys) {
       this.logger.log(`Checking key record ${keyRecord.id}...`);
       const isValid = await bcrypt.compare(apiKey, keyRecord.api_secret);
-      this.logger.log(`Bcrypt compare result for key ${keyRecord.id}: ${isValid}`);
+      this.logger.log(
+        `Bcrypt compare result for key ${keyRecord.id}: ${isValid}`,
+      );
 
       if (isValid) {
         // Update last used timestamp

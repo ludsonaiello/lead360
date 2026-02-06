@@ -4,14 +4,14 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class PreviewComponentDto {
   @ApiProperty({
     description: 'Component properties to render with',
-    example: { company_name: 'Test Company', show_logo: true }
+    example: { company_name: 'Test Company', show_logo: true },
   })
   @IsObject()
   props: any;
 
   @ApiPropertyOptional({
     description: 'Sample data to override defaults',
-    example: { quote: { total: 5000 } }
+    example: { quote: { total: 5000 } },
   })
   @IsObject()
   @IsOptional()

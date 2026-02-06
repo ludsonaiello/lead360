@@ -35,7 +35,9 @@ export class QrCodeGeneratorService {
     const width = options?.width || 200;
     const margin = options?.margin || 2;
 
-    this.logger.debug(`Generating QR code for URL: ${url} (width: ${width}, margin: ${margin})`);
+    this.logger.debug(
+      `Generating QR code for URL: ${url} (width: ${width}, margin: ${margin})`,
+    );
 
     try {
       const buffer = await QRCode.toBuffer(url, {
@@ -45,10 +47,15 @@ export class QrCodeGeneratorService {
         type: 'png',
       });
 
-      this.logger.log(`QR code generated successfully (${buffer.length} bytes)`);
+      this.logger.log(
+        `QR code generated successfully (${buffer.length} bytes)`,
+      );
       return buffer;
     } catch (error) {
-      this.logger.error(`Failed to generate QR code: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to generate QR code: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -93,11 +100,16 @@ export class QrCodeGeneratorService {
 
     try {
       // Upload QR code to file storage
-      const uploadedFile = await this.filesService.uploadFile(tenantId, userId, fakeFile, {
-        category: FileCategory.QUOTE,
-        entity_type: entityId ? 'quote' : undefined,
-        entity_id: entityId || undefined,
-      });
+      const uploadedFile = await this.filesService.uploadFile(
+        tenantId,
+        userId,
+        fakeFile,
+        {
+          category: FileCategory.QUOTE,
+          entity_type: entityId ? 'quote' : undefined,
+          entity_id: entityId || undefined,
+        },
+      );
 
       this.logger.log(
         `QR code saved successfully: file_id=${uploadedFile.file_id}, size=${buffer.length} bytes`,
@@ -105,7 +117,10 @@ export class QrCodeGeneratorService {
 
       return uploadedFile.file_id;
     } catch (error) {
-      this.logger.error(`Failed to save QR code to file storage: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to save QR code to file storage: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }

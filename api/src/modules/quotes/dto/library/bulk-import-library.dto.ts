@@ -6,7 +6,8 @@ import { CreateLibraryItemDto } from './create-library-item.dto';
 export class BulkImportLibraryDto {
   @ApiProperty({
     type: [CreateLibraryItemDto],
-    description: 'Array of library items to import (transaction: all or nothing)',
+    description:
+      'Array of library items to import (transaction: all or nothing)',
     example: [
       {
         name: 'Standard drywall',

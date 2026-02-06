@@ -13,7 +13,10 @@ export class ListUnitsDto {
   })
   is_active?: boolean;
 
-  @ApiPropertyOptional({ example: true, description: 'Filter global units only (admin use)' })
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Filter global units only (admin use)',
+  })
   @IsBoolean()
   @IsOptional()
   @Transform(({ value }) => {

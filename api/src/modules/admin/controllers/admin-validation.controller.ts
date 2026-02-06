@@ -43,7 +43,10 @@ export class AdminValidationController {
   })
   @ApiResponse({ status: 400, description: 'Invalid subdomain format' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Platform Admin access required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
   async checkSubdomainAvailability(@Query('subdomain') subdomain: string) {
     return this.tenantService.checkSubdomainAvailability(subdomain);
   }

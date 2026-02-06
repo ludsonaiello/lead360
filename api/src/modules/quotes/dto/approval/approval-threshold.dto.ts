@@ -50,7 +50,10 @@ export class UpdateApprovalThresholdsDto {
     ],
   })
   @IsArray()
-  @ArrayMinSize(0, { message: 'thresholds must be an array (use empty array to disable approvals)' })
+  @ArrayMinSize(0, {
+    message:
+      'thresholds must be an array (use empty array to disable approvals)',
+  })
   @ArrayMaxSize(5, { message: 'thresholds can have maximum 5 levels' })
   @ValidateNested({ each: true })
   @Type(() => ThresholdLevelDto)

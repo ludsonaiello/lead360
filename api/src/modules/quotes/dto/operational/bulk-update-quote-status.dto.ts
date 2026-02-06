@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsString, IsEnum, ArrayMinSize, MinLength } from 'class-validator';
+import {
+  IsArray,
+  IsString,
+  IsEnum,
+  ArrayMinSize,
+  MinLength,
+} from 'class-validator';
 
 export class BulkUpdateQuoteStatusDto {
   @ApiProperty({

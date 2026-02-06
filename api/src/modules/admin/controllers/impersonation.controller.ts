@@ -33,7 +33,8 @@ export class ImpersonationController {
   @Post('tenants/:tenantId/impersonate')
   @ApiOperation({
     summary: 'Start impersonating a user',
-    description: 'Create impersonation session with 1-hour expiry. Returns session token to use in X-Impersonation-Token header.',
+    description:
+      'Create impersonation session with 1-hour expiry. Returns session token to use in X-Impersonation-Token header.',
   })
   @ApiParam({ name: 'tenantId', description: 'Tenant ID (UUID)' })
   @ApiBody({
@@ -41,7 +42,12 @@ export class ImpersonationController {
       type: 'object',
       required: ['user_id'],
       properties: {
-        user_id: { type: 'string', format: 'uuid', example: 'abc123', description: 'ID of user to impersonate' },
+        user_id: {
+          type: 'string',
+          format: 'uuid',
+          example: 'abc123',
+          description: 'ID of user to impersonate',
+        },
       },
     },
   })
@@ -66,14 +72,20 @@ export class ImpersonationController {
       },
     },
   })
-  @ApiResponse({ status: 403, description: 'Only Platform Admins can impersonate' })
+  @ApiResponse({
+    status: 403,
+    description: 'Only Platform Admins can impersonate',
+  })
   @ApiResponse({ status: 404, description: 'User not found' })
   async startImpersonation(
     @Request() req,
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
     @Body() body: { user_id: string },
   ) {
-    return this.impersonationService.startImpersonation(req.user.id, body.user_id);
+    return this.impersonationService.startImpersonation(
+      req.user.id,
+      body.user_id,
+    );
   }
 
   /**

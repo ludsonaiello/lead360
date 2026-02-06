@@ -1,4 +1,14 @@
-import { IsEnum, IsOptional, IsString, IsInt, IsUrl, ValidateIf, MinLength, MaxLength, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsInt,
+  IsUrl,
+  ValidateIf,
+  MinLength,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { attachment_type, grid_layout } from '@prisma/client';
 
@@ -19,7 +29,8 @@ export class CreateQuoteAttachmentDto {
     example: 'cover_photo',
   })
   @IsEnum(attachment_type, {
-    message: 'attachment_type must be one of: cover_photo, full_page_photo, grid_photo, url_attachment',
+    message:
+      'attachment_type must be one of: cover_photo, full_page_photo, grid_photo, url_attachment',
   })
   attachment_type: attachment_type;
 
@@ -34,7 +45,9 @@ export class CreateQuoteAttachmentDto {
   @MinLength(1)
   @MaxLength(36)
   @ValidateIf((o) =>
-    ['cover_photo', 'full_page_photo', 'grid_photo'].includes(o.attachment_type),
+    ['cover_photo', 'full_page_photo', 'grid_photo'].includes(
+      o.attachment_type,
+    ),
   )
   file_id?: string;
 
@@ -51,7 +64,8 @@ export class CreateQuoteAttachmentDto {
   url?: string;
 
   @ApiPropertyOptional({
-    description: 'Title/description for the attachment (primarily for URL attachments)',
+    description:
+      'Title/description for the attachment (primarily for URL attachments)',
     example: 'Permit Documents',
     maxLength: 200,
   })
@@ -61,7 +75,8 @@ export class CreateQuoteAttachmentDto {
   title?: string;
 
   @ApiPropertyOptional({
-    description: 'Grid layout for grid_photo type (required if type is grid_photo)',
+    description:
+      'Grid layout for grid_photo type (required if type is grid_photo)',
     enum: grid_layout,
     example: 'grid_4',
   })

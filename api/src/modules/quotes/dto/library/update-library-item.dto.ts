@@ -55,7 +55,7 @@ export class UpdateLibraryItemDto {
   material_cost_per_unit?: number;
 
   @ApiPropertyOptional({
-    example: 2.00,
+    example: 2.0,
     description: 'Labor cost per unit',
   })
   @IsNumber()

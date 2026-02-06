@@ -78,9 +78,7 @@ export class RBACService {
 
       // No roles = no permissions
       if (userRoles.length === 0) {
-        this.logger.debug(
-          `User ${userId} has no roles in tenant ${tenantId}`,
-        );
+        this.logger.debug(`User ${userId} has no roles in tenant ${tenantId}`);
         return false;
       }
 

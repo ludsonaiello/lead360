@@ -102,7 +102,9 @@ describe('DashboardService', () => {
       prismaService.tenant.count.mockResolvedValue(0);
       prismaService.user.count.mockResolvedValue(0);
       prismaService.scheduled_job.count.mockResolvedValue(0);
-      prismaService.file.aggregate.mockResolvedValue({ _sum: { file_size_bytes: 0 } });
+      prismaService.file.aggregate.mockResolvedValue({
+        _sum: { file_size_bytes: 0 },
+      });
       prismaService.$queryRaw.mockResolvedValue([]);
 
       const result = await service.getMetrics();

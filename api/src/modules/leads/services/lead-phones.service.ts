@@ -7,10 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { LeadActivitiesService, ActivityType } from './lead-activities.service';
-import {
-  CreatePhoneDto,
-  UpdatePhoneDto,
-} from '../dto/lead.dto';
+import { CreatePhoneDto, UpdatePhoneDto } from '../dto/lead.dto';
 
 @Injectable()
 export class LeadPhonesService {
@@ -94,9 +91,7 @@ export class LeadPhonesService {
       // Auto-set first phone as primary
       phones[0].is_primary = true;
     } else if (primaryCount > 1) {
-      throw new BadRequestException(
-        'Only one phone can be marked as primary',
-      );
+      throw new BadRequestException('Only one phone can be marked as primary');
     }
 
     // Validate phone format and check uniqueness for each phone

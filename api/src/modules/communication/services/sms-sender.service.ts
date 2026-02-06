@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { EncryptionService } from '../../../core/encryption/encryption.service';
 import { Provider } from './communication-provider.service';
 

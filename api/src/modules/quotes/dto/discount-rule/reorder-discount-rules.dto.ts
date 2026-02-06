@@ -37,7 +37,9 @@ export class ReorderDiscountRulesDto {
     ],
   })
   @IsArray()
-  @ArrayMinSize(1, { message: 'discount_rules array must have at least one entry' })
+  @ArrayMinSize(1, {
+    message: 'discount_rules array must have at least one entry',
+  })
   @ValidateNested({ each: true })
   @Type(() => DiscountRuleOrderDto)
   discount_rules: DiscountRuleOrderDto[];

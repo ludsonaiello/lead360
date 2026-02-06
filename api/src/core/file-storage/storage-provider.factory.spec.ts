@@ -86,7 +86,9 @@ describe('StorageProviderFactory', () => {
       const provider2 = await factory.getProvider('tenant-123');
 
       expect(provider1).toBe(provider2);
-      expect(mockPrismaService.storage_config.findUnique).toHaveBeenCalledTimes(1);
+      expect(mockPrismaService.storage_config.findUnique).toHaveBeenCalledTimes(
+        1,
+      );
     });
   });
 
@@ -98,7 +100,9 @@ describe('StorageProviderFactory', () => {
       factory.clearCache('tenant-123');
       await factory.getProvider('tenant-123');
 
-      expect(mockPrismaService.storage_config.findUnique).toHaveBeenCalledTimes(2);
+      expect(mockPrismaService.storage_config.findUnique).toHaveBeenCalledTimes(
+        2,
+      );
     });
 
     it('should clear all caches', async () => {
@@ -110,7 +114,9 @@ describe('StorageProviderFactory', () => {
       await factory.getProvider('tenant-1');
       await factory.getProvider('tenant-2');
 
-      expect(mockPrismaService.storage_config.findUnique).toHaveBeenCalledTimes(4);
+      expect(mockPrismaService.storage_config.findUnique).toHaveBeenCalledTimes(
+        4,
+      );
     });
   });
 });

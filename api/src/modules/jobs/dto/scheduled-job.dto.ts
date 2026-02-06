@@ -26,7 +26,8 @@ export class CreateScheduledJobDto {
 
   @ApiProperty({
     example: '0 8 * * *',
-    description: 'Cron expression (minute hour day month weekday). Example: "0 8 * * *" = Daily at 8:00 AM',
+    description:
+      'Cron expression (minute hour day month weekday). Example: "0 8 * * *" = Daily at 8:00 AM',
   })
   @IsString()
   schedule: string;

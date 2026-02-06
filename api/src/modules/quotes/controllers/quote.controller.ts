@@ -76,7 +76,10 @@ export class QuoteController {
   @ApiOperation({
     summary: 'Create quote with new customer (creates lead in transaction)',
   })
-  @ApiResponse({ status: 201, description: 'Quote and lead created successfully' })
+  @ApiResponse({
+    status: 201,
+    description: 'Quote and lead created successfully',
+  })
   @ApiResponse({ status: 400, description: 'Invalid data or validation error' })
   @ApiResponse({ status: 422, description: 'Address validation failed' })
   async createWithNewCustomer(
@@ -121,16 +124,40 @@ export class QuoteController {
   @Get('statistics')
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({
-    summary: 'Get quote statistics (counts, revenue, conversion rate, amounts by status)',
+    summary:
+      'Get quote statistics (counts, revenue, conversion rate, amounts by status)',
   })
-  @ApiResponse({ status: 200, description: 'Statistics retrieved successfully' })
-  @ApiQuery({ name: 'created_from', required: false, description: 'Start date filter (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'created_to', required: false, description: 'End date filter (YYYY-MM-DD)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistics retrieved successfully',
+  })
+  @ApiQuery({
+    name: 'created_from',
+    required: false,
+    description: 'Start date filter (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'created_to',
+    required: false,
+    description: 'End date filter (YYYY-MM-DD)',
+  })
   @ApiQuery({
     name: 'status',
     required: false,
     description: 'Filter by quote status',
-    enum: ['draft', 'pending_approval', 'ready', 'sent', 'delivered', 'read', 'opened', 'approved', 'denied', 'lost', 'email_failed'],
+    enum: [
+      'draft',
+      'pending_approval',
+      'ready',
+      'sent',
+      'delivered',
+      'read',
+      'opened',
+      'approved',
+      'denied',
+      'lost',
+      'email_failed',
+    ],
   })
   async getStatistics(
     @Request() req,
@@ -138,7 +165,12 @@ export class QuoteController {
     @Query('created_to') createdTo?: string,
     @Query('status') status?: string,
   ) {
-    return this.quoteService.getStatistics(req.user.tenant_id, createdFrom, createdTo, status);
+    return this.quoteService.getStatistics(
+      req.user.tenant_id,
+      createdFrom,
+      createdTo,
+      status,
+    );
   }
 
   @Get(':id')
@@ -174,7 +206,10 @@ export class QuoteController {
     summary: 'Update quote status with validation (creates version +1.0)',
   })
   @ApiParam({ name: 'id', description: 'Quote UUID' })
-  @ApiResponse({ status: 200, description: 'Quote status updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Quote status updated successfully',
+  })
   @ApiResponse({ status: 404, description: 'Quote not found' })
   @ApiResponse({ status: 400, description: 'Invalid status transition' })
   async updateStatus(
@@ -196,7 +231,10 @@ export class QuoteController {
     summary: 'Update jobsite address with re-validation (creates version +0.1)',
   })
   @ApiParam({ name: 'id', description: 'Quote UUID' })
-  @ApiResponse({ status: 200, description: 'Jobsite address updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Jobsite address updated successfully',
+  })
   @ApiResponse({ status: 404, description: 'Quote not found' })
   @ApiResponse({ status: 422, description: 'Address validation failed' })
   async updateJobsiteAddress(
@@ -229,7 +267,8 @@ export class QuoteController {
   @Roles('Owner', 'Admin', 'Manager', 'Sales')
   @ApiOperation({
     summary: 'Add bundle to quote',
-    description: 'Applies a bundle template to a quote by creating quote items from bundle items. Optionally creates a group and applies bundle discount.',
+    description:
+      'Applies a bundle template to a quote by creating quote items from bundle items. Optionally creates a group and applies bundle discount.',
   })
   @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
   @ApiParam({ name: 'bundleId', description: 'Bundle UUID' })
@@ -239,7 +278,10 @@ export class QuoteController {
     type: AddBundleToQuoteResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Quote or bundle not found' })
-  @ApiResponse({ status: 400, description: 'Bundle is inactive or quote is approved' })
+  @ApiResponse({
+    status: 400,
+    description: 'Bundle is inactive or quote is approved',
+  })
   async addBundle(
     @Request() req,
     @Param('quoteId', ParseUUIDPipe) quoteId: string,

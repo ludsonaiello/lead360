@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service';
-import { IStorageProvider, StorageProviderConfig } from './interfaces/storage-provider.interface';
+import {
+  IStorageProvider,
+  StorageProviderConfig,
+} from './interfaces/storage-provider.interface';
 import { LocalStorageProvider } from './providers/local-storage.provider';
 import { S3StorageProvider } from './providers/s3-storage.provider';
 
@@ -58,7 +61,8 @@ export class StorageProviderFactory {
       this.logger.log(`Created S3 storage provider for tenant ${tenantId}`);
     } else {
       // Default to local storage
-      const uploadsPath = this.configService.get<string>('UPLOADS_PATH') || '../uploads/public';
+      const uploadsPath =
+        this.configService.get<string>('UPLOADS_PATH') || '../uploads/public';
       const config: StorageProviderConfig = {
         provider: 'local',
         localBasePath: uploadsPath,

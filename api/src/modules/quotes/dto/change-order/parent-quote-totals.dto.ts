@@ -23,25 +23,25 @@ export class ParentQuoteTotalsDto {
 
   @ApiProperty({
     description: 'Original quote total (before change orders)',
-    example: 45000.00,
+    example: 45000.0,
   })
   original_total: number;
 
   @ApiProperty({
     description: 'Sum of approved change order totals',
-    example: 8500.00,
+    example: 8500.0,
   })
   approved_change_orders_total: number;
 
   @ApiProperty({
     description: 'Sum of pending change order totals',
-    example: 2000.00,
+    example: 2000.0,
   })
   pending_change_orders_total: number;
 
   @ApiProperty({
     description: 'Revised total (original + approved change orders)',
-    example: 53500.00,
+    example: 53500.0,
   })
   revised_total: number;
 

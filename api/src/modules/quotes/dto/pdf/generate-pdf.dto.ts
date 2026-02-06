@@ -12,7 +12,8 @@ export class GeneratePdfDto {
   force_regenerate?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Whether to include cost breakdown (vendor costs, profit margins) in PDF',
+    description:
+      'Whether to include cost breakdown (vendor costs, profit margins) in PDF',
     example: false,
     default: false,
   })

@@ -17,7 +17,10 @@ export class TemplateValidatorService {
       const variables = new Set<string>();
 
       const extractFromNode = (node: any) => {
-        if (node.type === 'MustacheStatement' || node.type === 'BlockStatement') {
+        if (
+          node.type === 'MustacheStatement' ||
+          node.type === 'BlockStatement'
+        ) {
           if (node.path && node.path.type === 'PathExpression') {
             variables.add(node.path.original);
           }
@@ -53,9 +56,13 @@ export class TemplateValidatorService {
   } {
     const usedVariables = this.extractVariablesFromTemplate(templateBody);
 
-    const unusedVariables = declaredVariables.filter((v) => !usedVariables.includes(v));
+    const unusedVariables = declaredVariables.filter(
+      (v) => !usedVariables.includes(v),
+    );
 
-    const undefinedVariables = usedVariables.filter((v) => !declaredVariables.includes(v));
+    const undefinedVariables = usedVariables.filter(
+      (v) => !declaredVariables.includes(v),
+    );
 
     return {
       valid: undefinedVariables.length === 0,
@@ -77,7 +84,9 @@ export class TemplateValidatorService {
     textValidation: ReturnType<typeof this.validateTemplate> | null;
   } {
     const htmlValidation = this.validateTemplate(htmlBody, declaredVariables);
-    const textValidation = textBody ? this.validateTemplate(textBody, declaredVariables) : null;
+    const textValidation = textBody
+      ? this.validateTemplate(textBody, declaredVariables)
+      : null;
 
     const valid =
       htmlValidation.valid && (textValidation === null || textValidation.valid);

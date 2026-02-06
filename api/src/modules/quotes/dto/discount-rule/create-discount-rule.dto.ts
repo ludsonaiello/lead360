@@ -22,8 +22,7 @@ export class CreateDiscountRuleDto {
   rule_type: 'percentage' | 'fixed_amount';
 
   @ApiProperty({
-    description:
-      'Discount value (percentage 0-100 or fixed dollar amount > 0)',
+    description: 'Discount value (percentage 0-100 or fixed dollar amount > 0)',
     example: 10.0,
     minimum: 0,
   })

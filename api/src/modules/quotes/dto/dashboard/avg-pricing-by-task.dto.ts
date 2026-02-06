@@ -32,22 +32,25 @@ export class GetAvgPricingByTaskDto {
  * Pricing benchmark for a task/item type
  */
 export class TaskPricingBenchmarkDto {
-  @ApiProperty({ description: 'Task/item title', example: 'Concrete Foundation' })
+  @ApiProperty({
+    description: 'Task/item title',
+    example: 'Concrete Foundation',
+  })
   task_title: string;
 
   @ApiProperty({ description: 'Number of times used', example: 45 })
   usage_count: number;
 
-  @ApiProperty({ description: 'Average price', example: 5000.00 })
+  @ApiProperty({ description: 'Average price', example: 5000.0 })
   avg_price: number;
 
-  @ApiProperty({ description: 'Minimum price', example: 3500.00 })
+  @ApiProperty({ description: 'Minimum price', example: 3500.0 })
   min_price: number;
 
-  @ApiProperty({ description: 'Maximum price', example: 7500.00 })
+  @ApiProperty({ description: 'Maximum price', example: 7500.0 })
   max_price: number;
 
-  @ApiProperty({ description: 'Median price', example: 4800.00 })
+  @ApiProperty({ description: 'Median price', example: 4800.0 })
   median_price: number;
 
   @ApiProperty({
@@ -64,12 +67,21 @@ export class TaskPricingBenchmarkDto {
  * Pricing benchmarks response
  */
 export class AvgPricingByTaskResponseDto {
-  @ApiProperty({ description: 'Pricing benchmarks by task', type: [TaskPricingBenchmarkDto] })
+  @ApiProperty({
+    description: 'Pricing benchmarks by task',
+    type: [TaskPricingBenchmarkDto],
+  })
   benchmarks: TaskPricingBenchmarkDto[];
 
-  @ApiProperty({ description: 'Date range start', example: '2024-01-01T00:00:00.000Z' })
+  @ApiProperty({
+    description: 'Date range start',
+    example: '2024-01-01T00:00:00.000Z',
+  })
   date_from: string;
 
-  @ApiProperty({ description: 'Date range end', example: '2024-01-31T23:59:59.999Z' })
+  @ApiProperty({
+    description: 'Date range end',
+    example: '2024-01-31T23:59:59.999Z',
+  })
   date_to: string;
 }

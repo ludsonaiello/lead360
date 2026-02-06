@@ -55,7 +55,7 @@ export class UpdateItemDto {
   material_cost_per_unit?: number;
 
   @ApiPropertyOptional({
-    example: 3.50,
+    example: 3.5,
     description: 'Labor cost per unit',
   })
   @IsNumber()
@@ -64,7 +64,7 @@ export class UpdateItemDto {
   labor_cost_per_unit?: number;
 
   @ApiPropertyOptional({
-    example: 0.50,
+    example: 0.5,
     description: 'Equipment cost per unit',
   })
   @IsNumber()
@@ -92,7 +92,8 @@ export class UpdateItemDto {
 
   @ApiPropertyOptional({
     example: '550e8400-e29b-41d4-a716-446655440000',
-    description: 'Quote group UUID (assign item to a group, or null to unassign)',
+    description:
+      'Quote group UUID (assign item to a group, or null to unassign)',
   })
   @IsUUID()
   @IsOptional()
@@ -100,7 +101,8 @@ export class UpdateItemDto {
 
   @ApiPropertyOptional({
     example: 15.0,
-    description: 'Custom profit percentage for this item (overrides quote-level)',
+    description:
+      'Custom profit percentage for this item (overrides quote-level)',
   })
   @IsNumber()
   @IsOptional()
@@ -110,7 +112,8 @@ export class UpdateItemDto {
 
   @ApiPropertyOptional({
     example: 10.0,
-    description: 'Custom overhead percentage for this item (overrides quote-level)',
+    description:
+      'Custom overhead percentage for this item (overrides quote-level)',
   })
   @IsNumber()
   @IsOptional()
@@ -120,7 +123,8 @@ export class UpdateItemDto {
 
   @ApiPropertyOptional({
     example: 5.0,
-    description: 'Custom contingency percentage for this item (overrides quote-level)',
+    description:
+      'Custom contingency percentage for this item (overrides quote-level)',
   })
   @IsNumber()
   @IsOptional()

@@ -19,7 +19,9 @@ export class CacheService {
           return null;
         }
         const delay = Math.min(times * 50, 5000);
-        this.logger.warn(`Redis reconnecting in ${delay}ms (attempt ${times}/10)`);
+        this.logger.warn(
+          `Redis reconnecting in ${delay}ms (attempt ${times}/10)`,
+        );
         return delay;
       },
       // Connection options

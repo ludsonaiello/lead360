@@ -7,7 +7,10 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
-import { CreateServiceAreaDto, ServiceAreaType } from '../dto/create-service-area.dto';
+import {
+  CreateServiceAreaDto,
+  ServiceAreaType,
+} from '../dto/create-service-area.dto';
 import { UpdateServiceAreaDto } from '../dto/update-service-area.dto';
 
 @Injectable()
@@ -125,7 +128,9 @@ export class TenantServiceAreaService {
   /**
    * Validate service area DTO based on type
    */
-  private validateServiceAreaDto(dto: CreateServiceAreaDto | UpdateServiceAreaDto): void {
+  private validateServiceAreaDto(
+    dto: CreateServiceAreaDto | UpdateServiceAreaDto,
+  ): void {
     if (dto.area_type === ServiceAreaType.CITY) {
       if (!dto.city || !dto.state) {
         throw new BadRequestException(
@@ -160,7 +165,11 @@ export class TenantServiceAreaService {
   /**
    * Create a new service area
    */
-  async create(tenantId: string, createDto: CreateServiceAreaDto, userId: string) {
+  async create(
+    tenantId: string,
+    createDto: CreateServiceAreaDto,
+    userId: string,
+  ) {
     // Validate based on area type
     this.validateServiceAreaDto(createDto);
 
@@ -227,21 +236,50 @@ export class TenantServiceAreaService {
     const existing = await this.findOne(tenantId, serviceAreaId);
 
     // If area_type is being changed, validate new requirements
-    const updatedType = updateDto.area_type || (existing.type as ServiceAreaType);
+    const updatedType =
+      updateDto.area_type || (existing.type as ServiceAreaType);
     if (updateDto.area_type) {
       this.validateServiceAreaDto({ ...updateDto, area_type: updatedType });
     }
 
     // Check for duplicates (excluding current record)
-    if (updateDto.area_type || updateDto.city || updateDto.zipcode || updateDto.state || updateDto.center_lat || updateDto.center_long || updateDto.radius_miles) {
+    if (
+      updateDto.area_type ||
+      updateDto.city ||
+      updateDto.zipcode ||
+      updateDto.state ||
+      updateDto.center_lat ||
+      updateDto.center_long ||
+      updateDto.radius_miles
+    ) {
       const mergedDto = {
         area_type: updatedType,
-        city: updateDto.city !== undefined ? updateDto.city : existing.city_name || undefined,
-        zipcode: updateDto.zipcode !== undefined ? updateDto.zipcode : existing.zipcode || undefined,
-        state: updateDto.state !== undefined ? updateDto.state : existing.state || undefined,
-        center_lat: updateDto.center_lat !== undefined ? updateDto.center_lat : Number(existing.latitude),
-        center_long: updateDto.center_long !== undefined ? updateDto.center_long : Number(existing.longitude),
-        radius_miles: updateDto.radius_miles !== undefined ? updateDto.radius_miles : (existing.radius_miles ? Number(existing.radius_miles) : undefined),
+        city:
+          updateDto.city !== undefined
+            ? updateDto.city
+            : existing.city_name || undefined,
+        zipcode:
+          updateDto.zipcode !== undefined
+            ? updateDto.zipcode
+            : existing.zipcode || undefined,
+        state:
+          updateDto.state !== undefined
+            ? updateDto.state
+            : existing.state || undefined,
+        center_lat:
+          updateDto.center_lat !== undefined
+            ? updateDto.center_lat
+            : Number(existing.latitude),
+        center_long:
+          updateDto.center_long !== undefined
+            ? updateDto.center_long
+            : Number(existing.longitude),
+        radius_miles:
+          updateDto.radius_miles !== undefined
+            ? updateDto.radius_miles
+            : existing.radius_miles
+              ? Number(existing.radius_miles)
+              : undefined,
       };
       await this.checkDuplicateServiceArea(tenantId, mergedDto, serviceAreaId);
     }
@@ -250,12 +288,25 @@ export class TenantServiceAreaService {
     let value: string | undefined;
     let entire_state: boolean | undefined;
 
-    if (updateDto.area_type || updateDto.city || updateDto.zipcode || updateDto.radius_miles || updateDto.state) {
-      const finalType = updateDto.area_type || (existing.type as ServiceAreaType);
-      const finalCity = updateDto.city !== undefined ? updateDto.city : existing.city_name;
-      const finalZipcode = updateDto.zipcode !== undefined ? updateDto.zipcode : existing.zipcode;
-      const finalRadiusMiles = updateDto.radius_miles !== undefined ? updateDto.radius_miles : existing.radius_miles;
-      const finalState = updateDto.state !== undefined ? updateDto.state : existing.state;
+    if (
+      updateDto.area_type ||
+      updateDto.city ||
+      updateDto.zipcode ||
+      updateDto.radius_miles ||
+      updateDto.state
+    ) {
+      const finalType =
+        updateDto.area_type || (existing.type as ServiceAreaType);
+      const finalCity =
+        updateDto.city !== undefined ? updateDto.city : existing.city_name;
+      const finalZipcode =
+        updateDto.zipcode !== undefined ? updateDto.zipcode : existing.zipcode;
+      const finalRadiusMiles =
+        updateDto.radius_miles !== undefined
+          ? updateDto.radius_miles
+          : existing.radius_miles;
+      const finalState =
+        updateDto.state !== undefined ? updateDto.state : existing.state;
 
       if (finalType === ServiceAreaType.CITY) {
         value = finalCity || '';
@@ -331,7 +382,11 @@ export class TenantServiceAreaService {
   /**
    * Check if a location (lat, long) is covered by tenant's service areas
    */
-  async checkCoverage(tenantId: string, lat: number, long: number): Promise<{
+  async checkCoverage(
+    tenantId: string,
+    lat: number,
+    long: number,
+  ): Promise<{
     is_covered: boolean;
     covering_areas: any[];
   }> {

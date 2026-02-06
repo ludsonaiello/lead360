@@ -193,7 +193,8 @@ export class RoleTemplateService {
       // Assign permissions
       await tx.role_template_permission.createMany({
         data: permissionIds.map((permissionId) => ({
-        id: randomBytes(16).toString('hex'),role_template_id: newTemplate.id,
+          id: randomBytes(16).toString('hex'),
+          role_template_id: newTemplate.id,
           permission_id: permissionId,
         })),
       });
@@ -293,7 +294,9 @@ export class RoleTemplateService {
       });
 
       if (existing) {
-        throw new ConflictException(`Template "${updates.name}" already exists`);
+        throw new ConflictException(
+          `Template "${updates.name}" already exists`,
+        );
       }
     }
 
@@ -379,7 +382,9 @@ export class RoleTemplateService {
       },
     );
 
-    this.logger.log(`Role template ${templateId} updated by ${updatedByUserId}`);
+    this.logger.log(
+      `Role template ${templateId} updated by ${updatedByUserId}`,
+    );
 
     return updatedTemplate;
   }
@@ -530,7 +535,9 @@ export class RoleTemplateService {
     });
 
     if (!role) {
-      throw new InternalServerErrorException('Failed to create role from template');
+      throw new InternalServerErrorException(
+        'Failed to create role from template',
+      );
     }
 
     // Audit log
@@ -602,7 +609,7 @@ export class RoleTemplateService {
       // Create new template
       const newTemplate = await tx.role_template.create({
         data: {
-        id: randomBytes(16).toString('hex'),
+          id: randomBytes(16).toString('hex'),
           name: newName,
           description: sourceTemplate.description,
           is_system_template: false, // Cloned templates are never system templates

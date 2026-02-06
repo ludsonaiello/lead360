@@ -159,11 +159,15 @@ describe('AdminAnalyticsService', () => {
         const { dateFrom, dateTo } = service['getDefaultDateRange']();
 
         const now = new Date();
-        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const thirtyDaysAgo = new Date(
+          now.getTime() - 30 * 24 * 60 * 60 * 1000,
+        );
 
         // Allow 1 second tolerance for test execution time
         expect(Math.abs(dateTo.getTime() - now.getTime())).toBeLessThan(1000);
-        expect(Math.abs(dateFrom.getTime() - thirtyDaysAgo.getTime())).toBeLessThan(1000);
+        expect(
+          Math.abs(dateFrom.getTime() - thirtyDaysAgo.getTime()),
+        ).toBeLessThan(1000);
       });
 
       it('should use provided dateFrom and default dateTo', () => {
@@ -176,7 +180,10 @@ describe('AdminAnalyticsService', () => {
 
       it('should use provided dateTo and default dateFrom', () => {
         const customTo = new Date('2024-12-31');
-        const { dateFrom, dateTo } = service['getDefaultDateRange'](undefined, customTo);
+        const { dateFrom, dateTo } = service['getDefaultDateRange'](
+          undefined,
+          customTo,
+        );
 
         expect(dateTo).toEqual(customTo);
         expect(dateFrom).toBeInstanceOf(Date);
@@ -185,7 +192,10 @@ describe('AdminAnalyticsService', () => {
       it('should use both provided dates', () => {
         const customFrom = new Date('2024-01-01');
         const customTo = new Date('2024-12-31');
-        const { dateFrom, dateTo } = service['getDefaultDateRange'](customFrom, customTo);
+        const { dateFrom, dateTo } = service['getDefaultDateRange'](
+          customFrom,
+          customTo,
+        );
 
         expect(dateFrom).toEqual(customFrom);
         expect(dateTo).toEqual(customTo);
@@ -204,24 +214,36 @@ describe('AdminAnalyticsService', () => {
         const from = new Date('2024-12-31');
         const to = new Date('2024-01-01');
 
-        expect(() => service['validateDateRange'](from, to)).toThrow(BadRequestException);
-        expect(() => service['validateDateRange'](from, to)).toThrow('date_from must be before date_to');
+        expect(() => service['validateDateRange'](from, to)).toThrow(
+          BadRequestException,
+        );
+        expect(() => service['validateDateRange'](from, to)).toThrow(
+          'date_from must be before date_to',
+        );
       });
 
       it('should reject date_to in the future', () => {
         const from = new Date('2024-01-01');
         const to = new Date(Date.now() + 24 * 60 * 60 * 1000); // Tomorrow
 
-        expect(() => service['validateDateRange'](from, to)).toThrow(BadRequestException);
-        expect(() => service['validateDateRange'](from, to)).toThrow('date_to cannot be in the future');
+        expect(() => service['validateDateRange'](from, to)).toThrow(
+          BadRequestException,
+        );
+        expect(() => service['validateDateRange'](from, to)).toThrow(
+          'date_to cannot be in the future',
+        );
       });
 
       it('should reject date range exceeding 365 days', () => {
         const from = new Date('2023-01-01');
         const to = new Date('2024-12-31'); // More than 365 days
 
-        expect(() => service['validateDateRange'](from, to)).toThrow(BadRequestException);
-        expect(() => service['validateDateRange'](from, to)).toThrow('Date range cannot exceed 365 days');
+        expect(() => service['validateDateRange'](from, to)).toThrow(
+          BadRequestException,
+        );
+        expect(() => service['validateDateRange'](from, to)).toThrow(
+          'Date range cannot exceed 365 days',
+        );
       });
 
       it('should accept exactly 365 days', () => {
@@ -278,7 +300,9 @@ describe('AdminAnalyticsService', () => {
       jest.spyOn(cacheService, 'get').mockResolvedValue(null);
       jest.spyOn(cacheService, 'set').mockResolvedValue();
       jest.spyOn(prismaService.tenant, 'count').mockResolvedValue(100);
-      jest.spyOn(prismaService.quote, 'findMany').mockResolvedValue(mockQuotes as any);
+      jest
+        .spyOn(prismaService.quote, 'findMany')
+        .mockResolvedValue(mockQuotes as any);
 
       const result = await service.getDashboardOverview();
 
@@ -311,7 +335,9 @@ describe('AdminAnalyticsService', () => {
     it('should calculate funnel stages correctly', async () => {
       jest.spyOn(cacheService, 'get').mockResolvedValue(null);
       jest.spyOn(cacheService, 'set').mockResolvedValue();
-      jest.spyOn(prismaService.quote, 'findMany').mockResolvedValue(mockQuotes as any);
+      jest
+        .spyOn(prismaService.quote, 'findMany')
+        .mockResolvedValue(mockQuotes as any);
 
       const result = await service.getConversionFunnel();
 
@@ -389,11 +415,15 @@ describe('AdminAnalyticsService', () => {
           vendor: { id: 'vendor-1', business_name: 'ABC Roofing' },
         },
       ] as any);
-      jest.spyOn(prismaService.$queryRaw as any).mockResolvedValue([
-        { date_key: '2024-01-15', total_revenue: 5000 },
-      ]);
+      jest
+        .spyOn(prismaService.$queryRaw as any)
+        .mockResolvedValue([{ date_key: '2024-01-15', total_revenue: 5000 }]);
 
-      const result = await service.getRevenueAnalytics(dateFrom, dateTo, 'vendor');
+      const result = await service.getRevenueAnalytics(
+        dateFrom,
+        dateTo,
+        'vendor',
+      );
 
       expect(result).toHaveProperty('total_revenue');
       expect(result).toHaveProperty('revenue_by_group');
@@ -407,12 +437,18 @@ describe('AdminAnalyticsService', () => {
 
       jest.spyOn(cacheService, 'get').mockResolvedValue(null);
       jest.spyOn(cacheService, 'set').mockResolvedValue();
-      jest.spyOn(prismaService.quote, 'findMany').mockResolvedValue(mockQuotes as any);
-      jest.spyOn(prismaService.$queryRaw as any).mockResolvedValue([
-        { date_key: '2024-01-15', total_revenue: 5000 },
-      ]);
+      jest
+        .spyOn(prismaService.quote, 'findMany')
+        .mockResolvedValue(mockQuotes as any);
+      jest
+        .spyOn(prismaService.$queryRaw as any)
+        .mockResolvedValue([{ date_key: '2024-01-15', total_revenue: 5000 }]);
 
-      const result = await service.getRevenueAnalytics(dateFrom, dateTo, 'tenant');
+      const result = await service.getRevenueAnalytics(
+        dateFrom,
+        dateTo,
+        'tenant',
+      );
 
       expect(result.revenue_by_group.length).toBeGreaterThanOrEqual(0);
     });
@@ -420,10 +456,14 @@ describe('AdminAnalyticsService', () => {
 
   describe('Cache Error Handling', () => {
     it('should continue if cache.get fails', async () => {
-      jest.spyOn(cacheService, 'get').mockRejectedValue(new Error('Redis connection failed'));
+      jest
+        .spyOn(cacheService, 'get')
+        .mockRejectedValue(new Error('Redis connection failed'));
       jest.spyOn(cacheService, 'set').mockResolvedValue();
       jest.spyOn(prismaService.tenant, 'count').mockResolvedValue(100);
-      jest.spyOn(prismaService.quote, 'findMany').mockResolvedValue(mockQuotes as any);
+      jest
+        .spyOn(prismaService.quote, 'findMany')
+        .mockResolvedValue(mockQuotes as any);
 
       const result = await service.getDashboardOverview();
 
@@ -432,9 +472,13 @@ describe('AdminAnalyticsService', () => {
 
     it('should continue if cache.set fails', async () => {
       jest.spyOn(cacheService, 'get').mockResolvedValue(null);
-      jest.spyOn(cacheService, 'set').mockRejectedValue(new Error('Redis connection failed'));
+      jest
+        .spyOn(cacheService, 'set')
+        .mockRejectedValue(new Error('Redis connection failed'));
       jest.spyOn(prismaService.tenant, 'count').mockResolvedValue(100);
-      jest.spyOn(prismaService.quote, 'findMany').mockResolvedValue(mockQuotes as any);
+      jest
+        .spyOn(prismaService.quote, 'findMany')
+        .mockResolvedValue(mockQuotes as any);
 
       const result = await service.getDashboardOverview();
 

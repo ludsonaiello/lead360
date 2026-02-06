@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsDateString, IsArray, ArrayMinSize } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsDateString,
+  IsArray,
+  ArrayMinSize,
+} from 'class-validator';
 
 /**
  * ExportDashboardDto

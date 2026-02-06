@@ -140,9 +140,16 @@ export class TenantLicenseService {
   /**
    * Create a new license
    */
-  async create(tenantId: string, createLicenseDto: CreateLicenseDto, userId: string) {
+  async create(
+    tenantId: string,
+    createLicenseDto: CreateLicenseDto,
+    userId: string,
+  ) {
     // Validation: Must provide either license_type_id OR custom_license_type
-    if (!createLicenseDto.license_type_id && !createLicenseDto.custom_license_type) {
+    if (
+      !createLicenseDto.license_type_id &&
+      !createLicenseDto.custom_license_type
+    ) {
       throw new BadRequestException(
         'Either license_type_id or custom_license_type must be provided',
       );
@@ -312,7 +319,12 @@ export class TenantLicenseService {
       tenantId,
       file,
       {
-        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'],
+        allowedMimeTypes: [
+          'application/pdf',
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+        ],
         maxSizeBytes: 10 * 1024 * 1024, // 10MB
         category: 'license',
       },

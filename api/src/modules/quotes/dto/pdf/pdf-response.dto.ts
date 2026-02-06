@@ -9,7 +9,8 @@ export class PdfResponseDto {
 
   @ApiProperty({
     description: 'Presigned URL for downloading the PDF (expires in 1 hour)',
-    example: 'https://storage.lead360.app/quotes/quote-2026-001.pdf?signature=...',
+    example:
+      'https://storage.lead360.app/quotes/quote-2026-001.pdf?signature=...',
   })
   download_url: string;
 

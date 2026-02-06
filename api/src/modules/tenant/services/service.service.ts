@@ -23,7 +23,7 @@ export class ServiceService {
    */
   async findAll(includeInactive = false) {
     return this.prisma.service.findMany({
-      where: includeInactive ? {} : { is_active: true } as any,
+      where: includeInactive ? {} : ({ is_active: true } as any),
       orderBy: { name: 'asc' } as any,
     });
   }
@@ -56,7 +56,9 @@ export class ServiceService {
     });
 
     if (existingByName) {
-      throw new ConflictException(`Service with name "${createDto.name}" already exists`);
+      throw new ConflictException(
+        `Service with name "${createDto.name}" already exists`,
+      );
     }
 
     // Check for duplicate slug
@@ -97,7 +99,9 @@ export class ServiceService {
       });
 
       if (existing) {
-        throw new ConflictException(`Service with name "${updateDto.name}" already exists`);
+        throw new ConflictException(
+          `Service with name "${updateDto.name}" already exists`,
+        );
       }
     }
 
@@ -111,7 +115,9 @@ export class ServiceService {
       });
 
       if (existing) {
-        throw new ConflictException(`Service with slug "${updateDto.slug}" already exists`);
+        throw new ConflictException(
+          `Service with slug "${updateDto.slug}" already exists`,
+        );
       }
     }
 
@@ -170,7 +176,11 @@ export class ServiceService {
   /**
    * Assign services to tenant (replaces all existing assignments)
    */
-  async assignServices(tenantId: string, assignDto: AssignServicesDto, userId: string) {
+  async assignServices(
+    tenantId: string,
+    assignDto: AssignServicesDto,
+    userId: string,
+  ) {
     // Validate all service IDs exist and are active
     const services = await this.prisma.service.findMany({
       where: {
@@ -181,7 +191,9 @@ export class ServiceService {
 
     if (services.length !== assignDto.service_ids.length) {
       const foundIds = services.map((s) => s.id);
-      const missingIds = assignDto.service_ids.filter((id) => !foundIds.includes(id));
+      const missingIds = assignDto.service_ids.filter(
+        (id) => !foundIds.includes(id),
+      );
       throw new BadRequestException(
         `Some service IDs are invalid or inactive: ${missingIds.join(', ')}`,
       );

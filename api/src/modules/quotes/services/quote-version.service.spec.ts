@@ -105,7 +105,8 @@ describe('QuoteVersionService', () => {
 
       await service.createInitialVersion(quoteId, quoteData);
 
-      const createCall = mockPrismaService.quote_version.create.mock.calls[0][0];
+      const createCall =
+        mockPrismaService.quote_version.create.mock.calls[0][0];
       const snapshotData = JSON.parse(createCall.data.snapshot_data);
 
       expect(snapshotData.quote).toBeDefined();
@@ -137,7 +138,12 @@ describe('QuoteVersionService', () => {
       mockPrismaService.quote_version.create.mockResolvedValue({});
       mockPrismaService.quote.update.mockResolvedValue({});
 
-      await service.createVersion(quoteId, increment, changeDescription, userId);
+      await service.createVersion(
+        quoteId,
+        increment,
+        changeDescription,
+        userId,
+      );
 
       expect(mockPrismaService.quote_version.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -285,7 +291,7 @@ describe('QuoteVersionService', () => {
       const quoteId = 'quote-123';
       const mockQuote = {
         id: quoteId,
-        subtotal: new Decimal(1000.50),
+        subtotal: new Decimal(1000.5),
         tax_amount: new Decimal(80.04),
         total: new Decimal(1080.54),
         active_version_number: new Decimal(1.0),
@@ -302,7 +308,7 @@ describe('QuoteVersionService', () => {
       expect(typeof snapshot.quote.subtotal).toBe('number');
       expect(typeof snapshot.quote.tax_amount).toBe('number');
       expect(typeof snapshot.quote.total).toBe('number');
-      expect(snapshot.quote.subtotal).toBe(1000.50);
+      expect(snapshot.quote.subtotal).toBe(1000.5);
     });
   });
 
@@ -314,14 +320,20 @@ describe('QuoteVersionService', () => {
           id: 'version-1',
           version_number: new Decimal(1.0),
           change_description: 'Initial version',
-          snapshot_data: JSON.stringify({ quote: { title: 'Test' }, items: [] }),
+          snapshot_data: JSON.stringify({
+            quote: { title: 'Test' },
+            items: [],
+          }),
           created_at: new Date('2024-01-01'),
         },
         {
           id: 'version-2',
           version_number: new Decimal(1.1),
           change_description: 'Updated pricing',
-          snapshot_data: JSON.stringify({ quote: { title: 'Test Updated' }, items: [] }),
+          snapshot_data: JSON.stringify({
+            quote: { title: 'Test Updated' },
+            items: [],
+          }),
           created_at: new Date('2024-01-02'),
         },
       ];

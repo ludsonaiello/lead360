@@ -1,11 +1,11 @@
 import { randomBytes } from 'crypto';
-import {
-  Injectable,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
-import { UpdatePaymentTermsDto, PaymentTermType } from '../dto/update-payment-terms.dto';
+import {
+  UpdatePaymentTermsDto,
+  PaymentTermType,
+} from '../dto/update-payment-terms.dto';
 
 @Injectable()
 export class TenantPaymentTermsService {
@@ -50,9 +50,15 @@ export class TenantPaymentTermsService {
   /**
    * Update payment terms with comprehensive validation
    */
-  async update(tenantId: string, updatePaymentTermsDto: UpdatePaymentTermsDto, userId: string) {
+  async update(
+    tenantId: string,
+    updatePaymentTermsDto: UpdatePaymentTermsDto,
+    userId: string,
+  ) {
     // Validate sequence numbers are sequential (1, 2, 3, ...)
-    const sequences = updatePaymentTermsDto.terms.map((t) => t.sequence).sort((a, b) => a - b);
+    const sequences = updatePaymentTermsDto.terms
+      .map((t) => t.sequence)
+      .sort((a, b) => a - b);
     const expectedSequences = Array.from(
       { length: sequences.length } as any,
       (_, i) => i + 1,
@@ -69,7 +75,8 @@ export class TenantPaymentTermsService {
       (t) => t.type === PaymentTermType.PERCENTAGE,
     );
     const percentageSum = percentageTerms.reduce((sum, t) => sum + t.amount, 0);
-    const hasPercentageWarning = percentageTerms.length > 0 && percentageSum !== 100;
+    const hasPercentageWarning =
+      percentageTerms.length > 0 && percentageSum !== 100;
 
     // Ensure payment terms record exists
     await this.findOrCreate(tenantId);

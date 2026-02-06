@@ -42,7 +42,7 @@ export class CreateLibraryItemDto {
   default_quantity: number;
 
   @ApiProperty({
-    example: 2.50,
+    example: 2.5,
     description: 'Material cost per unit',
   })
   @IsNumber()

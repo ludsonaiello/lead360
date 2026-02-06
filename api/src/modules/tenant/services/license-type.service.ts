@@ -28,7 +28,7 @@ export class LicenseTypeService {
    */
   async findAll(includeInactive = false) {
     return this.prisma.license_type.findMany({
-      where: includeInactive ? {} : { is_active: true } as any,
+      where: includeInactive ? {} : ({ is_active: true } as any),
       orderBy: { name: 'asc' } as any,
     });
   }
@@ -88,7 +88,11 @@ export class LicenseTypeService {
   /**
    * Update a license type (admin-only)
    */
-  async update(licenseTypeId: string, updateDto: UpdateLicenseTypeDto, adminUserId: string) {
+  async update(
+    licenseTypeId: string,
+    updateDto: UpdateLicenseTypeDto,
+    adminUserId: string,
+  ) {
     // Verify license type exists
     const existing = await this.findById(licenseTypeId);
 

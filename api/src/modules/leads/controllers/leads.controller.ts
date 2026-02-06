@@ -69,7 +69,10 @@ export class LeadsController {
   @ApiResponse({ status: 201, description: 'Lead created successfully' })
   @ApiResponse({ status: 400, description: 'Invalid data or validation error' })
   @ApiResponse({ status: 409, description: 'Phone number already exists' })
-  @ApiResponse({ status: 422, description: 'Address validation failed (Google Maps)' })
+  @ApiResponse({
+    status: 422,
+    description: 'Address validation failed (Google Maps)',
+  })
   async create(@Request() req, @Body() createLeadDto: CreateLeadDto) {
     return this.leadsService.create(
       req.user.tenant_id,
@@ -89,7 +92,10 @@ export class LeadsController {
   @Get('stats')
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({ summary: 'Get dashboard statistics for leads' })
-  @ApiResponse({ status: 200, description: 'Statistics retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistics retrieved successfully',
+  })
   async getStats(@Request() req) {
     return this.leadsService.getStats(req.user.tenant_id);
   }
@@ -100,10 +106,7 @@ export class LeadsController {
   @ApiParam({ name: 'id', description: 'Lead UUID' })
   @ApiResponse({ status: 200, description: 'Lead retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Lead not found' })
-  async findOne(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.leadsService.findOne(req.user.tenant_id, id);
   }
 
@@ -131,7 +134,10 @@ export class LeadsController {
   @ApiOperation({ summary: 'Update lead status with validation' })
   @ApiParam({ name: 'id', description: 'Lead UUID' })
   @ApiResponse({ status: 200, description: 'Status updated successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid status transition or missing lost_reason' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid status transition or missing lost_reason',
+  })
   @ApiResponse({ status: 404, description: 'Lead not found' })
   async updateStatus(
     @Request() req,
@@ -153,10 +159,7 @@ export class LeadsController {
   @ApiParam({ name: 'id', description: 'Lead UUID' })
   @ApiResponse({ status: 204, description: 'Lead deleted successfully' })
   @ApiResponse({ status: 404, description: 'Lead not found' })
-  async delete(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async delete(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     await this.leadsService.delete(req.user.tenant_id, id, req.user.id);
   }
 
@@ -211,7 +214,10 @@ export class LeadsController {
   @ApiParam({ name: 'id', description: 'Lead UUID' })
   @ApiParam({ name: 'emailId', description: 'Email UUID' })
   @ApiResponse({ status: 204, description: 'Email deleted successfully' })
-  @ApiResponse({ status: 400, description: 'Cannot delete last contact method' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot delete last contact method',
+  })
   @ApiResponse({ status: 404, description: 'Email not found' })
   async deleteEmail(
     @Request() req,
@@ -235,7 +241,10 @@ export class LeadsController {
   @ApiResponse({ status: 201, description: 'Phone added successfully' })
   @ApiResponse({ status: 400, description: 'Invalid phone format' })
   @ApiResponse({ status: 404, description: 'Lead not found' })
-  @ApiResponse({ status: 409, description: 'Phone number already exists in this account' })
+  @ApiResponse({
+    status: 409,
+    description: 'Phone number already exists in this account',
+  })
   async createPhone(
     @Request() req,
     @Param('id', ParseUUIDPipe) leadId: string,
@@ -256,7 +265,10 @@ export class LeadsController {
   @ApiParam({ name: 'phoneId', description: 'Phone UUID' })
   @ApiResponse({ status: 200, description: 'Phone updated successfully' })
   @ApiResponse({ status: 404, description: 'Phone not found' })
-  @ApiResponse({ status: 409, description: 'Phone number already exists in this account' })
+  @ApiResponse({
+    status: 409,
+    description: 'Phone number already exists in this account',
+  })
   async updatePhone(
     @Request() req,
     @Param('id', ParseUUIDPipe) leadId: string,
@@ -279,7 +291,10 @@ export class LeadsController {
   @ApiParam({ name: 'id', description: 'Lead UUID' })
   @ApiParam({ name: 'phoneId', description: 'Phone UUID' })
   @ApiResponse({ status: 204, description: 'Phone deleted successfully' })
-  @ApiResponse({ status: 400, description: 'Cannot delete last contact method' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot delete last contact method',
+  })
   @ApiResponse({ status: 404, description: 'Phone not found' })
   async deletePhone(
     @Request() req,
@@ -302,7 +317,10 @@ export class LeadsController {
   @ApiParam({ name: 'id', description: 'Lead UUID' })
   @ApiResponse({ status: 201, description: 'Address added successfully' })
   @ApiResponse({ status: 404, description: 'Lead not found' })
-  @ApiResponse({ status: 422, description: 'Address validation failed (Google Maps)' })
+  @ApiResponse({
+    status: 422,
+    description: 'Address validation failed (Google Maps)',
+  })
   async createAddress(
     @Request() req,
     @Param('id', ParseUUIDPipe) leadId: string,
@@ -318,12 +336,17 @@ export class LeadsController {
 
   @Patch(':id/addresses/:addressId')
   @Roles('Owner', 'Admin', 'Manager', 'Sales')
-  @ApiOperation({ summary: 'Update a lead address (Google Maps re-validated if changed)' })
+  @ApiOperation({
+    summary: 'Update a lead address (Google Maps re-validated if changed)',
+  })
   @ApiParam({ name: 'id', description: 'Lead UUID' })
   @ApiParam({ name: 'addressId', description: 'Address UUID' })
   @ApiResponse({ status: 200, description: 'Address updated successfully' })
   @ApiResponse({ status: 404, description: 'Address not found' })
-  @ApiResponse({ status: 422, description: 'Address validation failed (Google Maps)' })
+  @ApiResponse({
+    status: 422,
+    description: 'Address validation failed (Google Maps)',
+  })
   async updateAddress(
     @Request() req,
     @Param('id', ParseUUIDPipe) leadId: string,
@@ -346,7 +369,10 @@ export class LeadsController {
   @ApiParam({ name: 'id', description: 'Lead UUID' })
   @ApiParam({ name: 'addressId', description: 'Address UUID' })
   @ApiResponse({ status: 204, description: 'Address deleted successfully' })
-  @ApiResponse({ status: 400, description: 'Cannot delete address linked to service requests' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot delete address linked to service requests',
+  })
   @ApiResponse({ status: 404, description: 'Address not found' })
   async deleteAddress(
     @Request() req,
@@ -451,7 +477,10 @@ export class LeadsController {
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Employee')
   @ApiOperation({ summary: 'Get activity timeline for a lead' })
   @ApiParam({ name: 'id', description: 'Lead UUID' })
-  @ApiResponse({ status: 200, description: 'Activities retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Activities retrieved successfully',
+  })
   async getActivities(
     @Request() req,
     @Param('id', ParseUUIDPipe) leadId: string,

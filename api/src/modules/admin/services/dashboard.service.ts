@@ -1,6 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
-import { startOfMonth, subMonths, subDays, startOfDay, endOfDay, format } from 'date-fns';
+import {
+  startOfMonth,
+  subMonths,
+  subDays,
+  startOfDay,
+  endOfDay,
+  format,
+} from 'date-fns';
 
 @Injectable()
 export class DashboardService {
@@ -21,6 +28,7 @@ export class DashboardService {
         jobSuccessRate,
         storageUsed,
         systemHealth,
+        communicationMetrics,
       ] = await Promise.all([
         this.getActiveTenants(),
         this.getTenantsGrowth(),
@@ -29,6 +37,7 @@ export class DashboardService {
         this.getJobSuccessRate(),
         this.getStorageUsed(),
         this.getSystemHealth(),
+        this.getCommunicationMetrics(), // Sprint 8: Twilio metrics
       ]);
 
       return {
@@ -56,12 +65,19 @@ export class DashboardService {
         storageUsed: {
           current: storageUsed.current,
           limit: storageUsed.limit,
-          percentage: storageUsed.limit > 0 ? (storageUsed.current / storageUsed.limit) * 100 : 0,
+          percentage:
+            storageUsed.limit > 0
+              ? (storageUsed.current / storageUsed.limit) * 100
+              : 0,
         },
         systemHealth,
+        communication: communicationMetrics, // Sprint 8: Twilio communication metrics
       };
     } catch (error) {
-      this.logger.error(`Failed to get dashboard metrics: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get dashboard metrics: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -98,12 +114,14 @@ export class DashboardService {
       }),
     ]);
 
-    const percentageChange = lastMonth > 0 ? ((newThisMonth - lastMonth) / lastMonth) * 100 : 100;
+    const percentageChange =
+      lastMonth > 0 ? ((newThisMonth - lastMonth) / lastMonth) * 100 : 100;
 
     return {
       count: newThisMonth,
       percentage: Math.round(percentageChange * 10) / 10,
-      trend: percentageChange > 0 ? 'up' : percentageChange < 0 ? 'down' : 'stable',
+      trend:
+        percentageChange > 0 ? 'up' : percentageChange < 0 ? 'down' : 'stable',
     };
   }
 
@@ -139,12 +157,14 @@ export class DashboardService {
       }),
     ]);
 
-    const percentageChange = lastMonth > 0 ? ((newThisMonth - lastMonth) / lastMonth) * 100 : 100;
+    const percentageChange =
+      lastMonth > 0 ? ((newThisMonth - lastMonth) / lastMonth) * 100 : 100;
 
     return {
       count: newThisMonth,
       percentage: Math.round(percentageChange * 10) / 10,
-      trend: percentageChange > 0 ? 'up' : percentageChange < 0 ? 'down' : 'stable',
+      trend:
+        percentageChange > 0 ? 'up' : percentageChange < 0 ? 'down' : 'stable',
     };
   }
 
@@ -168,7 +188,8 @@ export class DashboardService {
       }),
     ]);
 
-    const successRate = totalJobs > 0 ? ((totalJobs - failedJobs) / totalJobs) * 100 : 100;
+    const successRate =
+      totalJobs > 0 ? ((totalJobs - failedJobs) / totalJobs) * 100 : 100;
 
     return {
       percentage: Math.round(successRate * 10) / 10,
@@ -383,7 +404,12 @@ export class DashboardService {
    * Job execution trends chart (last 7 days)
    */
   private async getJobTrendsChart() {
-    const data: { date: string; success: number; failed: number; successRate: number }[] = [];
+    const data: {
+      date: string;
+      success: number;
+      failed: number;
+      successRate: number;
+    }[] = [];
 
     for (let i = 6; i >= 0; i--) {
       const date = subDays(new Date(), i);
@@ -477,7 +503,8 @@ export class DashboardService {
       {
         size: 'Medium (6-20 users)',
         count: medium,
-        percentage: total > 0 ? Math.round((medium / total) * 100 * 10) / 10 : 0,
+        percentage:
+          total > 0 ? Math.round((medium / total) * 100 * 10) / 10 : 0,
       },
       {
         size: 'Large (21+ users)',
@@ -511,7 +538,8 @@ export class DashboardService {
     return userRoles.map((ur) => ({
       role: roleMap.get(ur.role_id) || 'Unknown',
       count: ur._count.role_id,
-      percentage: total > 0 ? Math.round((ur._count.role_id / total) * 100 * 10) / 10 : 0,
+      percentage:
+        total > 0 ? Math.round((ur._count.role_id / total) * 100 * 10) / 10 : 0,
     }));
   }
 
@@ -554,5 +582,120 @@ export class DashboardService {
       timestamp: activity.created_at,
       status: activity.status,
     }));
+  }
+
+  /**
+   * Get Twilio Communication Metrics (Sprint 8)
+   *
+   * Returns comprehensive communication statistics for the admin dashboard.
+   * Includes call counts, SMS counts, transcription stats, and 24h activity.
+   */
+  async getCommunicationMetrics() {
+    try {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const [
+        totalCalls,
+        totalSms,
+        totalWhatsapp,
+        totalTranscriptions,
+        failedTranscriptions,
+        calls24h,
+        sms24h,
+      ] = await Promise.all([
+        // Total calls (all time)
+        this.prisma.call_record.count(),
+
+        // Total SMS (all time)
+        this.prisma.communication_event.count({
+          where: { channel: 'sms' },
+        }),
+
+        // Total WhatsApp (all time)
+        this.prisma.communication_event.count({
+          where: { channel: 'whatsapp' },
+        }),
+
+        // Total transcriptions
+        this.prisma.call_transcription.count(),
+
+        // Failed transcriptions
+        this.prisma.call_transcription.count({
+          where: { status: 'failed' },
+        }),
+
+        // Calls in last 24 hours
+        this.prisma.call_record.count({
+          where: {
+            created_at: {
+              gte: yesterday,
+            },
+          },
+        }),
+
+        // SMS in last 24 hours
+        this.prisma.communication_event.count({
+          where: {
+            channel: 'sms',
+            created_at: {
+              gte: yesterday,
+            },
+          },
+        }),
+      ]);
+
+      // Calculate transcription success rate
+      const transcriptionSuccessRate =
+        totalTranscriptions > 0
+          ? (
+              ((totalTranscriptions - failedTranscriptions) /
+                totalTranscriptions) *
+              100
+            ).toFixed(2)
+          : '0.00';
+
+      return {
+        total_calls: totalCalls,
+        total_sms: totalSms,
+        total_whatsapp: totalWhatsapp,
+        total_communications: totalCalls + totalSms + totalWhatsapp,
+        total_transcriptions: totalTranscriptions,
+        failed_transcriptions: failedTranscriptions,
+        transcription_success_rate: parseFloat(transcriptionSuccessRate),
+        activity_last_24h: {
+          calls: calls24h,
+          sms: sms24h,
+          total: calls24h + sms24h,
+        },
+        status:
+          failedTranscriptions === 0
+            ? 'healthy'
+            : failedTranscriptions < totalTranscriptions * 0.05
+              ? 'warning'
+              : 'critical',
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to get communication metrics: ${error.message}`,
+        error.stack,
+      );
+      // Return empty metrics on error
+      return {
+        total_calls: 0,
+        total_sms: 0,
+        total_whatsapp: 0,
+        total_communications: 0,
+        total_transcriptions: 0,
+        failed_transcriptions: 0,
+        transcription_success_rate: 0,
+        activity_last_24h: {
+          calls: 0,
+          sms: 0,
+          total: 0,
+        },
+        status: 'unknown',
+      };
+    }
   }
 }

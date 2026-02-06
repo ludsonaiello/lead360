@@ -48,8 +48,14 @@ export class VendorController {
   @ApiOperation({ summary: 'Create a new vendor' })
   @ApiResponse({ status: 201, description: 'Vendor created successfully' })
   @ApiResponse({ status: 400, description: 'Invalid data or validation error' })
-  @ApiResponse({ status: 409, description: 'Email already exists for this tenant' })
-  @ApiResponse({ status: 422, description: 'Address validation failed (Google Maps)' })
+  @ApiResponse({
+    status: 409,
+    description: 'Email already exists for this tenant',
+  })
+  @ApiResponse({
+    status: 422,
+    description: 'Address validation failed (Google Maps)',
+  })
   async create(@Request() req, @Body() createVendorDto: CreateVendorDto) {
     return this.vendorService.create(
       req.user.tenant_id,
@@ -72,10 +78,7 @@ export class VendorController {
   @ApiParam({ name: 'id', description: 'Vendor UUID' })
   @ApiResponse({ status: 200, description: 'Vendor retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Vendor not found' })
-  async findOne(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.vendorService.findOne(req.user.tenant_id, id);
   }
 
@@ -85,8 +88,14 @@ export class VendorController {
   @ApiParam({ name: 'id', description: 'Vendor UUID' })
   @ApiResponse({ status: 200, description: 'Vendor updated successfully' })
   @ApiResponse({ status: 404, description: 'Vendor not found' })
-  @ApiResponse({ status: 409, description: 'Email already exists for this tenant' })
-  @ApiResponse({ status: 422, description: 'Address validation failed (Google Maps)' })
+  @ApiResponse({
+    status: 409,
+    description: 'Email already exists for this tenant',
+  })
+  @ApiResponse({
+    status: 422,
+    description: 'Address validation failed (Google Maps)',
+  })
   async update(
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
@@ -106,12 +115,12 @@ export class VendorController {
   @ApiOperation({ summary: 'Delete a vendor' })
   @ApiParam({ name: 'id', description: 'Vendor UUID' })
   @ApiResponse({ status: 204, description: 'Vendor deleted successfully' })
-  @ApiResponse({ status: 400, description: 'Cannot delete vendor (used in quotes)' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot delete vendor (used in quotes)',
+  })
   @ApiResponse({ status: 404, description: 'Vendor not found' })
-  async delete(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async delete(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.vendorService.delete(req.user.tenant_id, id, req.user.id);
   }
 
@@ -121,12 +130,12 @@ export class VendorController {
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({ summary: 'Set a vendor as default' })
   @ApiParam({ name: 'id', description: 'Vendor UUID' })
-  @ApiResponse({ status: 200, description: 'Vendor set as default successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Vendor set as default successfully',
+  })
   @ApiResponse({ status: 404, description: 'Vendor not found' })
-  async setDefault(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async setDefault(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.vendorService.setDefault(req.user.tenant_id, id, req.user.id);
   }
 
@@ -134,17 +143,22 @@ export class VendorController {
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({
     summary: 'Update vendor signature file',
-    description: 'Upload signature file via /files endpoint first, then provide file_id here'
+    description:
+      'Upload signature file via /files endpoint first, then provide file_id here',
   })
   @ApiParam({ name: 'id', description: 'Vendor UUID' })
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
-        file_id: { type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000' }
+        file_id: {
+          type: 'string',
+          format: 'uuid',
+          example: '550e8400-e29b-41d4-a716-446655440000',
+        },
       },
-      required: ['file_id']
-    }
+      required: ['file_id'],
+    },
   })
   @ApiResponse({ status: 200, description: 'Signature updated successfully' })
   @ApiResponse({ status: 404, description: 'Vendor or file not found' })
@@ -165,12 +179,12 @@ export class VendorController {
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({ summary: 'Get vendor statistics (quote counts by status)' })
   @ApiParam({ name: 'id', description: 'Vendor UUID' })
-  @ApiResponse({ status: 200, description: 'Statistics retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistics retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'Vendor not found' })
-  async getStatistics(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getStatistics(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.vendorService.getStatistics(req.user.tenant_id, id);
   }
 }

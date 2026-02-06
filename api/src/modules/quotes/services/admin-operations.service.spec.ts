@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { AdminOperationsService } from './admin-operations.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
@@ -296,7 +300,9 @@ describe('AdminOperationsService', () => {
       expect(result.repairs_made).toContain('Recalculated subtotal');
       expect(result.repairs_made).toContain('Recalculated tax');
       expect(result.repairs_made).toContain('Recalculated total');
-      expect(mockQuotePricingService.calculateQuoteFinancials).toHaveBeenCalled();
+      expect(
+        mockQuotePricingService.calculateQuoteFinancials,
+      ).toHaveBeenCalled();
       expect(mockAuditLogger.logTenantChange).toHaveBeenCalled();
     });
 
@@ -409,9 +415,7 @@ describe('AdminOperationsService', () => {
     });
 
     it('should handle specific entity type cleanup', async () => {
-      mockPrismaService.$queryRaw.mockResolvedValueOnce([
-        { id: 'orphan-1' },
-      ]);
+      mockPrismaService.$queryRaw.mockResolvedValueOnce([{ id: 'orphan-1' }]);
 
       const result = await service.cleanupOrphans('groups', true);
 

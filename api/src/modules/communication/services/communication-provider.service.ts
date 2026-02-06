@@ -268,9 +268,7 @@ export class CommunicationProviderService {
 
     // System providers cannot be deactivated
     if (provider.is_system && provider.is_active) {
-      throw new BadRequestException(
-        'System providers cannot be deactivated',
-      );
+      throw new BadRequestException('System providers cannot be deactivated');
     }
 
     const updated = await this.prisma.communication_provider.update({
@@ -375,7 +373,9 @@ export class CommunicationProviderService {
     return this.prisma.communication_provider.findMany({
       where: {
         ...(filters.type && { provider_type: filters.type }),
-        ...(filters.is_active !== undefined && { is_active: filters.is_active }),
+        ...(filters.is_active !== undefined && {
+          is_active: filters.is_active,
+        }),
         ...(filters.include_system === false && { is_system: false }),
       },
       include: {

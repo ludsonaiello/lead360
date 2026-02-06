@@ -288,13 +288,17 @@ describe('Quote Security Tests', () => {
       const tenant1Addresses = await prisma.quote_jobsite_address.findMany({
         where: { tenant_id: tenant1Id },
       });
-      expect(tenant1Addresses.every((a) => a.tenant_id === tenant1Id)).toBe(true);
+      expect(tenant1Addresses.every((a) => a.tenant_id === tenant1Id)).toBe(
+        true,
+      );
 
       // Query tenant 2 addresses
       const tenant2Addresses = await prisma.quote_jobsite_address.findMany({
         where: { tenant_id: tenant2Id },
       });
-      expect(tenant2Addresses.every((a) => a.tenant_id === tenant2Id)).toBe(true);
+      expect(tenant2Addresses.every((a) => a.tenant_id === tenant2Id)).toBe(
+        true,
+      );
     });
 
     it('should prevent cross-tenant joins', async () => {

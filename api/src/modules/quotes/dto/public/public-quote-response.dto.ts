@@ -26,38 +26,54 @@ export class PublicQuoteResponseDto {
 
   @ApiPropertyOptional({
     description: 'Quote description',
-    example: 'Complete bathroom renovation including fixtures, tiling, and plumbing',
+    example:
+      'Complete bathroom renovation including fixtures, tiling, and plumbing',
   })
   description?: string;
 
   @ApiProperty({
     description: 'Quote status',
     example: 'sent',
-    enum: ['draft', 'pending_approval', 'ready', 'sent', 'delivered', 'read', 'opened', 'downloaded', 'approved', 'started', 'concluded', 'denied', 'lost', 'email_failed'],
+    enum: [
+      'draft',
+      'pending_approval',
+      'ready',
+      'sent',
+      'delivered',
+      'read',
+      'opened',
+      'downloaded',
+      'approved',
+      'started',
+      'concluded',
+      'denied',
+      'lost',
+      'email_failed',
+    ],
   })
   status: string;
 
   @ApiProperty({
     description: 'Total price (grand total including tax)',
-    example: 15000.00,
+    example: 15000.0,
   })
   total_price: number;
 
   @ApiPropertyOptional({
     description: 'Subtotal before tax and discounts',
-    example: 13500.00,
+    example: 13500.0,
   })
   subtotal?: number;
 
   @ApiPropertyOptional({
     description: 'Total tax amount',
-    example: 1500.00,
+    example: 1500.0,
   })
   total_tax?: number;
 
   @ApiPropertyOptional({
     description: 'Total discount amount',
-    example: 500.00,
+    example: 500.0,
   })
   total_discount?: number;
 
@@ -93,7 +109,12 @@ export class PublicQuoteResponseDto {
     first_name: string;
     last_name: string;
     emails: { id: string; email: string; is_primary: boolean }[];
-    phones: { id: string; phone: string; phone_type: string; is_primary: boolean }[];
+    phones: {
+      id: string;
+      phone: string;
+      phone_type: string;
+      is_primary: boolean;
+    }[];
   };
 
   @ApiPropertyOptional({
@@ -281,37 +302,37 @@ export class PublicQuoteItemDto {
 
   @ApiProperty({
     description: 'Material cost per unit',
-    example: 100.00,
+    example: 100.0,
   })
   material_cost_per_unit: number;
 
   @ApiProperty({
     description: 'Labor cost per unit',
-    example: 150.00,
+    example: 150.0,
   })
   labor_cost_per_unit: number;
 
   @ApiProperty({
     description: 'Equipment cost per unit',
-    example: 50.00,
+    example: 50.0,
   })
   equipment_cost_per_unit: number;
 
   @ApiProperty({
     description: 'Subcontract cost per unit',
-    example: 0.00,
+    example: 0.0,
   })
   subcontract_cost_per_unit: number;
 
   @ApiProperty({
     description: 'Other cost per unit',
-    example: 0.00,
+    example: 0.0,
   })
   other_cost_per_unit: number;
 
   @ApiProperty({
     description: 'Total cost for this item',
-    example: 300.00,
+    example: 300.0,
   })
   total_cost: number;
 
@@ -323,7 +344,7 @@ export class PublicQuoteItemDto {
 
   @ApiPropertyOptional({
     description: 'Custom discount amount',
-    example: 50.00,
+    example: 50.0,
   })
   custom_discount_amount?: number;
 

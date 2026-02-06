@@ -6,7 +6,8 @@ import { JobsiteAddressDto } from './jobsite-address.dto';
 export class UpdateJobsiteAddressDto {
   @ApiProperty({
     type: JobsiteAddressDto,
-    description: 'Updated jobsite address (will be re-validated via Google Maps)',
+    description:
+      'Updated jobsite address (will be re-validated via Google Maps)',
   })
   @ValidateNested()
   @Type(() => JobsiteAddressDto)

@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ImpersonationService } from './impersonation.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
@@ -85,7 +89,9 @@ describe('ImpersonationService', () => {
       prismaService.user.findUnique
         .mockResolvedValueOnce(mockAdmin)
         .mockResolvedValueOnce(mockUser);
-      prismaService.impersonation_session.deleteMany.mockResolvedValue({ count: 0 });
+      prismaService.impersonation_session.deleteMany.mockResolvedValue({
+        count: 0,
+      });
       prismaService.impersonation_session.create.mockResolvedValue(mockSession);
 
       const result = await service.startImpersonation('admin-123', 'user-456');
@@ -146,7 +152,9 @@ describe('ImpersonationService', () => {
         admin_user: mockAdmin,
       });
 
-      const result = await service.validateImpersonationSession(mockSession.session_token);
+      const result = await service.validateImpersonationSession(
+        mockSession.session_token,
+      );
 
       expect(result).toHaveProperty('impersonated_user');
       expect(result).toHaveProperty('admin_user');
@@ -174,7 +182,9 @@ describe('ImpersonationService', () => {
 
   describe('endImpersonation', () => {
     it('should end impersonation session', async () => {
-      prismaService.impersonation_session.findUnique.mockResolvedValue(mockSession);
+      prismaService.impersonation_session.findUnique.mockResolvedValue(
+        mockSession,
+      );
       prismaService.impersonation_session.delete.mockResolvedValue(mockSession);
 
       const result = await service.endImpersonation(mockSession.session_token);
@@ -187,9 +197,9 @@ describe('ImpersonationService', () => {
     it('should throw error if session not found', async () => {
       prismaService.impersonation_session.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.endImpersonation('invalid-token'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.endImpersonation('invalid-token')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

@@ -34,7 +34,10 @@ describe('QuoteEmailService', () => {
         QuoteEmailService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: QuotePdfGeneratorService, useValue: mockPdfService },
-        { provide: QuotePublicAccessService, useValue: mockPublicAccessService },
+        {
+          provide: QuotePublicAccessService,
+          useValue: mockPublicAccessService,
+        },
         { provide: QuoteVersionService, useValue: mockVersionService },
       ],
     }).compile();
@@ -42,7 +45,9 @@ describe('QuoteEmailService', () => {
     service = module.get<QuoteEmailService>(QuoteEmailService);
     prisma = module.get<PrismaService>(PrismaService);
     pdfService = module.get<QuotePdfGeneratorService>(QuotePdfGeneratorService);
-    publicAccessService = module.get<QuotePublicAccessService>(QuotePublicAccessService);
+    publicAccessService = module.get<QuotePublicAccessService>(
+      QuotePublicAccessService,
+    );
 
     jest.clearAllMocks();
   });
@@ -83,9 +88,16 @@ describe('QuoteEmailService', () => {
 
       mockPrismaService.quote.findFirst.mockResolvedValue(mockQuote);
       mockPdfService.generatePdf.mockResolvedValue(mockPdfResult);
-      mockPublicAccessService.generatePublicUrl.mockResolvedValue(mockPublicUrlResult);
+      mockPublicAccessService.generatePublicUrl.mockResolvedValue(
+        mockPublicUrlResult,
+      );
 
-      const result = await service.sendQuoteEmail(tenantId, userId, quoteId, dto);
+      const result = await service.sendQuoteEmail(
+        tenantId,
+        userId,
+        quoteId,
+        dto,
+      );
 
       expect(result).toEqual({
         success: true,
@@ -102,7 +114,11 @@ describe('QuoteEmailService', () => {
         },
         include: expect.any(Object),
       });
-      expect(mockPdfService.generatePdf).toHaveBeenCalledWith(tenantId, quoteId, userId);
+      expect(mockPdfService.generatePdf).toHaveBeenCalledWith(
+        tenantId,
+        quoteId,
+        userId,
+      );
       expect(mockPublicAccessService.generatePublicUrl).toHaveBeenCalled();
     });
 
@@ -174,9 +190,14 @@ describe('QuoteEmailService', () => {
 
   describe('sendQuoteSms', () => {
     it('should return not available message', async () => {
-      const result = await service.sendQuoteSms('tenant-123', 'user-123', 'quote-123', {
-        recipient_phone: '555-0000',
-      });
+      const result = await service.sendQuoteSms(
+        'tenant-123',
+        'user-123',
+        'quote-123',
+        {
+          recipient_phone: '555-0000',
+        },
+      );
 
       expect(result).toEqual({
         error: 'SMS sending not yet available',

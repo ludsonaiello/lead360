@@ -26,8 +26,12 @@ export class FeatureFlagMiddleware implements NestMiddleware {
 
     try {
       // Check file storage feature flag
-      if (req.path.startsWith('/files') || req.path.startsWith('/api/v1/files')) {
-        const fileStorageEnabled = await this.featureFlagService.isEnabled('file_storage');
+      if (
+        req.path.startsWith('/files') ||
+        req.path.startsWith('/api/v1/files')
+      ) {
+        const fileStorageEnabled =
+          await this.featureFlagService.isEnabled('file_storage');
         if (!fileStorageEnabled) {
           throw new ServiceUnavailableException(
             'File storage is currently disabled. Please contact support.',
@@ -37,10 +41,12 @@ export class FeatureFlagMiddleware implements NestMiddleware {
 
       // Check user registration feature flag
       if (
-        (req.path.startsWith('/auth/register') || req.path.startsWith('/api/v1/auth/register')) &&
+        (req.path.startsWith('/auth/register') ||
+          req.path.startsWith('/api/v1/auth/register')) &&
         req.method === 'POST'
       ) {
-        const registrationEnabled = await this.featureFlagService.isEnabled('user_registration');
+        const registrationEnabled =
+          await this.featureFlagService.isEnabled('user_registration');
         if (!registrationEnabled) {
           throw new ServiceUnavailableException(
             'New user registration is currently closed. Please try again later.',
@@ -50,7 +56,8 @@ export class FeatureFlagMiddleware implements NestMiddleware {
 
       // Check background jobs feature flag (for job-related endpoints)
       if (req.path.startsWith('/jobs') || req.path.startsWith('/api/v1/jobs')) {
-        const jobsEnabled = await this.featureFlagService.isEnabled('background_jobs');
+        const jobsEnabled =
+          await this.featureFlagService.isEnabled('background_jobs');
         if (!jobsEnabled) {
           throw new ServiceUnavailableException(
             'Background job processing is currently disabled.',
@@ -59,7 +66,8 @@ export class FeatureFlagMiddleware implements NestMiddleware {
       }
 
       // Check API access feature flag (global kill switch)
-      const apiAccessEnabled = await this.featureFlagService.isEnabled('api_access');
+      const apiAccessEnabled =
+        await this.featureFlagService.isEnabled('api_access');
       if (!apiAccessEnabled) {
         throw new ServiceUnavailableException(
           'API access is currently disabled for maintenance. Please try again later.',

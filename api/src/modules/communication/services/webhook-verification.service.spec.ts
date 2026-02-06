@@ -21,7 +21,10 @@ describe('WebhookVerificationService', () => {
 
   describe('verifySendGrid', () => {
     it('should verify valid SendGrid signature', () => {
-      const payload = JSON.stringify({ email: 'test@example.com', event: 'delivered' });
+      const payload = JSON.stringify({
+        email: 'test@example.com',
+        event: 'delivered',
+      });
       const timestamp = Math.floor(Date.now() / 1000).toString();
       const secret = 'my-webhook-secret';
 
@@ -30,7 +33,12 @@ describe('WebhookVerificationService', () => {
         .update(timestamp + payload)
         .digest('base64');
 
-      const result = service.verifySendGrid(payload, signature, timestamp, secret);
+      const result = service.verifySendGrid(
+        payload,
+        signature,
+        timestamp,
+        secret,
+      );
 
       expect(result).toBe(true);
     });
@@ -41,7 +49,12 @@ describe('WebhookVerificationService', () => {
       const secret = 'my-webhook-secret';
       const wrongSignature = 'invalid-signature';
 
-      const result = service.verifySendGrid(payload, wrongSignature, timestamp, secret);
+      const result = service.verifySendGrid(
+        payload,
+        wrongSignature,
+        timestamp,
+        secret,
+      );
 
       expect(result).toBe(false);
     });
@@ -55,7 +68,12 @@ describe('WebhookVerificationService', () => {
         .update(oldTimestamp + payload)
         .digest('base64');
 
-      const result = service.verifySendGrid(payload, signature, oldTimestamp, secret);
+      const result = service.verifySendGrid(
+        payload,
+        signature,
+        oldTimestamp,
+        secret,
+      );
 
       expect(result).toBe(false);
     });
@@ -77,7 +95,12 @@ describe('WebhookVerificationService', () => {
       const time1 = process.hrtime.bigint() - start1;
 
       const start2 = process.hrtime.bigint();
-      service.verifySendGrid(payload, almostCorrectSignature, timestamp, secret);
+      service.verifySendGrid(
+        payload,
+        almostCorrectSignature,
+        timestamp,
+        secret,
+      );
       const time2 = process.hrtime.bigint() - start2;
 
       // Timing difference should be minimal (constant-time comparison)

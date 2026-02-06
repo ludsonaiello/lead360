@@ -275,7 +275,7 @@ export class QuoteVersionService {
     return versions.map((version) => ({
       ...version,
       version_number: Number(version.version_number),
-      snapshot_data: JSON.parse(version.snapshot_data as string),
+      snapshot_data: JSON.parse(version.snapshot_data),
     }));
   }
 
@@ -297,7 +297,7 @@ export class QuoteVersionService {
     return {
       ...version,
       version_number: Number(version.version_number),
-      snapshot_data: JSON.parse(version.snapshot_data as string),
+      snapshot_data: JSON.parse(version.snapshot_data),
     };
   }
 }

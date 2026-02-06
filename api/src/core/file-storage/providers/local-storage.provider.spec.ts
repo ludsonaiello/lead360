@@ -64,7 +64,10 @@ describe('LocalStorageProvider', () => {
       expect(result.storagePath).toContain('files');
 
       // Verify file was actually created
-      const fileExists = await fs.access(result.storagePath).then(() => true).catch(() => false);
+      const fileExists = await fs
+        .access(result.storagePath)
+        .then(() => true)
+        .catch(() => false);
       expect(fileExists).toBe(true);
 
       // Clean up
@@ -88,7 +91,10 @@ describe('LocalStorageProvider', () => {
       expect(result.storagePath).toContain('images');
 
       // Verify file was actually created
-      const fileExists = await fs.access(result.storagePath).then(() => true).catch(() => false);
+      const fileExists = await fs
+        .access(result.storagePath)
+        .then(() => true)
+        .catch(() => false);
       expect(fileExists).toBe(true);
 
       // Clean up
@@ -137,7 +143,10 @@ describe('LocalStorageProvider', () => {
       expect(result.fileId).toBeDefined();
 
       // Verify directory was created
-      const dirExists = await fs.access(path.dirname(result.storagePath)).then(() => true).catch(() => false);
+      const dirExists = await fs
+        .access(path.dirname(result.storagePath))
+        .then(() => true)
+        .catch(() => false);
       expect(dirExists).toBe(true);
 
       // Clean up
@@ -163,7 +172,10 @@ describe('LocalStorageProvider', () => {
       expect(result.storagePath).toContain('images');
 
       // Verify file was created
-      const fileExists = await fs.access(result.storagePath).then(() => true).catch(() => false);
+      const fileExists = await fs
+        .access(result.storagePath)
+        .then(() => true)
+        .catch(() => false);
       expect(fileExists).toBe(true);
 
       // Clean up
@@ -186,7 +198,10 @@ describe('LocalStorageProvider', () => {
       });
 
       // Then download it
-      const downloadedContent = await provider.download(uploadResult.fileId, uploadResult.storagePath);
+      const downloadedContent = await provider.download(
+        uploadResult.fileId,
+        uploadResult.storagePath,
+      );
 
       expect(downloadedContent).toEqual(originalContent);
 
@@ -196,7 +211,7 @@ describe('LocalStorageProvider', () => {
 
     it('should throw error if file not found', async () => {
       await expect(
-        provider.download('file-123', '/nonexistent/file.pdf')
+        provider.download('file-123', '/nonexistent/file.pdf'),
       ).rejects.toThrow('File not found');
     });
   });
@@ -216,20 +231,26 @@ describe('LocalStorageProvider', () => {
       });
 
       // Verify file exists
-      let fileExists = await fs.access(uploadResult.storagePath).then(() => true).catch(() => false);
+      let fileExists = await fs
+        .access(uploadResult.storagePath)
+        .then(() => true)
+        .catch(() => false);
       expect(fileExists).toBe(true);
 
       // Delete it
       await provider.delete(uploadResult.fileId, uploadResult.storagePath);
 
       // Verify file is gone
-      fileExists = await fs.access(uploadResult.storagePath).then(() => true).catch(() => false);
+      fileExists = await fs
+        .access(uploadResult.storagePath)
+        .then(() => true)
+        .catch(() => false);
       expect(fileExists).toBe(false);
     });
 
     it('should not throw error if file does not exist', async () => {
       await expect(
-        provider.delete('file-123', '/nonexistent/file.pdf')
+        provider.delete('file-123', '/nonexistent/file.pdf'),
       ).resolves.toBeUndefined();
     });
   });
@@ -248,7 +269,10 @@ describe('LocalStorageProvider', () => {
         mimeType: 'application/pdf',
       });
 
-      const exists = await provider.exists(uploadResult.fileId, uploadResult.storagePath);
+      const exists = await provider.exists(
+        uploadResult.fileId,
+        uploadResult.storagePath,
+      );
       expect(exists).toBe(true);
 
       // Clean up

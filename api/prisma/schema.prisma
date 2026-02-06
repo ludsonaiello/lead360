@@ -290,71 +290,71 @@ model subscription_plan {
 }
 
 model tenant {
-  id                                      String                  @id @db.VarChar(36)
-  subdomain                               String                  @unique @db.VarChar(63)
-  company_name                            String                  @db.VarChar(200)
-  is_active                               Boolean                 @default(true)
-  legal_business_name                     String                  @db.VarChar(200)
-  dba_name                                String?                 @db.VarChar(200)
-  business_entity_type                    String                  @db.VarChar(50)
-  state_of_registration                   String                  @db.VarChar(2)
+  id                                      String                                 @id @db.VarChar(36)
+  subdomain                               String                                 @unique @db.VarChar(63)
+  company_name                            String                                 @db.VarChar(200)
+  is_active                               Boolean                                @default(true)
+  legal_business_name                     String                                 @db.VarChar(200)
+  dba_name                                String?                                @db.VarChar(200)
+  business_entity_type                    String                                 @db.VarChar(50)
+  state_of_registration                   String                                 @db.VarChar(2)
   date_of_incorporation                   DateTime?
-  ein                                     String                  @unique @db.VarChar(10)
-  state_tax_id                            String?                 @db.VarChar(50)
-  sales_tax_permit                        String?                 @db.VarChar(50)
-  primary_contact_phone                   String                  @db.VarChar(20)
-  secondary_phone                         String?                 @db.VarChar(20)
-  primary_contact_email                   String                  @db.VarChar(255)
-  support_email                           String?                 @db.VarChar(255)
-  billing_email                           String?                 @db.VarChar(255)
-  website_url                             String?                 @db.VarChar(255)
-  instagram_url                           String?                 @db.VarChar(255)
-  facebook_url                            String?                 @db.VarChar(255)
-  tiktok_url                              String?                 @db.VarChar(255)
-  youtube_url                             String?                 @db.VarChar(255)
-  bank_name                               String?                 @db.VarChar(100)
-  routing_number                          String?                 @db.VarChar(9)
-  account_number                          String?                 @db.VarChar(50)
-  account_type                            String?                 @db.VarChar(20)
-  venmo_username                          String?                 @db.VarChar(50)
-  venmo_qr_code_file_id                   String?                 @db.VarChar(36)
-  logo_file_id                            String?                 @db.VarChar(36)
-  primary_brand_color                     String?                 @db.VarChar(7)
-  secondary_brand_color                   String?                 @db.VarChar(7)
-  accent_color                            String?                 @db.VarChar(7)
-  invoice_prefix                          String                  @default("INV") @db.VarChar(10)
-  next_invoice_number                     Int                     @default(1)
-  quote_prefix                            String                  @default("Q-") @db.VarChar(10)
-  next_quote_number                       Int                     @default(1)
-  default_quote_validity_days             Int                     @default(30)
-  default_quote_terms                     String?                 @db.Text
-  default_quote_footer                    String?                 @db.Text
-  default_invoice_footer                  String?                 @db.Text
-  default_payment_instructions            String?                 @db.Text
-  timezone                                String                  @default("America/New_York") @db.VarChar(50)
-  subscription_plan_id                    String?                 @db.VarChar(36)
-  subscription_status                     String                  @default("trial") @db.VarChar(20)
+  ein                                     String                                 @unique @db.VarChar(10)
+  state_tax_id                            String?                                @db.VarChar(50)
+  sales_tax_permit                        String?                                @db.VarChar(50)
+  primary_contact_phone                   String                                 @db.VarChar(20)
+  secondary_phone                         String?                                @db.VarChar(20)
+  primary_contact_email                   String                                 @db.VarChar(255)
+  support_email                           String?                                @db.VarChar(255)
+  billing_email                           String?                                @db.VarChar(255)
+  website_url                             String?                                @db.VarChar(255)
+  instagram_url                           String?                                @db.VarChar(255)
+  facebook_url                            String?                                @db.VarChar(255)
+  tiktok_url                              String?                                @db.VarChar(255)
+  youtube_url                             String?                                @db.VarChar(255)
+  bank_name                               String?                                @db.VarChar(100)
+  routing_number                          String?                                @db.VarChar(9)
+  account_number                          String?                                @db.VarChar(50)
+  account_type                            String?                                @db.VarChar(20)
+  venmo_username                          String?                                @db.VarChar(50)
+  venmo_qr_code_file_id                   String?                                @db.VarChar(36)
+  logo_file_id                            String?                                @db.VarChar(36)
+  primary_brand_color                     String?                                @db.VarChar(7)
+  secondary_brand_color                   String?                                @db.VarChar(7)
+  accent_color                            String?                                @db.VarChar(7)
+  invoice_prefix                          String                                 @default("INV") @db.VarChar(10)
+  next_invoice_number                     Int                                    @default(1)
+  quote_prefix                            String                                 @default("Q-") @db.VarChar(10)
+  next_quote_number                       Int                                    @default(1)
+  default_quote_validity_days             Int                                    @default(30)
+  default_quote_terms                     String?                                @db.Text
+  default_quote_footer                    String?                                @db.Text
+  default_invoice_footer                  String?                                @db.Text
+  default_payment_instructions            String?                                @db.Text
+  timezone                                String                                 @default("America/New_York") @db.VarChar(50)
+  subscription_plan_id                    String?                                @db.VarChar(36)
+  subscription_status                     String                                 @default("trial") @db.VarChar(20)
   trial_end_date                          DateTime?
-  billing_cycle                           String?                 @db.VarChar(20)
+  billing_cycle                           String?                                @db.VarChar(20)
   next_billing_date                       DateTime?
-  created_at                              DateTime                @default(now())
+  created_at                              DateTime                               @default(now())
   updated_at                              DateTime
   deleted_at                              DateTime?
-  default_contingency_rate                Decimal?                @db.Decimal(5, 2)
-  default_overhead_rate                   Decimal?                @db.Decimal(5, 2)
-  default_profit_margin                   Decimal?                @db.Decimal(5, 2)
-  sales_tax_rate                          Decimal?                @db.Decimal(5, 3)
+  default_contingency_rate                Decimal?                               @db.Decimal(5, 2)
+  default_overhead_rate                   Decimal?                               @db.Decimal(5, 2)
+  default_profit_margin                   Decimal?                               @db.Decimal(5, 2)
+  sales_tax_rate                          Decimal?                               @db.Decimal(5, 3)
   approval_thresholds                     Json?
   profitability_thresholds                Json?
-  business_size                           String?                 @db.VarChar(20)
-  active_quote_template_id                String?                 @db.VarChar(36)
-  show_line_items_by_default              Boolean                 @default(true)
-  show_cost_breakdown_by_default          Boolean                 @default(false)
+  business_size                           String?                                @db.VarChar(20)
+  active_quote_template_id                String?                                @db.VarChar(36)
+  show_line_items_by_default              Boolean                                @default(true)
+  show_cost_breakdown_by_default          Boolean                                @default(false)
   audit_log                               audit_log[]
-  file_file_tenant_idTotenant             file[]                  @relation("file_tenant_idTotenant")
-  file_tenant_logo_file_idTofile          file?                   @relation("tenant_logo_file_idTofile", fields: [logo_file_id], references: [file_id])
-  subscription_plan                       subscription_plan?      @relation(fields: [subscription_plan_id], references: [id])
-  file_tenant_venmo_qr_code_file_idTofile file?                   @relation("tenant_venmo_qr_code_file_idTofile", fields: [venmo_qr_code_file_id], references: [file_id])
+  file_file_tenant_idTotenant             file[]                                 @relation("file_tenant_idTotenant")
+  file_tenant_logo_file_idTofile          file?                                  @relation("tenant_logo_file_idTofile", fields: [logo_file_id], references: [file_id])
+  subscription_plan                       subscription_plan?                     @relation(fields: [subscription_plan_id], references: [id])
+  file_tenant_venmo_qr_code_file_idTofile file?                                  @relation("tenant_venmo_qr_code_file_idTofile", fields: [venmo_qr_code_file_id], references: [file_id])
   tenant_industries                       tenant_industry[]
   tenant_address                          tenant_address[]
   tenant_business_hours                   tenant_business_hours?
@@ -377,18 +377,26 @@ model tenant {
   communication_events                    communication_event[]
   notifications                           notification[]
   notification_rules                      notification_rule[]
-  unit_measurements                       unit_measurement[]      @relation("unit_measurement_tenant")
-  quote_templates                         quote_template[]        @relation("quote_template_tenant")
-  active_quote_template                   quote_template?         @relation("tenant_active_template", fields: [active_quote_template_id], references: [id], onDelete: SetNull)
-  vendors                                 vendor[]                @relation("vendor_tenant")
-  quote_tags                              quote_tag[]             @relation("quote_tag_tenant")
-  quote_warranty_tiers                    quote_warranty_tier[]   @relation("quote_warranty_tier_tenant")
-  quotes                                  quote[]                 @relation("quote_tenant")
-  item_libraries                          item_library[]          @relation("item_library_tenant")
-  quote_bundles                           quote_bundle[]          @relation("quote_bundle_tenant")
-  quote_jobsite_addresses                 quote_jobsite_address[] @relation("quote_jobsite_addresses")
-  template_components                     template_component[]    @relation("template_component_tenant")
-  template_usage_logs                     template_usage_log[]    @relation("template_usage_tenant")
+  unit_measurements                       unit_measurement[]                     @relation("unit_measurement_tenant")
+  quote_templates                         quote_template[]                       @relation("quote_template_tenant")
+  active_quote_template                   quote_template?                        @relation("tenant_active_template", fields: [active_quote_template_id], references: [id], onDelete: SetNull)
+  vendors                                 vendor[]                               @relation("vendor_tenant")
+  quote_tags                              quote_tag[]                            @relation("quote_tag_tenant")
+  quote_warranty_tiers                    quote_warranty_tier[]                  @relation("quote_warranty_tier_tenant")
+  quotes                                  quote[]                                @relation("quote_tenant")
+  item_libraries                          item_library[]                         @relation("item_library_tenant")
+  quote_bundles                           quote_bundle[]                         @relation("quote_bundle_tenant")
+  quote_jobsite_addresses                 quote_jobsite_address[]                @relation("quote_jobsite_addresses")
+  template_components                     template_component[]                   @relation("template_component_tenant")
+  template_usage_logs                     template_usage_log[]                   @relation("template_usage_tenant")
+  tenant_sms_configs                      tenant_sms_config[]                    @relation("tenant_sms_configs")
+  tenant_whatsapp_configs                 tenant_whatsapp_config[]               @relation("tenant_whatsapp_configs")
+  call_records                            call_record[]                          @relation("tenant_call_records")
+  ivr_configuration                       ivr_configuration?                     @relation("tenant_ivr_configuration")
+  office_number_whitelists                office_number_whitelist[]              @relation("tenant_office_number_whitelists")
+  call_transcriptions                     call_transcription[]                   @relation("tenant_call_transcriptions")
+  transcription_provider_configs          transcription_provider_configuration[] @relation("tenant_transcription_provider_configs")
+  twilio_usage_records                    twilio_usage_record[]                  @relation("twilio_usage_tenant")
 
   @@index([ein])
   @@index([is_active])
@@ -629,6 +637,8 @@ model user {
   scheduled_reports                             scheduled_report[]       @relation("scheduled_reports")
   template_versions_created                     quote_template_version[] @relation("template_version_creator")
   template_components_created                   template_component[]     @relation("template_component_creator")
+  initiated_calls                               call_record[]            @relation("user_initiated_calls")
+  admin_alerts_acknowledged                     admin_alert[]            @relation("alert_acknowledged_by")
 
   @@unique([email, tenant_id])
   @@index([activation_token])
@@ -838,6 +848,190 @@ model scheduled_report {
   @@index([is_active, next_run_at])
 }
 
+// ============================================================================
+// TWILIO SMS, WHATSAPP & CALLS MODULE
+// ============================================================================
+
+model tenant_sms_config {
+  id             String   @id @default(uuid()) @db.VarChar(36)
+  tenant_id      String   @db.VarChar(36)
+  provider_id    String   @db.VarChar(36)
+  credentials    String   @db.Text // Encrypted JSON
+  from_phone     String   @db.VarChar(20) // E.164 format
+  is_active      Boolean  @default(true)
+  is_verified    Boolean  @default(false)
+  webhook_secret String?  @db.VarChar(255)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  // Relations
+  tenant   tenant                 @relation("tenant_sms_configs", fields: [tenant_id], references: [id], onDelete: Cascade)
+  provider communication_provider @relation("provider_sms_configs", fields: [provider_id], references: [id])
+
+  // Indexes
+  @@unique([tenant_id, provider_id])
+  @@index([tenant_id, is_active])
+  @@index([provider_id])
+  @@map("tenant_sms_config")
+}
+
+model tenant_whatsapp_config {
+  id             String   @id @default(uuid()) @db.VarChar(36)
+  tenant_id      String   @db.VarChar(36)
+  provider_id    String   @db.VarChar(36)
+  credentials    String   @db.Text // Encrypted JSON
+  from_phone     String   @db.VarChar(30) // E.164 format with 'whatsapp:' prefix
+  is_active      Boolean  @default(true)
+  is_verified    Boolean  @default(false)
+  webhook_secret String?  @db.VarChar(255)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  // Relations
+  tenant   tenant                 @relation("tenant_whatsapp_configs", fields: [tenant_id], references: [id], onDelete: Cascade)
+  provider communication_provider @relation("provider_whatsapp_configs", fields: [provider_id], references: [id])
+
+  // Indexes
+  @@unique([tenant_id, provider_id])
+  @@index([tenant_id, is_active])
+  @@index([provider_id])
+  @@map("tenant_whatsapp_config")
+}
+
+model call_record {
+  id                         String    @id @default(uuid()) @db.VarChar(36)
+  tenant_id                  String?   @db.VarChar(36) // Nullable for system-level calls
+  lead_id                    String?   @db.VarChar(36) // Nullable until matched
+  twilio_config_id           String?   @db.VarChar(36)
+  twilio_call_sid            String    @unique @db.VarChar(100)
+  direction                  String    @db.VarChar(20) // 'inbound' | 'outbound'
+  from_number                String    @db.VarChar(20)
+  to_number                  String    @db.VarChar(20)
+  status                     String    @db.VarChar(20) // 'initiated' | 'ringing' | 'in_progress' | 'completed' | 'failed' | 'no_answer' | 'busy' | 'canceled'
+  call_type                  String    @db.VarChar(30) // 'customer_call' | 'office_bypass_call' | 'ivr_routed_call'
+  initiated_by               String?   @db.VarChar(36) // User ID if outbound
+  call_reason                String?   @db.Text
+  recording_url              String?   @db.VarChar(500)
+  recording_duration_seconds Int?
+  recording_status           String    @default("pending") @db.VarChar(30) // 'pending' | 'available' | 'processing_transcription' | 'transcribed' | 'failed'
+  transcription_id           String?   @unique @db.VarChar(36)
+  ivr_action_taken           Json?
+  consent_message_played     Boolean   @default(false)
+  cost                       Decimal?  @db.Decimal(10, 4)
+  started_at                 DateTime?
+  ended_at                   DateTime?
+  created_at                 DateTime  @default(now())
+  updated_at                 DateTime  @updatedAt
+
+  // Relations
+  tenant            tenant?             @relation("tenant_call_records", fields: [tenant_id], references: [id], onDelete: Cascade)
+  lead              lead?               @relation("lead_call_records", fields: [lead_id], references: [id], onDelete: SetNull)
+  initiated_by_user user?               @relation("user_initiated_calls", fields: [initiated_by], references: [id], onDelete: SetNull)
+  transcription     call_transcription?
+
+  // Indexes
+  @@index([tenant_id, created_at])
+  @@index([tenant_id, status])
+  @@index([tenant_id, lead_id])
+  @@index([twilio_call_sid])
+  @@index([from_number])
+  @@index([to_number])
+  @@index([recording_status])
+  @@map("call_record")
+}
+
+model ivr_configuration {
+  id               String   @id @default(uuid()) @db.VarChar(36)
+  tenant_id        String   @unique @db.VarChar(36)
+  twilio_config_id String?  @db.VarChar(36)
+  ivr_enabled      Boolean  @default(false)
+  greeting_message String   @db.Text
+  menu_options     Json // Array of menu option objects
+  default_action   Json // Action if no input
+  timeout_seconds  Int      @default(10)
+  max_retries      Int      @default(3)
+  status           String   @default("active") @db.VarChar(20) // 'active' | 'inactive'
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  // Relations
+  tenant tenant @relation("tenant_ivr_configuration", fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([tenant_id])
+  @@map("ivr_configuration")
+}
+
+model office_number_whitelist {
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  tenant_id    String   @db.VarChar(36)
+  phone_number String   @db.VarChar(20) // E.164 format
+  label        String   @db.VarChar(100)
+  status       String   @default("active") @db.VarChar(20) // 'active' | 'inactive'
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  // Relations
+  tenant tenant @relation("tenant_office_number_whitelists", fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@unique([tenant_id, phone_number])
+  @@index([tenant_id, status])
+  @@index([phone_number])
+  @@map("office_number_whitelist")
+}
+
+model call_transcription {
+  id                          String    @id @default(uuid()) @db.VarChar(36)
+  tenant_id                   String?   @db.VarChar(36) // Nullable for system-level
+  call_record_id              String    @unique @db.VarChar(36)
+  transcription_provider      String    @db.VarChar(50) // 'openai_whisper' | 'oracle' | 'assemblyai'
+  status                      String    @default("queued") @db.VarChar(20) // 'queued' | 'processing' | 'completed' | 'failed'
+  transcription_text          String?   @db.Text // Full-text searchable
+  language_detected           String?   @db.VarChar(10) // ISO code
+  confidence_score            Decimal?  @db.Decimal(3, 2)
+  processing_duration_seconds Int?
+  cost                        Decimal?  @db.Decimal(10, 4)
+  error_message               String?   @db.Text
+  created_at                  DateTime  @default(now())
+  completed_at                DateTime?
+
+  // Relations
+  tenant      tenant?     @relation("tenant_call_transcriptions", fields: [tenant_id], references: [id], onDelete: Cascade)
+  call_record call_record @relation(fields: [call_record_id], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([tenant_id, status])
+  @@index([call_record_id])
+  @@fulltext([transcription_text]) // Full-text search index
+  @@map("call_transcription")
+}
+
+model transcription_provider_configuration {
+  id                 String   @id @default(uuid()) @db.VarChar(36)
+  tenant_id          String?  @db.VarChar(36) // Nullable for system-level providers
+  provider_name      String   @db.VarChar(50) // 'openai_whisper' | 'oracle' | 'assemblyai' | 'deepgram'
+  is_system_default  Boolean  @default(false)
+  status             String   @default("active") @db.VarChar(20) // 'active' | 'inactive'
+  configuration_json String   @db.Text // Encrypted JSON (API keys, model settings)
+  usage_limit        Int? // Messages per month
+  usage_current      Int      @default(0)
+  cost_per_minute    Decimal? @db.Decimal(10, 4)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  // Relations
+  tenant tenant? @relation("tenant_transcription_provider_configs", fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([tenant_id])
+  @@index([provider_name])
+  @@index([is_system_default, status])
+  @@map("transcription_provider_configuration")
+}
+
+// ============================================================================
+
 enum audit_log_actor_type {
   user
   system
@@ -960,6 +1154,7 @@ model lead {
   notes            lead_note[]
   activities       lead_activity[]
   quotes           quote[]           @relation("quote_lead")
+  call_records     call_record[]     @relation("lead_call_records")
 
   @@index([tenant_id, status])
   @@index([tenant_id, created_at(sort: Desc)])
@@ -1122,10 +1317,12 @@ model communication_provider {
   created_at                  DateTime                    @default(now())
   updated_at                  DateTime                    @updatedAt
 
-  platform_email_configs platform_email_config[]
-  tenant_email_configs   tenant_email_config[]
-  communication_events   communication_event[]
-  webhook_event_logs     webhook_event[]
+  platform_email_configs  platform_email_config[]
+  tenant_email_configs    tenant_email_config[]
+  communication_events    communication_event[]
+  webhook_event_logs      webhook_event[]
+  tenant_sms_configs      tenant_sms_config[]      @relation("provider_sms_configs")
+  tenant_whatsapp_configs tenant_whatsapp_config[] @relation("provider_whatsapp_configs")
 
   @@index([provider_type, is_active])
   @@index([provider_key])
@@ -1332,6 +1529,122 @@ model notification_rule {
 }
 
 // ============================================================================
+
+// ============================================================================
+// ADMIN MODULE - Twilio Usage Tracking & System Health Monitoring
+// ============================================================================
+
+/// Stores usage data synced from Twilio API for billing and cost tracking
+/// Enables nightly sync of communication costs across all tenants
+/// Supports AC-18: Usage tracking pulls data from Twilio API and syncs nightly
+model twilio_usage_record {
+  id        String  @id @db.VarChar(36)
+  tenant_id String? @db.VarChar(36)
+
+  /// Category of usage: 'calls', 'sms', 'recordings', 'transcriptions'
+  category String @db.VarChar(50)
+
+  /// Number of units consumed in this period
+  count Int @default(0)
+
+  /// Unit of measurement: 'calls', 'messages', 'minutes', 'MB'
+  usage_unit String @db.VarChar(20)
+
+  /// Cost for this usage period in USD
+  price Decimal @db.Decimal(10, 4)
+
+  /// Currency unit (typically 'USD')
+  price_unit String @db.VarChar(10)
+
+  /// Start of usage period
+  start_date DateTime
+
+  /// End of usage period
+  end_date DateTime
+
+  /// Timestamp when data was synced from Twilio API
+  synced_at DateTime @default(now())
+
+  created_at DateTime @default(now())
+
+  tenant tenant? @relation("twilio_usage_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, start_date(sort: Desc)])
+  @@index([category, start_date(sort: Desc)])
+  @@index([tenant_id, category, start_date(sort: Desc)])
+  @@index([synced_at(sort: Desc)])
+  @@map("twilio_usage_record")
+}
+
+/// Tracks system health checks for monitoring and alerting
+/// Enables proactive detection of API failures and performance degradation
+/// Runs comprehensive checks every 15 minutes
+model system_health_check {
+  id String @id @db.VarChar(36)
+
+  /// Type of health check: 'twilio_api', 'webhook_delivery', 'transcription_provider'
+  check_type String @db.VarChar(100)
+
+  /// Health status: 'HEALTHY', 'DEGRADED', 'DOWN'
+  status String @db.VarChar(20)
+
+  /// API response time in milliseconds (for performance tracking)
+  response_time_ms Int?
+
+  /// Error message if check failed
+  error_message String? @db.Text
+
+  /// Additional metadata about the health check (JSON)
+  details Json?
+
+  /// Timestamp when health check was performed
+  checked_at DateTime @default(now())
+
+  @@index([check_type, checked_at(sort: Desc)])
+  @@index([status, checked_at(sort: Desc)])
+  @@index([check_type, status, checked_at(sort: Desc)])
+  @@index([checked_at(sort: Desc)])
+  @@map("system_health_check")
+}
+
+/// Stores system alerts for admin notification
+/// Enables alerting on system failures, quota issues, and failed operations
+/// Supports acknowledgement workflow for admin tracking
+model admin_alert {
+  id String @id @db.VarChar(36)
+
+  /// Alert category: 'SYSTEM_HEALTH', 'FAILED_TRANSCRIPTION', 'QUOTA_EXCEEDED', 'HIGH_USAGE'
+  type String @db.VarChar(100)
+
+  /// Alert priority: 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
+  severity String @db.VarChar(20)
+
+  /// Human-readable alert message
+  message String @db.Text
+
+  /// Additional context data (JSON)
+  details Json?
+
+  /// Whether admin has addressed the alert
+  acknowledged Boolean @default(false)
+
+  /// Admin user who acknowledged the alert
+  acknowledged_by String? @db.VarChar(36)
+
+  /// Timestamp when alert was acknowledged
+  acknowledged_at DateTime?
+
+  created_at DateTime @default(now())
+
+  acknowledged_by_user user? @relation("alert_acknowledged_by", fields: [acknowledged_by], references: [id], onDelete: SetNull)
+
+  @@index([severity, acknowledged, created_at(sort: Desc)])
+  @@index([type, severity, created_at(sort: Desc)])
+  @@index([acknowledged, created_at(sort: Desc)])
+  @@index([created_at(sort: Desc)])
+  @@map("admin_alert")
+}
+
 // QUOTE MODULE - Quote Management System
 // ============================================================================
 

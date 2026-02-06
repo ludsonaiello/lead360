@@ -46,7 +46,10 @@ export class QuoteGroupController {
   @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
   @ApiResponse({ status: 201, description: 'Group created successfully' })
   @ApiResponse({ status: 404, description: 'Quote not found' })
-  @ApiResponse({ status: 400, description: 'Cannot add groups to approved quote' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot add groups to approved quote',
+  })
   async create(
     @Request() req,
     @Param('quoteId', ParseUUIDPipe) quoteId: string,
@@ -91,7 +94,9 @@ export class QuoteGroupController {
   @Patch('reorder')
   @Roles('Owner', 'Admin', 'Manager', 'Sales')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Reorder groups (no version created - cosmetic only)' })
+  @ApiOperation({
+    summary: 'Reorder groups (no version created - cosmetic only)',
+  })
   @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
   @ApiResponse({ status: 204, description: 'Groups reordered successfully' })
   @ApiResponse({ status: 404, description: 'Quote not found' })
@@ -105,12 +110,17 @@ export class QuoteGroupController {
 
   @Patch(':groupId')
   @Roles('Owner', 'Admin', 'Manager', 'Sales')
-  @ApiOperation({ summary: 'Update group name/description (creates version +0.1)' })
+  @ApiOperation({
+    summary: 'Update group name/description (creates version +0.1)',
+  })
   @ApiParam({ name: 'quoteId', description: 'Quote UUID' })
   @ApiParam({ name: 'groupId', description: 'Group UUID' })
   @ApiResponse({ status: 200, description: 'Group updated successfully' })
   @ApiResponse({ status: 404, description: 'Quote or group not found' })
-  @ApiResponse({ status: 400, description: 'Cannot edit groups in approved quote' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot edit groups in approved quote',
+  })
   async update(
     @Request() req,
     @Param('quoteId', ParseUUIDPipe) quoteId: string,
@@ -142,7 +152,10 @@ export class QuoteGroupController {
   })
   @ApiResponse({ status: 204, description: 'Group deleted successfully' })
   @ApiResponse({ status: 404, description: 'Quote or group not found' })
-  @ApiResponse({ status: 400, description: 'Cannot delete groups from approved quote' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot delete groups from approved quote',
+  })
   async delete(
     @Request() req,
     @Param('quoteId', ParseUUIDPipe) quoteId: string,
@@ -166,7 +179,10 @@ export class QuoteGroupController {
   @ApiParam({ name: 'groupId', description: 'Group UUID to duplicate' })
   @ApiResponse({ status: 201, description: 'Group duplicated successfully' })
   @ApiResponse({ status: 404, description: 'Quote or group not found' })
-  @ApiResponse({ status: 400, description: 'Cannot duplicate groups in approved quote' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot duplicate groups in approved quote',
+  })
   async duplicate(
     @Request() req,
     @Param('quoteId', ParseUUIDPipe) quoteId: string,

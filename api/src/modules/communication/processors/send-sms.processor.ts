@@ -55,11 +55,49 @@ export class SendSmsProcessor extends WorkerHost {
         return { success: false, reason: 'Already processed' };
       }
 
-      // 2. Load tenant SMS config (TODO: Create tenant_sms_config table in future)
-      // For now, assuming credentials are stored in tenant settings or similar
-      // This is a placeholder - actual implementation depends on how SMS config is stored
+      // 2. Load tenant SMS config from database
+      if (!event.tenant_id) {
+        this.logger.error(
+          `❌ No tenant_id found in communication event ${communicationEventId}`,
+        );
+        await this.prisma.communication_event.update({
+          where: { id: communicationEventId },
+          data: {
+            status: 'failed',
+            error_message: 'No tenant_id found in communication event',
+          },
+        });
+        return {
+          success: false,
+          reason: 'No tenant_id in event',
+        };
+      }
 
-      const encryptedCredentials = {}; // TODO: Load from tenant_sms_config
+      const config = await this.prisma.tenant_sms_config.findFirst({
+        where: {
+          tenant_id: event.tenant_id,
+          is_active: true,
+        },
+      });
+
+      if (!config) {
+        this.logger.error(
+          `❌ No active SMS configuration found for tenant ${event.tenant_id}`,
+        );
+        await this.prisma.communication_event.update({
+          where: { id: communicationEventId },
+          data: {
+            status: 'failed',
+            error_message: 'No active SMS configuration found for tenant',
+          },
+        });
+        return {
+          success: false,
+          reason: 'No active SMS configuration',
+        };
+      }
+
+      const encryptedCredentials = config.credentials;
 
       // 3. Send SMS via provider
       const startTime = Date.now();

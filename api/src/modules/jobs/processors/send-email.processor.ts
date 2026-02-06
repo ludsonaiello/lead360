@@ -77,11 +77,16 @@ export class SendEmailProcessor extends WorkerHost {
         { messageId: result.messageId },
       );
 
-      this.logger.log(`Email job ${jobId} completed - Message ID: ${result.messageId}`);
+      this.logger.log(
+        `Email job ${jobId} completed - Message ID: ${result.messageId}`,
+      );
 
       return { success: true, messageId: result.messageId };
     } catch (error) {
-      this.logger.error(`Email job ${jobId} failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `Email job ${jobId} failed: ${error.message}`,
+        error.stack,
+      );
 
       // Update email queue status
       try {

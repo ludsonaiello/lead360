@@ -50,7 +50,9 @@ export class TenantService {
     private readonly configService: ConfigService,
     private readonly auditLogger: AuditLoggerService,
   ) {
-    const uploadsPath = this.configService.get<string>('UPLOADS_PATH') || '/var/www/lead360.app/app/uploads/public';
+    const uploadsPath =
+      this.configService.get<string>('UPLOADS_PATH') ||
+      '/var/www/lead360.app/app/uploads/public';
     this.uploadBasePath = uploadsPath;
   }
 
@@ -84,7 +86,9 @@ export class TenantService {
     });
 
     if (!tenant) {
-      throw new NotFoundException(`Tenant with subdomain '${subdomain}' not found`);
+      throw new NotFoundException(
+        `Tenant with subdomain '${subdomain}' not found`,
+      );
     }
 
     if (!tenant.is_active) {
@@ -179,7 +183,8 @@ export class TenantService {
     }
 
     // Transform tenant_services to services_offered array for backward compatibility
-    const services_offered = tenant.tenant_services?.map((ts: any) => ts.service) || [];
+    const services_offered =
+      tenant.tenant_services?.map((ts: any) => ts.service) || [];
 
     return {
       ...tenant,
@@ -220,7 +225,10 @@ export class TenantService {
   /**
    * Check if EIN is unique (global check)
    */
-  async checkEinUniqueness(ein: string, excludeTenantId?: string): Promise<{
+  async checkEinUniqueness(
+    ein: string,
+    excludeTenantId?: string,
+  ): Promise<{
     unique: boolean;
     conflictingTenantId?: string;
   }> {
@@ -327,7 +335,11 @@ export class TenantService {
   /**
    * Update tenant profile (with protected fields audit logging)
    */
-  async update(tenantId: string, updateTenantDto: UpdateTenantDto, userId: string) {
+  async update(
+    tenantId: string,
+    updateTenantDto: UpdateTenantDto,
+    userId: string,
+  ) {
     // Verify tenant exists
     const existingTenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId } as any,
@@ -389,7 +401,11 @@ export class TenantService {
   /**
    * Update branding settings
    */
-  async updateBranding(tenantId: string, brandingDto: UpdateBrandingDto, userId: string) {
+  async updateBranding(
+    tenantId: string,
+    brandingDto: UpdateBrandingDto,
+    userId: string,
+  ) {
     // Get existing tenant data before update
     const existingTenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId } as any,
@@ -486,7 +502,9 @@ export class TenantService {
       expiringLicenses,
       insuranceStatus,
     ] = await Promise.all([
-      this.prisma.user.count({ where: { tenant_id: tenantId, is_active: true } }),
+      this.prisma.user.count({
+        where: { tenant_id: tenantId, is_active: true },
+      }),
       this.prisma.tenant_address.count({ where: { tenant_id: tenantId } }),
       this.prisma.tenant_license.count({ where: { tenant_id: tenantId } }),
       this.prisma.tenant_license.count({
@@ -545,7 +563,10 @@ export class TenantService {
     const { file_id, url } = await this.fileStorage.uploadLogo(tenantId, file);
 
     // If tenant has existing logo, delete it (hard delete)
-    const existingLogoFileId = tenant?.logo_file_id as string | null | undefined;
+    const existingLogoFileId = tenant?.logo_file_id as
+      | string
+      | null
+      | undefined;
     if (existingLogoFileId) {
       const oldFile = await this.prisma.file.findUnique({
         where: { file_id: existingLogoFileId },
@@ -615,7 +636,10 @@ export class TenantService {
   /**
    * Delete tenant logo
    */
-  async deleteLogo(tenantId: string, userId: string): Promise<{ message: string }> {
+  async deleteLogo(
+    tenantId: string,
+    userId: string,
+  ): Promise<{ message: string }> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId } as any,
       select: { logo_file_id: true } as any,

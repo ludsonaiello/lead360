@@ -58,7 +58,11 @@ export class SystemSettingsController {
     },
   })
   @ApiResponse({ status: 200, description: 'Feature flag updated' })
-  async updateFeatureFlag(@Request() req, @Param('key') key: string, @Body() updateDto: any) {
+  async updateFeatureFlag(
+    @Request() req,
+    @Param('key') key: string,
+    @Body() updateDto: any,
+  ) {
     return this.featureFlagService.updateFlag(key, updateDto, req.user.id);
   }
 
@@ -85,13 +89,20 @@ export class SystemSettingsController {
         start_time: { type: 'string', format: 'date-time', nullable: true },
         end_time: { type: 'string', format: 'date-time', nullable: true },
         message: { type: 'string', nullable: true },
-        allowed_ips: { type: 'string', description: 'Comma-separated IP addresses', nullable: true },
+        allowed_ips: {
+          type: 'string',
+          description: 'Comma-separated IP addresses',
+          nullable: true,
+        },
       },
     },
   })
   @ApiResponse({ status: 200, description: 'Maintenance mode updated' })
   async updateMaintenanceMode(@Request() req, @Body() updateDto: any) {
-    return this.maintenanceModeService.updateMaintenanceMode(updateDto, req.user.id);
+    return this.maintenanceModeService.updateMaintenanceMode(
+      updateDto,
+      req.user.id,
+    );
   }
 
   /**
@@ -116,14 +127,23 @@ export class SystemSettingsController {
         type: 'object',
         properties: {
           key: { type: 'string', example: 'max_file_upload_size_mb' },
-          value: { oneOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }] },
+          value: {
+            oneOf: [
+              { type: 'string' },
+              { type: 'number' },
+              { type: 'boolean' },
+            ],
+          },
         },
         required: ['key', 'value'],
       },
     },
   })
   @ApiResponse({ status: 200, description: 'Settings updated' })
-  async updateGlobalSettings(@Request() req, @Body() settings: Array<{ key: string; value: any }>) {
+  async updateGlobalSettings(
+    @Request() req,
+    @Body() settings: Array<{ key: string; value: any }>,
+  ) {
     return this.systemSettingService.updateSettings(settings, req.user.id);
   }
 }

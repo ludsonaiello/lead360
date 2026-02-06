@@ -100,23 +100,25 @@ describe('TenantManagementService', () => {
         name: 'Owner',
       });
 
-      (prismaService.$transaction as jest.Mock).mockImplementation(async (callback) => {
-        const tx = {
-          tenant: {
-            create: jest.fn().mockResolvedValue(mockTenant),
-          },
-          tenant_business_hours: {
-            create: jest.fn().mockResolvedValue({}),
-          },
-          user: {
-            create: jest.fn().mockResolvedValue(mockOwner),
-          },
-          user_role: {
-            create: jest.fn().mockResolvedValue({}),
-          },
-        };
-        return callback(tx);
-      });
+      (prismaService.$transaction as jest.Mock).mockImplementation(
+        async (callback) => {
+          const tx = {
+            tenant: {
+              create: jest.fn().mockResolvedValue(mockTenant),
+            },
+            tenant_business_hours: {
+              create: jest.fn().mockResolvedValue({}),
+            },
+            user: {
+              create: jest.fn().mockResolvedValue(mockOwner),
+            },
+            user_role: {
+              create: jest.fn().mockResolvedValue({}),
+            },
+          };
+          return callback(tx);
+        },
+      );
 
       const result = await service.createTenantManually(createDto, 'admin-123');
 
@@ -152,7 +154,11 @@ describe('TenantManagementService', () => {
         is_active: false,
       });
 
-      const result = await service.suspendTenant('tenant-123', 'admin-123', 'Payment overdue');
+      const result = await service.suspendTenant(
+        'tenant-123',
+        'admin-123',
+        'Payment overdue',
+      );
 
       expect(result.is_active).toBe(false);
       expect(prismaService.refresh_token.deleteMany).toHaveBeenCalledWith({
@@ -268,9 +274,9 @@ describe('TenantManagementService', () => {
     it('should throw error if tenant not found', async () => {
       prismaService.tenant.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.getTenantDetails('tenant-123'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getTenantDetails('tenant-123')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

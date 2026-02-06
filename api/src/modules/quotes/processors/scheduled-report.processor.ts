@@ -32,9 +32,7 @@ export class ScheduledReportProcessor extends WorkerHost {
       });
 
       if (!scheduledReport) {
-        this.logger.error(
-          `Scheduled report not found: ${scheduledReportId}`,
-        );
+        this.logger.error(`Scheduled report not found: ${scheduledReportId}`);
         return;
       }
 
@@ -50,7 +48,9 @@ export class ScheduledReportProcessor extends WorkerHost {
       const resolvedParams = this.resolveRelativeDates(parameters);
 
       // Queue the report generation
-      this.logger.log(`[DEBUG] Calling queueReportGeneration with scheduledReportId: ${scheduledReportId}`);
+      this.logger.log(
+        `[DEBUG] Calling queueReportGeneration with scheduledReportId: ${scheduledReportId}`,
+      );
 
       const reportJob = await this.adminReportingService.queueReportGeneration(
         report_type,
@@ -153,9 +153,7 @@ export class ScheduledReportProcessor extends WorkerHost {
   /**
    * Calculate next run time based on schedule
    */
-  private calculateNextRunTime(
-    schedule: 'daily' | 'weekly' | 'monthly',
-  ): Date {
+  private calculateNextRunTime(schedule: 'daily' | 'weekly' | 'monthly'): Date {
     const now = new Date();
     const next = new Date(now);
 

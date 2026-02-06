@@ -54,7 +54,7 @@ export class TopItemDto {
   @ApiProperty({ description: 'Usage count', example: 45 })
   usage_count: number;
 
-  @ApiProperty({ description: 'Total revenue generated', example: 125000.00 })
+  @ApiProperty({ description: 'Total revenue generated', example: 125000.0 })
   total_revenue: number;
 
   @ApiProperty({ description: 'Average price', example: 2777.78 })
@@ -77,9 +77,15 @@ export class TopItemsResponseDto {
   @ApiProperty({ description: 'Top items by usage', type: [TopItemDto] })
   top_items: TopItemDto[];
 
-  @ApiProperty({ description: 'Date range start', example: '2024-01-01T00:00:00.000Z' })
+  @ApiProperty({
+    description: 'Date range start',
+    example: '2024-01-01T00:00:00.000Z',
+  })
   date_from: string;
 
-  @ApiProperty({ description: 'Date range end', example: '2024-01-31T23:59:59.999Z' })
+  @ApiProperty({
+    description: 'Date range end',
+    example: '2024-01-31T23:59:59.999Z',
+  })
   date_to: string;
 }

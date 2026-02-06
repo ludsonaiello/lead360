@@ -21,7 +21,9 @@ export class TestPdfDto {
 }
 
 export class TestPdfResponseDto {
-  @ApiProperty({ description: 'Temporary PDF download URL (expires after 15 minutes)' })
+  @ApiProperty({
+    description: 'Temporary PDF download URL (expires after 15 minutes)',
+  })
   pdf_url: string;
 
   @ApiProperty({ description: 'PDF file size in bytes' })

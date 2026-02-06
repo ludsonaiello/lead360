@@ -13,7 +13,7 @@ export class EncryptionService {
     if (!keyHex || keyHex.length !== 64) {
       throw new Error(
         'ENCRYPTION_KEY must be a 64-character hex string. ' +
-        'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+          "Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
       );
     }
 

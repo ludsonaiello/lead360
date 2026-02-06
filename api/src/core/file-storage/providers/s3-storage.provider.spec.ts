@@ -1,6 +1,12 @@
 import { S3StorageProvider } from './s3-storage.provider';
 import type { StorageProviderConfig } from '../interfaces/storage-provider.interface';
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { mockClient } from 'aws-sdk-client-mock';
 
@@ -25,7 +31,9 @@ describe('S3StorageProvider', () => {
   beforeEach(() => {
     s3Mock.reset();
     provider = new S3StorageProvider(mockConfig);
-    (getSignedUrl as jest.Mock).mockResolvedValue('https://signed-url.com/file');
+    (getSignedUrl as jest.Mock).mockResolvedValue(
+      'https://signed-url.com/file',
+    );
   });
 
   afterEach(() => {
@@ -119,7 +127,7 @@ describe('S3StorageProvider', () => {
       expect(getSignedUrl).toHaveBeenCalledWith(
         expect.any(S3Client),
         expect.any(GetObjectCommand),
-        { expiresIn: 3600 }
+        { expiresIn: 3600 },
       );
     });
 
@@ -133,7 +141,7 @@ describe('S3StorageProvider', () => {
           originalFilename: 'document.pdf',
           buffer: Buffer.from('test'),
           mimeType: 'application/pdf',
-        })
+        }),
       ).rejects.toThrow('S3 upload failed');
     });
 
@@ -175,7 +183,9 @@ describe('S3StorageProvider', () => {
       });
 
       const call = s3Mock.commandCalls(PutObjectCommand)[0];
-      expect(call.args[0].input.Key).toMatch(/^tenant-123\/images\/.+_thumb\.jpg$/);
+      expect(call.args[0].input.Key).toMatch(
+        /^tenant-123\/images\/.+_thumb\.jpg$/,
+      );
     });
   });
 
@@ -189,7 +199,10 @@ describe('S3StorageProvider', () => {
         Body: mockStream,
       });
 
-      const result = await provider.download('file-123', 'tenant-123/files/document.pdf');
+      const result = await provider.download(
+        'file-123',
+        'tenant-123/files/document.pdf',
+      );
 
       const call = s3Mock.commandCalls(GetObjectCommand)[0];
       expect(call.args[0].input.Bucket).toBe('test-bucket');
@@ -202,7 +215,7 @@ describe('S3StorageProvider', () => {
       s3Mock.on(GetObjectCommand).rejects(new Error('NoSuchKey'));
 
       await expect(
-        provider.download('file-123', 'tenant-123/files/nonexistent.pdf')
+        provider.download('file-123', 'tenant-123/files/nonexistent.pdf'),
       ).rejects.toThrow();
     });
   });
@@ -222,7 +235,7 @@ describe('S3StorageProvider', () => {
       s3Mock.on(DeleteObjectCommand).rejects({ name: 'NoSuchKey' });
 
       await expect(
-        provider.delete('file-123', 'tenant-123/files/nonexistent.pdf')
+        provider.delete('file-123', 'tenant-123/files/nonexistent.pdf'),
       ).resolves.toBeUndefined();
     });
 
@@ -231,7 +244,7 @@ describe('S3StorageProvider', () => {
 
       // Delete catches all errors and logs a warning instead of throwing
       await expect(
-        provider.delete('file-123', 'tenant-123/files/document.pdf')
+        provider.delete('file-123', 'tenant-123/files/document.pdf'),
       ).resolves.toBeUndefined();
     });
   });
@@ -240,7 +253,10 @@ describe('S3StorageProvider', () => {
     it('should return true if file exists in S3', async () => {
       s3Mock.on(HeadObjectCommand).resolves({});
 
-      const result = await provider.exists('file-123', 'tenant-123/files/document.pdf');
+      const result = await provider.exists(
+        'file-123',
+        'tenant-123/files/document.pdf',
+      );
 
       const call = s3Mock.commandCalls(HeadObjectCommand)[0];
       expect(call.args[0].input.Bucket).toBe('test-bucket');
@@ -252,7 +268,10 @@ describe('S3StorageProvider', () => {
     it('should return false if file does not exist', async () => {
       s3Mock.on(HeadObjectCommand).rejects({ name: 'NotFound' });
 
-      const result = await provider.exists('file-123', 'tenant-123/files/nonexistent.pdf');
+      const result = await provider.exists(
+        'file-123',
+        'tenant-123/files/nonexistent.pdf',
+      );
 
       expect(result).toBe(false);
     });
@@ -261,7 +280,10 @@ describe('S3StorageProvider', () => {
       s3Mock.on(HeadObjectCommand).rejects(new Error('Access Denied'));
 
       // exists catches all errors and returns false
-      const result = await provider.exists('file-123', 'tenant-123/files/document.pdf');
+      const result = await provider.exists(
+        'file-123',
+        'tenant-123/files/document.pdf',
+      );
 
       expect(result).toBe(false);
     });
@@ -269,15 +291,19 @@ describe('S3StorageProvider', () => {
 
   describe('getFileUrl', () => {
     it('should generate pre-signed URL for S3 object', async () => {
-      const expectedUrl = 'https://s3.amazonaws.com/test-bucket/tenant-123/files/document.pdf?signature=xyz';
+      const expectedUrl =
+        'https://s3.amazonaws.com/test-bucket/tenant-123/files/document.pdf?signature=xyz';
       (getSignedUrl as jest.Mock).mockResolvedValue(expectedUrl);
 
-      const url = await provider.getFileUrl('file-123', 'tenant-123/files/document.pdf');
+      const url = await provider.getFileUrl(
+        'file-123',
+        'tenant-123/files/document.pdf',
+      );
 
       expect(getSignedUrl).toHaveBeenCalledWith(
         expect.any(S3Client),
         expect.any(GetObjectCommand),
-        { expiresIn: 3600 }
+        { expiresIn: 3600 },
       );
 
       expect(url).toBe(expectedUrl);

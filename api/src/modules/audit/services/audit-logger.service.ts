@@ -89,14 +89,19 @@ export class AuditLoggerService {
         await this.writeDirectly(logData);
       }
     } catch (error) {
-      this.logger.warn(`Queue unavailable, falling back to direct write: ${error.message}`);
+      this.logger.warn(
+        `Queue unavailable, falling back to direct write: ${error.message}`,
+      );
       this.queueAvailable = false;
 
       try {
         await this.writeDirectly(logData);
       } catch (writeError) {
         // Best effort logging - don't throw errors
-        this.logger.error(`Failed to write audit log: ${writeError.message}`, writeError.stack);
+        this.logger.error(
+          `Failed to write audit log: ${writeError.message}`,
+          writeError.stack,
+        );
       }
     }
   }
@@ -253,9 +258,15 @@ export class AuditLoggerService {
         id: randomBytes(16).toString('hex'),
         ...logData,
         // Convert JSON objects to strings for Prisma
-        before_json: logData.before_json ? JSON.stringify(logData.before_json) : null,
-        after_json: logData.after_json ? JSON.stringify(logData.after_json) : null,
-        metadata_json: logData.metadata_json ? JSON.stringify(logData.metadata_json) : null,
+        before_json: logData.before_json
+          ? JSON.stringify(logData.before_json)
+          : null,
+        after_json: logData.after_json
+          ? JSON.stringify(logData.after_json)
+          : null,
+        metadata_json: logData.metadata_json
+          ? JSON.stringify(logData.metadata_json)
+          : null,
       } as any,
     });
   }
@@ -293,14 +304,23 @@ export class AuditLoggerService {
   /**
    * Get human-readable description for auth events
    */
-  private getAuthDescription(event: string, status: 'success' | 'failure'): string {
+  private getAuthDescription(
+    event: string,
+    status: 'success' | 'failure',
+  ): string {
     const descriptions = {
-      register: status === 'success' ? 'User registered successfully' : 'Registration failed',
+      register:
+        status === 'success'
+          ? 'User registered successfully'
+          : 'Registration failed',
       login: status === 'success' ? 'User logged in' : 'Login failed',
       logout: 'User logged out',
       logout_all: 'User logged out from all devices',
       password_reset_requested: 'Password reset requested',
-      password_reset: status === 'success' ? 'Password reset completed' : 'Password reset failed',
+      password_reset:
+        status === 'success'
+          ? 'Password reset completed'
+          : 'Password reset failed',
       password_changed: 'Password changed',
       account_activated: 'Account activated',
     };

@@ -11,7 +11,11 @@ export class AuditReaderService {
    * Find all audit logs with filters and pagination
    * Enforces tenant isolation unless isPlatformAdmin=true
    */
-  async findAll(query: AuditLogQueryDto, isPlatformAdmin: boolean, tenantId?: string) {
+  async findAll(
+    query: AuditLogQueryDto,
+    isPlatformAdmin: boolean,
+    tenantId?: string,
+  ) {
     const {
       page = 1,
       limit = 50,
@@ -194,7 +198,11 @@ export class AuditReaderService {
   /**
    * Count logs matching filters
    */
-  async count(query: Partial<AuditLogQueryDto>, isPlatformAdmin: boolean, tenantId?: string): Promise<number> {
+  async count(
+    query: Partial<AuditLogQueryDto>,
+    isPlatformAdmin: boolean,
+    tenantId?: string,
+  ): Promise<number> {
     const where: any = {};
 
     // Tenant isolation
@@ -207,7 +215,10 @@ export class AuditReaderService {
 
     // Apply filters
     if (query.start_date) {
-      where.created_at = { ...where.created_at, gte: new Date(query.start_date) };
+      where.created_at = {
+        ...where.created_at,
+        gte: new Date(query.start_date),
+      };
     }
     if (query.end_date) {
       where.created_at = { ...where.created_at, lte: new Date(query.end_date) };

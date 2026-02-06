@@ -91,7 +91,8 @@ export class TenantEmailConfigController {
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Employee')
   @ApiOperation({
     summary: 'List all email provider configurations',
-    description: 'Get all provider configurations for this tenant (active provider listed first)',
+    description:
+      'Get all provider configurations for this tenant (active provider listed first)',
   })
   @ApiResponse({
     status: 200,
@@ -113,7 +114,10 @@ export class TenantEmailConfigController {
           },
           from_email: { type: 'string', example: 'info@acmeplumbing.com' },
           from_name: { type: 'string', example: 'Acme Plumbing' },
-          reply_to_email: { type: 'string', example: 'support@acmeplumbing.com' },
+          reply_to_email: {
+            type: 'string',
+            example: 'support@acmeplumbing.com',
+          },
           is_active: { type: 'boolean', example: true },
           is_verified: { type: 'boolean', example: true },
           created_at: { type: 'string', example: '2026-01-18T00:00:00.000Z' },
@@ -123,14 +127,17 @@ export class TenantEmailConfigController {
     },
   })
   async listConfigurations(@Request() req) {
-    return this.tenantEmailConfigService.listProviderConfigs(req.user.tenant_id);
+    return this.tenantEmailConfigService.listProviderConfigs(
+      req.user.tenant_id,
+    );
   }
 
   @Get('configurations/active')
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Employee')
   @ApiOperation({
     summary: 'Get active email provider configuration',
-    description: 'Get the currently active provider configuration for this tenant',
+    description:
+      'Get the currently active provider configuration for this tenant',
   })
   @ApiResponse({
     status: 200,
@@ -170,7 +177,8 @@ export class TenantEmailConfigController {
   @Roles('Owner', 'Admin')
   @ApiOperation({
     summary: 'Get specific provider configuration with credentials',
-    description: 'Get a specific provider configuration including decrypted credentials (Owner/Admin only)',
+    description:
+      'Get a specific provider configuration including decrypted credentials (Owner/Admin only)',
   })
   @ApiParam({
     name: 'configId',
@@ -179,21 +187,26 @@ export class TenantEmailConfigController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Configuration retrieved successfully with decrypted credentials',
+    description:
+      'Configuration retrieved successfully with decrypted credentials',
   })
   @ApiResponse({
     status: 404,
     description: 'Configuration not found',
   })
   async getConfiguration(@Request() req, @Param('configId') configId: string) {
-    return this.tenantEmailConfigService.getProviderConfig(req.user.tenant_id, configId);
+    return this.tenantEmailConfigService.getProviderConfig(
+      req.user.tenant_id,
+      configId,
+    );
   }
 
   @Get()
   @Roles('Owner', 'Admin', 'Manager', 'Sales', 'Employee')
   @ApiOperation({
     summary: '[DEPRECATED] Get current tenant email configuration',
-    description: 'DEPRECATED: Use GET /configurations/active instead. Get tenant-specific email settings (credentials hidden)',
+    description:
+      'DEPRECATED: Use GET /configurations/active instead. Get tenant-specific email settings (credentials hidden)',
     deprecated: true,
   })
   @ApiResponse({
@@ -309,7 +322,8 @@ export class TenantEmailConfigController {
   @Roles('Owner', 'Admin')
   @ApiOperation({
     summary: 'Set email provider as active',
-    description: 'Activate this provider configuration for sending emails (deactivates others)',
+    description:
+      'Activate this provider configuration for sending emails (deactivates others)',
   })
   @ApiParam({
     name: 'configId',
@@ -353,7 +367,10 @@ export class TenantEmailConfigController {
       type: 'object',
       properties: {
         success: { type: 'boolean', example: true },
-        message: { type: 'string', example: 'Provider configuration deleted successfully' },
+        message: {
+          type: 'string',
+          example: 'Provider configuration deleted successfully',
+        },
       },
     },
   })
@@ -376,7 +393,8 @@ export class TenantEmailConfigController {
   @Roles('Owner', 'Admin')
   @ApiOperation({
     summary: '[DEPRECATED] Create or update tenant email configuration',
-    description: 'DEPRECATED: Use POST /configurations to create or PATCH /configurations/:id to update. Configure tenant-specific email settings with provider credentials',
+    description:
+      'DEPRECATED: Use POST /configurations to create or PATCH /configurations/:id to update. Configure tenant-specific email settings with provider credentials',
     deprecated: true,
   })
   @ApiResponse({

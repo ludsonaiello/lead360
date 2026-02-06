@@ -34,7 +34,10 @@ export class ActivityEventDto {
   })
   description: string;
 
-  @ApiProperty({ type: ActivityUserDto, description: 'User who performed action' })
+  @ApiProperty({
+    type: ActivityUserDto,
+    description: 'User who performed action',
+  })
   user: ActivityUserDto;
 
   @ApiProperty({
@@ -50,7 +53,10 @@ export class ActivityEventDto {
  * Summary statistics for activity timeline
  */
 export class ActivitySummaryDto {
-  @ApiProperty({ example: 342, description: 'Total number of events in period' })
+  @ApiProperty({
+    example: 342,
+    description: 'Total number of events in period',
+  })
   total_events: number;
 
   @ApiProperty({

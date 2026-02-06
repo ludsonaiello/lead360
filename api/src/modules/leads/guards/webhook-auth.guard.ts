@@ -25,7 +25,10 @@ export class WebhookAuthGuard implements CanActivate {
 
     // Check if this is an internal call (JWT token present) or external webhook (API key)
     const authHeader = request.headers['authorization'];
-    const hasJwtToken = authHeader && authHeader.startsWith('Bearer ') && !authHeader.includes('lead360_webhook_');
+    const hasJwtToken =
+      authHeader &&
+      authHeader.startsWith('Bearer ') &&
+      !authHeader.includes('lead360_webhook_');
 
     if (hasJwtToken) {
       // INTERNAL CALL from authenticated frontend
@@ -37,10 +40,14 @@ export class WebhookAuthGuard implements CanActivate {
         const payload = await this.jwtService.verifyAsync(token);
 
         if (!payload || !payload.tenant_id) {
-          throw new UnauthorizedException('Invalid JWT token - missing tenant information');
+          throw new UnauthorizedException(
+            'Invalid JWT token - missing tenant information',
+          );
         }
 
-        this.logger.log(`JWT validated for user ${payload.sub}, tenant ${payload.tenant_id}`);
+        this.logger.log(
+          `JWT validated for user ${payload.sub}, tenant ${payload.tenant_id}`,
+        );
 
         // Resolve tenant info
         const tenant = await this.prisma.tenant.findUnique({
@@ -52,7 +59,9 @@ export class WebhookAuthGuard implements CanActivate {
           throw new UnauthorizedException('Tenant not found');
         }
 
-        this.logger.log(`Internal call authenticated for tenant: ${tenant.id} (${tenant.company_name})`);
+        this.logger.log(
+          `Internal call authenticated for tenant: ${tenant.id} (${tenant.company_name})`,
+        );
 
         // Attach user and tenant to request
         request.user = payload;
@@ -77,7 +86,9 @@ export class WebhookAuthGuard implements CanActivate {
 
     if (tenantSubdomainHeader) {
       // Frontend proxy call with subdomain in header
-      this.logger.log(`Using tenant subdomain from header: ${tenantSubdomainHeader}`);
+      this.logger.log(
+        `Using tenant subdomain from header: ${tenantSubdomainHeader}`,
+      );
 
       tenant = await this.prisma.tenant.findFirst({
         where: { subdomain: tenantSubdomainHeader },
@@ -85,7 +96,9 @@ export class WebhookAuthGuard implements CanActivate {
       });
 
       if (!tenant) {
-        throw new BadRequestException(`Tenant not found for subdomain: ${tenantSubdomainHeader}`);
+        throw new BadRequestException(
+          `Tenant not found for subdomain: ${tenantSubdomainHeader}`,
+        );
       }
     } else if (tenantIdHeader) {
       // Internal frontend call with explicit tenant ID
@@ -132,18 +145,19 @@ export class WebhookAuthGuard implements CanActivate {
       }
     }
 
-    this.logger.log(
-      `Resolved tenant: ${tenant.id} (${tenant.company_name})`,
-    );
+    this.logger.log(`Resolved tenant: ${tenant.id} (${tenant.company_name})`);
 
     // 3. Extract API key from headers
     const apiKey =
-      request.headers['x-api-key'] || request.headers['authorization']?.replace('Bearer ', '');
+      request.headers['x-api-key'] ||
+      request.headers['authorization']?.replace('Bearer ', '');
 
-    this.logger.log(`Headers: ${JSON.stringify({
-      'x-api-key': request.headers['x-api-key'] ? 'present' : 'missing',
-      'authorization': request.headers['authorization'] ? 'present' : 'missing',
-    })}`);
+    this.logger.log(
+      `Headers: ${JSON.stringify({
+        'x-api-key': request.headers['x-api-key'] ? 'present' : 'missing',
+        authorization: request.headers['authorization'] ? 'present' : 'missing',
+      })}`,
+    );
 
     if (!apiKey) {
       this.logger.error('No API key found in request headers');
@@ -152,7 +166,9 @@ export class WebhookAuthGuard implements CanActivate {
       );
     }
 
-    this.logger.log(`API key extracted (prefix): ${apiKey.substring(0, 25)}...`);
+    this.logger.log(
+      `API key extracted (prefix): ${apiKey.substring(0, 25)}...`,
+    );
 
     // 4. Validate API key AND verify it belongs to the tenant from subdomain
     const keyRecord = await this.webhookAuthService.validateApiKey(

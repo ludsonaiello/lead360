@@ -103,6 +103,9 @@ export class TenantsListResponseDto {
   @ApiProperty({ type: PaginationDto, description: 'Pagination metadata' })
   pagination: PaginationDto;
 
-  @ApiProperty({ type: TenantListSummaryDto, description: 'Summary statistics' })
+  @ApiProperty({
+    type: TenantListSummaryDto,
+    description: 'Summary statistics',
+  })
   summary: TenantListSummaryDto;
 }

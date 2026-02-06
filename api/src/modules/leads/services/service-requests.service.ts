@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { LeadActivitiesService, ActivityType } from './lead-activities.service';
 import {
@@ -62,7 +58,14 @@ export class ServiceRequestsService {
       },
       include: {
         lead: { select: { id: true, first_name: true, last_name: true } },
-        lead_address: { select: { address_line1: true, city: true, state: true, zip_code: true } },
+        lead_address: {
+          select: {
+            address_line1: true,
+            city: true,
+            state: true,
+            zip_code: true,
+          },
+        },
       },
     });
 
@@ -99,7 +102,11 @@ export class ServiceRequestsService {
         description: serviceRequestData.service_description,
         time_demand: serviceRequestData.urgency || 'flexible',
         status: 'new',
-        extra_data: { requested_date: serviceRequestData.requested_date, estimated_value: serviceRequestData.estimated_value, notes: serviceRequestData.notes },
+        extra_data: {
+          requested_date: serviceRequestData.requested_date,
+          estimated_value: serviceRequestData.estimated_value,
+          notes: serviceRequestData.notes,
+        },
       },
     });
   }
@@ -116,7 +123,9 @@ export class ServiceRequestsService {
     });
 
     if (!serviceRequest) {
-      throw new NotFoundException(`Service request with ID ${serviceRequestId} not found`);
+      throw new NotFoundException(
+        `Service request with ID ${serviceRequestId} not found`,
+      );
     }
 
     const updatedServiceRequest = await this.prisma.service_request.update({
@@ -130,7 +139,14 @@ export class ServiceRequestsService {
       },
       include: {
         lead: { select: { id: true, first_name: true, last_name: true } },
-        lead_address: { select: { address_line1: true, city: true, state: true, zip_code: true } },
+        lead_address: {
+          select: {
+            address_line1: true,
+            city: true,
+            state: true,
+            zip_code: true,
+          },
+        },
       },
     });
 
@@ -149,7 +165,15 @@ export class ServiceRequestsService {
     return this.prisma.service_request.findMany({
       where: { lead_id: leadId, tenant_id: tenantId },
       include: {
-        lead_address: { select: { address_line1: true, address_line2: true, city: true, state: true, zip_code: true } },
+        lead_address: {
+          select: {
+            address_line1: true,
+            address_line2: true,
+            city: true,
+            state: true,
+            zip_code: true,
+          },
+        },
       },
       orderBy: { created_at: 'desc' },
     });
@@ -165,14 +189,29 @@ export class ServiceRequestsService {
     const where: any = { tenant_id: tenantId };
 
     if (filters?.status) where.status = filters.status;
-    if (filters?.service_type) where.service_type = { contains: filters.service_type };
+    if (filters?.service_type)
+      where.service_type = { contains: filters.service_type };
 
     const [serviceRequests, total] = await Promise.all([
       this.prisma.service_request.findMany({
         where,
         include: {
-          lead: { select: { id: true, first_name: true, last_name: true, status: true } },
-          lead_address: { select: { address_line1: true, city: true, state: true, zip_code: true } },
+          lead: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              status: true,
+            },
+          },
+          lead_address: {
+            select: {
+              address_line1: true,
+              city: true,
+              state: true,
+              zip_code: true,
+            },
+          },
         },
         orderBy: { created_at: 'desc' },
         skip,
@@ -187,12 +226,27 @@ export class ServiceRequestsService {
     };
   }
 
-  async findOne(tenantId: string, serviceRequestId: string): Promise<any | null> {
+  async findOne(
+    tenantId: string,
+    serviceRequestId: string,
+  ): Promise<any | null> {
     return this.prisma.service_request.findFirst({
       where: { id: serviceRequestId, tenant_id: tenantId },
       include: {
-        lead: { select: { id: true, first_name: true, last_name: true, status: true } },
-        lead_address: { select: { address_line1: true, address_line2: true, city: true, state: true, zip_code: true, latitude: true, longitude: true } },
+        lead: {
+          select: { id: true, first_name: true, last_name: true, status: true },
+        },
+        lead_address: {
+          select: {
+            address_line1: true,
+            address_line2: true,
+            city: true,
+            state: true,
+            zip_code: true,
+            latitude: true,
+            longitude: true,
+          },
+        },
       },
     });
   }
@@ -207,7 +261,9 @@ export class ServiceRequestsService {
     });
 
     if (!serviceRequest) {
-      throw new NotFoundException(`Service request with ID ${serviceRequestId} not found`);
+      throw new NotFoundException(
+        `Service request with ID ${serviceRequestId} not found`,
+      );
     }
 
     await this.prisma.service_request.delete({
@@ -224,9 +280,13 @@ export class ServiceRequestsService {
   }
 
   private generateUUID(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-      const r = (Math.random() * 16) | 0, v = c === 'x' ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
-    });
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
+      /[xy]/g,
+      function (c) {
+        const r = (Math.random() * 16) | 0,
+          v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      },
+    );
   }
 }

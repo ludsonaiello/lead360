@@ -1,10 +1,21 @@
-import { Injectable, BadRequestException, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { QuotePdfGeneratorService } from './quote-pdf-generator.service';
 import { QuotePublicAccessService } from './quote-public-access.service';
 import { QuoteVersionService } from './quote-version.service';
-import { SendQuoteEmailDto, SendQuoteEmailResponseDto } from '../dto/email/send-quote-email.dto';
-import { SendQuoteSmsDto, SendQuoteSmsResponseDto } from '../dto/email/send-quote-sms.dto';
+import {
+  SendQuoteEmailDto,
+  SendQuoteEmailResponseDto,
+} from '../dto/email/send-quote-email.dto';
+import {
+  SendQuoteSmsDto,
+  SendQuoteSmsResponseDto,
+} from '../dto/email/send-quote-sms.dto';
 import { SendEmailService } from '../../communication/services/send-email.service';
 import { EmailTemplatesService } from '../../communication/services/email-templates.service';
 
@@ -77,7 +88,14 @@ export class QuoteEmailService {
     }
 
     // Allow sending quotes in ready, sent, delivered, read, opened, or email_failed status (resending is allowed)
-    const allowedStatuses = ['ready', 'sent', 'delivered', 'read', 'opened', 'email_failed'];
+    const allowedStatuses = [
+      'ready',
+      'sent',
+      'delivered',
+      'read',
+      'opened',
+      'email_failed',
+    ];
     if (!allowedStatuses.includes(quote.status)) {
       throw new BadRequestException(
         `Quote must be in 'ready', 'sent', 'delivered', 'read', 'opened', or 'email_failed' status to send. Current status: ${quote.status}`,
@@ -88,12 +106,18 @@ export class QuoteEmailService {
     const leadPrimaryEmail = quote.lead?.emails?.[0]?.email;
     const recipientEmail = dto.recipient_email || leadPrimaryEmail;
     if (!recipientEmail) {
-      throw new BadRequestException('No recipient email found. Please provide recipient_email.');
+      throw new BadRequestException(
+        'No recipient email found. Please provide recipient_email.',
+      );
     }
 
     // 3. Generate PDF for backend storage (NOT attached to email - public URL used instead)
     this.logger.log(`Generating PDF for quote ${quoteId}...`);
-    const pdfResult = await this.pdfService.generatePdf(tenantId, quoteId, userId);
+    const pdfResult = await this.pdfService.generatePdf(
+      tenantId,
+      quoteId,
+      userId,
+    );
 
     // 4. Generate public URL if needed (skip status change - will be done after email is sent)
     this.logger.log(`Generating public URL for quote ${quoteId}...`);
@@ -154,7 +178,9 @@ export class QuoteEmailService {
       userId,
     );
 
-    this.logger.log(`Quote email queued successfully (communication event ID: ${emailResult.communication_event_id})`);
+    this.logger.log(
+      `Quote email queued successfully (communication event ID: ${emailResult.communication_event_id})`,
+    );
 
     // 6. Update quote status to 'sent' if currently 'ready'
     if (quote.status === 'ready') {
@@ -162,7 +188,9 @@ export class QuoteEmailService {
         where: { id: quoteId },
         data: { status: 'sent' },
       });
-      this.logger.log(`Quote ${quoteId} status changed from 'ready' to 'sent' (email sent)`);
+      this.logger.log(
+        `Quote ${quoteId} status changed from 'ready' to 'sent' (email sent)`,
+      );
     }
 
     // 7. Return success response
