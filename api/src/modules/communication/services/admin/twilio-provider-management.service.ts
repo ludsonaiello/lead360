@@ -3,6 +3,7 @@ import {
   Logger,
   BadRequestException,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { EncryptionService } from '../../../../core/encryption/encryption.service';
@@ -160,9 +161,13 @@ export class TwilioProviderManagementService {
    */
   async allocatePhoneNumberToTenant(
     tenantId: string,
-    phoneNumber: string,
+    sid: string,
+    purpose?: string,
   ): Promise<void> {
-    this.logger.log(`Allocating phone number ${phoneNumber} to tenant ${tenantId}`);
+    const finalPurpose = purpose || 'SMS + Calls';
+    this.logger.log(
+      `Allocating phone number SID ${sid} to tenant ${tenantId} for purpose: ${finalPurpose}`,
+    );
 
     try {
       // Verify tenant exists and is active
@@ -190,6 +195,22 @@ export class TwilioProviderManagementService {
         );
       }
 
+      // Fetch the phone number details from Twilio using the SID
+      const client = twilio(
+        systemProvider.account_sid,
+        systemProvider.auth_token,
+      );
+
+      const phoneNumberDetails = await client
+        .incomingPhoneNumbers(sid)
+        .fetch();
+
+      const phoneNumber = phoneNumberDetails.phoneNumber;
+
+      this.logger.debug(
+        `Resolved SID ${sid} to phone number ${phoneNumber}`,
+      );
+
       // Check if phone number is already allocated
       const existingConfig = await this.prisma.tenant_sms_config.findFirst({
         where: {
@@ -209,38 +230,108 @@ export class TwilioProviderManagementService {
         );
       }
 
-      // Get provider from communication_provider table
-      const provider = await this.prisma.communication_provider.findUnique({
-        where: { provider_key: 'twilio_sms' },
-      });
+      // Determine which config(s) to create based on purpose
+      const isWhatsApp = finalPurpose === 'WhatsApp';
+      const isSmsOrVoice = ['SMS Only', 'Calls Only', 'SMS + Calls'].includes(finalPurpose);
 
-      if (!provider) {
-        throw new BadRequestException(
-          'Twilio SMS provider not found in communication providers',
+      // Create appropriate configuration(s) based on purpose
+      if (isSmsOrVoice) {
+        // For SMS and/or Voice, create or update tenant_sms_config
+        // (Twilio phone numbers handle both SMS and voice on the same number)
+        const provider = await this.prisma.communication_provider.findUnique({
+          where: { provider_key: 'twilio_sms' },
+        });
+
+        if (!provider) {
+          throw new BadRequestException(
+            'Twilio SMS provider not found in communication providers',
+          );
+        }
+
+        // Use upsert to update existing config or create new one
+        await this.prisma.tenant_sms_config.upsert({
+          where: {
+            tenant_id_provider_id: {
+              tenant_id: tenantId,
+              provider_id: provider.id,
+            },
+          },
+          update: {
+            from_phone: phoneNumber,
+            credentials: systemProvider.encrypted_credentials,
+            is_active: true,
+            is_verified: true,
+            updated_at: new Date(),
+          },
+          create: {
+            id: uuidv4(),
+            tenant_id: tenantId,
+            provider_id: provider.id,
+            from_phone: phoneNumber,
+            credentials: systemProvider.encrypted_credentials,
+            is_active: true,
+            is_verified: true,
+            created_at: new Date(),
+            updated_at: new Date(),
+          },
+        });
+
+        this.logger.log(
+          `Created/Updated SMS/Voice config for ${phoneNumber} (Purpose: ${finalPurpose})`,
         );
       }
 
-      // Create tenant SMS config using system credentials
-      await this.prisma.tenant_sms_config.create({
-        data: {
-          id: uuidv4(),
-          tenant_id: tenantId,
-          provider_id: provider.id,
-          from_phone: phoneNumber,
-          credentials: systemProvider.encrypted_credentials, // Use system credentials
-          is_active: true,
-          is_verified: true, // System-allocated numbers are pre-verified
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-      });
+      if (isWhatsApp) {
+        // For WhatsApp, create or update tenant_whatsapp_config
+        const provider = await this.prisma.communication_provider.findUnique({
+          where: { provider_key: 'twilio_whatsapp' },
+        });
+
+        if (!provider) {
+          throw new BadRequestException(
+            'Twilio WhatsApp provider not found in communication providers',
+          );
+        }
+
+        // Use upsert to update existing config or create new one
+        await this.prisma.tenant_whatsapp_config.upsert({
+          where: {
+            tenant_id_provider_id: {
+              tenant_id: tenantId,
+              provider_id: provider.id,
+            },
+          },
+          update: {
+            from_phone: phoneNumber,
+            credentials: systemProvider.encrypted_credentials,
+            is_active: true,
+            is_verified: true,
+            updated_at: new Date(),
+          },
+          create: {
+            id: uuidv4(),
+            tenant_id: tenantId,
+            provider_id: provider.id,
+            from_phone: phoneNumber,
+            credentials: systemProvider.encrypted_credentials,
+            is_active: true,
+            is_verified: true,
+            created_at: new Date(),
+            updated_at: new Date(),
+          },
+        });
+
+        this.logger.log(
+          `Created/Updated WhatsApp config for ${phoneNumber}`,
+        );
+      }
 
       this.logger.log(
-        `Phone number ${phoneNumber} successfully allocated to tenant ${tenant.company_name}`,
+        `Phone number ${phoneNumber} successfully allocated to tenant ${tenant.company_name} for ${finalPurpose}`,
       );
     } catch (error) {
       this.logger.error(
-        `Failed to allocate phone number ${phoneNumber} to tenant ${tenantId}:`,
+        `Failed to allocate phone number ${sid} to tenant ${tenantId}:`,
         error.message,
       );
       throw error;
@@ -421,11 +512,22 @@ export class TwilioProviderManagementService {
         }),
       );
 
-      // Update system provider
-      await this.prisma.communication_provider.update({
+      // Update system provider (upsert to handle first-time configuration)
+      await this.prisma.communication_provider.upsert({
         where: { provider_key: this.SYSTEM_PROVIDER_KEY },
-        data: {
+        update: {
           credentials_schema: encryptedCredentials,
+          is_active: true,
+          updated_at: new Date(),
+        },
+        create: {
+          id: uuidv4(),
+          provider_key: this.SYSTEM_PROVIDER_KEY,
+          provider_name: 'Twilio System Provider',
+          provider_type: 'sms',
+          credentials_schema: encryptedCredentials,
+          is_active: true,
+          created_at: new Date(),
           updated_at: new Date(),
         },
       });
@@ -496,6 +598,146 @@ export class TwilioProviderManagementService {
         error_message: error.message,
         response_time_ms: responseTime,
       };
+    }
+  }
+
+  /**
+   * List all phone numbers owned in Twilio account
+   *
+   * Retrieves all phone numbers from Twilio API and matches them with
+   * tenant allocations from the database.
+   *
+   * @returns Promise<OwnedPhoneNumber[]> - List of owned phone numbers with allocation status
+   *
+   * @example
+   * const numbers = await service.listOwnedPhoneNumbers();
+   * // Returns all phone numbers in Twilio account with tenant allocation info
+   */
+  async listOwnedPhoneNumbers(): Promise<OwnedPhoneNumber[]> {
+    this.logger.log('Fetching all owned phone numbers from Twilio');
+
+    try {
+      // Load system provider
+      const systemProvider = await this.loadSystemProvider();
+
+      if (!systemProvider) {
+        throw new BadRequestException(
+          'System Twilio provider not configured - cannot list phone numbers',
+        );
+      }
+
+      // Create Twilio client
+      const client = twilio(
+        systemProvider.account_sid,
+        systemProvider.auth_token,
+      );
+
+      // Fetch all incoming phone numbers from Twilio
+      const twilioNumbers = await client.incomingPhoneNumbers.list();
+
+      this.logger.debug(
+        `Fetched ${twilioNumbers.length} phone numbers from Twilio`,
+      );
+
+      // Fetch all tenant SMS and WhatsApp configs to match allocations
+      const [smsConfigs, whatsappConfigs] = await Promise.all([
+        this.prisma.tenant_sms_config.findMany({
+          where: { is_active: true },
+          select: {
+            from_phone: true,
+            tenant_id: true,
+            tenant: {
+              select: {
+                id: true,
+                company_name: true,
+                subdomain: true,
+              },
+            },
+          },
+        }),
+        this.prisma.tenant_whatsapp_config.findMany({
+          where: { is_active: true },
+          select: {
+            from_phone: true,
+            tenant_id: true,
+            tenant: {
+              select: {
+                id: true,
+                company_name: true,
+                subdomain: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+      // Create lookup maps for quick matching
+      const smsAllocationMap = new Map(
+        smsConfigs.map((config) => [config.from_phone, config]),
+      );
+      const whatsappAllocationMap = new Map(
+        whatsappConfigs.map((config) => [config.from_phone, config]),
+      );
+
+      // Transform Twilio numbers and match with tenant allocations
+      const ownedNumbers: OwnedPhoneNumber[] = twilioNumbers.map((num) => {
+        const smsAllocation = smsAllocationMap.get(num.phoneNumber);
+        const whatsappAllocation = whatsappAllocationMap.get(num.phoneNumber);
+
+        // Determine allocation status
+        let allocated_to_tenant: {
+          id: string;
+          company_name: string;
+          subdomain: string;
+        } | null = null;
+        let allocated_for: string[] = [];
+
+        if (smsAllocation) {
+          allocated_to_tenant = {
+            id: smsAllocation.tenant.id,
+            company_name: smsAllocation.tenant.company_name,
+            subdomain: smsAllocation.tenant.subdomain,
+          };
+          // Twilio phone numbers handle both SMS and Voice on the same number
+          allocated_for.push('SMS', 'Voice');
+        }
+
+        if (whatsappAllocation) {
+          if (!allocated_to_tenant) {
+            allocated_to_tenant = {
+              id: whatsappAllocation.tenant.id,
+              company_name: whatsappAllocation.tenant.company_name,
+              subdomain: whatsappAllocation.tenant.subdomain,
+            };
+          }
+          allocated_for.push('WhatsApp');
+        }
+
+        return {
+          sid: num.sid,
+          phone_number: num.phoneNumber,
+          friendly_name: num.friendlyName || num.phoneNumber,
+          capabilities: {
+            voice: num.capabilities?.voice || false,
+            sms: num.capabilities?.sms || false,
+            mms: num.capabilities?.mms || false,
+          },
+          status: allocated_to_tenant ? 'allocated' : 'available',
+          allocated_to_tenant,
+          allocated_for: allocated_for.length > 0 ? allocated_for : null,
+          date_created: num.dateCreated,
+          date_updated: num.dateUpdated,
+        };
+      });
+
+      this.logger.log(
+        `Processed ${ownedNumbers.length} phone numbers (${ownedNumbers.filter((n) => n.status === 'allocated').length} allocated, ${ownedNumbers.filter((n) => n.status === 'available').length} available)`,
+      );
+
+      return ownedNumbers;
+    } catch (error) {
+      this.logger.error('Failed to list owned phone numbers:', error.message);
+      throw error;
     }
   }
 
@@ -598,6 +840,179 @@ export class TwilioProviderManagementService {
       return false;
     }
   }
+
+  /**
+   * Deallocate phone number from tenant
+   *
+   * Removes the allocation of a phone number from a tenant, making it available
+   * for allocation to another tenant. Optionally deletes the tenant's config.
+   *
+   * @param sid - Phone number SID
+   * @param deleteConfig - Whether to delete tenant's SMS/WhatsApp config
+   * @param reason - Reason for deallocation (for audit trail)
+   * @returns Promise<DeallocateResult>
+   */
+  async deallocatePhoneNumberFromTenant(
+    sid: string,
+    deleteConfig: boolean = false,
+    reason?: string,
+  ): Promise<DeallocateResult> {
+    this.logger.log(`Deallocating phone number ${sid} from tenant`);
+
+    try {
+      // Find configurations using this phone number
+      const smsConfigs = await this.prisma.tenant_sms_config.findMany({
+        where: { from_phone: { contains: sid } },
+        include: { tenant: true },
+      });
+
+      const whatsappConfigs = await this.prisma.tenant_whatsapp_config.findMany({
+        where: { from_phone: { contains: sid } },
+        include: { tenant: true },
+      });
+
+      if (smsConfigs.length === 0 && whatsappConfigs.length === 0) {
+        throw new NotFoundException(
+          `No tenant allocation found for phone number SID: ${sid}`,
+        );
+      }
+
+      let previousTenant: any = null;
+
+      // Handle deallocation
+      if (deleteConfig) {
+        // Delete configurations
+        await this.prisma.$transaction([
+          this.prisma.tenant_sms_config.deleteMany({
+            where: { from_phone: { contains: sid } },
+          }),
+          this.prisma.tenant_whatsapp_config.deleteMany({
+            where: { from_phone: { contains: sid } },
+          }),
+        ]);
+
+        previousTenant = smsConfigs[0]?.tenant || whatsappConfigs[0]?.tenant;
+        this.logger.log('Tenant configurations deleted');
+      } else {
+        // Just mark as inactive
+        await this.prisma.$transaction([
+          this.prisma.tenant_sms_config.updateMany({
+            where: { from_phone: { contains: sid } },
+            data: { is_active: false },
+          }),
+          this.prisma.tenant_whatsapp_config.updateMany({
+            where: { from_phone: { contains: sid } },
+            data: { is_active: false },
+          }),
+        ]);
+
+        previousTenant = smsConfigs[0]?.tenant || whatsappConfigs[0]?.tenant;
+        this.logger.log('Tenant configurations deactivated');
+      }
+
+      return {
+        deallocation_status: 'success',
+        phone_number_sid: sid,
+        previously_allocated_to: previousTenant?.company_name || 'Unknown',
+        status: 'available',
+        tenant_config_deleted: deleteConfig,
+        reason: reason || 'Admin deallocation',
+      };
+    } catch (error) {
+      this.logger.error('Failed to deallocate phone number:', error.message);
+      this.logger.error('Error stack:', error.stack);
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new BadRequestException('Failed to deallocate phone number from tenant');
+    }
+  }
+
+  /**
+   * Release phone number back to Twilio
+   *
+   * Releases a phone number from the Twilio account, canceling the subscription.
+   * Phone number must be deallocated from all tenants first.
+   *
+   * WARNING: This is a DESTRUCTIVE operation - phone number cannot be recovered!
+   *
+   * @param sid - Phone number SID
+   * @returns Promise<ReleaseResult>
+   */
+  async releasePhoneNumber(sid: string): Promise<ReleaseResult> {
+    this.logger.log(`Releasing phone number ${sid} back to Twilio`);
+
+    try {
+      // Check if number is still allocated to any tenant
+      const [smsCount, whatsappCount] = await Promise.all([
+        this.prisma.tenant_sms_config.count({
+          where: { from_phone: { contains: sid } },
+        }),
+        this.prisma.tenant_whatsapp_config.count({
+          where: { from_phone: { contains: sid } },
+        }),
+      ]);
+
+      if (smsCount > 0 || whatsappCount > 0) {
+        throw new ConflictException(
+          `Cannot release phone number ${sid} - still allocated to ${smsCount + whatsappCount} tenant configuration(s). Deallocate first.`,
+        );
+      }
+
+      // Load system provider to get Twilio client
+      const systemProvider = await this.loadSystemProvider();
+
+      if (!systemProvider) {
+        throw new BadRequestException(
+          'System Twilio provider not configured. Cannot release phone number.',
+        );
+      }
+
+      const twilioClient = twilio(
+        systemProvider.account_sid,
+        systemProvider.auth_token,
+      );
+
+      // Get phone number details before release
+      let phoneNumber: string | null = null;
+      try {
+        const incomingPhoneNumber = await twilioClient
+          .incomingPhoneNumbers(sid)
+          .fetch();
+        phoneNumber = incomingPhoneNumber.phoneNumber;
+      } catch (error) {
+        this.logger.warn(`Could not fetch phone number details: ${error.message}`);
+      }
+
+      // Release phone number from Twilio
+      await twilioClient.incomingPhoneNumbers(sid).remove();
+
+      this.logger.log(`Phone number ${sid} released successfully from Twilio account`);
+
+      return {
+        release_status: 'success',
+        phone_number: phoneNumber || sid,
+        released_at: new Date(),
+        final_cost_impact: '-1.00', // Typical monthly cost per number
+        message: 'Phone number released successfully. It is no longer available.',
+      };
+    } catch (error) {
+      this.logger.error('Failed to release phone number:', error.message);
+      this.logger.error('Error stack:', error.stack);
+
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+
+      if (error.code === 20404) {
+        throw new NotFoundException(`Phone number ${sid} not found in Twilio account`);
+      }
+
+      throw new BadRequestException('Failed to release phone number to Twilio');
+    }
+  }
 }
 
 /**
@@ -655,4 +1070,41 @@ export interface SystemProviderStatus {
   updated_at?: Date;
   model_b_tenant_count?: number;
   message?: string;
+}
+
+export interface OwnedPhoneNumber {
+  sid: string;
+  phone_number: string;
+  friendly_name: string;
+  capabilities: {
+    voice: boolean;
+    sms: boolean;
+    mms: boolean;
+  };
+  status: 'allocated' | 'available';
+  allocated_to_tenant: {
+    id: string;
+    company_name: string;
+    subdomain: string;
+  } | null;
+  allocated_for: string[] | null;
+  date_created: Date;
+  date_updated: Date;
+}
+
+export interface DeallocateResult {
+  deallocation_status: 'success' | 'failed';
+  phone_number_sid: string;
+  previously_allocated_to: string;
+  status: 'available';
+  tenant_config_deleted: boolean;
+  reason?: string;
+}
+
+export interface ReleaseResult {
+  release_status: 'success' | 'failed';
+  phone_number: string;
+  released_at: Date;
+  final_cost_impact: string;
+  message: string;
 }

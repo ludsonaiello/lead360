@@ -41,6 +41,14 @@ import {
   Package,
   BarChart3,
   Tags,
+  Phone,
+  Activity,
+  Clock,
+  TrendingUp,
+  DollarSign,
+  Server,
+  Mic,
+  Headset,
 } from 'lucide-react';
 import ProtectedMenuItem from '@/components/rbac/shared/ProtectedMenuItem';
 import { useAuth } from '@/contexts/AuthContext';
@@ -65,7 +73,7 @@ interface NavItem {
 interface NavGroup {
   name: string;
   icon: React.ComponentType<{ className?: string }>;
-  items: NavItem[];
+  items: (NavItem | NavGroup)[]; // Support nested groups
   permission?: string;
 }
 
@@ -132,6 +140,64 @@ const adminNavigationGroups: (NavItem | NavGroup)[] = [
       { name: 'Templates', href: '/admin/communications/templates', icon: FileText, permission: 'platform_admin:view_all_tenants' },
       { name: 'Providers', href: '/admin/communications/providers', icon: Layers, permission: 'platform_admin:view_all_tenants' },
       { name: 'Email Configuration', href: '/admin/communications/email-config', icon: Settings, permission: 'platform_admin:view_all_tenants' },
+      {
+        name: 'Twilio',
+        icon: Phone,
+        permission: 'platform_admin:view_all_tenants',
+        items: [
+          { name: 'Dashboard', href: '/admin/communications/twilio', icon: LayoutDashboard, permission: 'platform_admin:view_all_tenants' },
+          {
+            name: 'Monitoring',
+            icon: Activity,
+            permission: 'platform_admin:view_all_tenants',
+            items: [
+              { name: 'Calls', href: '/admin/communications/twilio/calls', icon: Phone, permission: 'platform_admin:view_all_tenants' },
+              { name: 'Messages', href: '/admin/communications/twilio/messages', icon: MessageSquare, permission: 'platform_admin:view_all_tenants' },
+              { name: 'Transcriptions', href: '/admin/communications/twilio/transcriptions', icon: FileText, permission: 'platform_admin:view_all_tenants' },
+            ],
+          },
+          {
+            name: 'Resources',
+            icon: Server,
+            permission: 'platform_admin:view_all_tenants',
+            items: [
+              { name: 'Phone Numbers', href: '/admin/communications/twilio/phone-numbers', icon: Phone, permission: 'platform_admin:view_all_tenants' },
+              { name: 'Webhooks', href: '/admin/communications/twilio/webhooks', icon: Webhook, permission: 'platform_admin:view_all_tenants' },
+              { name: 'Transcription Providers', href: '/admin/communications/twilio/transcription-providers', icon: Mic, permission: 'platform_admin:view_all_tenants' },
+            ],
+          },
+          {
+            name: 'Analytics',
+            icon: BarChart3,
+            permission: 'platform_admin:view_all_tenants',
+            items: [
+              { name: 'Metrics', href: '/admin/communications/twilio/metrics', icon: TrendingUp, permission: 'platform_admin:view_all_tenants' },
+              { name: 'Usage & Billing', href: '/admin/communications/twilio/usage', icon: DollarSign, permission: 'platform_admin:view_all_tenants' },
+            ],
+          },
+          {
+            name: 'Tenants',
+            icon: Building2,
+            permission: 'platform_admin:view_all_tenants',
+            items: [
+              { name: 'Configurations', href: '/admin/communications/twilio/tenants', icon: Building2, permission: 'platform_admin:view_all_tenants' },
+              { name: 'Tenant Assistance', href: '/admin/communications/twilio/tenant-assistance', icon: Headset, permission: 'platform_admin:view_all_tenants' },
+            ],
+          },
+          {
+            name: 'System',
+            icon: Cog,
+            permission: 'platform_admin:view_all_tenants',
+            items: [
+              { name: 'Health', href: '/admin/communications/twilio/health', icon: Activity, permission: 'platform_admin:view_all_tenants' },
+              { name: 'System Alerts', href: '/admin/communications/twilio/alerts', icon: Bell, permission: 'platform_admin:view_all_tenants' },
+              { name: 'Provider Settings', href: '/admin/communications/twilio/provider', icon: Cog, permission: 'platform_admin:view_all_tenants' },
+              { name: 'Cron Jobs', href: '/admin/communications/twilio/cron', icon: Clock, permission: 'platform_admin:view_all_tenants' },
+              { name: 'Bulk Operations', href: '/admin/communications/twilio/bulk-operations', icon: Server, permission: 'platform_admin:view_all_tenants' },
+            ],
+          },
+        ],
+      },
     ],
   },
   {
@@ -183,35 +249,43 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
   // Pending approvals count
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
 
+  /**
+   * Recursively find all parent groups of active items
+   */
+  const findActiveParents = (items: (NavItem | NavGroup)[], parents: string[] = []): string[] => {
+    const activeParents: string[] = [];
+
+    items.forEach(item => {
+      if ('href' in item) {
+        // If this is an active item, add all parents
+        if (pathname === item.href || pathname.startsWith(item.href + '/')) {
+          activeParents.push(...parents);
+        }
+      } else {
+        // Check nested groups recursively
+        const nestedParents = findActiveParents(item.items, [...parents, item.name]);
+        activeParents.push(...nestedParents);
+      }
+    });
+
+    return activeParents;
+  };
+
   // State for expanded groups - auto-expand based on active route
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
     const expanded = new Set<string>();
     const allGroups = [...navigation, ...adminNavigationGroups];
-    allGroups.forEach(item => {
-      if ('items' in item) {
-        const hasActiveChild = item.items.some(child =>
-          pathname === child.href || pathname.startsWith(child.href + '/')
-        );
-        if (hasActiveChild) expanded.add(item.name);
-      }
-    });
+    const activeParents = findActiveParents(allGroups);
+    activeParents.forEach(parent => expanded.add(parent));
     return expanded;
   });
 
   // Update expanded groups when pathname changes
   useEffect(() => {
-    const newExpanded = new Set(expandedGroups);
+    const newExpanded = new Set<string>();
     const allGroups = [...navigation, ...adminNavigationGroups];
-    allGroups.forEach(item => {
-      if ('items' in item) {
-        const hasActiveChild = item.items.some(child =>
-          pathname === child.href || pathname.startsWith(child.href + '/')
-        );
-        if (hasActiveChild) {
-          newExpanded.add(item.name);
-        }
-      }
-    });
+    const activeParents = findActiveParents(allGroups);
+    activeParents.forEach(parent => newExpanded.add(parent));
     setExpandedGroups(newExpanded);
   }, [pathname]);
 
@@ -318,9 +392,22 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
   };
 
   /**
+   * Check if a group has any active child (recursively)
+   */
+  const hasActiveChildRecursive = (items: (NavItem | NavGroup)[]): boolean => {
+    return items.some(child => {
+      if ('href' in child) {
+        return pathname === child.href || pathname.startsWith(child.href + '/');
+      } else {
+        return hasActiveChildRecursive(child.items);
+      }
+    });
+  };
+
+  /**
    * Render a navigation group (expandable) or single item
    */
-  const renderNavItemOrGroup = (item: NavItem | NavGroup, collapsed: boolean = false) => {
+  const renderNavItemOrGroup = (item: NavItem | NavGroup, collapsed: boolean = false, depth: number = 0) => {
     // If it's a single NavItem
     if ('href' in item) {
       return renderNavItem(item, collapsed);
@@ -329,9 +416,7 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
     // It's a NavGroup - expandable section
     const group = item as NavGroup;
     const isExpanded = expandedGroups.has(group.name);
-    const hasActiveChild = group.items.some(child =>
-      pathname === child.href || pathname.startsWith(child.href + '/')
-    );
+    const hasActiveChild = hasActiveChildRecursive(group.items);
     const Icon = group.icon;
 
     const groupContent = (
@@ -368,10 +453,10 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
           )}
         </button>
 
-        {/* Group items - shown when expanded */}
+        {/* Group items - shown when expanded (recursive rendering for nested groups) */}
         {!collapsed && isExpanded && (
           <ul className="mt-1 ml-4 space-y-1">
-            {group.items.map((childItem) => renderNavItem(childItem, false))}
+            {group.items.map((childItem) => renderNavItemOrGroup(childItem, false, depth + 1))}
           </ul>
         )}
       </div>
@@ -391,7 +476,7 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
   /**
    * Render navigation for mobile (never collapsed, with onClose handler)
    */
-  const renderNavItemOrGroupMobile = (item: NavItem | NavGroup) => {
+  const renderNavItemOrGroupMobile = (item: NavItem | NavGroup, depth: number = 0) => {
     // If it's a single NavItem
     if ('href' in item) {
       const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
@@ -445,9 +530,7 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
     // It's a NavGroup - expandable section
     const group = item as NavGroup;
     const isExpanded = expandedGroups.has(group.name);
-    const hasActiveChild = group.items.some(child =>
-      pathname === child.href || pathname.startsWith(child.href + '/')
-    );
+    const hasActiveChild = hasActiveChildRecursive(group.items);
     const Icon = group.icon;
 
     const groupContent = (
@@ -480,57 +563,10 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
           )}
         </button>
 
-        {/* Group items - shown when expanded */}
+        {/* Group items - shown when expanded (recursive rendering) */}
         {isExpanded && (
           <ul className="mt-1 ml-4 space-y-1">
-            {group.items.map((childItem) => {
-              const isActive = pathname === childItem.href || pathname.startsWith(childItem.href + '/');
-              const ChildIcon = childItem.icon;
-
-              // Get badge count for Approvals menu item (hide for Admin users)
-              const isAdminRole = user?.roles?.some((role: any) => role.name === 'Admin') || false;
-              const badgeCount = (childItem.href === '/approvals' && !isAdminRole) ? pendingApprovalsCount : 0;
-
-              const linkContent = (
-                <Link
-                  href={childItem.href}
-                  onClick={onClose}
-                  className={`
-                    group flex gap-x-3 rounded-lg p-3 text-sm font-semibold leading-6
-                    transition-all duration-200 justify-between
-                    ${
-                      isActive
-                        ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-brand-600 dark:hover:text-brand-400'
-                    }
-                  `}
-                >
-                  <div className="flex items-center gap-x-3">
-                    <ChildIcon
-                      className={`h-6 w-6 shrink-0 ${
-                        isActive ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-brand-600 dark:group-hover:text-brand-400'
-                      }`}
-                    />
-                    {childItem.name}
-                  </div>
-                  {badgeCount > 0 && (
-                    <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
-                      {badgeCount}
-                    </span>
-                  )}
-                </Link>
-              );
-
-              if (childItem.permission) {
-                return (
-                  <ProtectedMenuItem key={childItem.name} requiredPermission={childItem.permission}>
-                    {linkContent}
-                  </ProtectedMenuItem>
-                );
-              }
-
-              return <li key={childItem.name}>{linkContent}</li>;
-            })}
+            {group.items.map((childItem) => renderNavItemOrGroupMobile(childItem, depth + 1))}
           </ul>
         )}
       </div>

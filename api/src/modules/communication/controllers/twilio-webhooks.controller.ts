@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiExcludeEndpoint } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { Public } from '../../auth/decorators';
 import { CallManagementService } from '../services/call-management.service';
 import { LeadMatchingService } from '../services/lead-matching.service';
 import { IvrConfigurationService } from '../services/ivr-configuration.service';
@@ -40,14 +41,14 @@ import { EncryptionService } from '../../../core/encryption/encryption.service';
  *
  * @example
  * Webhook URLs configured in Twilio:
- * - https://tenant123.lead360.app/api/twilio/sms/inbound
- * - https://tenant123.lead360.app/api/twilio/call/inbound
- * - https://tenant123.lead360.app/api/twilio/call/status
- * - https://tenant123.lead360.app/api/twilio/recording/ready
- * - https://tenant123.lead360.app/api/twilio/ivr/input
+ * - https://tenant123.lead360.app/api/v1/twilio/sms/inbound
+ * - https://tenant123.lead360.app/api/v1/twilio/call/inbound
+ * - https://tenant123.lead360.app/api/v1/twilio/call/status
+ * - https://tenant123.lead360.app/api/v1/twilio/recording/ready
+ * - https://tenant123.lead360.app/api/v1/twilio/ivr/input
  */
 @ApiTags('Twilio Webhooks (Public)')
-@Controller('api/twilio')
+@Controller('twilio')
 export class TwilioWebhooksController {
   private readonly logger = new Logger(TwilioWebhooksController.name);
 
@@ -81,6 +82,7 @@ export class TwilioWebhooksController {
    * @returns Empty response (200 OK)
    */
   @Post('sms/inbound')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Receive inbound SMS from Twilio' })
   @ApiResponse({ status: 200, description: 'SMS processed successfully' })
@@ -156,6 +158,7 @@ export class TwilioWebhooksController {
    * @returns TwiML XML response
    */
   @Post('call/inbound')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Receive inbound call from Twilio' })
   @ApiResponse({ status: 200, description: 'TwiML response returned' })
@@ -208,6 +211,7 @@ export class TwilioWebhooksController {
    * @returns Empty response
    */
   @Post('call/status')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Receive call status updates from Twilio' })
   @ApiResponse({ status: 200, description: 'Status update processed' })
@@ -273,6 +277,77 @@ export class TwilioWebhooksController {
   }
 
   /**
+   * SMS Status Callback Webhook
+   *
+   * Receives status updates for outbound SMS messages sent via Twilio.
+   * Updates communication_event records with delivery status.
+   *
+   * Twilio Payload:
+   * - MessageSid: Unique message identifier
+   * - MessageStatus: Status (queued, sent, delivered, failed, undelivered)
+   * - ErrorCode: Error code if failed
+   * - ErrorMessage: Error message if failed
+   *
+   * @param body - Twilio SMS status webhook payload
+   * @param signature - Twilio signature header
+   * @param request - Express request object
+   * @returns Empty response
+   */
+  @Post('sms/status')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Receive SMS status updates from Twilio' })
+  @ApiResponse({ status: 200, description: 'Status update processed' })
+  @ApiExcludeEndpoint()
+  async handleSmsStatus(
+    @Body() body: any,
+    @Headers('x-twilio-signature') signature: string,
+    @Req() request: Request,
+  ) {
+    const { MessageSid, MessageStatus, ErrorCode, ErrorMessage } = body;
+
+    this.logger.log(`SMS status webhook: ${MessageSid} - ${MessageStatus}`);
+
+    // Extract tenant
+    const tenantId = await this.resolveTenantFromSubdomain(request);
+
+    // Verify signature
+    const authToken = await this.getTenantTwilioAuthToken(tenantId);
+    const url = this.buildWebhookUrl(request);
+
+    if (!this.webhookVerification.verifyTwilio(url, body, signature, authToken)) {
+      this.logger.error('❌ Invalid Twilio signature for SMS status webhook');
+      throw new UnauthorizedException('Invalid Twilio signature');
+    }
+
+    // Update communication event status
+    const updateData: any = {
+      status: MessageStatus,
+      updated_at: new Date(),
+    };
+
+    if (MessageStatus === 'delivered') {
+      updateData.delivered_at = new Date();
+    } else if (MessageStatus === 'sent') {
+      updateData.sent_at = new Date();
+    } else if (MessageStatus === 'failed' || MessageStatus === 'undelivered') {
+      updateData.error_message = ErrorMessage || `Error code: ${ErrorCode}`;
+    }
+
+    await this.prisma.communication_event.updateMany({
+      where: {
+        tenant_id: tenantId,
+        provider_message_id: MessageSid,
+      },
+      data: updateData,
+    });
+
+    this.logger.log(`✅ SMS status updated: ${MessageSid} -> ${MessageStatus}`);
+
+    return {};
+  }
+
+  /**
    * Recording Ready Webhook
    *
    * Receives notification when call recording is available. Downloads
@@ -291,6 +366,7 @@ export class TwilioWebhooksController {
    * @returns Empty response
    */
   @Post('recording/ready')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Receive recording ready notification from Twilio' })
   @ApiResponse({ status: 200, description: 'Recording processed' })
@@ -348,6 +424,7 @@ export class TwilioWebhooksController {
    * @returns TwiML XML response
    */
   @Post('ivr/input')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Receive IVR DTMF input from Twilio' })
   @ApiResponse({ status: 200, description: 'TwiML response returned' })
@@ -383,6 +460,155 @@ export class TwilioWebhooksController {
   }
 
   /**
+   * WhatsApp Inbound Webhook
+   *
+   * Receives incoming WhatsApp messages from Twilio.
+   *
+   * Twilio sends:
+   * - MessageSid: Unique message identifier
+   * - From: Sender's WhatsApp number (whatsapp:+1234567890)
+   * - To: Recipient's WhatsApp number
+   * - Body: Message content
+   * - NumMedia: Number of media attachments
+   * - MediaUrl0, MediaContentType0: Media attachments
+   *
+   * Response: Empty TwiML (no automatic reply)
+   *
+   * @public No JWT required - Twilio signature verification only
+   */
+  @Post('whatsapp/inbound')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Receive incoming WhatsApp messages from Twilio' })
+  @ApiExcludeEndpoint()
+  async handleWhatsAppInbound(
+    @Body() body: any,
+    @Headers('x-twilio-signature') signature: string,
+    @Req() request: Request,
+  ) {
+    const { MessageSid, From, To, Body: messageBody } = body;
+
+    this.logger.log(
+      `WhatsApp inbound webhook: ${MessageSid} from ${From} to ${To}`,
+    );
+
+    // Resolve tenant from subdomain
+    const tenantId = await this.resolveTenantFromSubdomain(request);
+
+    // Get tenant's Twilio auth token for signature verification
+    const authToken = await this.getTenantTwilioAuthToken(tenantId);
+
+    // Build full webhook URL for signature verification
+    const url = this.buildWebhookUrl(request);
+
+    // Verify Twilio signature
+    if (
+      !this.webhookVerification.verifyTwilio(url, body, signature, authToken)
+    ) {
+      throw new UnauthorizedException('Invalid Twilio signature');
+    }
+
+    this.logger.log(
+      `✅ WhatsApp inbound message received: ${MessageSid} - "${messageBody?.substring(0, 50) || '(no text)'}"`,
+    );
+
+    // TODO: Implement WhatsApp inbound message handling
+    // For now, just log and return empty response
+    // Future: Create communication_event record, trigger auto-responses, etc.
+
+    // Return empty response (no automatic reply)
+    return {};
+  }
+
+  /**
+   * WhatsApp Status Webhook
+   *
+   * Receives status updates for outbound WhatsApp messages from Twilio.
+   *
+   * Status values:
+   * - queued: Message accepted by Twilio
+   * - sent: Message sent to WhatsApp
+   * - delivered: Message delivered to recipient
+   * - read: Message read by recipient
+   * - failed: Message failed to send
+   * - undelivered: Message could not be delivered
+   *
+   * Updates communication_event record with delivery status.
+   *
+   * @public No JWT required - Twilio signature verification only
+   */
+  @Post('whatsapp/status')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Receive WhatsApp status updates from Twilio',
+  })
+  @ApiExcludeEndpoint()
+  async handleWhatsAppStatus(
+    @Body() body: any,
+    @Headers('x-twilio-signature') signature: string,
+    @Req() request: Request,
+  ) {
+    const { MessageSid, MessageStatus, ErrorCode, ErrorMessage } = body;
+
+    this.logger.log(
+      `WhatsApp status webhook: ${MessageSid} - ${MessageStatus}`,
+    );
+
+    // Resolve tenant from subdomain
+    const tenantId = await this.resolveTenantFromSubdomain(request);
+
+    // Get tenant's Twilio auth token for signature verification
+    const authToken = await this.getTenantTwilioAuthToken(tenantId);
+
+    // Build full webhook URL for signature verification
+    const url = this.buildWebhookUrl(request);
+
+    // Verify Twilio signature
+    if (
+      !this.webhookVerification.verifyTwilio(url, body, signature, authToken)
+    ) {
+      throw new UnauthorizedException('Invalid Twilio signature');
+    }
+
+    // Build update data based on status
+    const updateData: any = {
+      status: MessageStatus,
+      updated_at: new Date(),
+    };
+
+    if (MessageStatus === 'delivered') {
+      updateData.delivered_at = new Date();
+    } else if (MessageStatus === 'sent') {
+      updateData.sent_at = new Date();
+    } else if (MessageStatus === 'read') {
+      updateData.read_at = new Date();
+    } else if (
+      MessageStatus === 'failed' ||
+      MessageStatus === 'undelivered'
+    ) {
+      updateData.error_message =
+        ErrorMessage || `Error code: ${ErrorCode}`;
+    }
+
+    // Update communication event
+    await this.prisma.communication_event.updateMany({
+      where: {
+        tenant_id: tenantId,
+        provider_message_id: MessageSid,
+      },
+      data: updateData,
+    });
+
+    this.logger.log(
+      `✅ WhatsApp status updated: ${MessageSid} -> ${MessageStatus}`,
+    );
+
+    // Return empty response
+    return {};
+  }
+
+  /**
    * Helper: Resolve tenant from subdomain
    *
    * Extracts subdomain from request hostname and looks up tenant.
@@ -390,6 +616,7 @@ export class TwilioWebhooksController {
    * Examples:
    * - tenant123.lead360.app -> tenant123
    * - localhost -> default/test tenant
+   * - api.lead360.app -> first active tenant (system/admin requests)
    *
    * @param request - Express request object
    * @returns Tenant ID
@@ -407,15 +634,25 @@ export class TwilioWebhooksController {
 
     this.logger.debug(`Extracted subdomain: ${subdomain}`);
 
-    // Handle localhost/development
-    if (subdomain === 'localhost' || subdomain === '127') {
-      this.logger.warn('Development mode: Using first active tenant');
+    // Handle localhost/development or system subdomains (api, app, admin)
+    if (
+      subdomain === 'localhost' ||
+      subdomain === '127' ||
+      subdomain === 'api' ||
+      subdomain === 'app' ||
+      subdomain === 'admin'
+    ) {
+      this.logger.warn(
+        `System/development subdomain detected (${subdomain}): Using first active tenant`,
+      );
       const tenant = await this.prisma.tenant.findFirst({
         where: { is_active: true },
       });
 
       if (!tenant) {
-        throw new BadRequestException('No active tenant found for development');
+        throw new BadRequestException(
+          'No active tenant found for system request',
+        );
       }
 
       return tenant.id;

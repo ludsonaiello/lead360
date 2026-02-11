@@ -6,6 +6,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from '../../core/database/prisma.module';
 import { EncryptionModule } from '../../core/encryption/encryption.module';
 import { FilesModule } from '../files/files.module';
+import { AuditModule } from '../audit/audit.module';
 
 // Services
 import { JsonSchemaValidatorService } from './services/json-schema-validator.service';
@@ -37,6 +38,14 @@ import { TwilioUsageTrackingService } from './services/admin/twilio-usage-tracki
 import { TwilioHealthMonitorService } from './services/admin/twilio-health-monitor.service';
 import { TwilioProviderManagementService } from './services/admin/twilio-provider-management.service';
 import { DynamicCronManagerService } from './services/admin/dynamic-cron-manager.service';
+
+// Admin Services (Sprint 11)
+import { WebhookManagementService } from './services/admin/webhook-management.service';
+import { AlertManagementService } from './services/admin/alert-management.service';
+import { TranscriptionProviderManagementService } from './services/admin/transcription-provider-management.service';
+import { TenantAssistanceService } from './services/admin/tenant-assistance.service';
+import { BulkOperationsService } from './services/admin/bulk-operations.service';
+import { CommunicationEventManagementService } from './services/admin/communication-event-management.service';
 
 // Schedulers (Sprint 8)
 import { TwilioUsageSyncScheduler } from './schedulers/twilio-usage-sync.scheduler';
@@ -115,6 +124,7 @@ import { TranscriptionJobProcessor } from './processors/transcription-job.proces
     PrismaModule,
     EncryptionModule,
     FilesModule,
+    AuditModule,
 
     // Rate limiting configuration
     ThrottlerModule.forRoot([
@@ -231,6 +241,14 @@ import { TranscriptionJobProcessor } from './processors/transcription-job.proces
     TwilioProviderManagementService,
     DynamicCronManagerService,
 
+    // Admin Services (Sprint 11)
+    WebhookManagementService,
+    AlertManagementService,
+    TranscriptionProviderManagementService,
+    TenantAssistanceService,
+    BulkOperationsService,
+    CommunicationEventManagementService,
+
     // Schedulers (Sprint 8) - Now managed by DynamicCronManagerService
     TwilioUsageSyncScheduler,
     TwilioHealthCheckScheduler,
@@ -272,6 +290,13 @@ import { TranscriptionJobProcessor } from './processors/transcription-job.proces
     TwilioHealthMonitorService,
     TwilioProviderManagementService,
     DynamicCronManagerService,
+    // Admin Services (Sprint 11)
+    WebhookManagementService,
+    AlertManagementService,
+    TranscriptionProviderManagementService,
+    TenantAssistanceService,
+    BulkOperationsService,
+    CommunicationEventManagementService,
   ],
 })
 export class CommunicationModule {}

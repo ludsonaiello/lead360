@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../core/database/prisma.service';
+import { EncryptionService } from '../../../../core/encryption/encryption.service';
 import twilio from 'twilio';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -51,7 +52,10 @@ export class TwilioHealthMonitorService {
     // > 3 seconds = potential DOWN
   };
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly encryptionService: EncryptionService,
+  ) {}
 
   /**
    * Test Twilio API connectivity for a specific tenant
@@ -74,38 +78,74 @@ export class TwilioHealthMonitorService {
     this.logger.debug(`Testing Twilio connectivity for tenant ${tenantId}`);
 
     try {
-      // Load tenant's active SMS configuration
-      const config = await this.prisma.tenant_sms_config.findFirst({
-        where: tenantId === 'system'
-          ? { is_active: true } // System check: find any active config
-          : { tenant_id: tenantId, is_active: true }, // Specific tenant
-      });
+      let account_sid: string;
+      let auth_token: string;
 
-      if (!config) {
-        const responseTime = Date.now() - startTime;
-
-        // Record health check failure
-        await this.recordHealthCheck({
-          check_type: 'twilio_api',
-          status: 'DOWN',
-          response_time_ms: responseTime,
-          error_message:
-            tenantId === 'system'
-              ? 'No active SMS configuration found'
-              : `No active SMS configuration for tenant ${tenantId}`,
-          details: { tenant_id: tenantId },
+      if (tenantId === 'system') {
+        // System-level check: Load system provider from communication_provider table
+        const systemProvider = await this.prisma.communication_provider.findFirst({
+          where: {
+            provider_key: 'twilio_system',
+            is_active: true,
+          },
         });
 
-        return {
-          status: 'DOWN',
-          error_message: 'No active SMS configuration',
-          response_time_ms: responseTime,
-        };
-      }
+        if (!systemProvider) {
+          const responseTime = Date.now() - startTime;
 
-      // Decrypt credentials
-      const credentials = JSON.parse(config.credentials as string);
-      const { account_sid, auth_token } = credentials;
+          // Record health check failure
+          await this.recordHealthCheck({
+            check_type: 'twilio_api',
+            status: 'DOWN',
+            response_time_ms: responseTime,
+            error_message: 'System Twilio provider not configured',
+            details: { tenant_id: tenantId },
+          });
+
+          return {
+            status: 'DOWN',
+            error_message: 'System Twilio provider not configured',
+            response_time_ms: responseTime,
+          };
+        }
+
+        // Decrypt system provider credentials
+        const credentialsJson = await this.encryptionService.decrypt(
+          systemProvider.credentials_schema as string,
+        );
+        const credentials = JSON.parse(credentialsJson);
+        account_sid = credentials.account_sid;
+        auth_token = credentials.auth_token;
+      } else {
+        // Tenant-level check: Load tenant SMS config
+        const config = await this.prisma.tenant_sms_config.findFirst({
+          where: { tenant_id: tenantId, is_active: true },
+        });
+
+        if (!config) {
+          const responseTime = Date.now() - startTime;
+
+          // Record health check failure
+          await this.recordHealthCheck({
+            check_type: 'twilio_api',
+            status: 'DOWN',
+            response_time_ms: responseTime,
+            error_message: `No active SMS configuration for tenant ${tenantId}`,
+            details: { tenant_id: tenantId },
+          });
+
+          return {
+            status: 'DOWN',
+            error_message: 'No active SMS configuration',
+            response_time_ms: responseTime,
+          };
+        }
+
+        // Decrypt tenant credentials
+        const credentials = JSON.parse(config.credentials as string);
+        account_sid = credentials.account_sid;
+        auth_token = credentials.auth_token;
+      }
 
       // Test Twilio API by fetching account info
       const client = twilio(account_sid, auth_token);

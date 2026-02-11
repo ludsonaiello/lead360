@@ -114,11 +114,6 @@ export class TwilioAdminService {
               },
             },
             lead: {
-              select: {
-                id: true,
-                first_name: true,
-                last_name: true,
-              },
               include: {
                 phones: {
                   where: { is_primary: true },
@@ -316,6 +311,7 @@ export class TwilioAdminService {
             tenant_id: true,
             from_phone: true,
             is_verified: true,
+            is_active: true,
             created_at: true,
             updated_at: true,
             tenant: {
@@ -324,6 +320,13 @@ export class TwilioAdminService {
                 company_name: true,
                 subdomain: true,
                 is_active: true,
+              },
+            },
+            provider: {
+              select: {
+                id: true,
+                provider_name: true,
+                provider_type: true,
               },
             },
           },
@@ -338,6 +341,7 @@ export class TwilioAdminService {
             tenant_id: true,
             from_phone: true,
             is_verified: true,
+            is_active: true,
             created_at: true,
             updated_at: true,
             tenant: {
@@ -346,6 +350,13 @@ export class TwilioAdminService {
                 company_name: true,
                 subdomain: true,
                 is_active: true,
+              },
+            },
+            provider: {
+              select: {
+                id: true,
+                provider_name: true,
+                provider_type: true,
               },
             },
           },
@@ -384,20 +395,55 @@ export class TwilioAdminService {
         `Fetched configurations: ${smsConfigs.length} SMS, ${whatsappConfigs.length} WhatsApp, ${ivrConfigs.length} IVR`,
       );
 
+      // Calculate aggregates
+      const uniqueTenantIds = new Set<string>();
+      smsConfigs.forEach(c => uniqueTenantIds.add(c.tenant_id));
+      whatsappConfigs.forEach(c => uniqueTenantIds.add(c.tenant_id));
+      ivrConfigs.forEach(c => uniqueTenantIds.add(c.tenant_id));
+
+      const total_tenants = uniqueTenantIds.size;
+      const total_configs = smsConfigs.length + whatsappConfigs.length + ivrConfigs.length;
+
+      // Compute is_primary for SMS configs (oldest per tenant = primary)
+      const smsPrimaryMap = new Map<string, string>();
+      smsConfigs.forEach(config => {
+        const existing = smsPrimaryMap.get(config.tenant_id);
+        if (!existing || new Date(config.created_at) < new Date(smsConfigs.find(c => c.id === existing)!.created_at)) {
+          smsPrimaryMap.set(config.tenant_id, config.id);
+        }
+      });
+
+      // Compute is_primary for WhatsApp configs (oldest per tenant = primary)
+      const whatsappPrimaryMap = new Map<string, string>();
+      whatsappConfigs.forEach(config => {
+        const existing = whatsappPrimaryMap.get(config.tenant_id);
+        if (!existing || new Date(config.created_at) < new Date(whatsappConfigs.find(c => c.id === existing)!.created_at)) {
+          whatsappPrimaryMap.set(config.tenant_id, config.id);
+        }
+      });
+
       return {
         sms_configs: smsConfigs.map((config) => ({
           id: config.id,
           tenant: config.tenant,
           from_phone: config.from_phone,
           is_verified: config.is_verified,
+          is_active: config.is_active,
+          provider_type: config.provider.provider_type,
+          is_primary: smsPrimaryMap.get(config.tenant_id) === config.id,
           created_at: config.created_at,
+          updated_at: config.updated_at,
         })),
         whatsapp_configs: whatsappConfigs.map((config) => ({
           id: config.id,
           tenant: config.tenant,
           from_phone: config.from_phone,
           is_verified: config.is_verified,
+          is_active: config.is_active,
+          provider_type: config.provider.provider_type,
+          is_primary: whatsappPrimaryMap.get(config.tenant_id) === config.id,
           created_at: config.created_at,
+          updated_at: config.updated_at,
         })),
         ivr_configs: ivrConfigs.map((config) => ({
           id: config.id,
@@ -411,6 +457,8 @@ export class TwilioAdminService {
           status: config.status,
           created_at: config.created_at,
         })),
+        total_tenants,
+        total_configs,
       };
     } catch (error) {
       this.logger.error('Failed to fetch tenant configurations:', error.message);
@@ -433,132 +481,145 @@ export class TwilioAdminService {
     this.logger.debug(`Generating metrics for tenant ${tenantId}`);
 
     try {
+      // Fetch tenant information
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: {
+          id: true,
+          company_name: true,
+          subdomain: true,
+        },
+      });
+
+      if (!tenant) {
+        throw new NotFoundException(`Tenant ${tenantId} not found`);
+      }
+
       // Execute all metric queries in parallel
       const [
-        callsCount,
-        smsCount,
-        whatsappCount,
-        avgCallDuration,
-        failedTranscriptions,
-        totalTranscriptions,
-        last7DaysCalls,
-        last30DaysCalls,
-        last7DaysSms,
-        last30DaysSms,
+        callsTotal,
+        callsInbound,
+        callsOutbound,
+        callsCompleted,
+        callsFailed,
+        callsDurationStats,
+        smsTotal,
+        smsInbound,
+        smsOutbound,
+        smsDelivered,
+        smsFailed,
+        whatsappTotal,
+        whatsappInbound,
+        whatsappOutbound,
+        whatsappDelivered,
+        whatsappFailed,
+        transcriptionsTotal,
+        transcriptionsCompleted,
+        transcriptionsFailed,
+        transcriptionsProcessingTime,
+        callsCost,
+        transcriptionsCost,
       ] = await Promise.all([
-        // Total calls
-        this.prisma.call_record.count({
-          where: { tenant_id: tenantId },
-        }),
-
-        // Total SMS
-        this.prisma.communication_event.count({
-          where: {
-            tenant_id: tenantId,
-            channel: 'sms',
-          },
-        }),
-
-        // Total WhatsApp
-        this.prisma.communication_event.count({
-          where: {
-            tenant_id: tenantId,
-            channel: 'whatsapp',
-          },
-        }),
-
-        // Average call duration
+        // Calls
+        this.prisma.call_record.count({ where: { tenant_id: tenantId } }),
+        this.prisma.call_record.count({ where: { tenant_id: tenantId, direction: 'inbound' } }),
+        this.prisma.call_record.count({ where: { tenant_id: tenantId, direction: 'outbound' } }),
+        this.prisma.call_record.count({ where: { tenant_id: tenantId, status: 'completed' } }),
+        this.prisma.call_record.count({ where: { tenant_id: tenantId, status: 'failed' } }),
         this.prisma.call_record.aggregate({
-          where: {
-            tenant_id: tenantId,
-            status: 'completed',
-          },
-          _avg: {
-            recording_duration_seconds: true,
-          },
+          where: { tenant_id: tenantId, status: 'completed' },
+          _avg: { recording_duration_seconds: true },
+          _sum: { recording_duration_seconds: true },
         }),
 
-        // Failed transcriptions
-        this.prisma.call_transcription.count({
-          where: {
-            tenant_id: tenantId,
-            status: 'failed',
-          },
+        // SMS
+        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'sms' } }),
+        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'sms', direction: 'inbound' } }),
+        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'sms', direction: 'outbound' } }),
+        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'sms', status: 'delivered' } }),
+        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'sms', status: 'failed' } }),
+
+        // WhatsApp
+        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'whatsapp' } }),
+        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'whatsapp', direction: 'inbound' } }),
+        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'whatsapp', direction: 'outbound' } }),
+        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'whatsapp', status: 'delivered' } }),
+        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'whatsapp', status: 'failed' } }),
+
+        // Transcriptions
+        this.prisma.call_transcription.count({ where: { tenant_id: tenantId } }),
+        this.prisma.call_transcription.count({ where: { tenant_id: tenantId, status: 'completed' } }),
+        this.prisma.call_transcription.count({ where: { tenant_id: tenantId, status: 'failed' } }),
+        this.prisma.call_transcription.aggregate({
+          where: { tenant_id: tenantId, status: 'completed' },
+          _avg: { processing_duration_seconds: true },
         }),
 
-        // Total transcriptions
-        this.prisma.call_transcription.count({
+        // Costs (SMS/WhatsApp don't have cost tracking in communication_event table)
+        this.prisma.call_record.aggregate({
           where: { tenant_id: tenantId },
+          _sum: { cost: true },
         }),
-
-        // Last 7 days calls
-        this.prisma.call_record.count({
-          where: {
-            tenant_id: tenantId,
-            created_at: {
-              gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-            },
-          },
-        }),
-
-        // Last 30 days calls
-        this.prisma.call_record.count({
-          where: {
-            tenant_id: tenantId,
-            created_at: {
-              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-            },
-          },
-        }),
-
-        // Last 7 days SMS
-        this.prisma.communication_event.count({
-          where: {
-            tenant_id: tenantId,
-            channel: 'sms',
-            created_at: {
-              gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-            },
-          },
-        }),
-
-        // Last 30 days SMS
-        this.prisma.communication_event.count({
-          where: {
-            tenant_id: tenantId,
-            channel: 'sms',
-            created_at: {
-              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-            },
-          },
+        this.prisma.call_transcription.aggregate({
+          where: { tenant_id: tenantId },
+          _sum: { cost: true },
         }),
       ]);
 
+      // Calculate totals (SMS and WhatsApp costs estimated at $0.0075 per message)
+      const totalCallsCost = Number(callsCost._sum.cost || 0);
+      const totalSmsCost = smsTotal * 0.0075; // Estimated at $0.0075 per SMS
+      const totalWhatsappCost = whatsappTotal * 0.0075; // Estimated at $0.0075 per WhatsApp message
+      const totalTranscriptionsCost = Number(transcriptionsCost._sum.cost || 0);
+      const totalCost = totalCallsCost + totalSmsCost + totalWhatsappCost + totalTranscriptionsCost;
+
       const metrics: TenantMetrics = {
-        tenant_id: tenantId,
-        total_calls: callsCount,
-        total_sms: smsCount,
-        total_whatsapp: whatsappCount,
-        avg_call_duration_seconds: Math.round(
-          avgCallDuration._avg.recording_duration_seconds || 0,
-        ),
-        failed_transcriptions: failedTranscriptions,
-        total_transcriptions: totalTranscriptions,
-        transcription_success_rate:
-          totalTranscriptions > 0
-            ? (
-                ((totalTranscriptions - failedTranscriptions) /
-                  totalTranscriptions) *
-                100
-              ).toFixed(2)
-            : '0.00',
-        activity_last_7_days: {
-          calls: last7DaysCalls,
-          sms: last7DaysSms,
+        tenant: {
+          id: tenant.id,
+          company_name: tenant.company_name,
+          subdomain: tenant.subdomain,
         },
-        activity_last_30_days: {
-          calls: last30DaysCalls,
-          sms: last30DaysSms,
+        period: 'all_time',
+        calls: {
+          total: callsTotal,
+          inbound: callsInbound,
+          outbound: callsOutbound,
+          completed: callsCompleted,
+          failed: callsFailed,
+          average_duration_seconds: Math.round(callsDurationStats._avg.recording_duration_seconds || 0),
+          total_duration_minutes: Math.round((callsDurationStats._sum.recording_duration_seconds || 0) / 60),
+        },
+        sms: {
+          total: smsTotal,
+          inbound: smsInbound,
+          outbound: smsOutbound,
+          delivered: smsDelivered,
+          failed: smsFailed,
+        },
+        whatsapp: {
+          total: whatsappTotal,
+          inbound: whatsappInbound,
+          outbound: whatsappOutbound,
+          delivered: whatsappDelivered,
+          failed: whatsappFailed,
+        },
+        transcriptions: {
+          total: transcriptionsTotal,
+          completed: transcriptionsCompleted,
+          failed: transcriptionsFailed,
+          success_rate: transcriptionsTotal > 0
+            ? `${((transcriptionsCompleted / transcriptionsTotal) * 100).toFixed(2)}%`
+            : '0.00%',
+          average_processing_time_seconds: Number((transcriptionsProcessingTime._avg.processing_duration_seconds || 0).toFixed(1)),
+        },
+        costs: {
+          estimated_monthly: `$${totalCost.toFixed(2)}`,
+          breakdown: {
+            calls: `$${totalCallsCost.toFixed(2)}`,
+            sms: `$${totalSmsCost.toFixed(2)}`,
+            whatsapp: `$${totalWhatsappCost.toFixed(2)}`,
+            transcriptions: `$${totalTranscriptionsCost.toFixed(2)}`,
+          },
         },
       };
 
@@ -701,11 +762,6 @@ export class TwilioAdminService {
                 },
               },
               lead: {
-                select: {
-                  id: true,
-                  first_name: true,
-                  last_name: true,
-                },
                 include: {
                   phones: {
                     where: { is_primary: true },
@@ -829,7 +885,7 @@ export class TwilioAdminService {
    * @param limit - Number of top tenants to return (default: 10)
    * @returns Promise<TopTenant[]> - Top tenants by volume
    */
-  async getTopTenantsByVolume(limit: number = 10): Promise<TopTenant[]> {
+  async getTopTenantsByVolume(limit: number = 10): Promise<TopTenantsReport> {
     this.logger.debug(`Fetching top ${limit} tenants by communication volume`);
 
     try {
@@ -850,9 +906,9 @@ export class TwilioAdminService {
         take: limit,
       });
 
-      // Fetch tenant details
-      const topTenants: TopTenant[] = await Promise.all(
-        callStats.map(async (stat) => {
+      // Fetch tenant details with WhatsApp counts
+      const topTenantsData: TopTenant[] = await Promise.all(
+        callStats.map(async (stat, index) => {
           const tenant = await this.prisma.tenant.findUnique({
             where: { id: stat.tenant_id! },
             select: {
@@ -870,23 +926,38 @@ export class TwilioAdminService {
             },
           });
 
+          // Get WhatsApp count for this tenant
+          const whatsappCount = await this.prisma.communication_event.count({
+            where: {
+              tenant_id: stat.tenant_id,
+              channel: 'whatsapp',
+            },
+          });
+
           return {
-            tenant: tenant!,
-            total_calls: stat._count.id,
-            total_sms: smsCount,
-            total_communications: stat._count.id + smsCount,
+            tenant_id: tenant!.id,
+            tenant_name: tenant!.company_name,
+            subdomain: tenant!.subdomain,
+            total_communications: stat._count.id + smsCount + whatsappCount,
+            calls: stat._count.id,
+            sms: smsCount,
+            whatsapp: whatsappCount,
+            rank: index + 1,
           };
         }),
       );
 
       // Sort by total communications
-      topTenants.sort(
+      topTenantsData.sort(
         (a, b) => b.total_communications - a.total_communications,
       );
 
-      this.logger.debug(`Fetched top ${topTenants.length} tenants by volume`);
+      this.logger.debug(`Fetched top ${topTenantsData.length} tenants by volume`);
 
-      return topTenants;
+      return {
+        top_tenants: topTenantsData,
+        generated_at: new Date().toISOString(),
+      };
     } catch (error) {
       this.logger.error('Failed to fetch top tenants by volume:', error.message);
       throw error;
@@ -947,24 +1018,55 @@ export interface AllTenantConfigs {
   sms_configs: any[];
   whatsapp_configs: any[];
   ivr_configs: any[];
+  total_tenants: number;
+  total_configs: number;
 }
 
 export interface TenantMetrics {
-  tenant_id: string;
-  total_calls: number;
-  total_sms: number;
-  total_whatsapp: number;
-  avg_call_duration_seconds: number;
-  failed_transcriptions: number;
-  total_transcriptions: number;
-  transcription_success_rate: string;
-  activity_last_7_days: {
-    calls: number;
-    sms: number;
+  tenant: {
+    id: string;
+    company_name: string;
+    subdomain: string;
   };
-  activity_last_30_days: {
-    calls: number;
-    sms: number;
+  period: string;
+  calls: {
+    total: number;
+    inbound: number;
+    outbound: number;
+    completed: number;
+    failed: number;
+    average_duration_seconds: number;
+    total_duration_minutes: number;
+  };
+  sms: {
+    total: number;
+    inbound: number;
+    outbound: number;
+    delivered: number;
+    failed: number;
+  };
+  whatsapp: {
+    total: number;
+    inbound: number;
+    outbound: number;
+    delivered: number;
+    failed: number;
+  };
+  transcriptions: {
+    total: number;
+    completed: number;
+    failed: number;
+    success_rate: string;
+    average_processing_time_seconds: number;
+  };
+  costs: {
+    estimated_monthly: string;
+    breakdown: {
+      calls: string;
+      sms: string;
+      whatsapp: string;
+      transcriptions: string;
+    };
   };
 }
 
@@ -1006,12 +1108,17 @@ export interface FailedTranscription {
 }
 
 export interface TopTenant {
-  tenant: {
-    id: string;
-    company_name: string;
-    subdomain: string;
-  };
-  total_calls: number;
-  total_sms: number;
+  tenant_id: string;
+  tenant_name: string;
+  subdomain: string;
   total_communications: number;
+  calls: number;
+  sms: number;
+  whatsapp: number;
+  rank: number;
+}
+
+export interface TopTenantsReport {
+  top_tenants: TopTenant[];
+  generated_at: string;
 }

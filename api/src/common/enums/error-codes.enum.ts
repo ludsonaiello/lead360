@@ -213,6 +213,11 @@ export function getErrorCodeFromMessage(message: string): ErrorCode {
     return ErrorCode.AUTH_INSUFFICIENT_PERMISSIONS;
   }
 
+  // Generic pattern matching for "not found" errors
+  if (message.toLowerCase().includes('not found')) {
+    return ErrorCode.RESOURCE_NOT_FOUND;
+  }
+
   // Default fallback
   return ErrorCode.SERVER_INTERNAL_ERROR;
 }

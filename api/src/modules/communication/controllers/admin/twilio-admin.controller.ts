@@ -24,6 +24,7 @@ import {
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../auth/guards/roles.guard';
 import { Roles } from '../../../auth/decorators/roles.decorator';
+import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 
 // Admin Services
 import { TwilioAdminService } from '../../services/admin/twilio-admin.service';
@@ -31,6 +32,12 @@ import { TwilioUsageTrackingService } from '../../services/admin/twilio-usage-tr
 import { TwilioHealthMonitorService } from '../../services/admin/twilio-health-monitor.service';
 import { TwilioProviderManagementService } from '../../services/admin/twilio-provider-management.service';
 import { DynamicCronManagerService } from '../../services/admin/dynamic-cron-manager.service';
+import { WebhookManagementService } from '../../services/admin/webhook-management.service';
+import { AlertManagementService } from '../../services/admin/alert-management.service';
+import { TranscriptionProviderManagementService } from '../../services/admin/transcription-provider-management.service';
+import { TenantAssistanceService } from '../../services/admin/tenant-assistance.service';
+import { BulkOperationsService } from '../../services/admin/bulk-operations.service';
+import { CommunicationEventManagementService } from '../../services/admin/communication-event-management.service';
 
 // DTOs
 import {
@@ -42,26 +49,71 @@ import {
   UpdateSystemProviderDto,
   TestConnectivityDto,
 } from '../../dto/admin';
+import {
+  UpdateWebhookConfigDto,
+  TestWebhookDto,
+  WebhookEventFiltersDto,
+} from '../../dto/admin/webhook-management.dto';
+import {
+  PurchasePhoneNumberDto,
+  AllocatePhoneNumberDto,
+  DeallocatePhoneNumberDto,
+} from '../../dto/admin/phone-number-operations.dto';
+import {
+  CreateTranscriptionProviderDto,
+  UpdateTranscriptionProviderDto,
+  TestTranscriptionProviderDto,
+} from '../../dto/admin/transcription-provider.dto';
+import {
+  CreateTenantSmsConfigDto,
+  UpdateTenantSmsConfigDto,
+  CreateTenantWhatsAppConfigDto,
+  UpdateTenantWhatsAppConfigDto,
+} from '../../dto/admin/tenant-assistance.dto';
+import {
+  AcknowledgeAlertDto,
+  ResolveAlertDto,
+  BulkAcknowledgeAlertsDto,
+} from '../../dto/admin/alert-management.dto';
+import {
+  BatchRetryTranscriptionsDto,
+  BatchResendCommunicationEventsDto,
+  BatchRetryWebhookEventsDto,
+  ExportUsageDto,
+} from '../../dto/admin/bulk-operations.dto';
+import {
+  UpdateCommunicationEventStatusDto,
+  DeleteCommunicationEventDto,
+} from '../../dto/admin/communication-event-management.dto';
 
 /**
  * Twilio Admin Controller
  *
  * COMPREHENSIVE ADMIN CONTROL PANEL FOR TWILIO COMMUNICATION SYSTEM
  *
- * This controller provides 34 powerful admin endpoints for complete system
+ * This controller provides 68 powerful admin endpoints for complete system
  * management and monitoring across all tenants.
  *
  * CRITICAL FEATURES:
  * - Fulfills AC-16: "System Admin can view all tenant activity"
  * - Fulfills AC-18: "Usage tracking pulls data from Twilio API and syncs nightly"
+ * - Sprint 11: 100% Admin Control - Full CRUD for all admin resources
  *
- * ENDPOINT CATEGORIES (34 total):
+ * ENDPOINT CATEGORIES (68 total):
  * 1. Provider Management (5 endpoints) - System-level Twilio configuration
  * 2. Cross-Tenant Oversight (6 endpoints) - View all activity across tenants
  * 3. Usage Tracking & Billing (7 endpoints) - Cost tracking and reporting
  * 4. Transcription Monitoring (4 endpoints) - Transcription health and retry
  * 5. System Health (6 endpoints) - Health checks and performance monitoring
- * 6. Admin Impersonation (6 endpoints) - Manage tenant configs on their behalf
+ * 6. Metrics & Analytics (2 endpoints) - System-wide metrics
+ * 7. Cron Management (2 endpoints) - Dynamic cron schedule configuration
+ * 8. Webhook Management (5 endpoints) - Sprint 11
+ * 9. Phone Number Operations (4 endpoints) - Sprint 11
+ * 10. Transcription Provider CRUD (5 endpoints) - Sprint 11
+ * 11. Tenant Assistance (6 endpoints) - Sprint 11
+ * 12. Alert Management (3 endpoints) - Sprint 11
+ * 13. Communication Event Management (3 endpoints) - Sprint 11 Category F
+ * 14. Bulk Operations (4 endpoints) - Sprint 11
  *
  * SECURITY:
  * - All endpoints require JWT authentication
@@ -73,6 +125,7 @@ import {
  *
  * @class TwilioAdminController
  * @since Sprint 8
+ * @updated Sprint 11
  */
 @ApiTags('Admin - Twilio Communication')
 @ApiBearerAuth()
@@ -88,6 +141,12 @@ export class TwilioAdminController {
     private readonly twilioHealthMonitorService: TwilioHealthMonitorService,
     private readonly twilioProviderManagementService: TwilioProviderManagementService,
     private readonly dynamicCronManagerService: DynamicCronManagerService,
+    private readonly webhookManagementService: WebhookManagementService,
+    private readonly alertManagementService: AlertManagementService,
+    private readonly transcriptionProviderManagementService: TranscriptionProviderManagementService,
+    private readonly tenantAssistanceService: TenantAssistanceService,
+    private readonly bulkOperationsService: BulkOperationsService,
+    private readonly communicationEventManagementService: CommunicationEventManagementService,
   ) {}
 
   // ============================================================================
@@ -190,6 +249,22 @@ export class TwilioAdminController {
       areaCode,
       limit || 20,
     );
+  }
+
+  @Get('twilio/phone-numbers')
+  @ApiOperation({
+    summary: 'List all owned phone numbers from Twilio account',
+    description:
+      'Retrieves all phone numbers owned in the Twilio account. ' +
+      'Shows allocation status (allocated to tenant or available). ' +
+      'Matches Twilio numbers with tenant SMS/WhatsApp configurations.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Owned phone numbers retrieved with allocation status',
+  })
+  async listOwnedPhoneNumbers() {
+    return this.twilioProviderManagementService.listOwnedPhoneNumbers();
   }
 
   // ============================================================================
@@ -442,40 +517,6 @@ export class TwilioAdminController {
       startDate,
       endDate,
     );
-  }
-
-  @Get('usage/export')
-  @ApiOperation({
-    summary: 'Export usage report (CSV)',
-    description:
-      'Exports usage data as CSV file for offline analysis. ' +
-      'Includes all usage categories and cost breakdowns. ' +
-      'FUTURE ENHANCEMENT: This endpoint is reserved for CSV export functionality.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Usage report export status',
-  })
-  @ApiResponse({
-    status: 501,
-    description: 'Feature not yet implemented - future enhancement',
-  })
-  async exportUsageReport(@Query() query: UsageQueryDto) {
-    // CSV export is a future enhancement (not required for Sprint 8 completion)
-    // Current workaround: Use GET /usage/system or /usage/tenants/:id
-    // and process JSON response client-side
-    return {
-      message:
-        'CSV export is a planned future enhancement. ' +
-        'Please use GET /usage/system or /usage/tenants/:id endpoints ' +
-        'and export the JSON response client-side for now.',
-      alternative_endpoints: [
-        '/admin/communication/usage/system',
-        '/admin/communication/usage/tenants/:id',
-        '/admin/communication/usage/tenants',
-      ],
-      status: 'planned_future_enhancement',
-    };
   }
 
   @Get('costs/tenants/:id')
@@ -756,7 +797,7 @@ export class TwilioAdminController {
     status: 200,
     description: 'Transcription provider test result',
   })
-  async testTranscriptionProvider() {
+  async testTranscriptionProviderHealth() {
     return this.twilioHealthMonitorService.checkTranscriptionProviderHealth();
   }
 
@@ -957,5 +998,684 @@ export class TwilioAdminController {
       message: 'Cron schedules reloaded successfully',
       status: await this.dynamicCronManagerService.getCronJobStatus(),
     };
+  }
+
+  // ============================================================================
+  // WEBHOOK MANAGEMENT (5 endpoints) - Sprint 11
+  // Manage webhook configuration, event tracking, and retry logic
+  // ============================================================================
+
+  @Get('webhooks/config')
+  @ApiOperation({
+    summary: 'Get webhook configuration',
+    description:
+      'Returns current webhook configuration including base URL, endpoints, and security settings.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Webhook configuration retrieved',
+  })
+  async getWebhookConfig() {
+    return this.webhookManagementService.getWebhookConfig();
+  }
+
+  @Patch('webhooks/config')
+  @ApiOperation({
+    summary: 'Update webhook configuration',
+    description:
+      'Updates webhook base URL, signature verification, or rotates webhook secret.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Webhook configuration updated',
+  })
+  async updateWebhookConfig(@Body() dto: UpdateWebhookConfigDto) {
+    return this.webhookManagementService.updateWebhookConfig(dto);
+  }
+
+  @Post('webhooks/test')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Test webhook endpoint',
+    description:
+      'Sends a test webhook payload to verify endpoint configuration and processing.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Webhook test completed',
+  })
+  async testWebhookEndpoint(@Body() dto: TestWebhookDto) {
+    return this.webhookManagementService.testWebhookEndpoint(
+      dto.type,
+      dto.payload,
+    );
+  }
+
+  @Get('webhook-events')
+  @ApiOperation({
+    summary: 'List webhook events',
+    description:
+      'Returns paginated list of webhook events with filtering by type, status, and date range.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Webhook events retrieved',
+  })
+  async getWebhookEvents(@Query() filters: WebhookEventFiltersDto) {
+    return this.webhookManagementService.getWebhookEvents(filters);
+  }
+
+  @Post('webhook-events/:id/retry')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Retry failed webhook event',
+    description:
+      'Marks a failed webhook event for reprocessing by resetting its status.',
+  })
+  @ApiParam({ name: 'id', description: 'Webhook event ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Webhook event queued for retry',
+  })
+  async retryWebhookEvent(@Param('id') id: string) {
+    return this.webhookManagementService.retryWebhookEvent(id);
+  }
+
+  // ============================================================================
+  // PHONE NUMBER OPERATIONS (4 endpoints) - Sprint 11
+  // Purchase, allocate, deallocate, and release Twilio phone numbers
+  // ============================================================================
+
+  @Post('phone-numbers/purchase')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Purchase new Twilio phone number',
+    description:
+      'Purchases a new phone number from Twilio and optionally allocates it to a tenant immediately.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Phone number purchased successfully',
+  })
+  async purchasePhoneNumber(@Body() dto: PurchasePhoneNumberDto) {
+    return this.twilioProviderManagementService.purchaseAndAllocatePhoneNumber(
+      dto.tenant_id,
+      dto.phone_number,
+    );
+  }
+
+  @Post('phone-numbers/:sid/allocate')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Allocate phone number to tenant',
+    description:
+      'Allocates an existing owned phone number to a specific tenant for their use.',
+  })
+  @ApiParam({ name: 'sid', description: 'Twilio phone number SID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Phone number allocated successfully',
+  })
+  async allocatePhoneNumber(
+    @Param('sid') sid: string,
+    @Body() dto: AllocatePhoneNumberDto,
+  ) {
+    return this.twilioProviderManagementService.allocatePhoneNumberToTenant(
+      dto.tenant_id,
+      sid,
+      dto.purpose,
+    );
+  }
+
+  @Delete('phone-numbers/:sid/allocate')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Deallocate phone number from tenant',
+    description:
+      'Removes tenant allocation from a phone number, making it available for reassignment. ' +
+      'Optionally deletes tenant SMS/WhatsApp configuration using this number.',
+  })
+  @ApiParam({ name: 'sid', description: 'Twilio phone number SID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Phone number deallocated successfully',
+  })
+  async deallocatePhoneNumber(
+    @Param('sid') sid: string,
+    @Body() dto: DeallocatePhoneNumberDto,
+  ) {
+    return this.twilioProviderManagementService.deallocatePhoneNumberFromTenant(
+      sid,
+      dto.delete_config || false,
+      dto.reason,
+    );
+  }
+
+  @Delete('phone-numbers/:sid')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Release phone number to Twilio',
+    description:
+      'Releases a phone number back to Twilio (deletes from account). ' +
+      'Number must be deallocated from all tenants first.',
+  })
+  @ApiParam({ name: 'sid', description: 'Twilio phone number SID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Phone number released successfully',
+  })
+  async releasePhoneNumber(@Param('sid') sid: string) {
+    return this.twilioProviderManagementService.releasePhoneNumber(sid);
+  }
+
+  // ============================================================================
+  // TRANSCRIPTION PROVIDER CRUD (5 endpoints) - Sprint 11
+  // Manage transcription providers (OpenAI, Deepgram, AssemblyAI)
+  // ============================================================================
+
+  @Post('transcription-providers')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Create transcription provider',
+    description:
+      'Creates a new transcription provider configuration (OpenAI, Deepgram, or AssemblyAI). ' +
+      'API keys are encrypted before storage.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Transcription provider created',
+  })
+  async createTranscriptionProvider(@Body() dto: CreateTranscriptionProviderDto) {
+    return this.transcriptionProviderManagementService.createProvider(dto);
+  }
+
+  @Get('transcription-providers/:id')
+  @ApiOperation({
+    summary: 'Get transcription provider',
+    description:
+      'Returns a specific transcription provider configuration with usage statistics.',
+  })
+  @ApiParam({ name: 'id', description: 'Provider ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Transcription provider retrieved',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Provider not found',
+  })
+  async getTranscriptionProvider(@Param('id') id: string) {
+    return this.transcriptionProviderManagementService.getProvider(id);
+  }
+
+  @Patch('transcription-providers/:id')
+  @ApiOperation({
+    summary: 'Update transcription provider',
+    description:
+      'Updates transcription provider configuration. Can update API key, endpoint, config, or enabled status.',
+  })
+  @ApiParam({ name: 'id', description: 'Provider ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Transcription provider updated',
+  })
+  async updateTranscriptionProvider(
+    @Param('id') id: string,
+    @Body() dto: UpdateTranscriptionProviderDto,
+  ) {
+    return this.transcriptionProviderManagementService.updateProvider(id, dto);
+  }
+
+  @Delete('transcription-providers/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete transcription provider',
+    description:
+      'Deletes a transcription provider. Cannot delete if provider is set as system default ' +
+      'or has active transcriptions in progress.',
+  })
+  @ApiParam({ name: 'id', description: 'Provider ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Transcription provider deleted',
+  })
+  async deleteTranscriptionProvider(@Param('id') id: string) {
+    return this.transcriptionProviderManagementService.deleteProvider(id);
+  }
+
+  @Post('transcription-providers/:id/test')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Test transcription provider',
+    description:
+      'Tests transcription provider API connectivity by attempting a test transcription. ' +
+      'Uses provided audio URL or default test file.',
+  })
+  @ApiParam({ name: 'id', description: 'Provider ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Provider test completed',
+  })
+  async testTranscriptionProvider(
+    @Param('id') id: string,
+    @Body() dto: TestTranscriptionProviderDto,
+  ) {
+    this.logger.log(`[CONTROLLER] Testing transcription provider: ${id}`);
+    this.logger.log(`[CONTROLLER] Audio URL: ${dto.audio_url || 'NOT PROVIDED'}`);
+
+    const result = await this.transcriptionProviderManagementService.testProvider(
+      id,
+      dto.audio_url,
+    );
+
+    this.logger.log(`[CONTROLLER] Test completed. Returning response to frontend:`);
+    this.logger.log(`[CONTROLLER] Response: ${JSON.stringify(result)}`);
+
+    return result;
+  }
+
+  // ============================================================================
+  // TENANT ASSISTANCE (6 endpoints) - Sprint 11
+  // Admin creates/updates tenant communication configs on their behalf
+  // ============================================================================
+
+  @Post('tenants/:tenantId/sms-config')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Create SMS config for tenant',
+    description:
+      'Admin creates SMS configuration on behalf of a tenant. ' +
+      'Supports both system provider (Model B) and custom credentials (Model A).',
+  })
+  @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
+  @ApiResponse({
+    status: 201,
+    description: 'SMS configuration created',
+  })
+  async createSmsConfigForTenant(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: CreateTenantSmsConfigDto,
+  ) {
+    return this.tenantAssistanceService.createSmsConfigForTenant(
+      tenantId,
+      dto,
+      'system-admin', // In production, extract from JWT
+    );
+  }
+
+  @Patch('tenants/:tenantId/sms-config/:configId')
+  @ApiOperation({
+    summary: 'Update SMS config for tenant',
+    description:
+      'Admin updates SMS configuration on behalf of a tenant. ' +
+      'Can switch between system provider and custom credentials.',
+  })
+  @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
+  @ApiParam({ name: 'configId', description: 'SMS Config ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'SMS configuration updated',
+  })
+  async updateSmsConfigForTenant(
+    @Param('tenantId') tenantId: string,
+    @Param('configId') configId: string,
+    @Body() dto: UpdateTenantSmsConfigDto,
+  ) {
+    return this.tenantAssistanceService.updateSmsConfigForTenant(
+      tenantId,
+      configId,
+      dto,
+      'system-admin', // In production, extract from JWT
+    );
+  }
+
+  @Post('tenants/:tenantId/whatsapp-config')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Create WhatsApp config for tenant',
+    description:
+      'Admin creates WhatsApp configuration on behalf of a tenant. ' +
+      'Supports both system provider (Model B) and custom credentials (Model A).',
+  })
+  @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
+  @ApiResponse({
+    status: 201,
+    description: 'WhatsApp configuration created',
+  })
+  async createWhatsAppConfigForTenant(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: CreateTenantWhatsAppConfigDto,
+  ) {
+    return this.tenantAssistanceService.createWhatsAppConfigForTenant(
+      tenantId,
+      dto,
+      'system-admin', // In production, extract from JWT
+    );
+  }
+
+  @Patch('tenants/:tenantId/whatsapp-config/:configId')
+  @ApiOperation({
+    summary: 'Update WhatsApp config for tenant',
+    description:
+      'Admin updates WhatsApp configuration on behalf of a tenant. ' +
+      'Can switch between system provider and custom credentials.',
+  })
+  @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
+  @ApiParam({ name: 'configId', description: 'WhatsApp Config ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'WhatsApp configuration updated',
+  })
+  async updateWhatsAppConfigForTenant(
+    @Param('tenantId') tenantId: string,
+    @Param('configId') configId: string,
+    @Body() dto: UpdateTenantWhatsAppConfigDto,
+  ) {
+    return this.tenantAssistanceService.updateWhatsAppConfigForTenant(
+      tenantId,
+      configId,
+      dto,
+      'system-admin', // In production, extract from JWT
+    );
+  }
+
+  @Post('tenants/:tenantId/test-sms')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Test tenant SMS configuration',
+    description:
+      'Sends a test SMS using the tenant\'s configuration to verify it works correctly.',
+  })
+  @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
+  @ApiQuery({
+    name: 'configId',
+    required: false,
+    description: 'SMS Config ID (uses primary if not provided)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Test SMS sent successfully',
+  })
+  async testTenantSmsConfig(
+    @Param('tenantId') tenantId: string,
+    @Query('configId') configId?: string,
+  ) {
+    return this.tenantAssistanceService.testSmsConfig(tenantId, configId);
+  }
+
+  @Post('tenants/:tenantId/test-whatsapp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Test tenant WhatsApp configuration',
+    description:
+      'Sends a test WhatsApp message using the tenant\'s configuration to verify it works correctly.',
+  })
+  @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
+  @ApiQuery({
+    name: 'configId',
+    required: false,
+    description: 'WhatsApp Config ID (uses primary if not provided)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Test WhatsApp message sent successfully',
+  })
+  async testTenantWhatsAppConfig(
+    @Param('tenantId') tenantId: string,
+    @Query('configId') configId?: string,
+  ) {
+    return this.tenantAssistanceService.testWhatsAppConfig(tenantId, configId);
+  }
+
+  // ============================================================================
+  // ALERT MANAGEMENT (3 endpoints) - Sprint 11
+  // Acknowledge and resolve system alerts with workflow tracking
+  // ============================================================================
+
+  @Patch('alerts/:id/acknowledge')
+  @ApiOperation({
+    summary: 'Acknowledge alert',
+    description:
+      'Marks an alert as acknowledged with optional admin comment. ' +
+      'All actions are audit logged.',
+  })
+  @ApiParam({ name: 'id', description: 'Alert ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Alert acknowledged',
+  })
+  async acknowledgeAlert(
+    @Param('id') id: string,
+    @Body() dto: AcknowledgeAlertDto,
+    @CurrentUser('id') adminUserId: string,
+  ) {
+    return this.alertManagementService.acknowledgeAlert(
+      id,
+      dto.comment,
+      adminUserId,
+    );
+  }
+
+  @Patch('alerts/:id/resolve')
+  @ApiOperation({
+    summary: 'Resolve alert',
+    description:
+      'Marks an alert as resolved with resolution notes. ' +
+      'Automatically acknowledges the alert if not already acknowledged. ' +
+      'All actions are audit logged.',
+  })
+  @ApiParam({ name: 'id', description: 'Alert ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Alert resolved',
+  })
+  async resolveAlert(
+    @Param('id') id: string,
+    @Body() dto: ResolveAlertDto,
+    @CurrentUser('id') adminUserId: string,
+  ) {
+    return this.alertManagementService.resolveAlert(
+      id,
+      dto.resolution,
+      adminUserId,
+    );
+  }
+
+  @Post('alerts/bulk-acknowledge')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Bulk acknowledge alerts',
+    description:
+      'Acknowledges multiple alerts at once with the same comment. ' +
+      'Useful for acknowledging related alerts from the same incident.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Alerts acknowledged',
+  })
+  async bulkAcknowledgeAlerts(
+    @Body() dto: BulkAcknowledgeAlertsDto,
+    @CurrentUser('id') adminUserId: string,
+  ) {
+    return this.alertManagementService.bulkAcknowledgeAlerts(
+      dto.alert_ids,
+      dto.comment,
+      adminUserId,
+    );
+  }
+
+  // ============================================================================
+  // BULK OPERATIONS (4 endpoints) - Sprint 11
+  // Batch operations for retry and CSV export
+  // ============================================================================
+
+  @Post('transcriptions/batch-retry')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Batch retry failed transcriptions',
+    description:
+      'Queues multiple failed transcriptions for retry using BullMQ. ' +
+      'Supports filtering by tenant, provider, and date range. ' +
+      'Maximum 1000 transcriptions per batch.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Transcriptions queued for retry',
+  })
+  async batchRetryTranscriptions(@Body() dto: BatchRetryTranscriptionsDto) {
+    return this.bulkOperationsService.batchRetryTranscriptions(dto);
+  }
+
+  @Post('communication-events/batch-resend')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Batch resend failed communication events',
+    description:
+      'Queues multiple failed communication events (SMS, email, WhatsApp) for retry. ' +
+      'Supports filtering by tenant, channel, and date range. ' +
+      'Maximum 1000 events per batch.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Communication events queued for retry',
+  })
+  async batchResendCommunicationEvents(
+    @Body() dto: BatchResendCommunicationEventsDto,
+  ) {
+    return this.bulkOperationsService.batchResendCommunicationEvents(dto);
+  }
+
+  @Post('webhook-events/batch-retry')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Batch retry failed webhook events',
+    description:
+      'Queues multiple failed webhook events for reprocessing. ' +
+      'Supports filtering by tenant, event type, and date range. ' +
+      'Maximum 1000 events per batch.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Webhook events queued for retry',
+  })
+  async batchRetryWebhookEvents(@Body() dto: BatchRetryWebhookEventsDto) {
+    return this.bulkOperationsService.batchRetryWebhookEvents(dto);
+  }
+
+  @Get('usage/export')
+  @ApiOperation({
+    summary: 'Export usage data to CSV',
+    description:
+      'Generates a CSV export of Twilio usage data with flexible filtering. ' +
+      'Supports filtering by tenant, date range, and usage category. ' +
+      'Defaults to last 30 days if no date range provided.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'CSV export generated',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        filename: { type: 'string' },
+        content: { type: 'string', description: 'CSV content' },
+        record_count: { type: 'number' },
+        date_range: {
+          type: 'object',
+          properties: {
+            start: { type: 'string' },
+            end: { type: 'string' },
+          },
+        },
+      },
+    },
+  })
+  async exportUsageToCSV(@Query() filters: ExportUsageDto) {
+    return this.bulkOperationsService.exportUsageToCSV(filters);
+  }
+
+  // ============================================================================
+  // COMMUNICATION EVENT MANAGEMENT (3 endpoints) - Sprint 11 Category F
+  // Individual event operations for admin troubleshooting and corrections
+  // ============================================================================
+
+  @Post('communication-events/:id/resend')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Resend failed communication event',
+    description:
+      'Manually retry a single failed message (SMS, email, WhatsApp). ' +
+      'Useful for individual customer escalations, testing fixes after provider outage, ' +
+      'or recovering specific important messages. Event must be in failed or bounced status.',
+  })
+  @ApiParam({ name: 'id', description: 'Communication event ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Message queued for resend',
+  })
+  async resendCommunicationEvent(
+    @Param('id') id: string,
+    @CurrentUser('id') adminUserId: string,
+  ) {
+    return this.communicationEventManagementService.resendCommunicationEvent(
+      id,
+      adminUserId,
+    );
+  }
+
+  @Patch('communication-events/:id/status')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update communication event status',
+    description:
+      'Manually correct stuck or erroneous message statuses. ' +
+      'Use cases: mark message as delivered when webhook was missed, ' +
+      'fix status discrepancies, correct erroneous bounces. ' +
+      'Includes complete audit trail with reason.',
+  })
+  @ApiParam({ name: 'id', description: 'Communication event ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Event status updated',
+  })
+  async updateCommunicationEventStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateCommunicationEventStatusDto,
+    @CurrentUser('id') adminUserId: string,
+  ) {
+    return this.communicationEventManagementService.updateCommunicationEventStatus(
+      id,
+      dto.status,
+      dto.reason,
+      adminUserId,
+    );
+  }
+
+  @Delete('communication-events/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete communication event',
+    description:
+      'Permanently delete erroneous or duplicate communication events. ' +
+      'Use cases: remove test messages sent to production, clean up duplicates from bugs, ' +
+      'remove erroneous events. Safety checks: cannot delete successfully delivered messages ' +
+      'or recent messages without force flag. Complete audit trail required.',
+  })
+  @ApiParam({ name: 'id', description: 'Communication event ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Event deleted permanently',
+  })
+  async deleteCommunicationEvent(
+    @Param('id') id: string,
+    @Body() dto: DeleteCommunicationEventDto,
+    @CurrentUser('id') adminUserId: string,
+  ) {
+    return this.communicationEventManagementService.deleteCommunicationEvent(
+      id,
+      dto.reason,
+      adminUserId,
+      dto.force,
+    );
   }
 }

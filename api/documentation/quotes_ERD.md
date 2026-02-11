@@ -1068,7 +1068,20 @@ unknown unknown
     Boolean processed 
     DateTime processed_at "❓"
     String error_message "❓"
+    Int retry_count 
+    DateTime next_retry_at "❓"
     DateTime created_at 
+    }
+  
+
+  "webhook_config" {
+    String id "🗝️"
+    String base_url 
+    String webhook_secret 
+    Boolean signature_verification 
+    DateTime last_rotated "❓"
+    DateTime created_at 
+    DateTime updated_at 
     }
   
 
@@ -1134,6 +1147,10 @@ unknown unknown
     Json details "❓"
     Boolean acknowledged 
     DateTime acknowledged_at "❓"
+    String comment "❓"
+    Boolean resolved 
+    DateTime resolved_at "❓"
+    String resolution "❓"
     DateTime created_at 
     }
   
@@ -1592,6 +1609,7 @@ unknown unknown
     "notification_rule" }o--|| "tenant" : "tenant"
     "twilio_usage_record" }o--|o "tenant" : "tenant"
     "admin_alert" }o--|o "user" : "acknowledged_by_user"
+    "admin_alert" }o--|o "user" : "resolved_by_user"
     "unit_measurement" }o--|o "tenant" : "tenant"
     "quote_template" }o--|o "tenant" : "tenant"
     "quote_template" }o--|o "user" : "created_by_user"

@@ -639,6 +639,7 @@ model user {
   template_components_created                   template_component[]     @relation("template_component_creator")
   initiated_calls                               call_record[]            @relation("user_initiated_calls")
   admin_alerts_acknowledged                     admin_alert[]            @relation("alert_acknowledged_by")
+  admin_alerts_resolved                         admin_alert[]            @relation("alert_resolved_by")
 
   @@unique([email, tenant_id])
   @@index([activation_token])
@@ -1468,6 +1469,8 @@ model webhook_event {
   processed              Boolean   @default(false)
   processed_at           DateTime?
   error_message          String?   @db.Text
+  retry_count            Int       @default(0)
+  next_retry_at          DateTime?
   created_at             DateTime  @default(now())
 
   provider            communication_provider @relation(fields: [provider_id], references: [id])
@@ -1479,6 +1482,18 @@ model webhook_event {
   @@index([communication_event_id])
   @@index([event_type])
   @@map("webhook_event")
+}
+
+model webhook_config {
+  id                      String    @id @db.VarChar(36)
+  base_url                String    @db.VarChar(255)
+  webhook_secret          String    @db.Text
+  signature_verification  Boolean   @default(true)
+  last_rotated            DateTime?
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @default(now()) @updatedAt
+
+  @@map("webhook_config")
 }
 
 model notification {
@@ -1634,9 +1649,25 @@ model admin_alert {
   /// Timestamp when alert was acknowledged
   acknowledged_at DateTime?
 
+  /// Admin comment when acknowledging alert
+  comment String? @db.Text
+
+  /// Whether alert has been resolved
+  resolved Boolean @default(false)
+
+  /// Admin user who resolved the alert
+  resolved_by String? @db.VarChar(36)
+
+  /// Timestamp when alert was resolved
+  resolved_at DateTime?
+
+  /// Resolution notes
+  resolution String? @db.Text
+
   created_at DateTime @default(now())
 
   acknowledged_by_user user? @relation("alert_acknowledged_by", fields: [acknowledged_by], references: [id], onDelete: SetNull)
+  resolved_by_user user? @relation("alert_resolved_by", fields: [resolved_by], references: [id], onDelete: SetNull)
 
   @@index([severity, acknowledged, created_at(sort: Desc)])
   @@index([type, severity, created_at(sort: Desc)])

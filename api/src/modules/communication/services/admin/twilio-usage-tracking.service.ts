@@ -292,7 +292,7 @@ export class TwilioUsageTrackingService {
   async getUsageSummary(
     tenantId: string,
     month: string,
-  ): Promise<UsageSummary[]> {
+  ): Promise<TenantUsageReport> {
     this.logger.debug(`Generating usage summary for tenant ${tenantId}, month: ${month}`);
 
     try {
@@ -306,6 +306,16 @@ export class TwilioUsageTrackingService {
       // Calculate start and end of month
       const startDate = new Date(year, monthNum - 1, 1); // First day of month
       const endDate = new Date(year, monthNum, 0, 23, 59, 59, 999); // Last day of month
+
+      // Get tenant info
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { id: true, company_name: true },
+      });
+
+      if (!tenant) {
+        throw new Error(`Tenant ${tenantId} not found`);
+      }
 
       // Aggregate usage records by category
       const usageAggregation = await this.prisma.twilio_usage_record.groupBy({
@@ -321,19 +331,69 @@ export class TwilioUsageTrackingService {
         },
       });
 
-      // Transform aggregation results to summary format
-      const summary: UsageSummary[] = usageAggregation.map((item) => ({
-        category: item.category,
-        total_count: item._sum.count || 0,
-        total_cost: item._sum.price?.toNumber() || 0,
-        currency: 'USD',
-      }));
+      // Get last sync time for this tenant
+      const lastSync = await this.prisma.twilio_usage_record.findFirst({
+        where: { tenant_id: tenantId },
+        orderBy: { created_at: 'desc' },
+        select: { created_at: true },
+      });
+
+      // Transform aggregation to categorized format
+      const usageMap = new Map<string, { count: number; cost: number }>();
+      usageAggregation.forEach((item) => {
+        usageMap.set(item.category, {
+          count: item._sum.count || 0,
+          cost: item._sum.price?.toNumber() || 0,
+        });
+      });
+
+      // Build usage_breakdown with documented structure
+      const callsData = usageMap.get('calls') || { count: 0, cost: 0 };
+      const smsData = usageMap.get('sms') || { count: 0, cost: 0 };
+      const recordingsData = usageMap.get('recordings') || { count: 0, cost: 0 };
+      const transcriptionsData = usageMap.get('transcriptions') || { count: 0, cost: 0 };
+
+      const usage_breakdown = {
+        calls: {
+          count: callsData.count,
+          minutes: Math.round(callsData.count * 3), // Rough estimate: avg 3 min per call
+          cost: callsData.cost.toFixed(2),
+        },
+        sms: {
+          count: smsData.count,
+          cost: smsData.cost.toFixed(2),
+        },
+        recordings: {
+          count: recordingsData.count,
+          storage_mb: Math.round(recordingsData.count * 0.25), // Rough estimate: 0.25 MB per recording
+          cost: recordingsData.cost.toFixed(2),
+        },
+        transcriptions: {
+          count: transcriptionsData.count,
+          cost: transcriptionsData.cost.toFixed(2),
+        },
+      };
+
+      // Calculate total cost
+      const totalCost = (
+        callsData.cost +
+        smsData.cost +
+        recordingsData.cost +
+        transcriptionsData.cost
+      ).toFixed(2);
 
       this.logger.debug(
-        `Usage summary generated for tenant ${tenantId}: ${summary.length} categories`,
+        `Usage summary generated for tenant ${tenantId}: total cost $${totalCost}`,
       );
 
-      return summary;
+      return {
+        tenant_id: tenantId,
+        tenant_name: tenant.company_name,
+        month,
+        usage_breakdown,
+        total_cost: totalCost,
+        synced_at: lastSync?.created_at.toISOString() || new Date().toISOString(),
+      };
     } catch (error) {
       this.logger.error(
         `Failed to generate usage summary for tenant ${tenantId}:`,
@@ -367,7 +427,16 @@ export class TwilioUsageTrackingService {
     );
 
     try {
-      // Aggregate usage across all tenants
+      // Count unique tenants in the period
+      const uniqueTenants = await this.prisma.twilio_usage_record.groupBy({
+        by: ['tenant_id'],
+        where: {
+          start_date: { gte: startDate },
+          end_date: { lte: endDate },
+        },
+      });
+
+      // Aggregate usage across all tenants by category
       const usageAggregation = await this.prisma.twilio_usage_record.groupBy({
         by: ['category'],
         where: {
@@ -380,29 +449,62 @@ export class TwilioUsageTrackingService {
         },
       });
 
-      // Transform to system-wide usage format
-      const usage: UsageSummary[] = usageAggregation.map((item) => ({
-        category: item.category,
-        total_count: item._sum.count || 0,
-        total_cost: item._sum.price?.toNumber() || 0,
-        currency: 'USD',
-      }));
+      // Transform aggregation to categorized format
+      const usageMap = new Map<string, { count: number; cost: number }>();
+      usageAggregation.forEach((item) => {
+        usageMap.set(item.category, {
+          count: item._sum.count || 0,
+          cost: item._sum.price?.toNumber() || 0,
+        });
+      });
 
-      // Calculate total system cost
-      const totalCost = usage.reduce((sum, item) => sum + item.total_cost, 0);
+      // Build platform_totals with documented structure
+      const callsData = usageMap.get('calls') || { count: 0, cost: 0 };
+      const smsData = usageMap.get('sms') || { count: 0, cost: 0 };
+      const recordingsData = usageMap.get('recordings') || { count: 0, cost: 0 };
+      const transcriptionsData = usageMap.get('transcriptions') || { count: 0, cost: 0 };
+
+      const platform_totals = {
+        total_tenants: uniqueTenants.length,
+        calls: {
+          count: callsData.count,
+          minutes: Math.round(callsData.count * 3), // Rough estimate: avg 3 min per call
+          cost: callsData.cost.toFixed(2),
+        },
+        sms: {
+          count: smsData.count,
+          cost: smsData.cost.toFixed(2),
+        },
+        recordings: {
+          count: recordingsData.count,
+          storage_mb: Math.round(recordingsData.count * 0.25), // Rough estimate: 0.25 MB per recording
+          cost: recordingsData.cost.toFixed(2),
+        },
+        transcriptions: {
+          count: transcriptionsData.count,
+          cost: transcriptionsData.cost.toFixed(2),
+        },
+      };
+
+      // Calculate total cost across all categories
+      const totalCost = (
+        callsData.cost +
+        smsData.cost +
+        recordingsData.cost +
+        transcriptionsData.cost
+      ).toFixed(2);
 
       this.logger.debug(
-        `System-wide usage generated: ${usage.length} categories, total cost: $${totalCost.toFixed(2)}`,
+        `System-wide usage generated: ${uniqueTenants.length} tenants, total cost: $${totalCost}`,
       );
 
       return {
         period: {
-          start: startDate,
-          end: endDate,
+          start_date: startDate.toISOString(),
+          end_date: endDate.toISOString(),
         },
-        usage,
+        platform_totals,
         total_cost: totalCost,
-        currency: 'USD',
       };
     } catch (error) {
       this.logger.error('Failed to generate system-wide usage:', error.message);
@@ -437,20 +539,42 @@ export class TwilioUsageTrackingService {
     this.logger.debug(`Estimating costs for tenant ${tenantId}, month: ${month}`);
 
     try {
-      // Get usage summary for the month
-      const summary = await this.getUsageSummary(tenantId, month);
+      // Get usage summary for the month (now returns TenantUsageReport)
+      const usageReport = await this.getUsageSummary(tenantId, month);
 
-      // Calculate total cost across all categories
-      const totalCost = summary.reduce(
-        (sum, item) => sum + item.total_cost,
-        0,
-      );
+      // Extract breakdown and convert back to UsageSummary[] format for cost estimate
+      const breakdown: UsageSummary[] = [
+        {
+          category: 'calls',
+          total_count: usageReport.usage_breakdown.calls.count,
+          total_cost: parseFloat(usageReport.usage_breakdown.calls.cost),
+          currency: 'USD',
+        },
+        {
+          category: 'sms',
+          total_count: usageReport.usage_breakdown.sms.count,
+          total_cost: parseFloat(usageReport.usage_breakdown.sms.cost),
+          currency: 'USD',
+        },
+        {
+          category: 'recordings',
+          total_count: usageReport.usage_breakdown.recordings.count,
+          total_cost: parseFloat(usageReport.usage_breakdown.recordings.cost),
+          currency: 'USD',
+        },
+        {
+          category: 'transcriptions',
+          total_count: usageReport.usage_breakdown.transcriptions.count,
+          total_cost: parseFloat(usageReport.usage_breakdown.transcriptions.cost),
+          currency: 'USD',
+        },
+      ];
 
       const estimate: CostEstimate = {
         tenant_id: tenantId,
         month,
-        breakdown: summary,
-        total_cost: totalCost.toFixed(2),
+        breakdown,
+        total_cost: usageReport.total_cost,
         currency: 'USD',
       };
 
@@ -557,12 +681,59 @@ export interface UsageSummary {
 
 export interface SystemWideUsage {
   period: {
-    start: Date;
-    end: Date;
+    start_date: string;
+    end_date: string;
   };
-  usage: UsageSummary[];
-  total_cost: number;
-  currency: string;
+  platform_totals: {
+    total_tenants: number;
+    calls: {
+      count: number;
+      minutes: number;
+      cost: string;
+    };
+    sms: {
+      count: number;
+      cost: string;
+    };
+    recordings: {
+      count: number;
+      storage_mb: number;
+      cost: string;
+    };
+    transcriptions: {
+      count: number;
+      cost: string;
+    };
+  };
+  total_cost: string;
+}
+
+export interface TenantUsageReport {
+  tenant_id: string;
+  tenant_name: string;
+  month: string;
+  usage_breakdown: {
+    calls: {
+      count: number;
+      minutes: number;
+      cost: string;
+    };
+    sms: {
+      count: number;
+      cost: string;
+    };
+    recordings: {
+      count: number;
+      storage_mb: number;
+      cost: string;
+    };
+    transcriptions: {
+      count: number;
+      cost: string;
+    };
+  };
+  total_cost: string;
+  synced_at: string;
 }
 
 export interface CostEstimate {

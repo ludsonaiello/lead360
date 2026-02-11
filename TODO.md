@@ -879,3 +879,5 @@ Track these throughout development:
 [ ] Incluir garantia item library
 [ ] Incluir garantia global no quote. 
 [ ] AJUSTAR TEMPLATES DE QUOTES BUILDER OU OUTRA ESTRATÉGIA
+[ ] Check system twillio account usage. To usage & Billing Dashboard
+[ ] fluxo ligAÇAO NAO ATENDIDA, DIRECIONA AGENTE.

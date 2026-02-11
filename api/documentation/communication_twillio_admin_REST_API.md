@@ -1,8 +1,8 @@
 # Twilio Admin REST API Documentation
 
-**Version**: 1.0
+**Version**: 1.1 (Sprint 11 Complete)
 **Last Updated**: February 6, 2026
-**Base URL**: `https://api.lead360.app/api/admin/communication`
+**Base URL**: `https://api.lead360.app/api/v1/admin/communication`
 **Authentication**: Required (Bearer JWT token)
 **Required Role**: SystemAdmin (Platform Administrator)
 
@@ -12,17 +12,26 @@
 
 This API provides system administrators with comprehensive cross-tenant management and monitoring capabilities for the Twilio communication integration within the Lead360 platform.
 
+**Sprint 11 Completion**: This documentation covers all 68 admin endpoints across 14 categories, providing complete CRUD operations for all admin resources.
+
 ### Admin Capabilities
 
 The Twilio Admin API enables platform administrators to:
 
-- **Provider Management**: Register and manage system-level Twilio provider (Model B configuration)
-- **Cross-Tenant Oversight**: View all communication activity across all tenants (calls, SMS, WhatsApp)
-- **Usage Tracking & Billing**: Track Twilio usage and costs across tenants, sync usage data from Twilio API
-- **Transcription Monitoring**: Monitor transcription health, retry failures, view provider statistics
-- **System Health**: Run health checks, test connectivity, monitor performance metrics
-- **Metrics & Analytics**: View system-wide communication metrics and top tenant analytics
-- **Cron Management**: View and reload scheduled job configurations
+- **Provider Management** (5 endpoints): Register and manage system-level Twilio provider (Model B)
+- **Cross-Tenant Oversight** (6 endpoints): View all communication activity across tenants
+- **Usage Tracking & Billing** (7 endpoints): Track Twilio usage and costs, sync from Twilio API
+- **Transcription Monitoring** (4 endpoints): Monitor transcription health and retry failures
+- **System Health** (6 endpoints): Run health checks, test connectivity, monitor performance
+- **Metrics & Analytics** (2 endpoints): View system-wide metrics and top tenants
+- **Cron Management** (2 endpoints): Manage scheduled job configurations
+- **Webhook Management** (5 endpoints): Configure webhooks, track events, retry failures
+- **Phone Number Operations** (4 endpoints): Purchase, allocate, deallocate phone numbers
+- **Transcription Provider CRUD** (5 endpoints): Manage transcription providers (OpenAI, Deepgram, AssemblyAI)
+- **Tenant Assistance** (6 endpoints): Create/update tenant communication configs
+- **Alert Management** (3 endpoints): Acknowledge and resolve system alerts
+- **Communication Event Management** (3 endpoints): Resend, update status, delete events
+- **Bulk Operations** (4 endpoints): Batch retry and CSV export
 
 ### Key Features
 
@@ -31,6 +40,7 @@ The Twilio Admin API enables platform administrators to:
 - **Usage Sync**: Nightly automated usage sync from Twilio API (AC-18 fulfillment)
 - **Secure Credential Storage**: All Twilio credentials encrypted at rest
 - **Comprehensive Audit Logging**: All admin actions logged for compliance
+- **Complete CRUD Operations**: Full create, read, update, delete for all admin resources
 
 ### Security
 
@@ -52,26 +62,15 @@ All admin endpoints require:
 ### Example Request Headers
 
 ```http
-GET /api/admin/communication/health HTTP/1.1
+GET /api/v1/admin/communication/health HTTP/1.1
 Host: api.lead360.app
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
 ```
 
-### Obtaining Admin Token
-
-Admin users authenticate via the standard authentication flow:
-
-1. **Login**: `POST /api/v1/auth/login` with admin credentials
-2. **Receive Token**: Response includes JWT token with `SystemAdmin` role
-3. **Use Token**: Include token in `Authorization: Bearer {token}` header
-4. **Token Expiry**: Tokens expire after configured duration (check system settings)
-5. **Refresh**: Use `POST /api/v1/auth/refresh` to obtain new token
-
 ### Authentication Errors
 
 #### 401 Unauthorized
-
 ```json
 {
   "statusCode": 401,
@@ -80,10 +79,7 @@ Admin users authenticate via the standard authentication flow:
 }
 ```
 
-**Cause**: Missing or invalid Bearer token
-
 #### 403 Forbidden
-
 ```json
 {
   "statusCode": 403,
@@ -92,688 +88,439 @@ Admin users authenticate via the standard authentication flow:
 }
 ```
 
-**Cause**: User does not have SystemAdmin role
-
 ---
 
 ## Error Responses
 
-All endpoints follow consistent error response formats:
+All endpoints follow standard HTTP status codes and return consistent error formats.
 
-### 400 Bad Request
+### Standard Error Response Format
 
 ```json
 {
   "statusCode": 400,
-  "message": "Validation failed",
-  "errors": [
-    {
-      "field": "tenant_id",
-      "constraints": {
-        "isUuid": "tenant_id must be a valid UUID"
-      }
-    }
-  ]
-}
-```
-
-**Cause**: Invalid request parameters, query strings, or body
-
-### 404 Not Found
-
-```json
-{
-  "statusCode": 404,
-  "message": "Resource not found",
-  "error": "Not Found"
-}
-```
-
-**Cause**: Requested resource (tenant, call, transcription) does not exist
-
-### 409 Conflict
-
-```json
-{
-  "statusCode": 409,
-  "message": "Resource already exists",
-  "error": "Conflict"
-}
-```
-
-**Cause**: Attempted to create duplicate resource (e.g., system provider already registered)
-
-### 500 Internal Server Error
-
-```json
-{
-  "statusCode": 500,
-  "message": "Internal server error",
-  "error": "Internal Server Error"
-}
-```
-
-**Cause**: Unexpected server error (check server logs)
-
----
-
-## Pagination
-
-Endpoints that return lists support pagination with the following query parameters:
-
-| Parameter | Type    | Required | Default | Description                                  |
-|-----------|---------|----------|---------|----------------------------------------------|
-| page      | integer | No       | 1       | Page number (1-indexed)                      |
-| limit     | integer | No       | 20      | Items per page (max: 100)                    |
-
-### Response Format
-
-All paginated endpoints return responses in this format:
-
-```json
-{
-  "data": [...],
-  "pagination": {
-    "total": 150,
-    "page": 1,
-    "limit": 20,
-    "pages": 8,
-    "has_next": true,
-    "has_prev": false
-  }
-}
-```
-
-### Pagination Fields
-
-| Field     | Type    | Description                                  |
-|-----------|---------|----------------------------------------------|
-| total     | integer | Total number of records across all pages     |
-| page      | integer | Current page number                          |
-| limit     | integer | Number of items per page                     |
-| pages     | integer | Total number of pages                        |
-| has_next  | boolean | Whether there is a next page                 |
-| has_prev  | boolean | Whether there is a previous page             |
-
----
-
-# Endpoint Reference
-
-## 1. Provider Management (5 endpoints)
-
-System-level Twilio provider configuration for Model B (platform-managed Twilio service).
-
-### 1.1 Register System-Level Twilio Provider
-
-**POST** `/api/admin/communication/twilio/provider`
-
-Registers a system-level Twilio provider for Model B configuration. This allows the platform to use a single master Twilio account to serve multiple tenants.
-
-**Use Case**: System admin sets up the platform's primary Twilio account once. Phone numbers from this account can then be allocated to individual tenants without each tenant needing their own Twilio account.
-
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
-
-#### Request
-
-**Path Parameters**: None
-
-**Query Parameters**: None
-
-**Request Body** (Content-Type: `application/json`):
-
-```json
-{
-  "account_sid": "AC1234567890abcdef1234567890abcd",
-  "auth_token": "your_auth_token_here"
-}
-```
-
-**Request Body Fields**:
-
-| Field       | Type   | Required | Validation                          | Description                                      | Example                                  |
-|-------------|--------|----------|-------------------------------------|--------------------------------------------------|------------------------------------------|
-| account_sid | string | Yes      | Pattern: `^AC[a-z0-9]{32}$`         | Twilio Account SID from master Twilio account   | `"AC1234567890abcdef1234567890abcd"`     |
-| auth_token  | string | Yes      | Non-empty string                    | Twilio Auth Token for authentication            | `"your_auth_token_here"`                 |
-
-#### Response
-
-**Success Response (201 Created)**:
-
-```json
-{
-  "provider_key": "twilio_system",
-  "provider_name": "Twilio System Provider",
-  "provider_type": "sms",
-  "is_active": true,
-  "created_at": "2026-02-06T10:30:00.000Z",
-  "updated_at": "2026-02-06T10:30:00.000Z"
-}
-```
-
-**Response Fields**:
-
-| Field         | Type              | Nullable | Description                                            |
-|---------------|-------------------|----------|--------------------------------------------------------|
-| provider_key  | string            | No       | Unique provider identifier (always "twilio_system")    |
-| provider_name | string            | No       | Provider display name                                  |
-| provider_type | string            | No       | Provider type (always "sms" for Twilio)                |
-| is_active     | boolean           | No       | Whether provider is active                             |
-| created_at    | string (ISO 8601) | No       | Provider registration timestamp                        |
-| updated_at    | string (ISO 8601) | No       | Last update timestamp                                  |
-
-**Error Responses**:
-
-**400 Bad Request - Invalid Account SID**:
-```json
-{
-  "statusCode": 400,
-  "message": "Validation failed",
-  "errors": [
-    {
-      "field": "account_sid",
-      "constraints": {
-        "matches": "account_sid must be a valid Twilio Account SID (starts with AC, followed by 32 alphanumeric characters)"
-      }
-    }
-  ]
-}
-```
-
-**400 Bad Request - Invalid Credentials**:
-```json
-{
-  "statusCode": 400,
-  "message": "Invalid Twilio credentials - could not authenticate with Twilio API",
+  "message": "Detailed error message",
   "error": "Bad Request"
 }
 ```
 
-**409 Conflict - Provider Already Exists**:
-```json
-{
-  "statusCode": 409,
-  "message": "System provider already registered. Use PATCH to update.",
-  "error": "Conflict"
-}
-```
+### Common HTTP Status Codes
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X POST "https://api.lead360.app/api/admin/communication/twilio/provider" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "account_sid": "AC1234567890abcdef1234567890abcd",
-    "auth_token": "your_auth_token_here"
-  }'
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/twilio/provider', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    account_sid: 'AC1234567890abcdef1234567890abcd',
-    auth_token: 'your_auth_token_here',
-  }),
-});
-
-const data = await response.json();
-console.log('Provider registered:', data);
-```
-
-#### Notes
-
-- **Security**: Auth token is encrypted before storage and never returned in subsequent GET requests
-- **Singleton**: Only one system provider can exist. To change credentials, use PATCH endpoint
-- **Validation**: Credentials are validated by making a test API call to Twilio during registration
-- **Model B Only**: This endpoint is for system-managed configuration. Tenants using Model A configure their own Twilio accounts via tenant endpoints
-- **Audit Logging**: Provider registration is logged to audit trail with admin user ID
+- **200 OK**: Request successful
+- **201 Created**: Resource created successfully
+- **400 Bad Request**: Invalid request parameters or body
+- **401 Unauthorized**: Missing or invalid authentication token
+- **403 Forbidden**: Insufficient permissions (non-admin user)
+- **404 Not Found**: Resource not found
+- **409 Conflict**: Resource already exists or conflict with current state
+- **500 Internal Server Error**: Server error (logged automatically)
 
 ---
 
-### 1.2 Get System Provider Status
+## Endpoint Categories
 
-**GET** `/api/admin/communication/twilio/provider`
+### 1. Provider Management (5 endpoints)
+- POST /twilio/provider - Register system provider
+- GET /twilio/provider - Get system provider status
+- PATCH /twilio/provider - Update system provider
+- POST /twilio/provider/test - Test system provider connectivity
+- GET /twilio/available-numbers - Get available phone numbers
+- GET /twilio/phone-numbers - List owned phone numbers
+
+### 2. Cross-Tenant Oversight (6 endpoints)
+- GET /calls - Get all calls across all tenants
+- GET /sms - Get all SMS across all tenants
+- GET /whatsapp - Get all WhatsApp messages across all tenants
+- GET /tenant-configs - Get all tenant configurations
+- GET /tenants/:id/configs - Get specific tenant's configurations
+- GET /tenants/:id/metrics - Get tenant communication metrics
+
+### 3. Usage Tracking & Billing (7 endpoints)
+- POST /usage/sync - Trigger immediate usage sync for all tenants
+- POST /usage/sync/:tenantId - Sync usage for specific tenant
+- GET /usage/tenants - Get usage summary for all tenants
+- GET /usage/tenants/:id - Get detailed usage for specific tenant
+- GET /usage/system - Get system-wide usage aggregation
+- GET /usage/export - Export usage report (CSV)
+- GET /costs/tenants/:id - Get estimated costs for tenant
+
+### 4. Transcription Monitoring (4 endpoints)
+- GET /transcriptions/failed - Get all failed transcriptions
+- GET /transcriptions/:id - Get transcription details
+- POST /transcriptions/:id/retry - Retry failed transcription
+- GET /transcription-providers - List transcription providers with stats
+
+### 5. System Health (6 endpoints)
+- GET /health - Get overall system health status
+- POST /health/twilio-test - Test Twilio API connectivity
+- POST /health/webhooks-test - Test webhook delivery
+- POST /health/transcription-test - Test transcription provider
+- GET /health/provider-response-times - Get provider performance metrics
+- GET /alerts - Get recent system alerts
+
+### 6. Metrics & Analytics (2 endpoints)
+- GET /metrics/system-wide - Get comprehensive system-wide metrics
+- GET /metrics/top-tenants - Get top tenants by communication volume
+
+### 7. Cron Management (2 endpoints)
+- GET /cron/status - Get cron job status
+- POST /cron/reload - Reload cron schedules from system settings
+
+### 8. Webhook Management (5 endpoints)
+- GET /webhooks/config - Get webhook configuration
+- PATCH /webhooks/config - Update webhook configuration
+- POST /webhooks/test - Test webhook endpoint
+- GET /webhook-events - List webhook events
+- POST /webhook-events/:id/retry - Retry failed webhook event
+
+### 9. Phone Number Operations (4 endpoints)
+- POST /phone-numbers/purchase - Purchase new Twilio phone number
+- POST /phone-numbers/:sid/allocate - Allocate phone number to tenant
+- DELETE /phone-numbers/:sid/allocate - Deallocate phone number from tenant
+- DELETE /phone-numbers/:sid - Release phone number to Twilio
+
+### 10. Transcription Provider CRUD (5 endpoints)
+- POST /transcription-providers - Create transcription provider
+- GET /transcription-providers/:id - Get transcription provider
+- PATCH /transcription-providers/:id - Update transcription provider
+- DELETE /transcription-providers/:id - Delete transcription provider
+- POST /transcription-providers/:id/test - Test transcription provider
+
+### 11. Tenant Assistance (6 endpoints)
+- POST /tenants/:tenantId/sms-config - Create SMS config for tenant
+- PATCH /tenants/:tenantId/sms-config/:configId - Update SMS config for tenant
+- POST /tenants/:tenantId/whatsapp-config - Create WhatsApp config for tenant
+- PATCH /tenants/:tenantId/whatsapp-config/:configId - Update WhatsApp config for tenant
+- POST /tenants/:tenantId/test-sms - Test tenant SMS configuration
+- POST /tenants/:tenantId/test-whatsapp - Test tenant WhatsApp configuration
+
+### 12. Alert Management (3 endpoints)
+- PATCH /alerts/:id/acknowledge - Acknowledge alert
+- PATCH /alerts/:id/resolve - Resolve alert
+- POST /alerts/bulk-acknowledge - Bulk acknowledge alerts
+
+### 13. Communication Event Management (3 endpoints)
+- POST /communication-events/:id/resend - Resend failed communication event
+- PATCH /communication-events/:id/status - Update communication event status
+- DELETE /communication-events/:id - Delete communication event
+
+### 14. Bulk Operations (4 endpoints)
+- POST /transcriptions/batch-retry - Batch retry failed transcriptions
+- POST /communication-events/batch-resend - Batch resend failed communication events
+- POST /webhook-events/batch-retry - Batch retry failed webhook events
+- GET /usage/export - Export usage data to CSV
+
+---
+
+## API Endpoints
+
+## 1. PROVIDER MANAGEMENT
+
+### POST /twilio/provider
+
+**Description:** Register system-level Twilio provider (Model B)
+
+Registers master Twilio account for platform-wide usage. Enables Model B where platform provides Twilio service to tenants. Credentials are encrypted at rest.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Body:
+```json
+{
+  "account_sid": "AC1234567890abcdef1234567890abcd",
+  "auth_token": "your_twilio_auth_token_here"
+}
+```
+
+**Field Details:**
+- `account_sid` (string, required): Twilio Account SID (starts with AC, followed by 32 alphanumeric characters). Pattern: `^AC[a-z0-9]{32}$`
+- `auth_token` (string, required): Twilio Auth Token. Will be encrypted before storage.
+
+**Response 201 Created:**
+```json
+{
+  "success": true,
+  "message": "System provider registered successfully",
+  "provider": {
+    "account_sid": "AC1234567890abcdef1234567890abcd",
+    "is_active": true,
+    "created_at": "2026-02-06T10:00:00.000Z"
+  }
+}
+```
+
+**Response 400 Bad Request:**
+```json
+{
+  "statusCode": 400,
+  "message": "Invalid credentials or provider already exists",
+  "error": "Bad Request"
+}
+```
+
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+
+---
+
+### GET /twilio/provider
+
+**Description:** Get system provider status
 
 Returns current system provider configuration (without sensitive credentials). Shows whether system provider is configured and active.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
 
-**Path Parameters**: None
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
-  "provider_key": "twilio_system",
-  "provider_name": "Twilio System Provider",
-  "provider_type": "sms",
+  "configured": true,
+  "account_sid": "AC1234567890abcdef1234567890abcd",
   "is_active": true,
-  "created_at": "2026-02-06T10:30:00.000Z",
-  "updated_at": "2026-02-06T10:30:00.000Z"
+  "created_at": "2026-02-06T10:00:00.000Z",
+  "updated_at": "2026-02-06T10:00:00.000Z",
+  "phone_numbers_count": 15
 }
 ```
 
-**Response Fields**: Same as registration endpoint (see 1.1)
-
-**Error Responses**:
-
-**404 Not Found - Provider Not Configured**:
+**Response 200 OK (Not Configured):**
 ```json
 {
-  "statusCode": 404,
-  "message": "System provider not configured",
-  "error": "Not Found"
+  "configured": false,
+  "message": "No system provider configured"
 }
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/twilio/provider" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/twilio/provider', {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const provider = await response.json();
-console.log('System provider status:', provider);
-```
-
-#### Notes
-
-- **Credentials Excluded**: Sensitive credentials (account_sid, auth_token) are NOT included in response for security
-- **Quick Status Check**: Use this endpoint to verify system provider is configured before performing other admin operations
-- **Read-Only**: This endpoint does not modify any data
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### 1.3 Update System Provider Configuration
+### PATCH /twilio/provider
 
-**PATCH** `/api/admin/communication/twilio/provider`
+**Description:** Update system provider configuration
 
 Updates master Twilio account credentials. Use with caution - affects all Model B tenants.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
-
-**Path Parameters**: None
-
-**Query Parameters**: None
-
-**Request Body** (Content-Type: `application/json`):
-
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Body:
 ```json
 {
-  "account_sid": "AC9876543210fedcba9876543210fedc",
-  "auth_token": "new_auth_token_here"
+  "account_sid": "AC1234567890abcdef1234567890abcd",
+  "auth_token": "new_twilio_auth_token_here"
 }
 ```
 
-**Request Body Fields**: Same as registration (see 1.1)
+**Field Details:**
+- `account_sid` (string, required): New Twilio Account SID. Pattern: `^AC[a-z0-9]{32}$`
+- `auth_token` (string, required): New Twilio Auth Token. Will be encrypted before storage.
 
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
   "message": "System provider updated successfully"
 }
 ```
 
-**Error Responses**: Same as registration endpoint (400, 404, 500)
-
-#### Examples
-
-**cURL**:
-```bash
-curl -X PATCH "https://api.lead360.app/api/admin/communication/twilio/provider" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "account_sid": "AC9876543210fedcba9876543210fedc",
-    "auth_token": "new_auth_token_here"
-  }'
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/twilio/provider', {
-  method: 'PATCH',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    account_sid: 'AC9876543210fedcba9876543210fedc',
-    auth_token: 'new_auth_token_here',
-  }),
-});
-
-const result = await response.json();
-console.log(result.message);
-```
-
-#### Notes
-
-- **High Impact**: Changing system provider credentials affects ALL tenants using Model B
-- **Validation**: New credentials are validated before update
-- **Rollback**: Keep old credentials handy in case rollback is needed
-- **Audit Logging**: Credential updates are audit logged
-- **Downtime**: Brief service interruption possible during credential rotation
+**Response 400 Bad Request:** Invalid credentials
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** System provider not configured
 
 ---
 
-### 1.4 Test System Provider Connectivity
+### POST /twilio/provider/test
 
-**POST** `/api/admin/communication/twilio/provider/test`
+**Description:** Test system provider connectivity
 
 Validates system Twilio credentials by making test API call. Returns connection status and response time.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
 
-**Path Parameters**: None
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK (Success):**
 ```json
 {
-  "status": "HEALTHY",
-  "response_time_ms": 245,
-  "message": "System provider connectivity test successful",
-  "account_sid": "AC1234567890abcdef1234567890abcd",
-  "tested_at": "2026-02-06T14:22:15.000Z"
+  "status": "SUCCESS",
+  "message": "System provider is healthy",
+  "response_time_ms": 145,
+  "account_status": "active"
 }
 ```
 
-**Response Fields**:
-
-| Field            | Type              | Nullable | Description                              |
-|------------------|-------------------|----------|------------------------------------------|
-| status           | string            | No       | Health status: HEALTHY, DEGRADED, DOWN   |
-| response_time_ms | integer           | No       | API response time in milliseconds        |
-| message          | string            | No       | Human-readable test result               |
-| account_sid      | string            | No       | Account SID tested (for verification)    |
-| tested_at        | string (ISO 8601) | No       | Timestamp of test                        |
-
-**Error Responses**:
-
-**404 Not Found - Provider Not Configured**:
+**Response 200 OK (Failed):**
 ```json
 {
-  "statusCode": 404,
-  "message": "System provider not configured",
-  "error": "Not Found"
+  "status": "FAILED",
+  "error_message": "Invalid credentials",
+  "response_time_ms": 89
 }
 ```
 
-**500 Internal Server Error - Test Failed**:
-```json
-{
-  "status": "DOWN",
-  "response_time_ms": null,
-  "message": "System provider connectivity test failed",
-  "error_message": "Invalid credentials or Twilio API unreachable",
-  "tested_at": "2026-02-06T14:22:15.000Z"
-}
-```
-
-#### Examples
-
-**cURL**:
-```bash
-curl -X POST "https://api.lead360.app/api/admin/communication/twilio/provider/test" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/twilio/provider/test', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const testResult = await response.json();
-console.log(`Connectivity: ${testResult.status} (${testResult.response_time_ms}ms)`);
-```
-
-#### Notes
-
-- **Non-Destructive**: Test does not send actual SMS or make calls
-- **Performance Baseline**: Use response_time_ms for performance monitoring
-- **Troubleshooting**: Run this test if experiencing Twilio API issues
-- **Rate Limit**: Test can be run frequently (no rate limiting)
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** System provider not configured
 
 ---
 
-### 1.5 Get Available Phone Numbers
+### GET /twilio/available-numbers
 
-**GET** `/api/admin/communication/twilio/available-numbers`
+**Description:** Get available phone numbers from Twilio
 
 Fetches available phone numbers from master Twilio account. Used for allocating numbers to tenants (Model B).
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Query Parameters:
+  - `area_code` (string, optional): Filter by area code (e.g., 415 for San Francisco)
+  - `limit` (integer, optional): Maximum number of results (default: 20, max: 50)
 
-**Path Parameters**: None
-
-**Query Parameters**:
-
-| Parameter | Type    | Required | Default | Description                                 |
-|-----------|---------|----------|---------|---------------------------------------------|
-| area_code | string  | No       | None    | Filter by area code (e.g., "415")           |
-| limit     | integer | No       | 20      | Maximum number of results (max: 50)         |
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
   "available_numbers": [
     {
       "phone_number": "+14155551234",
       "friendly_name": "(415) 555-1234",
+      "locality": "San Francisco",
+      "region": "CA",
+      "postal_code": "94105",
+      "iso_country": "US",
       "capabilities": {
         "voice": true,
         "SMS": true,
         "MMS": true
       },
-      "address_requirements": "none",
-      "beta": false,
-      "iso_country": "US",
-      "region": "CA",
-      "locality": "San Francisco"
+      "monthly_cost": "$1.00"
     }
   ],
   "count": 20
 }
 ```
 
-**Response Fields**:
-
-| Field                | Type    | Nullable | Description                                    |
-|----------------------|---------|----------|------------------------------------------------|
-| phone_number         | string  | No       | Phone number in E.164 format                   |
-| friendly_name        | string  | No       | Human-readable phone number                    |
-| capabilities         | object  | No       | Supported features (voice, SMS, MMS)           |
-| address_requirements | string  | No       | Address verification required ("none", "any")  |
-| beta                 | boolean | No       | Whether number is in beta                      |
-| iso_country          | string  | No       | ISO country code                               |
-| region               | string  | Yes      | State/province code                            |
-| locality             | string  | Yes      | City name                                      |
-
-**Error Responses**:
-
-**404 Not Found - Provider Not Configured**:
-```json
-{
-  "statusCode": 404,
-  "message": "System provider not configured",
-  "error": "Not Found"
-}
-```
-
-#### Examples
-
-**cURL (with area code filter)**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/twilio/available-numbers?area_code=415&limit=10" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/twilio/available-numbers?area_code=415&limit=10', {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const { available_numbers, count } = await response.json();
-console.log(`Found ${count} available numbers`);
-```
-
-#### Notes
-
-- **Real-Time Data**: Numbers fetched live from Twilio API
-- **Availability Not Guaranteed**: Numbers may be purchased by others between query and allocation
-- **Filtering**: Use area_code to find numbers in specific regions
-- **Allocation**: Use tenant SMS/WhatsApp configuration endpoints to allocate numbers
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** System provider not configured
 
 ---
 
-## 2. Cross-Tenant Oversight (6 endpoints)
+### GET /twilio/phone-numbers
 
-View all communication activity across the platform (AC-16: "System Admin can view all tenant activity").
+**Description:** List all owned phone numbers from Twilio account
 
-### 2.1 Get All Calls Across All Tenants
+Retrieves all phone numbers owned in the Twilio account. Shows allocation status (allocated to tenant or available). Matches Twilio numbers with tenant SMS/WhatsApp configurations.
 
-**GET** `/api/admin/communication/calls`
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+
+**Response 200 OK:**
+```json
+[
+  {
+    "sid": "PN1234567890abcdef1234567890abcd",
+    "phone_number": "+14155551234",
+    "friendly_name": "(415) 555-1234",
+    "capabilities": {
+      "voice": true,
+      "sms": true,
+      "mms": true
+    },
+    "status": "allocated",
+    "allocated_to_tenant": {
+      "id": "tenant-uuid-here",
+      "company_name": "Acme Corp",
+      "subdomain": "acme"
+    },
+    "allocated_for": ["SMS"],
+    "date_created": "2026-01-15T10:00:00.000Z",
+    "date_updated": "2026-01-15T10:00:00.000Z"
+  },
+  {
+    "sid": "PN0987654321fedcba0987654321fedc",
+    "phone_number": "+14155559876",
+    "friendly_name": "(415) 555-9876",
+    "capabilities": {
+      "voice": true,
+      "sms": true,
+      "mms": false
+    },
+    "status": "available",
+    "allocated_to_tenant": null,
+    "allocated_for": null,
+    "date_created": "2026-02-01T12:30:00.000Z",
+    "date_updated": "2026-02-01T12:30:00.000Z"
+  }
+]
+```
+
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** System provider not configured
+
+---
+
+## 2. CROSS-TENANT OVERSIGHT
+
+### GET /calls
+
+**Description:** Get all calls across all tenants (AC-16)
 
 Returns paginated list of all voice calls across the platform. Supports filtering by tenant, status, direction, and date range.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Query Parameters:
+  - `tenant_id` (string, optional): Filter by tenant ID
+  - `status` (string, optional): Filter by call status. Enum: `initiated`, `ringing`, `in_progress`, `completed`, `failed`, `no_answer`, `busy`, `canceled`
+  - `direction` (string, optional): Filter by call direction. Enum: `inbound`, `outbound`
+  - `start_date` (string, optional): Filter by start date (ISO 8601 format). Example: `2026-01-01T00:00:00.000Z`
+  - `end_date` (string, optional): Filter by end date (ISO 8601 format). Example: `2026-01-31T23:59:59.999Z`
+  - `page` (integer, optional): Page number (1-indexed, default: 1)
+  - `limit` (integer, optional): Results per page (default: 20)
 
-**Path Parameters**: None
-
-**Query Parameters**:
-
-| Parameter  | Type              | Required | Default | Description                                          |
-|------------|-------------------|----------|---------|------------------------------------------------------|
-| tenant_id  | string (UUID)     | No       | None    | Filter by specific tenant ID                         |
-| status     | string (enum)     | No       | None    | Filter by call status (see enum values below)        |
-| direction  | string (enum)     | No       | None    | Filter by direction: "inbound" or "outbound"         |
-| start_date | string (ISO 8601) | No       | None    | Filter calls created after this date                 |
-| end_date   | string (ISO 8601) | No       | None    | Filter calls created before this date                |
-| page       | integer           | No       | 1       | Page number (1-indexed)                              |
-| limit      | integer           | No       | 20      | Results per page (max: 100)                          |
-
-**Status Enum Values**: `initiated`, `ringing`, `in_progress`, `completed`, `failed`, `no_answer`, `busy`, `canceled`
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
   "data": [
     {
-      "id": "call-uuid-123",
-      "tenant_id": "tenant-uuid-456",
+      "id": "call-uuid-1",
       "tenant": {
-        "id": "tenant-uuid-456",
-        "company_name": "Acme Roofing",
+        "id": "tenant-uuid-1",
+        "company_name": "Acme Corp",
         "subdomain": "acme"
-      },
-      "lead_id": "lead-uuid-789",
-      "lead": {
-        "id": "lead-uuid-789",
-        "first_name": "John",
-        "last_name": "Doe",
-        "phones": [
-          {
-            "phone_number": "+14155551234",
-            "is_primary": true
-          }
-        ]
       },
       "twilio_call_sid": "CA1234567890abcdef1234567890abcd",
       "direction": "inbound",
-      "from_number": "+14155551234",
-      "to_number": "+14155559999",
+      "from_phone": "+14155551234",
+      "to_phone": "+14155559876",
       "status": "completed",
-      "call_type": "customer_call",
-      "initiated_by": null,
-      "initiated_by_user": null,
-      "recording_url": "https://api.twilio.com/recording/RE123",
-      "recording_duration_seconds": 120,
-      "recording_status": "transcribed",
-      "transcription": {
-        "id": "trans-uuid-111",
-        "status": "completed",
-        "transcription_provider": "openai_whisper"
+      "duration_seconds": 180,
+      "recording_url": "https://api.twilio.com/recordings/RE123...",
+      "recording_duration_seconds": 175,
+      "transcription_status": "completed",
+      "lead": {
+        "id": "lead-uuid-1",
+        "first_name": "John",
+        "last_name": "Doe"
       },
-      "cost": "0.0250",
-      "started_at": "2026-02-06T10:00:00.000Z",
-      "ended_at": "2026-02-06T10:02:00.000Z",
-      "created_at": "2026-02-06T10:00:00.000Z",
-      "updated_at": "2026-02-06T10:02:30.000Z"
+      "created_at": "2026-02-06T08:30:00.000Z",
+      "completed_at": "2026-02-06T08:33:00.000Z"
     }
   ],
   "pagination": {
@@ -787,888 +534,586 @@ Returns paginated list of all voice calls across the platform. Supports filterin
 }
 ```
 
-**Call Record Fields**:
-
-| Field                      | Type              | Nullable | Description                                      |
-|----------------------------|-------------------|----------|--------------------------------------------------|
-| id                         | string (UUID)     | No       | Unique call record ID                            |
-| tenant_id                  | string (UUID)     | Yes      | Tenant who owns this call                        |
-| tenant                     | object            | Yes      | Tenant info (id, company_name, subdomain)        |
-| lead_id                    | string (UUID)     | Yes      | Associated lead ID                               |
-| lead                       | object            | Yes      | Lead info with primary phone                     |
-| twilio_call_sid            | string            | No       | Twilio Call SID (unique identifier)              |
-| direction                  | string            | No       | Call direction: "inbound" or "outbound"          |
-| from_number                | string (E.164)    | No       | Caller phone number                              |
-| to_number                  | string (E.164)    | No       | Recipient phone number                           |
-| status                     | string            | No       | Call status (see enum above)                     |
-| call_type                  | string            | No       | Type: customer_call, office_bypass_call, etc.    |
-| initiated_by               | string (UUID)     | Yes      | User ID if outbound call                         |
-| initiated_by_user          | object            | Yes      | User who initiated call (if outbound)            |
-| recording_url              | string (URL)      | Yes      | Twilio recording URL                             |
-| recording_duration_seconds | integer           | Yes      | Recording length in seconds                      |
-| recording_status           | string            | No       | Status: pending, available, transcribed, failed  |
-| transcription              | object            | Yes      | Transcription info if available                  |
-| cost                       | string (decimal)  | Yes      | Call cost in USD                                 |
-| started_at                 | string (ISO 8601) | Yes      | Call start time                                  |
-| ended_at                   | string (ISO 8601) | Yes      | Call end time                                    |
-| created_at                 | string (ISO 8601) | No       | Record creation time                             |
-| updated_at                 | string (ISO 8601) | No       | Record last update time                          |
-
-#### Examples
-
-**cURL (all calls)**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/calls?page=1&limit=20" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**cURL (filtered by tenant and status)**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/calls?tenant_id=tenant-uuid-456&status=failed&page=1&limit=50" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch with date range)**:
-```javascript
-const params = new URLSearchParams({
-  start_date: '2026-02-01T00:00:00.000Z',
-  end_date: '2026-02-06T23:59:59.999Z',
-  status: 'completed',
-  page: '1',
-  limit: '50'
-});
-
-const response = await fetch(`https://api.lead360.app/api/admin/communication/calls?${params}`, {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const { data, pagination } = await response.json();
-console.log(`Showing ${data.length} of ${pagination.total} calls`);
-```
-
-#### Notes
-
-- **Cross-Tenant View**: Returns calls from ALL tenants (no tenant isolation)
-- **Performance**: Large result sets may be slow - use date filters to improve performance
-- **Tenant Info**: Each call includes nested tenant info for easy identification
-- **Lead Matching**: Lead info included if call has been matched to a lead
-- **Recording Access**: recording_url points to Twilio's servers (may require authentication)
+**Response 400 Bad Request:** Invalid query parameters
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### 2.2 Get All SMS Across All Tenants
+### GET /sms
 
-**GET** `/api/admin/communication/sms`
+**Description:** Get all SMS across all tenants (AC-16)
 
 Returns paginated list of all SMS messages across the platform. Includes message content, delivery status, and tenant information.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Query Parameters:
+  - `tenant_id` (string, optional): Filter by tenant ID
+  - `status` (string, optional): Filter by message status. Enum: `pending`, `sent`, `delivered`, `failed`, `bounced`
+  - `direction` (string, optional): Filter by direction. Enum: `inbound`, `outbound`
+  - `channel` (string, optional): Filter by communication channel. Enum: `sms`, `whatsapp`
+  - `start_date` (string, optional): Filter by start date (ISO 8601)
+  - `end_date` (string, optional): Filter by end date (ISO 8601)
+  - `page` (integer, optional): Page number (default: 1)
+  - `limit` (integer, optional): Results per page (default: 20)
 
-**Path Parameters**: None
-
-**Query Parameters**:
-
-| Parameter  | Type              | Required | Default | Description                                          |
-|------------|-------------------|----------|---------|------------------------------------------------------|
-| tenant_id  | string (UUID)     | No       | None    | Filter by specific tenant ID                         |
-| status     | string (enum)     | No       | None    | Filter by message status (see enum below)            |
-| direction  | string (enum)     | No       | None    | Filter by direction: "inbound" or "outbound"         |
-| start_date | string (ISO 8601) | No       | None    | Filter messages created after this date              |
-| end_date   | string (ISO 8601) | No       | None    | Filter messages created before this date             |
-| page       | integer           | No       | 1       | Page number (1-indexed)                              |
-| limit      | integer           | No       | 20      | Results per page (max: 100)                          |
-
-**Status Enum Values**: `pending`, `sent`, `delivered`, `failed`, `bounced`
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
   "data": [
     {
-      "id": "event-uuid-123",
-      "tenant_id": "tenant-uuid-456",
+      "id": "event-uuid-1",
       "tenant": {
-        "id": "tenant-uuid-456",
-        "company_name": "Acme Roofing",
+        "id": "tenant-uuid-1",
+        "company_name": "Acme Corp",
         "subdomain": "acme"
       },
       "channel": "sms",
       "direction": "outbound",
-      "provider_id": "provider-uuid-789",
-      "provider": {
-        "id": "provider-uuid-789",
-        "provider_name": "Twilio",
-        "provider_type": "sms"
-      },
+      "from_phone": "+14155551234",
+      "to_phone": "+14155559876",
+      "message_body": "Your appointment is confirmed for tomorrow at 2 PM.",
       "status": "delivered",
-      "to_phone": "+14155551234",
-      "from_phone": "+14155559999",
-      "text_body": "Your appointment is scheduled for tomorrow at 10am.",
-      "provider_message_id": "SM1234567890abcdef1234567890abcd",
-      "sent_at": "2026-02-06T09:00:00.000Z",
-      "delivered_at": "2026-02-06T09:00:02.000Z",
-      "created_at": "2026-02-06T09:00:00.000Z",
-      "created_by_user": {
-        "id": "user-uuid-111",
-        "first_name": "Jane",
-        "last_name": "Smith",
-        "email": "jane@acmeroofing.com"
-      }
+      "twilio_message_sid": "SM1234567890abcdef1234567890abcd",
+      "lead": {
+        "id": "lead-uuid-1",
+        "first_name": "John",
+        "last_name": "Doe"
+      },
+      "sent_at": "2026-02-06T10:15:00.000Z",
+      "delivered_at": "2026-02-06T10:15:03.000Z",
+      "created_at": "2026-02-06T10:15:00.000Z"
     }
   ],
   "pagination": {
-    "total": 8432,
+    "total": 5432,
     "page": 1,
     "limit": 20,
-    "pages": 422,
+    "pages": 272,
     "has_next": true,
     "has_prev": false
   }
 }
 ```
 
-**SMS Message Fields**:
-
-| Field               | Type              | Nullable | Description                                        |
-|---------------------|-------------------|----------|----------------------------------------------------|
-| id                  | string (UUID)     | No       | Unique message ID                                  |
-| tenant_id           | string (UUID)     | Yes      | Tenant who owns this message                       |
-| tenant              | object            | Yes      | Tenant info (id, company_name, subdomain)          |
-| channel             | string            | No       | Communication channel (always "sms" for this API)  |
-| direction           | string            | No       | Message direction: "inbound" or "outbound"         |
-| provider_id         | string (UUID)     | No       | Communication provider ID                          |
-| provider            | object            | No       | Provider info                                      |
-| status              | string            | No       | Delivery status (see enum above)                   |
-| to_phone            | string (E.164)    | Yes      | Recipient phone number                             |
-| from_phone          | string (E.164)    | Yes      | Sender phone number (derived from provider)        |
-| text_body           | string            | Yes      | Message content (plain text)                       |
-| provider_message_id | string            | Yes      | Provider's message ID (e.g., Twilio SID)           |
-| sent_at             | string (ISO 8601) | Yes      | Message sent timestamp                             |
-| delivered_at        | string (ISO 8601) | Yes      | Message delivered timestamp                        |
-| created_at          | string (ISO 8601) | No       | Record creation time                               |
-| created_by_user     | object            | Yes      | User who sent the message (if outbound)            |
-
-#### Examples
-
-**cURL (all SMS)**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/sms?page=1&limit=20" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch - failed messages only)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/sms?status=failed&page=1&limit=100', {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const { data, pagination } = await response.json();
-console.log(`Found ${pagination.total} failed SMS messages`);
-```
-
-#### Notes
-
-- **Message Content**: text_body contains full message content for troubleshooting
-- **Direction**: "inbound" SMS are messages received by the platform, "outbound" are sent by users
-- **Provider Info**: Each message includes provider details for multi-provider setups
+**Response 400 Bad Request:** Invalid query parameters
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### 2.3 Get All WhatsApp Messages Across All Tenants
+### GET /whatsapp
 
-**GET** `/api/admin/communication/whatsapp`
+**Description:** Get all WhatsApp messages across all tenants (AC-16)
 
 Returns paginated list of all WhatsApp messages across the platform.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Query Parameters: Same as GET /sms (tenant_id, status, direction, start_date, end_date, page, limit)
 
-**Path Parameters**: None
-
-**Query Parameters**: Same as SMS endpoint (see 2.2)
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**: Same format as SMS endpoint, with `channel: "whatsapp"`
-
-#### Examples
-
-**cURL**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/whatsapp?page=1&limit=20" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+**Response 200 OK:**
+```json
+{
+  "data": [
+    {
+      "id": "event-uuid-1",
+      "tenant": {
+        "id": "tenant-uuid-1",
+        "company_name": "Acme Corp",
+        "subdomain": "acme"
+      },
+      "channel": "whatsapp",
+      "direction": "outbound",
+      "from_phone": "whatsapp:+14155551234",
+      "to_phone": "whatsapp:+14155559876",
+      "message_body": "Hello! Your service is scheduled for tomorrow.",
+      "status": "delivered",
+      "twilio_message_sid": "SM1234567890abcdef1234567890abcd",
+      "lead": {
+        "id": "lead-uuid-1",
+        "first_name": "Jane",
+        "last_name": "Smith"
+      },
+      "sent_at": "2026-02-06T11:20:00.000Z",
+      "delivered_at": "2026-02-06T11:20:02.000Z",
+      "created_at": "2026-02-06T11:20:00.000Z"
+    }
+  ],
+  "pagination": {
+    "total": 892,
+    "page": 1,
+    "limit": 20,
+    "pages": 45,
+    "has_next": true,
+    "has_prev": false
+  }
+}
 ```
 
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/whatsapp?tenant_id=tenant-uuid-456', {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const { data, pagination } = await response.json();
-```
-
-#### Notes
-
-- **WhatsApp-Specific**: Returns only WhatsApp messages (channel filter applied automatically)
-- **Same Structure**: Response format identical to SMS endpoint
-- **Phone Format**: WhatsApp phone numbers may include "whatsapp:" prefix
+**Response 400 Bad Request:** Invalid query parameters
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### 2.4 Get All Tenant Configurations
+### GET /tenant-configs
 
-**GET** `/api/admin/communication/tenant-configs`
+**Description:** Get all tenant configurations (SMS/WhatsApp/IVR) (AC-16)
 
 Returns comprehensive view of all active tenant communication configurations. Excludes sensitive credentials for security.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
 
-**Path Parameters**: None
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
   "sms_configs": [
     {
-      "id": "config-uuid-123",
-      "tenant_id": "tenant-uuid-456",
+      "id": "config-uuid-1",
       "tenant": {
-        "id": "tenant-uuid-456",
-        "company_name": "Acme Roofing",
+        "id": "tenant-uuid-1",
+        "company_name": "Acme Corp",
         "subdomain": "acme"
       },
-      "provider_id": "provider-uuid-789",
-      "from_phone": "+14155559999",
+      "from_phone": "+14155551234",
+      "provider_type": "system",
+      "is_primary": true,
       "is_active": true,
-      "is_verified": true,
       "created_at": "2026-01-15T10:00:00.000Z",
       "updated_at": "2026-01-15T10:00:00.000Z"
     }
   ],
   "whatsapp_configs": [
     {
-      "id": "config-uuid-456",
-      "tenant_id": "tenant-uuid-789",
+      "id": "config-uuid-2",
       "tenant": {
-        "id": "tenant-uuid-789",
-        "company_name": "Beta Construction",
-        "subdomain": "beta"
-      },
-      "provider_id": "provider-uuid-789",
-      "from_phone": "whatsapp:+14155558888",
-      "is_active": true,
-      "is_verified": true,
-      "created_at": "2026-01-20T11:00:00.000Z",
-      "updated_at": "2026-01-20T11:00:00.000Z"
-    }
-  ],
-  "ivr_configs": [
-    {
-      "id": "ivr-uuid-111",
-      "tenant_id": "tenant-uuid-456",
-      "tenant": {
-        "id": "tenant-uuid-456",
-        "company_name": "Acme Roofing",
+        "id": "tenant-uuid-1",
+        "company_name": "Acme Corp",
         "subdomain": "acme"
       },
-      "ivr_enabled": true,
-      "greeting_message": "Thank you for calling Acme Roofing. Press 1 for sales...",
-      "status": "active",
-      "created_at": "2026-01-15T12:00:00.000Z",
-      "updated_at": "2026-02-01T09:00:00.000Z"
+      "from_phone": "whatsapp:+14155551234",
+      "provider_type": "system",
+      "is_primary": true,
+      "is_active": true,
+      "created_at": "2026-01-20T12:00:00.000Z",
+      "updated_at": "2026-01-20T12:00:00.000Z"
     }
-  ]
+  ],
+  "ivr_configs": [],
+  "total_tenants": 25,
+  "total_configs": 48
 }
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/tenant-configs" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/tenant-configs', {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const { sms_configs, whatsapp_configs, ivr_configs } = await response.json();
-console.log(`Total configs: ${sms_configs.length} SMS, ${whatsapp_configs.length} WhatsApp, ${ivr_configs.length} IVR`);
-```
-
-#### Notes
-
-- **Security**: Credentials are excluded from response (encrypted fields not returned)
-- **All Active Configs**: Returns only active configurations
-- **Tenant Context**: Each config includes tenant info for easy identification
-- **Use Cases**: Tenant provisioning audit, configuration verification, troubleshooting
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### 2.5 Get Specific Tenant's Communication Configurations
+### GET /tenants/:id/configs
 
-**GET** `/api/admin/communication/tenants/:id/configs`
+**Description:** Get specific tenant's communication configurations
 
 Returns all communication configurations for a specific tenant. Includes SMS, WhatsApp, and IVR settings.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `id` (string, required): Tenant UUID
 
-**Path Parameters**:
-
-| Parameter | Type         | Required | Description       |
-|-----------|--------------|----------|-------------------|
-| id        | string (UUID) | Yes      | Tenant UUID       |
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**: Same format as "Get All Tenant Configurations" but filtered by tenant
-
-#### Examples
-
-**cURL**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/tenants/tenant-uuid-456/configs" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const tenantId = 'tenant-uuid-456';
-const response = await fetch(`https://api.lead360.app/api/admin/communication/tenants/${tenantId}/configs`, {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const configs = await response.json();
-```
-
-#### Notes
-
-- **Tenant-Specific**: Returns only configurations for the specified tenant
-- **Empty Arrays**: Returns empty arrays if tenant has no configurations
-
----
-
-### 2.6 Get Tenant Communication Metrics
-
-**GET** `/api/admin/communication/tenants/:id/metrics`
-
-Returns comprehensive metrics for a specific tenant: call counts, SMS counts, average call duration, transcription stats, etc.
-
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
-
-#### Request
-
-**Path Parameters**:
-
-| Parameter | Type         | Required | Description       |
-|-----------|--------------|----------|-------------------|
-| id        | string (UUID) | Yes      | Tenant UUID       |
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
-  "tenant_id": "tenant-uuid-456",
-  "tenant_name": "Acme Roofing",
-  "metrics": {
-    "calls": {
-      "total": 1250,
-      "inbound": 850,
-      "outbound": 400,
-      "completed": 1100,
-      "failed": 50,
-      "no_answer": 100,
-      "avg_duration_seconds": 180,
-      "total_duration_minutes": 3750
-    },
-    "sms": {
-      "total": 3500,
-      "inbound": 1200,
-      "outbound": 2300,
-      "delivered": 3400,
-      "failed": 100
-    },
-    "whatsapp": {
-      "total": 850,
-      "inbound": 300,
-      "outbound": 550,
-      "delivered": 820,
-      "failed": 30
-    },
-    "transcriptions": {
-      "total": 950,
-      "completed": 920,
-      "failed": 30,
-      "success_rate": "96.84%"
+  "sms_configs": [
+    {
+      "id": "config-uuid-1",
+      "tenant": {
+        "id": "tenant-uuid-1",
+        "company_name": "Acme Corp",
+        "subdomain": "acme"
+      },
+      "from_phone": "+14155551234",
+      "provider_type": "system",
+      "is_primary": true,
+      "is_active": true,
+      "created_at": "2026-01-15T10:00:00.000Z",
+      "updated_at": "2026-01-15T10:00:00.000Z"
     }
-  },
-  "generated_at": "2026-02-06T15:00:00.000Z"
+  ],
+  "whatsapp_configs": [
+    {
+      "id": "config-uuid-2",
+      "tenant": {
+        "id": "tenant-uuid-1",
+        "company_name": "Acme Corp",
+        "subdomain": "acme"
+      },
+      "from_phone": "whatsapp:+14155551234",
+      "provider_type": "system",
+      "is_primary": true,
+      "is_active": true,
+      "created_at": "2026-01-20T12:00:00.000Z",
+      "updated_at": "2026-01-20T12:00:00.000Z"
+    }
+  ],
+  "ivr_configs": []
 }
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/tenants/tenant-uuid-456/metrics" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const tenantId = 'tenant-uuid-456';
-const response = await fetch(`https://api.lead360.app/api/admin/communication/tenants/${tenantId}/metrics`, {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const metrics = await response.json();
-console.log(`Tenant ${metrics.tenant_name}: ${metrics.metrics.calls.total} calls, ${metrics.metrics.sms.total} SMS`);
-```
-
-#### Notes
-
-- **Real-Time**: Metrics computed in real-time from database
-- **Comprehensive**: Includes all communication channels
-- **Performance**: May be slow for high-volume tenants (consider caching)
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Tenant not found
 
 ---
 
-## 3. Usage Tracking & Billing (7 endpoints)
+### GET /tenants/:id/metrics
 
-Track Twilio usage and costs across tenants. Fulfills AC-18: "Usage tracking pulls data from Twilio API and syncs nightly".
+**Description:** Get tenant communication metrics
 
-### 3.1 Trigger Immediate Usage Sync for All Tenants
+Returns comprehensive metrics for a specific tenant: call counts, SMS counts, average call duration, transcription stats, etc.
 
-**POST** `/api/admin/communication/usage/sync`
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `id` (string, required): Tenant UUID
+
+**Response 200 OK:**
+```json
+{
+  "tenant": {
+    "id": "tenant-uuid-1",
+    "company_name": "Acme Corp",
+    "subdomain": "acme"
+  },
+  "period": "all_time",
+  "calls": {
+    "total": 1523,
+    "inbound": 892,
+    "outbound": 631,
+    "completed": 1402,
+    "failed": 121,
+    "average_duration_seconds": 245,
+    "total_duration_minutes": 6204
+  },
+  "sms": {
+    "total": 4521,
+    "inbound": 1234,
+    "outbound": 3287,
+    "delivered": 4389,
+    "failed": 132
+  },
+  "whatsapp": {
+    "total": 892,
+    "inbound": 234,
+    "outbound": 658,
+    "delivered": 870,
+    "failed": 22
+  },
+  "transcriptions": {
+    "total": 1402,
+    "completed": 1365,
+    "failed": 37,
+    "success_rate": "97.36%",
+    "average_processing_time_seconds": 12.5
+  },
+  "costs": {
+    "estimated_monthly": "$324.50",
+    "breakdown": {
+      "calls": "$145.20",
+      "sms": "$89.30",
+      "whatsapp": "$65.00",
+      "transcriptions": "$25.00"
+    }
+  }
+}
+```
+
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Tenant not found
+
+---
+
+## 3. USAGE TRACKING & BILLING
+
+### POST /usage/sync
+
+**Description:** Trigger immediate usage sync for all tenants (AC-18)
 
 Manually triggers usage sync from Twilio API for all active tenants. Typically runs automatically nightly at 2:00 AM. Use this for immediate cost updates or troubleshooting.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
 
-**Path Parameters**: None
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
   "message": "Usage sync initiated for all tenants"
 }
 ```
 
-#### Examples
+**Note:** Sync runs asynchronously. Check logs or usage endpoints to verify completion.
 
-**cURL**:
-```bash
-curl -X POST "https://api.lead360.app/api/admin/communication/usage/sync" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/usage/sync', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const result = await response.json();
-console.log(result.message);
-```
-
-#### Notes
-
-- **Asynchronous**: Sync runs in background (does not block response)
-- **All Tenants**: Syncs usage for ALL active tenants
-- **Duration**: May take several minutes for large tenant base
-- **Rate Limits**: Twilio API rate limits apply
-- **Cron Schedule**: Normally runs automatically at 2:00 AM daily (configurable via system settings)
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### 3.2 Sync Usage for Specific Tenant
+### POST /usage/sync/:tenantId
 
-**POST** `/api/admin/communication/usage/sync/:tenantId`
+**Description:** Sync usage for specific tenant (AC-18)
 
 Syncs usage data from Twilio API for a specific tenant. Fetches data for the last 30 days by default.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `tenantId` (string, required): Tenant UUID
 
-**Path Parameters**:
-
-| Parameter | Type         | Required | Description       |
-|-----------|--------------|----------|-------------------|
-| tenantId  | string (UUID) | Yes      | Tenant UUID       |
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
-  "message": "Usage synced for tenant tenant-uuid-456"
+  "message": "Usage synced for tenant tenant-uuid-1"
 }
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X POST "https://api.lead360.app/api/admin/communication/usage/sync/tenant-uuid-456" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const tenantId = 'tenant-uuid-456';
-const response = await fetch(`https://api.lead360.app/api/admin/communication/usage/sync/${tenantId}`, {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const result = await response.json();
-```
-
-#### Notes
-
-- **Tenant-Specific**: Only syncs usage for specified tenant
-- **Date Range**: Defaults to last 30 days
-- **Faster**: Completes faster than full platform sync
-- **Troubleshooting**: Use for investigating specific tenant usage issues
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Tenant not found
 
 ---
 
-### 3.3 Get Usage Summary for All Tenants
+### GET /usage/tenants
 
-**GET** `/api/admin/communication/usage/tenants`
+**Description:** Get usage summary for all tenants
 
 Returns aggregated usage statistics across all tenants. Useful for platform-wide billing and capacity planning.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Query Parameters:
+  - `month` (string, optional): Month in YYYY-MM format. Example: `2026-01`. Pattern: `^\d{4}-\d{2}$`
+  - `start_date` (string, optional): Start date for custom date range (ISO 8601). Example: `2026-01-01T00:00:00.000Z`
+  - `end_date` (string, optional): End date for custom date range (ISO 8601). Example: `2026-01-31T23:59:59.999Z`
 
-**Path Parameters**: None
-
-**Query Parameters**:
-
-| Parameter  | Type              | Required | Default                      | Description                    |
-|------------|-------------------|----------|------------------------------|--------------------------------|
-| start_date | string (ISO 8601) | No       | First day of current month   | Usage period start date        |
-| end_date   | string (ISO 8601) | No       | Current date                 | Usage period end date          |
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
   "period": {
-    "start_date": "2026-02-01T00:00:00.000Z",
-    "end_date": "2026-02-06T23:59:59.999Z"
+    "start": "2026-02-01T00:00:00.000Z",
+    "end": "2026-02-06T23:59:59.999Z"
   },
-  "platform_totals": {
-    "total_tenants": 45,
-    "calls": {
-      "count": 15230,
-      "minutes": 45690,
-      "cost": "1827.60"
-    },
-    "sms": {
-      "count": 32500,
-      "cost": "2437.50"
-    },
-    "recordings": {
-      "count": 12100,
-      "storage_mb": 3025,
-      "cost": "121.00"
-    },
-    "transcriptions": {
-      "count": 9800,
-      "cost": "980.00"
+  "tenants": [
+    {
+      "tenant_id": "tenant-uuid-1",
+      "tenant_name": "Acme Corp",
+      "usage": {
+        "calls_inbound": 125,
+        "calls_outbound": 89,
+        "sms_outbound": 432,
+        "sms_inbound": 123,
+        "recordings": 214,
+        "transcriptions": 198
+      },
+      "estimated_cost": "$89.50"
     }
+  ],
+  "totals": {
+    "calls_inbound": 2345,
+    "calls_outbound": 1890,
+    "sms_outbound": 8765,
+    "sms_inbound": 3456,
+    "recordings": 4235,
+    "transcriptions": 3987
   },
-  "total_cost": "5366.10"
+  "total_estimated_cost": "$2,345.60"
 }
 ```
 
-#### Examples
-
-**cURL (current month)**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/usage/tenants" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**cURL (specific date range)**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/usage/tenants?start_date=2026-01-01T00:00:00.000Z&end_date=2026-01-31T23:59:59.999Z" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const params = new URLSearchParams({
-  start_date: '2026-02-01T00:00:00.000Z',
-  end_date: '2026-02-06T23:59:59.999Z'
-});
-
-const response = await fetch(`https://api.lead360.app/api/admin/communication/usage/tenants?${params}`, {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const usage = await response.json();
-console.log(`Total platform cost: $${usage.total_cost}`);
-```
-
-#### Notes
-
-- **Aggregated**: Sums usage across ALL tenants
-- **Cost Tracking**: All costs in USD
-- **Capacity Planning**: Use for forecasting infrastructure needs
+**Response 400 Bad Request:** Invalid query parameters
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### 3.4 Get Detailed Usage for Specific Tenant
+### GET /usage/tenants/:id
 
-**GET** `/api/admin/communication/usage/tenants/:id`
+**Description:** Get detailed usage for specific tenant
 
 Returns detailed usage breakdown by category for a specific tenant. Includes call, SMS, recording, and transcription usage.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `id` (string, required): Tenant UUID
+- Query Parameters:
+  - `month` (string, optional): Month in YYYY-MM format (defaults to current month)
 
-**Path Parameters**:
-
-| Parameter | Type         | Required | Description       |
-|-----------|--------------|----------|-------------------|
-| id        | string (UUID) | Yes      | Tenant UUID       |
-
-**Query Parameters**:
-
-| Parameter | Type   | Required | Default            | Description                            |
-|-----------|--------|----------|--------------------|----------------------------------------|
-| month     | string | No       | Current month      | Month in YYYY-MM format (e.g., 2026-02) |
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
-  "tenant_id": "tenant-uuid-456",
-  "tenant_name": "Acme Roofing",
+  "tenant": {
+    "id": "tenant-uuid-1",
+    "company_name": "Acme Corp",
+    "subdomain": "acme"
+  },
   "month": "2026-02",
-  "usage_breakdown": {
+  "usage": {
     "calls": {
-      "count": 850,
-      "minutes": 2550,
-      "cost": "102.00"
+      "inbound_count": 125,
+      "outbound_count": 89,
+      "inbound_minutes": 320.5,
+      "outbound_minutes": 245.2,
+      "total_minutes": 565.7
     },
     "sms": {
-      "count": 1200,
-      "cost": "90.00"
+      "inbound_count": 123,
+      "outbound_count": 432,
+      "total_count": 555
+    },
+    "whatsapp": {
+      "inbound_count": 45,
+      "outbound_count": 128,
+      "total_count": 173
     },
     "recordings": {
-      "count": 720,
-      "storage_mb": 180,
-      "cost": "7.20"
+      "count": 214,
+      "total_duration_minutes": 545.3
     },
     "transcriptions": {
-      "count": 650,
-      "cost": "65.00"
+      "count": 198,
+      "total_duration_minutes": 485.2,
+      "successful": 192,
+      "failed": 6
     }
   },
-  "total_cost": "264.20",
-  "synced_at": "2026-02-06T02:00:15.000Z"
+  "costs": {
+    "calls_inbound": "$32.05",
+    "calls_outbound": "$24.52",
+    "sms_outbound": "$21.60",
+    "recordings": "$10.90",
+    "transcriptions": "$2.91",
+    "total": "$91.98"
+  }
 }
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/usage/tenants/tenant-uuid-456?month=2026-02" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const tenantId = 'tenant-uuid-456';
-const month = '2026-02';
-const response = await fetch(`https://api.lead360.app/api/admin/communication/usage/tenants/${tenantId}?month=${month}`, {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const usage = await response.json();
-console.log(`${usage.tenant_name} usage for ${usage.month}: $${usage.total_cost}`);
-```
-
-#### Notes
-
-- **Month Filter**: Defaults to current month if not specified
-- **Detailed Breakdown**: Category-level usage and cost details
-- **Billing**: Use this data for tenant billing and invoicing
+**Response 400 Bad Request:** Invalid month format
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Tenant not found
 
 ---
 
-### 3.5 Get System-Wide Usage Aggregation
+### GET /usage/system
 
-**GET** `/api/admin/communication/usage/system`
+**Description:** Get system-wide usage aggregation
 
 Returns platform-level usage statistics across all tenants. Aggregates all usage categories for specified date range.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Query Parameters:
+  - `start_date` (string, optional): Start date (ISO 8601, defaults to first day of current month)
+  - `end_date` (string, optional): End date (ISO 8601, defaults to today)
 
-**Path Parameters**: None
-
-**Query Parameters**: Same as "Get Usage Summary for All Tenants" (see 3.3)
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**: Same format as endpoint 3.3
-
-#### Examples
-
-**cURL**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/usage/system?start_date=2026-02-01T00:00:00.000Z" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+**Response 200 OK:**
+```json
+{
+  "period": {
+    "start": "2026-02-01T00:00:00.000Z",
+    "end": "2026-02-06T23:59:59.999Z"
+  },
+  "totals": {
+    "calls": {
+      "total": 4235,
+      "inbound": 2345,
+      "outbound": 1890,
+      "completed": 3987,
+      "failed": 248,
+      "total_minutes": 10234.5
+    },
+    "sms": {
+      "total": 12221,
+      "inbound": 3456,
+      "outbound": 8765,
+      "delivered": 11987,
+      "failed": 234
+    },
+    "whatsapp": {
+      "total": 2134,
+      "inbound": 789,
+      "outbound": 1345,
+      "delivered": 2098,
+      "failed": 36
+    },
+    "recordings": {
+      "total": 4235,
+      "total_minutes": 9876.3
+    },
+    "transcriptions": {
+      "total": 3987,
+      "completed": 3892,
+      "failed": 95,
+      "success_rate": "97.62%"
+    }
+  },
+  "costs": {
+    "total_estimated": "$6,789.45",
+    "breakdown": {
+      "calls": "$3,234.50",
+      "sms": "$2,456.30",
+      "whatsapp": "$892.15",
+      "recordings": "$123.50",
+      "transcriptions": "$83.00"
+    }
+  },
+  "active_tenants": 47
+}
 ```
 
-#### Notes
-
-- **Duplicate of 3.3**: This endpoint returns the same data as "Get Usage Summary for All Tenants"
-- **Legacy Compatibility**: Kept for backward compatibility with frontend code
+**Response 400 Bad Request:** Invalid date parameters
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### 3.6 Export Usage Report (Future Enhancement)
+### GET /usage/export
 
-**GET** `/api/admin/communication/usage/export`
+**Description:** Export usage report (CSV)
 
-Exports usage data as CSV file for offline analysis. **FUTURE ENHANCEMENT**: This endpoint is reserved for CSV export functionality.
+Exports usage data as CSV file for offline analysis. Includes all usage categories and cost breakdowns. FUTURE ENHANCEMENT: This endpoint is reserved for CSV export functionality.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Query Parameters: Same as GET /usage/system
 
-**Path Parameters**: None
-
-**Query Parameters**: Same as "Get Usage Summary for All Tenants" (see 3.3)
-
-**Request Body**: None
-
-#### Response
-
-**Current Response (200 OK)**:
-
+**Response 200 OK (Future Enhancement Notice):**
 ```json
 {
   "message": "CSV export is a planned future enhancement. Please use GET /usage/system or /usage/tenants/:id endpoints and export the JSON response client-side for now.",
@@ -1681,816 +1126,569 @@ Exports usage data as CSV file for offline analysis. **FUTURE ENHANCEMENT**: Thi
 }
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/usage/export" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-#### Notes
-
-- **Not Implemented**: CSV export functionality not yet available
-- **Workaround**: Use alternative endpoints and export JSON client-side
-- **Future Sprint**: Will be implemented in future enhancement sprint
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### 3.7 Get Estimated Costs for Tenant
+### GET /costs/tenants/:id
 
-**GET** `/api/admin/communication/costs/tenants/:id`
+**Description:** Get estimated costs for tenant
 
 Returns month-to-date cost estimation with category breakdown. Used for budget alerts and billing previews.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `id` (string, required): Tenant UUID
+- Query Parameters:
+  - `month` (string, required): Month in YYYY-MM format. Example: `2026-02`. Pattern: `^\d{4}-\d{2}$`
 
-**Path Parameters**:
-
-| Parameter | Type         | Required | Description       |
-|-----------|--------------|----------|-------------------|
-| id        | string (UUID) | Yes      | Tenant UUID       |
-
-**Query Parameters**:
-
-| Parameter | Type   | Required | Default        | Description                            |
-|-----------|--------|----------|----------------|----------------------------------------|
-| month     | string | Yes      | N/A            | Month in YYYY-MM format (e.g., 2026-02) |
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
-  "tenant_id": "tenant-uuid-456",
-  "tenant_name": "Acme Roofing",
-  "month": "2026-02",
-  "cost_estimate": {
-    "calls": "102.00",
-    "sms": "90.00",
-    "recordings": "7.20",
-    "transcriptions": "65.00",
-    "total": "264.20"
+  "tenant": {
+    "id": "tenant-uuid-1",
+    "company_name": "Acme Corp",
+    "subdomain": "acme"
   },
-  "estimated_at": "2026-02-06T15:00:00.000Z"
+  "month": "2026-02",
+  "period": {
+    "start": "2026-02-01T00:00:00.000Z",
+    "end": "2026-02-29T23:59:59.999Z",
+    "days_elapsed": 6,
+    "days_remaining": 23
+  },
+  "costs": {
+    "calls_inbound": {
+      "count": 125,
+      "minutes": 320.5,
+      "cost": "$32.05",
+      "rate_per_minute": "$0.10"
+    },
+    "calls_outbound": {
+      "count": 89,
+      "minutes": 245.2,
+      "cost": "$24.52",
+      "rate_per_minute": "$0.10"
+    },
+    "sms_outbound": {
+      "count": 432,
+      "cost": "$21.60",
+      "rate_per_message": "$0.05"
+    },
+    "recordings": {
+      "count": 214,
+      "minutes": 545.3,
+      "cost": "$10.90",
+      "rate_per_minute": "$0.02"
+    },
+    "transcriptions": {
+      "count": 198,
+      "minutes": 485.2,
+      "cost": "$2.91",
+      "rate_per_minute": "$0.006"
+    },
+    "subtotal": "$91.98",
+    "tax": "$0.00",
+    "total": "$91.98"
+  },
+  "projected_month_end": "$334.93"
 }
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/costs/tenants/tenant-uuid-456?month=2026-02" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const tenantId = 'tenant-uuid-456';
-const month = '2026-02';
-const response = await fetch(`https://api.lead360.app/api/admin/communication/costs/tenants/${tenantId}?month=${month}`, {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const costs = await response.json();
-console.log(`Estimated cost: $${costs.cost_estimate.total}`);
-```
-
-#### Notes
-
-- **Estimation**: Costs are estimates based on synced usage data
-- **Budget Alerts**: Use for proactive budget monitoring
-- **Required Month**: Month parameter is required (not optional)
+**Response 400 Bad Request:** Invalid month format
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Tenant not found
 
 ---
 
-## 4. Transcription Monitoring (4 endpoints)
+## 4. TRANSCRIPTION MONITORING
 
-Monitor transcription health, retry failures, view provider statistics.
+### GET /transcriptions/failed
 
-### 4.1 Get All Failed Transcriptions
-
-**GET** `/api/admin/communication/transcriptions/failed`
+**Description:** Get all failed transcriptions across all tenants
 
 Returns list of all failed transcriptions for troubleshooting. Includes error messages and call details. Limited to most recent 100 failures.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
 
-**Path Parameters**: None
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
   "failed_transcriptions": [
     {
-      "id": "trans-uuid-123",
-      "tenant_id": "tenant-uuid-456",
-      "call_record_id": "call-uuid-789",
-      "transcription_provider": "openai_whisper",
-      "status": "failed",
-      "error_message": "Audio file too short (minimum 0.1 seconds required)",
-      "created_at": "2026-02-06T10:00:00.000Z",
-      "call_details": {
+      "id": "transcription-uuid-1",
+      "tenant": {
+        "id": "tenant-uuid-1",
+        "company_name": "Acme Corp",
+        "subdomain": "acme"
+      },
+      "call": {
+        "id": "call-uuid-1",
         "twilio_call_sid": "CA1234567890abcdef",
-        "recording_url": "https://api.twilio.com/recording/RE123",
-        "recording_duration_seconds": 2
-      }
+        "duration_seconds": 180
+      },
+      "provider": "openai_whisper",
+      "status": "failed",
+      "error_message": "API rate limit exceeded",
+      "created_at": "2026-02-06T08:30:00.000Z",
+      "failed_at": "2026-02-06T08:30:15.000Z"
     }
   ],
-  "count": 15
+  "total_count": 37,
+  "limit": 100
 }
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/transcriptions/failed" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/transcriptions/failed', {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const { failed_transcriptions, count } = await response.json();
-console.log(`Found ${count} failed transcriptions`);
-```
-
-#### Notes
-
-- **Recent Failures**: Limited to 100 most recent failures
-- **Error Context**: Includes error messages for troubleshooting
-- **Retry Option**: Use transcription retry endpoint to reprocess failures
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### 4.2 Get Transcription Details
+### GET /transcriptions/:id
 
-**GET** `/api/admin/communication/transcriptions/:id`
+**Description:** Get transcription details
 
 Returns full details for a specific transcription, including status, provider, and error info.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `id` (string, required): Transcription UUID
 
-**Path Parameters**:
-
-| Parameter | Type         | Required | Description         |
-|-----------|--------------|----------|---------------------|
-| id        | string (UUID) | Yes      | Transcription UUID  |
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
-  "id": "trans-uuid-123",
+  "id": "transcription-uuid-1",
   "tenant": {
-    "id": "tenant-uuid-456",
-    "company_name": "Acme Roofing",
+    "id": "tenant-uuid-1",
+    "company_name": "Acme Corp",
     "subdomain": "acme"
   },
   "call": {
-    "id": "call-uuid-789",
+    "id": "call-uuid-1",
     "twilio_call_sid": "CA1234567890abcdef",
     "direction": "inbound",
     "status": "completed",
-    "recording_url": "https://api.twilio.com/recording/RE123",
-    "duration_seconds": 120
+    "recording_url": "https://api.twilio.com/recordings/RE123...",
+    "duration_seconds": 180
   },
   "lead": {
-    "id": "lead-uuid-111",
+    "id": "lead-uuid-1",
     "first_name": "John",
     "last_name": "Doe"
   },
   "transcription_provider": "openai_whisper",
   "status": "completed",
-  "transcription_text": "Thank you for calling Acme Roofing. How can I help you today?",
+  "transcription_text": "Hello, I'd like to schedule an appointment for next Tuesday...",
   "language_detected": "en",
-  "confidence_score": "0.98",
-  "processing_duration_seconds": 8,
-  "cost": "0.12",
+  "confidence_score": 0.95,
+  "processing_duration_seconds": 12.5,
+  "cost": 0.018,
   "error_message": null,
-  "created_at": "2026-02-06T10:00:00.000Z",
-  "completed_at": "2026-02-06T10:00:08.000Z"
+  "created_at": "2026-02-06T08:30:00.000Z",
+  "completed_at": "2026-02-06T08:30:12.000Z"
 }
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/transcriptions/trans-uuid-123" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const transcriptionId = 'trans-uuid-123';
-const response = await fetch(`https://api.lead360.app/api/admin/communication/transcriptions/${transcriptionId}`, {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const transcription = await response.json();
-console.log(`Transcription status: ${transcription.status}`);
-```
-
-#### Notes
-
-- **Full Context**: Includes call, tenant, and lead details
-- **Transcription Text**: Full transcription content returned
-- **Performance Metrics**: Includes processing duration and cost
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Transcription not found
 
 ---
 
-### 4.3 Retry Failed Transcription
+### POST /transcriptions/:id/retry
 
-**POST** `/api/admin/communication/transcriptions/:id/retry`
+**Description:** Retry failed transcription
 
 Requeues a failed transcription for processing. Resets status to PENDING and queues job.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `id` (string, required): Transcription UUID
 
-**Path Parameters**:
-
-| Parameter | Type         | Required | Description         |
-|-----------|--------------|----------|---------------------|
-| id        | string (UUID) | Yes      | Transcription UUID  |
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
   "message": "Transcription retry queued"
 }
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X POST "https://api.lead360.app/api/admin/communication/transcriptions/trans-uuid-123/retry" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const transcriptionId = 'trans-uuid-123';
-const response = await fetch(`https://api.lead360.app/api/admin/communication/transcriptions/${transcriptionId}/retry`, {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const result = await response.json();
-console.log(result.message);
-```
-
-#### Notes
-
-- **Automatic Reprocessing**: Transcription will be reprocessed automatically
-- **Status Reset**: Transcription status changes from "failed" to "queued"
-- **Error Clearing**: Previous error message is cleared
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Transcription not found
 
 ---
 
-### 4.4 List Transcription Providers with Usage Stats
+### GET /transcription-providers
 
-**GET** `/api/admin/communication/transcription-providers`
+**Description:** List transcription providers with usage stats
 
 Returns list of configured transcription providers with usage and cost statistics.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
 
-**Path Parameters**: None
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 [
   {
-    "id": "provider-uuid-123",
+    "id": "provider-uuid-1",
     "provider_name": "openai_whisper",
     "tenant": {
-      "id": "tenant-uuid-456",
-      "company_name": "Acme Roofing",
+      "id": "tenant-uuid-1",
+      "company_name": "Acme Corp",
       "subdomain": "acme"
     },
     "is_system_default": true,
     "status": "active",
     "usage_limit": 10000,
-    "usage_current": 3250,
-    "cost_per_minute": "0.006",
+    "usage_current": 3456,
+    "cost_per_minute": 0.006,
     "statistics": {
-      "total_transcriptions": 3250,
-      "successful": 3180,
-      "failed": 70,
-      "success_rate": "97.85"
+      "total_transcriptions": 3456,
+      "successful": 3378,
+      "failed": 78,
+      "success_rate": "97.74"
     },
-    "created_at": "2026-01-01T00:00:00.000Z",
-    "updated_at": "2026-02-06T10:00:00.000Z"
+    "created_at": "2026-01-15T10:00:00.000Z",
+    "updated_at": "2026-02-06T08:00:00.000Z"
   }
 ]
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/transcription-providers" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/transcription-providers', {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const providers = await response.json();
-providers.forEach(p => {
-  console.log(`${p.provider_name}: ${p.statistics.success_rate}% success rate`);
-});
-```
-
-#### Notes
-
-- **Usage Tracking**: Shows current usage vs limit
-- **Success Rates**: Calculate success rate for each provider
-- **Cost Analysis**: Compare cost per minute across providers
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-## 5. System Health (6 endpoints)
+## 5. SYSTEM HEALTH
 
-Health monitoring, performance metrics, and alerting.
+### GET /health
 
-### 5.1 Get Overall System Health Status
-
-**GET** `/api/admin/communication/health`
+**Description:** Get overall system health status
 
 Runs comprehensive health check across all systems: Twilio API, webhooks, transcription providers. Returns detailed status for each component.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
 
-**Path Parameters**: None
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
-  "overall_status": "HEALTHY",
-  "checked_at": "2026-02-06T15:30:00.000Z",
+  "status": "healthy",
+  "timestamp": "2026-02-06T10:00:00.000Z",
   "components": {
     "twilio_api": {
-      "status": "HEALTHY",
-      "response_time_ms": 156,
-      "message": "Twilio API connectivity is healthy"
+      "status": "healthy",
+      "response_time_ms": 145,
+      "last_checked": "2026-02-06T10:00:00.000Z"
     },
     "webhooks": {
-      "status": "HEALTHY",
-      "response_time_ms": 45,
-      "message": "Webhook endpoint is accessible"
+      "status": "healthy",
+      "endpoint": "https://api.lead360.app/webhooks/twilio",
+      "last_successful_delivery": "2026-02-06T09:45:23.000Z"
     },
     "transcription_providers": {
-      "status": "HEALTHY",
-      "providers": {
-        "openai_whisper": {
-          "status": "HEALTHY",
-          "response_time_ms": 230
+      "status": "healthy",
+      "active_providers": 2,
+      "providers": [
+        {
+          "name": "openai_whisper",
+          "status": "healthy",
+          "last_success": "2026-02-06T09:58:12.000Z"
         }
-      }
+      ]
+    },
+    "database": {
+      "status": "healthy",
+      "response_time_ms": 12
+    },
+    "queue": {
+      "status": "healthy",
+      "pending_jobs": 23,
+      "failed_jobs": 2
     }
   }
 }
 ```
 
-**Health Status Values**: `HEALTHY`, `DEGRADED`, `DOWN`
-
-#### Examples
-
-**cURL**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/health" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+**Response 200 OK (Degraded):**
+```json
+{
+  "status": "degraded",
+  "timestamp": "2026-02-06T10:00:00.000Z",
+  "issues": [
+    "Transcription provider 'deepgram' is experiencing errors"
+  ],
+  "components": {
+    "twilio_api": {
+      "status": "healthy",
+      "response_time_ms": 145
+    },
+    "transcription_providers": {
+      "status": "degraded",
+      "active_providers": 2,
+      "providers": [
+        {
+          "name": "deepgram",
+          "status": "unhealthy",
+          "error": "API rate limit exceeded"
+        }
+      ]
+    }
+  }
+}
 ```
 
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/health', {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const health = await response.json();
-console.log(`System health: ${health.overall_status}`);
-```
-
-#### Notes
-
-- **Comprehensive Check**: Tests all critical system components
-- **Real-Time**: Executes live health checks (not cached)
-- **Performance Baseline**: Use for establishing performance baselines
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### 5.2 Test Twilio API Connectivity
+### POST /health/twilio-test
 
-**POST** `/api/admin/communication/health/twilio-test`
+**Description:** Test Twilio API connectivity
 
 Tests Twilio API connectivity for a specific tenant. Measures response time and validates credentials.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
-
-**Path Parameters**: None
-
-**Query Parameters**: None
-
-**Request Body** (Content-Type: `application/json`):
-
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Body:
 ```json
 {
-  "tenant_id": "tenant-uuid-456"
+  "tenant_id": "tenant-uuid-1"
 }
 ```
 
-**Request Body Fields**:
+**Field Details:**
+- `tenant_id` (string, required): Tenant ID to test connectivity for (use "system" for system-level check)
 
-| Field     | Type         | Required | Description                                       |
-|-----------|--------------|----------|---------------------------------------------------|
-| tenant_id | string (UUID) | Yes      | Tenant UUID (use "system" for system-level check) |
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
-  "status": "HEALTHY",
-  "tenant_id": "tenant-uuid-456",
-  "response_time_ms": 178,
-  "message": "Twilio API connectivity test successful",
-  "tested_at": "2026-02-06T15:45:00.000Z"
+  "success": true,
+  "tenant_id": "tenant-uuid-1",
+  "message": "Twilio API connectivity successful",
+  "account_sid": "AC1234567890abcdef",
+  "response_time_ms": 123,
+  "tested_at": "2026-02-06T10:15:00.000Z"
 }
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X POST "https://api.lead360.app/api/admin/communication/health/twilio-test" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
-  -H "Content-Type: application/json" \
-  -d '{"tenant_id": "tenant-uuid-456"}'
+**Response 200 OK (Failed):**
+```json
+{
+  "success": false,
+  "tenant_id": "tenant-uuid-1",
+  "message": "Twilio API connectivity failed",
+  "error": "Invalid credentials",
+  "response_time_ms": 89,
+  "tested_at": "2026-02-06T10:15:00.000Z"
+}
 ```
 
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/health/twilio-test', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    tenant_id: 'tenant-uuid-456'
-  }),
-});
-
-const result = await response.json();
-console.log(`Twilio test: ${result.status} (${result.response_time_ms}ms)`);
-```
-
-#### Notes
-
-- **Tenant-Specific**: Tests connectivity for specific tenant's Twilio configuration
-- **System Check**: Use tenant_id "system" to test system-level provider
-- **Non-Destructive**: Does not send actual SMS or make calls
+**Response 400 Bad Request:** Missing tenant_id
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Tenant not found
 
 ---
 
-### 5.3 Test Webhook Delivery
+### POST /health/webhooks-test
 
-**POST** `/api/admin/communication/health/webhooks-test`
+**Description:** Test webhook delivery
 
 Tests that webhook endpoint is accessible and responding correctly.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
 
-**Path Parameters**: None
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
-  "status": "HEALTHY",
-  "message": "Webhook endpoint is accessible and responding correctly",
-  "response_time_ms": 52,
-  "tested_at": "2026-02-06T16:00:00.000Z"
+  "success": true,
+  "message": "Webhook endpoint is accessible",
+  "endpoint": "https://api.lead360.app/webhooks/twilio",
+  "response_time_ms": 67,
+  "tested_at": "2026-02-06T10:20:00.000Z"
 }
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X POST "https://api.lead360.app/api/admin/communication/health/webhooks-test" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+**Response 200 OK (Failed):**
+```json
+{
+  "success": false,
+  "message": "Webhook endpoint is not accessible",
+  "endpoint": "https://api.lead360.app/webhooks/twilio",
+  "error": "Connection timeout",
+  "tested_at": "2026-02-06T10:20:00.000Z"
+}
 ```
 
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/health/webhooks-test', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const result = await response.json();
-console.log(`Webhook test: ${result.status}`);
-```
-
-#### Notes
-
-- **Internal Test**: Tests webhook endpoint accessibility
-- **No External Calls**: Does not trigger actual Twilio webhooks
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### 5.4 Test Transcription Provider
+### POST /health/transcription-test
 
-**POST** `/api/admin/communication/health/transcription-test`
+**Description:** Test transcription provider
 
 Tests transcription provider API connectivity and configuration.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
 
-**Path Parameters**: None
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
-  "status": "HEALTHY",
-  "message": "Transcription provider connectivity test successful",
-  "providers_tested": ["openai_whisper"],
-  "response_time_ms": 245,
-  "tested_at": "2026-02-06T16:15:00.000Z"
+  "success": true,
+  "message": "Transcription provider connectivity successful",
+  "providers_tested": [
+    {
+      "name": "openai_whisper",
+      "status": "healthy",
+      "response_time_ms": 234,
+      "api_version": "v1"
+    }
+  ],
+  "tested_at": "2026-02-06T10:25:00.000Z"
 }
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X POST "https://api.lead360.app/api/admin/communication/health/transcription-test" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+**Response 200 OK (Failed):**
+```json
+{
+  "success": false,
+  "message": "Some transcription providers failed",
+  "providers_tested": [
+    {
+      "name": "openai_whisper",
+      "status": "failed",
+      "error": "API key invalid"
+    }
+  ],
+  "tested_at": "2026-02-06T10:25:00.000Z"
+}
 ```
 
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/health/transcription-test', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const result = await response.json();
-```
-
-#### Notes
-
-- **Provider Check**: Tests all configured transcription providers
-- **API Validation**: Validates API keys and connectivity
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### 5.5 Get Provider Performance Metrics
+### GET /health/provider-response-times
 
-**GET** `/api/admin/communication/health/provider-response-times`
+**Description:** Get provider performance metrics (last 24h)
 
-Returns API response time statistics for all providers (last 24 hours): avg, max, min response times. Used for performance monitoring and capacity planning.
+Returns API response time statistics for all providers: avg, max, min response times. Used for performance monitoring and capacity planning.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
 
-**Path Parameters**: None
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
   "period": {
-    "start": "2026-02-05T16:30:00.000Z",
-    "end": "2026-02-06T16:30:00.000Z"
+    "start": "2026-02-05T10:30:00.000Z",
+    "end": "2026-02-06T10:30:00.000Z",
+    "hours": 24
   },
-  "twilio_api": {
-    "avg_response_time_ms": 178,
-    "max_response_time_ms": 456,
-    "min_response_time_ms": 89,
-    "total_requests": 15230
-  },
-  "transcription_providers": {
+  "providers": {
+    "twilio_api": {
+      "avg_response_time_ms": 145,
+      "max_response_time_ms": 523,
+      "min_response_time_ms": 89,
+      "p95_response_time_ms": 234,
+      "total_requests": 4523,
+      "failed_requests": 12,
+      "success_rate": "99.73%"
+    },
     "openai_whisper": {
-      "avg_response_time_ms": 2340,
-      "max_response_time_ms": 5680,
-      "min_response_time_ms": 1120,
-      "total_requests": 950
+      "avg_response_time_ms": 2345,
+      "max_response_time_ms": 8901,
+      "min_response_time_ms": 1234,
+      "p95_response_time_ms": 5678,
+      "total_requests": 892,
+      "failed_requests": 23,
+      "success_rate": "97.42%"
     }
   }
 }
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/health/provider-response-times" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/health/provider-response-times', {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const metrics = await response.json();
-console.log(`Twilio avg response: ${metrics.twilio_api.avg_response_time_ms}ms`);
-```
-
-#### Notes
-
-- **24-Hour Window**: Metrics cover last 24 hours
-- **Performance Trends**: Use for identifying performance degradation
-- **Capacity Planning**: High response times may indicate need for scaling
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### 5.6 Get Recent System Alerts
+### GET /alerts
 
-**GET** `/api/admin/communication/alerts`
+**Description:** Get recent system alerts
 
 Returns paginated list of system alerts: health failures, failed transcriptions, quota exceeded, etc.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Query Parameters:
+  - `acknowledged` (string, optional): Filter by acknowledged status (true/false)
+  - `severity` (string, optional): Filter by severity. Enum: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`
+  - `page` (integer, optional): Page number (default: 1)
+  - `limit` (integer, optional): Results per page (default: 20)
 
-**Path Parameters**: None
-
-**Query Parameters**:
-
-| Parameter     | Type              | Required | Default | Description                                    |
-|---------------|-------------------|----------|---------|------------------------------------------------|
-| acknowledged  | string (boolean)  | No       | None    | Filter by acknowledged status (true/false)     |
-| severity      | string (enum)     | No       | None    | Filter by severity (LOW/MEDIUM/HIGH/CRITICAL)  |
-| page          | integer           | No       | 1       | Page number                                    |
-| limit         | integer           | No       | 20      | Results per page                               |
-
-**Severity Enum Values**: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
   "data": [
     {
-      "id": "alert-uuid-123",
-      "type": "FAILED_TRANSCRIPTION",
-      "severity": "MEDIUM",
-      "message": "15 transcriptions failed in the last hour",
+      "id": "alert-uuid-1",
+      "type": "health_check_failed",
+      "severity": "HIGH",
+      "message": "Transcription provider 'deepgram' API connectivity failed",
       "details": {
-        "failed_count": 15,
-        "provider": "openai_whisper",
-        "error_summary": "Audio file too short"
+        "provider": "deepgram",
+        "error": "API rate limit exceeded",
+        "timestamp": "2026-02-06T09:45:00.000Z"
       },
-      "acknowledged": false,
-      "acknowledged_by": null,
-      "acknowledged_at": null,
-      "created_at": "2026-02-06T14:00:00.000Z"
+      "acknowledged": true,
+      "acknowledged_by": {
+        "id": "user-uuid-1",
+        "name": "Admin User",
+        "email": "admin@lead360.app"
+      },
+      "acknowledged_at": "2026-02-06T10:00:00.000Z",
+      "created_at": "2026-02-06T09:45:00.000Z"
     }
   ],
   "pagination": {
-    "total": 43,
+    "total": 42,
     "page": 1,
     "limit": 20,
     "pages": 3,
@@ -2500,776 +1698,1812 @@ Returns paginated list of system alerts: health failures, failed transcriptions,
 }
 ```
 
-**Alert Fields**:
-
-| Field            | Type              | Nullable | Description                                    |
-|------------------|-------------------|----------|------------------------------------------------|
-| id               | string (UUID)     | No       | Unique alert ID                                |
-| type             | string            | No       | Alert type (see types below)                   |
-| severity         | string            | No       | Alert severity (LOW/MEDIUM/HIGH/CRITICAL)      |
-| message          | string            | No       | Human-readable alert message                   |
-| details          | object (JSON)     | Yes      | Additional context data                        |
-| acknowledged     | boolean           | No       | Whether admin has addressed the alert          |
-| acknowledged_by  | object            | Yes      | Admin user who acknowledged (if acknowledged)  |
-| acknowledged_at  | string (ISO 8601) | Yes      | Acknowledgement timestamp                      |
-| created_at       | string (ISO 8601) | No       | Alert creation timestamp                       |
-
-**Alert Types**: `SYSTEM_HEALTH`, `FAILED_TRANSCRIPTION`, `QUOTA_EXCEEDED`, `HIGH_USAGE`
-
-#### Examples
-
-**cURL (all alerts)**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/alerts?page=1&limit=20" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**cURL (unacknowledged critical alerts)**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/alerts?acknowledged=false&severity=CRITICAL" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const params = new URLSearchParams({
-  acknowledged: 'false',
-  severity: 'HIGH',
-  page: '1',
-  limit: '50'
-});
-
-const response = await fetch(`https://api.lead360.app/api/admin/communication/alerts?${params}`, {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const { data, pagination } = await response.json();
-console.log(`Found ${pagination.total} unacknowledged HIGH severity alerts`);
-```
-
-#### Notes
-
-- **Actionable Alerts**: Each alert requires admin action or acknowledgement
-- **Details Context**: `details` field provides troubleshooting context
-- **Acknowledgement**: Alerts can be acknowledged via separate endpoint (not documented here)
+**Response 400 Bad Request:** Invalid query parameters
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-## 6. Metrics & Analytics (2 endpoints)
+## 6. METRICS & ANALYTICS
 
-System-wide communication metrics and analytics.
+### GET /metrics/system-wide
 
-### 6.1 Get Comprehensive System-Wide Metrics
-
-**GET** `/api/admin/communication/metrics/system-wide`
+**Description:** Get comprehensive system-wide metrics
 
 Returns platform-level metrics across all tenants: total calls, SMS, transcriptions, success rates, etc.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
 
-**Path Parameters**: None
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
-  "platform_overview": {
-    "total_tenants": 45,
-    "active_tenants": 42
+  "timestamp": "2026-02-06T10:00:00.000Z",
+  "period": "all_time",
+  "totals": {
+    "tenants": {
+      "total": 47,
+      "active": 42,
+      "inactive": 5
+    },
+    "calls": {
+      "total": 125432,
+      "inbound": 67234,
+      "outbound": 58198,
+      "completed": 118765,
+      "failed": 6667,
+      "success_rate": "94.69%",
+      "total_minutes": 345678
+    },
+    "sms": {
+      "total": 456789,
+      "inbound": 123456,
+      "outbound": 333333,
+      "delivered": 448901,
+      "failed": 7888,
+      "delivery_rate": "98.27%"
+    },
+    "whatsapp": {
+      "total": 78901,
+      "inbound": 23456,
+      "outbound": 55445,
+      "delivered": 77234,
+      "failed": 1667,
+      "delivery_rate": "97.89%"
+    },
+    "transcriptions": {
+      "total": 118765,
+      "completed": 115892,
+      "failed": 2873,
+      "success_rate": "97.58%"
+    }
   },
-  "calls": {
-    "total": 15230,
-    "completed": 13500,
-    "failed": 850,
-    "no_answer": 880,
-    "completion_rate": "88.64%"
-  },
-  "sms": {
-    "total": 32500,
-    "delivered": 31800,
-    "failed": 700,
-    "delivery_rate": "97.85%"
-  },
-  "transcriptions": {
-    "total": 9800,
-    "completed": 9550,
-    "failed": 250,
-    "success_rate": "97.45%"
-  },
-  "generated_at": "2026-02-06T17:00:00.000Z"
+  "costs": {
+    "total_all_time": "$234,567.89",
+    "current_month": "$12,345.67"
+  }
 }
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/metrics/system-wide" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/metrics/system-wide', {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const metrics = await response.json();
-console.log(`Platform: ${metrics.calls.total} calls, ${metrics.calls.completion_rate} completion rate`);
-```
-
-#### Notes
-
-- **Real-Time**: Computed from current database state
-- **Platform-Level**: Aggregated across all tenants
-- **Success Rates**: Includes calculated success/completion rates
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### 6.2 Get Top Tenants by Communication Volume
+### GET /metrics/top-tenants
 
-**GET** `/api/admin/communication/metrics/top-tenants`
+**Description:** Get top tenants by communication volume
 
 Returns list of tenants with highest communication activity. Useful for identifying power users and capacity planning.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Query Parameters:
+  - `limit` (integer, optional): Number of top tenants to return (default: 10)
 
-**Path Parameters**: None
-
-**Query Parameters**:
-
-| Parameter | Type    | Required | Default | Description                       |
-|-----------|---------|----------|---------|-----------------------------------|
-| limit     | integer | No       | 10      | Number of top tenants to return   |
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
+  "period": "last_30_days",
   "top_tenants": [
     {
-      "tenant_id": "tenant-uuid-123",
-      "tenant_name": "Acme Roofing",
-      "subdomain": "acme",
-      "total_communications": 5250,
-      "calls": 850,
-      "sms": 3200,
-      "whatsapp": 1200,
-      "rank": 1
+      "rank": 1,
+      "tenant": {
+        "id": "tenant-uuid-1",
+        "company_name": "Acme Corp",
+        "subdomain": "acme"
+      },
+      "activity": {
+        "total_communications": 12456,
+        "calls": 3456,
+        "sms": 7890,
+        "whatsapp": 1110
+      },
+      "costs": {
+        "estimated": "$1,234.56"
+      }
     },
     {
-      "tenant_id": "tenant-uuid-456",
-      "tenant_name": "Beta Construction",
-      "subdomain": "beta",
-      "total_communications": 4180,
-      "calls": 720,
-      "sms": 2800,
-      "whatsapp": 660,
-      "rank": 2
+      "rank": 2,
+      "tenant": {
+        "id": "tenant-uuid-2",
+        "company_name": "Globex Corporation",
+        "subdomain": "globex"
+      },
+      "activity": {
+        "total_communications": 9876,
+        "calls": 2345,
+        "sms": 6543,
+        "whatsapp": 988
+      },
+      "costs": {
+        "estimated": "$987.65"
+      }
     }
   ],
-  "generated_at": "2026-02-06T17:15:00.000Z"
+  "limit": 10
 }
 ```
 
-#### Examples
-
-**cURL (top 10 tenants)**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/metrics/top-tenants?limit=10" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch - top 20)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/metrics/top-tenants?limit=20', {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const { top_tenants } = await response.json();
-top_tenants.forEach(tenant => {
-  console.log(`#${tenant.rank}: ${tenant.tenant_name} - ${tenant.total_communications} communications`);
-});
-```
-
-#### Notes
-
-- **Volume-Based**: Sorted by total communication count
-- **Capacity Planning**: Use to identify high-usage tenants
-- **Resource Allocation**: Helps plan infrastructure scaling
+**Response 400 Bad Request:** Invalid limit
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-## 7. Cron Schedule Management (2 endpoints)
+## 7. CRON MANAGEMENT
 
-Dynamic cron schedule configuration from system settings.
+### GET /cron/status
 
-### 7.1 Get Cron Job Status
-
-**GET** `/api/admin/communication/cron/status`
+**Description:** Get cron job status
 
 Returns current status of all scheduled jobs including their schedules, timezone, and running status. Shows configuration loaded from system_settings table.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
 
-**Path Parameters**: None
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
-  "jobs": [
+  "cron_jobs": [
     {
-      "name": "twilio_usage_sync",
+      "name": "usage_sync",
       "schedule": "0 2 * * *",
       "timezone": "America/New_York",
-      "is_running": true,
-      "next_run": "2026-02-07T02:00:00.000Z",
-      "last_run": "2026-02-06T02:00:00.000Z"
+      "description": "Sync Twilio usage data from API for all tenants",
+      "last_run": "2026-02-06T07:00:00.000Z",
+      "next_run": "2026-02-07T07:00:00.000Z",
+      "status": "active",
+      "success_count": 5,
+      "failure_count": 0
     },
     {
-      "name": "twilio_health_check",
+      "name": "health_check",
       "schedule": "*/15 * * * *",
       "timezone": "America/New_York",
-      "is_running": true,
-      "next_run": "2026-02-06T17:30:00.000Z",
-      "last_run": "2026-02-06T17:15:00.000Z"
+      "description": "Run system health checks",
+      "last_run": "2026-02-06T10:15:00.000Z",
+      "next_run": "2026-02-06T10:30:00.000Z",
+      "status": "active",
+      "success_count": 96,
+      "failure_count": 4
     }
   ],
-  "loaded_from": "system_settings",
-  "retrieved_at": "2026-02-06T17:20:00.000Z"
+  "system_timezone": "America/New_York"
 }
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X GET "https://api.lead360.app/api/admin/communication/cron/status" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/cron/status', {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const { jobs } = await response.json();
-jobs.forEach(job => {
-  console.log(`${job.name}: ${job.schedule} (${job.is_running ? 'running' : 'stopped'})`);
-});
-```
-
-#### Notes
-
-- **System Settings**: Cron schedules loaded from `system_settings` table
-- **Timezone Support**: All schedules respect configured timezone
-- **Next Run**: Shows when each job will execute next
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### 7.2 Reload Cron Schedules from System Settings
+### POST /cron/reload
 
-**POST** `/api/admin/communication/cron/reload`
+**Description:** Reload cron schedules from system settings
 
 Reloads cron job schedules from system_settings table and restarts jobs with new configuration. Use this after updating cron settings (twilio_usage_sync_cron, twilio_health_check_cron, cron_timezone). Jobs will be stopped and restarted with the new schedule immediately.
 
-#### Authentication
-- **Required**: Yes
-- **Role**: SystemAdmin
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### Request
+**Request:**
+- Headers: `Authorization: Bearer <token>`
 
-**Path Parameters**: None
-
-**Query Parameters**: None
-
-**Request Body**: None
-
-#### Response
-
-**Success Response (200 OK)**:
-
+**Response 200 OK:**
 ```json
 {
   "message": "Cron schedules reloaded successfully",
   "status": {
-    "jobs": [
+    "cron_jobs": [
       {
-        "name": "twilio_usage_sync",
-        "schedule": "0 3 * * *",
-        "timezone": "America/Los_Angeles",
-        "is_running": true,
-        "next_run": "2026-02-07T03:00:00.000Z"
+        "name": "usage_sync",
+        "schedule": "0 2 * * *",
+        "timezone": "America/New_York",
+        "status": "active",
+        "reloaded": true
+      },
+      {
+        "name": "health_check",
+        "schedule": "*/15 * * * *",
+        "timezone": "America/New_York",
+        "status": "active",
+        "reloaded": true
       }
     ]
   }
 }
 ```
 
-#### Examples
-
-**cURL**:
-```bash
-curl -X POST "https://api.lead360.app/api/admin/communication/cron/reload" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
-
-**JavaScript (Fetch)**:
-```javascript
-const response = await fetch('https://api.lead360.app/api/admin/communication/cron/reload', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${adminToken}`,
-  },
-});
-
-const result = await response.json();
-console.log(result.message);
-console.log('Updated jobs:', result.status.jobs);
-```
-
-#### Notes
-
-- **Immediate Effect**: Jobs restart immediately with new schedules
-- **No Downtime**: Jobs gracefully stopped and restarted
-- **Timezone Changes**: Respects updated timezone settings
-- **Use Case**: Apply cron schedule changes without server restart
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-## Appendix A: Data Models
+## 8. WEBHOOK MANAGEMENT
 
-### Request DTOs
+### GET /webhooks/config
 
-#### AdminCallFiltersDto
+**Description:** Get webhook configuration
 
-Query parameters for filtering calls across all tenants.
+Returns current webhook configuration including base URL, endpoints, and security settings.
 
-| Field      | Type              | Required | Validation                                         | Description                             |
-|------------|-------------------|----------|----------------------------------------------------|-----------------------------------------|
-| tenant_id  | string (UUID)     | No       | Valid UUID                                         | Filter by tenant ID                     |
-| status     | string (enum)     | No       | One of call status values (see below)              | Filter by call status                   |
-| direction  | string (enum)     | No       | "inbound" or "outbound"                            | Filter by call direction                |
-| start_date | string (ISO 8601) | No       | Valid ISO 8601 date string                         | Filter calls after this date            |
-| end_date   | string (ISO 8601) | No       | Valid ISO 8601 date string                         | Filter calls before this date           |
-| page       | integer           | No       | Min: 1                                             | Page number (1-indexed)                 |
-| limit      | integer           | No       | Min: 1                                             | Results per page                        |
+**Authentication:** Bearer JWT + SystemAdmin role
 
-**Call Status Enum**: `initiated`, `ringing`, `in_progress`, `completed`, `failed`, `no_answer`, `busy`, `canceled`
+**Request:**
+- Headers: `Authorization: Bearer <token>`
 
----
-
-#### AdminSmsFiltersDto
-
-Query parameters for filtering SMS/WhatsApp messages across all tenants.
-
-| Field      | Type              | Required | Validation                                         | Description                             |
-|------------|-------------------|----------|----------------------------------------------------|-----------------------------------------|
-| tenant_id  | string (UUID)     | No       | Valid UUID                                         | Filter by tenant ID                     |
-| status     | string (enum)     | No       | One of SMS status values (see below)               | Filter by message status                |
-| direction  | string (enum)     | No       | "inbound" or "outbound"                            | Filter by message direction             |
-| channel    | string (enum)     | No       | "sms" or "whatsapp"                                | Filter by communication channel         |
-| start_date | string (ISO 8601) | No       | Valid ISO 8601 date string                         | Filter messages after this date         |
-| end_date   | string (ISO 8601) | No       | Valid ISO 8601 date string                         | Filter messages before this date        |
-| page       | integer           | No       | Min: 1                                             | Page number (1-indexed)                 |
-| limit      | integer           | No       | Min: 1                                             | Results per page                        |
-
-**SMS Status Enum**: `pending`, `sent`, `delivered`, `failed`, `bounced`
-
----
-
-#### UsageQueryDto
-
-Query parameters for retrieving usage statistics and reports.
-
-| Field      | Type              | Required | Validation                                         | Description                             |
-|------------|-------------------|----------|----------------------------------------------------|-----------------------------------------|
-| month      | string            | No       | Pattern: `^\d{4}-\d{2}$` (YYYY-MM)                 | Month in YYYY-MM format                 |
-| start_date | string (ISO 8601) | No       | Valid ISO 8601 date string                         | Start date for custom date range        |
-| end_date   | string (ISO 8601) | No       | Valid ISO 8601 date string                         | End date for custom date range          |
-
----
-
-#### CostQueryDto
-
-Query parameters for cost estimation endpoints.
-
-| Field | Type   | Required | Validation                             | Description               |
-|-------|--------|----------|----------------------------------------|---------------------------|
-| month | string | Yes      | Pattern: `^\d{4}-\d{2}$` (YYYY-MM)     | Month in YYYY-MM format   |
-
----
-
-#### RegisterSystemProviderDto
-
-Data required to register the system-level Twilio provider (Model B).
-
-| Field       | Type   | Required | Validation                                              | Description                                      |
-|-------------|--------|----------|---------------------------------------------------------|--------------------------------------------------|
-| account_sid | string | Yes      | Pattern: `^AC[a-z0-9]{32}$`                             | Twilio Account SID (starts with AC)              |
-| auth_token  | string | Yes      | Non-empty string                                        | Twilio Auth Token                                |
-
----
-
-#### UpdateSystemProviderDto
-
-Data required to update system-level Twilio credentials. Same fields as `RegisterSystemProviderDto`.
-
----
-
-#### TestConnectivityDto
-
-Data required to test Twilio connectivity for a specific tenant.
-
-| Field     | Type   | Required | Validation        | Description                                          |
-|-----------|--------|----------|-------------------|------------------------------------------------------|
-| tenant_id | string | Yes      | Non-empty string  | Tenant UUID (use "system" for system-level check)    |
-
----
-
-### Response Models
-
-#### Paginated Response Format
-
-All paginated endpoints return this structure:
-
-```typescript
+**Response 200 OK:**
+```json
 {
-  data: T[],  // Array of result objects
-  pagination: {
-    total: number,      // Total records across all pages
-    page: number,       // Current page number
-    limit: number,      // Items per page
-    pages: number,      // Total number of pages
-    has_next: boolean,  // Whether next page exists
-    has_prev: boolean   // Whether previous page exists
+  "id": "config-uuid-1234",
+  "base_url": "https://api.lead360.app",
+  "endpoints": {
+    "calls": "/webhooks/twilio/calls",
+    "sms": "/webhooks/twilio/sms",
+    "whatsapp": "/webhooks/twilio/whatsapp",
+    "email": "/webhooks/email/status"
+  },
+  "security": {
+    "signature_verification": true,
+    "secret_configured": true,
+    "last_rotated": "2026-01-15T10:00:00.000Z"
   }
 }
 ```
 
----
-
-### Database Models (Prisma Schema)
-
-#### call_record
-
-Voice call records.
-
-| Field                      | Type    | Nullable | Description                                      |
-|----------------------------|---------|----------|--------------------------------------------------|
-| id                         | UUID    | No       | Unique call record ID                            |
-| tenant_id                  | UUID    | Yes      | Tenant who owns this call                        |
-| lead_id                    | UUID    | Yes      | Associated lead ID                               |
-| twilio_call_sid            | string  | No       | Twilio Call SID (unique identifier)              |
-| direction                  | string  | No       | "inbound" or "outbound"                          |
-| from_number                | string  | No       | Caller phone number (E.164)                      |
-| to_number                  | string  | No       | Recipient phone number (E.164)                   |
-| status                     | string  | No       | Call status                                      |
-| recording_url              | string  | Yes      | Twilio recording URL                             |
-| recording_duration_seconds | integer | Yes      | Recording length in seconds                      |
-| cost                       | decimal | Yes      | Call cost in USD                                 |
-| created_at                 | DateTime| No       | Record creation time                             |
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-#### communication_event
+### PATCH /webhooks/config
 
-SMS, Email, and WhatsApp messages.
+**Description:** Update webhook configuration
 
-| Field               | Type     | Nullable | Description                               |
-|---------------------|----------|----------|-------------------------------------------|
-| id                  | UUID     | No       | Unique message ID                         |
-| tenant_id           | UUID     | Yes      | Tenant who owns this message              |
-| channel             | string   | No       | "sms", "whatsapp", or "email"             |
-| direction           | string   | No       | "inbound" or "outbound"                   |
-| status              | string   | No       | Delivery status                           |
-| to_phone            | string   | Yes      | Recipient phone number (E.164)            |
-| text_body           | string   | Yes      | Message content                           |
-| provider_message_id | string   | Yes      | Provider's message ID                     |
-| sent_at             | DateTime | Yes      | Message sent timestamp                    |
-| delivered_at        | DateTime | Yes      | Message delivered timestamp               |
-| created_at          | DateTime | No       | Record creation time                      |
+Updates webhook base URL, signature verification, or rotates webhook secret.
 
----
+**Authentication:** Bearer JWT + SystemAdmin role
 
-#### call_transcription
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Body:
+```json
+{
+  "base_url": "https://api.lead360.app",
+  "signature_verification": true,
+  "rotate_secret": false
+}
+```
 
-Call transcription records.
+**Field Details:**
+- `base_url` (string, optional): Base URL for webhook endpoints
+- `signature_verification` (boolean, optional): Enable/disable webhook signature verification
+- `rotate_secret` (boolean, optional): Generate new webhook secret (default: false)
 
-| Field                       | Type    | Nullable | Description                                |
-|-----------------------------|---------|----------|--------------------------------------------|
-| id                          | UUID    | No       | Unique transcription ID                    |
-| tenant_id                   | UUID    | Yes      | Tenant who owns this transcription         |
-| call_record_id              | UUID    | No       | Associated call record ID                  |
-| transcription_provider      | string  | No       | Provider name (e.g., "openai_whisper")     |
-| status                      | string  | No       | "queued", "processing", "completed", "failed" |
-| transcription_text          | string  | Yes      | Full transcription text                    |
-| language_detected           | string  | Yes      | ISO language code                          |
-| confidence_score            | decimal | Yes      | Transcription confidence (0-1)             |
-| processing_duration_seconds | integer | Yes      | Processing time in seconds                 |
-| cost                        | decimal | Yes      | Transcription cost in USD                  |
-| error_message               | string  | Yes      | Error message if failed                    |
-| created_at                  | DateTime| No       | Record creation time                       |
-| completed_at                | DateTime| Yes      | Transcription completion time              |
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Webhook configuration updated successfully",
+  "config": {
+    "base_url": "https://api.lead360.app",
+    "signature_verification": true,
+    "secret_rotated": false
+  }
+}
+```
 
----
-
-#### twilio_usage_record
-
-Twilio usage tracking records (synced from Twilio API).
-
-| Field      | Type     | Nullable | Description                                |
-|------------|----------|----------|--------------------------------------------|
-| id         | UUID     | No       | Unique usage record ID                     |
-| tenant_id  | UUID     | Yes      | Tenant ID (null for system-level usage)    |
-| category   | string   | No       | Usage category: "calls", "sms", etc.       |
-| count      | integer  | No       | Number of units consumed                   |
-| usage_unit | string   | No       | Unit of measurement                        |
-| price      | decimal  | No       | Cost in USD                                |
-| price_unit | string   | No       | Currency unit (typically "USD")            |
-| start_date | DateTime | No       | Usage period start                         |
-| end_date   | DateTime | No       | Usage period end                           |
-| synced_at  | DateTime | No       | Timestamp when synced from Twilio API      |
-| created_at | DateTime | No       | Record creation time                       |
+**Response 400 Bad Request:** Invalid configuration
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-#### admin_alert
+### POST /webhooks/test
 
-System alerts for admin notification.
+**Description:** Test webhook endpoint
 
-| Field            | Type     | Nullable | Description                                |
-|------------------|----------|----------|--------------------------------------------|
-| id               | UUID     | No       | Unique alert ID                            |
-| type             | string   | No       | Alert type (see enum below)                |
-| severity         | string   | No       | Alert severity (LOW/MEDIUM/HIGH/CRITICAL)  |
-| message          | string   | No       | Human-readable alert message               |
-| details          | JSON     | Yes      | Additional context data                    |
-| acknowledged     | boolean  | No       | Whether admin addressed the alert          |
-| acknowledged_by  | UUID     | Yes      | Admin user ID who acknowledged             |
-| acknowledged_at  | DateTime | Yes      | Acknowledgement timestamp                  |
-| created_at       | DateTime | No       | Alert creation time                        |
+Sends a test webhook payload to verify endpoint configuration and processing.
 
-**Alert Type Enum**: `SYSTEM_HEALTH`, `FAILED_TRANSCRIPTION`, `QUOTA_EXCEEDED`, `HIGH_USAGE`
+**Authentication:** Bearer JWT + SystemAdmin role
 
----
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Body:
+```json
+{
+  "type": "sms",
+  "payload": {
+    "from": "+15555555555",
+    "to": "+15555555556",
+    "body": "Test message"
+  }
+}
+```
 
-## Appendix B: Enums and Constants
+**Field Details:**
+- `type` (string, required): Type of webhook to test. Enum: `sms`, `call`, `whatsapp`, `email`
+- `payload` (object, optional): Test payload to send (if not provided, uses default test payload)
 
-### Call Status
+**Response 200 OK (Success):**
+```json
+{
+  "status": "success",
+  "webhook_url": "https://api.lead360.app/webhooks/twilio/sms",
+  "response_time_ms": 67,
+  "status_code": 200,
+  "signature_valid": true,
+  "processing_result": "Test webhook for sms processed successfully"
+}
+```
 
-| Value       | Description                              |
-|-------------|------------------------------------------|
-| initiated   | Call initiated, connecting               |
-| ringing     | Call ringing, not yet answered           |
-| in_progress | Call active and ongoing                  |
-| completed   | Call ended successfully                  |
-| failed      | Call failed to connect (technical error) |
-| no_answer   | Call not answered by recipient           |
-| busy        | Recipient line busy                      |
-| canceled    | Call canceled by caller                  |
+**Response 200 OK (Failed):**
+```json
+{
+  "status": "failed",
+  "webhook_url": "https://api.lead360.app/webhooks/twilio/sms",
+  "response_time_ms": 143,
+  "status_code": 500,
+  "signature_valid": false,
+  "processing_result": "Webhook returned error status 500: Internal Server Error"
+}
+```
 
----
-
-### SMS/Communication Status
-
-| Value     | Description                                 |
-|-----------|---------------------------------------------|
-| pending   | Message queued, not yet sent                |
-| sent      | Message sent to provider                    |
-| delivered | Message delivered to recipient              |
-| failed    | Message delivery failed                     |
-| bounced   | Message bounced (invalid number)            |
-
----
-
-### Transcription Status
-
-| Value      | Description                               |
-|------------|-------------------------------------------|
-| queued     | Transcription queued for processing       |
-| processing | Transcription in progress                 |
-| completed  | Transcription completed successfully      |
-| failed     | Transcription failed (see error_message)  |
+**Response 400 Bad Request:** Invalid webhook type or payload
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### Alert Severity
+### GET /webhook-events
 
-| Value    | Description                                      | Use Case                                   |
-|----------|--------------------------------------------------|--------------------------------------------|
-| LOW      | Minor issue, no immediate action required        | Informational alerts                       |
-| MEDIUM   | Issue requires attention within 24 hours         | Failed transcriptions (low volume)         |
-| HIGH     | Issue requires attention within 4 hours          | High failure rates, quota warnings         |
-| CRITICAL | Urgent issue requiring immediate action          | System down, provider connectivity failed  |
+**Description:** List webhook events
 
----
+Returns paginated list of webhook events with filtering by type, status, and date range.
 
-### Health Status
+**Authentication:** Bearer JWT + SystemAdmin role
 
-| Value    | Description                                      |
-|----------|--------------------------------------------------|
-| HEALTHY  | Component operating normally                     |
-| DEGRADED | Component experiencing issues but still working  |
-| DOWN     | Component completely unavailable                 |
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Query Parameters:
+  - `webhook_type` (string, optional): Filter by webhook type. Enum: `sms`, `call`, `whatsapp`, `email`
+  - `status` (string, optional): Filter by processing status. Enum: `pending`, `processed`, `failed`
+  - `start_date` (string, optional): Start date for filtering (ISO 8601)
+  - `end_date` (string, optional): End date for filtering (ISO 8601)
+  - `page` (integer, optional): Page number for pagination (default: 1, min: 1)
+  - `limit` (integer, optional): Number of items per page (default: 20, min: 1, max: 100)
 
----
+**Response 200 OK:**
+```json
+{
+  "data": [
+    {
+      "id": "webhook-event-uuid-1",
+      "webhook_type": "sms",
+      "status": "processed",
+      "payload": {
+        "MessageSid": "SM1234567890abcdef",
+        "From": "+15555555555",
+        "To": "+15555555556",
+        "Body": "Hello world",
+        "MessageStatus": "delivered"
+      },
+      "processing_attempts": 1,
+      "last_error": null,
+      "processed_at": "2026-02-06T10:15:03.000Z",
+      "created_at": "2026-02-06T10:15:00.000Z"
+    },
+    {
+      "id": "webhook-event-uuid-2",
+      "webhook_type": "call",
+      "status": "failed",
+      "payload": {
+        "CallSid": "CA1234567890abcdef",
+        "CallStatus": "completed"
+      },
+      "processing_attempts": 3,
+      "last_error": "Database connection timeout",
+      "processed_at": null,
+      "created_at": "2026-02-06T09:30:00.000Z"
+    }
+  ],
+  "pagination": {
+    "total": 4523,
+    "page": 1,
+    "limit": 20,
+    "pages": 227,
+    "has_next": true,
+    "has_prev": false
+  }
+}
+```
 
-## Appendix C: Usage Notes
-
-### Twilio Model A vs Model B
-
-**Model A (Tenant-Managed)**:
-- Each tenant brings their own Twilio account (BYOT - Bring Your Own Twilio)
-- Tenant configures their own Twilio credentials via tenant endpoints
-- Tenant pays Twilio directly
-- Platform does not manage Twilio resources
-
-**Model B (Platform-Managed)**:
-- Platform provides Twilio service from master account
-- Admin configures system-level Twilio provider once
-- Phone numbers allocated to tenants from system pool
-- Platform manages billing and costs
-- Admin endpoints (documented here) enable Model B management
-
----
-
-### Cron Job Configuration
-
-Cron job schedules are stored in the `system_settings` table:
-
-| Setting Key              | Description                          | Example Value          |
-|--------------------------|--------------------------------------|------------------------|
-| twilio_usage_sync_cron   | Usage sync schedule (cron format)    | `0 2 * * *` (2:00 AM)  |
-| twilio_health_check_cron | Health check schedule (cron format)  | `*/15 * * * *` (15min) |
-| cron_timezone            | Timezone for all cron jobs           | `America/New_York`     |
-
-**Updating Cron Schedules**:
-1. Update setting values in `system_settings` table
-2. Call `POST /admin/communication/cron/reload` to apply changes
-3. Jobs will restart with new schedules immediately
-
----
-
-### Rate Limiting
-
-**Twilio API Rate Limits**:
-- Twilio enforces API rate limits per account
-- Usage sync operations respect rate limits
-- Large tenant bases may require staggered syncing
-
-**Admin API Rate Limits**:
-- No explicit rate limiting on admin endpoints (trusted users only)
-- Use pagination to avoid overwhelming database queries
-- Health checks can be called frequently (no rate limit)
+**Response 400 Bad Request:** Invalid query parameters
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
 
 ---
 
-### Best Practices
+### POST /webhook-events/:id/retry
 
-**Usage Tracking**:
-- Run usage sync nightly during low-traffic hours (default: 2:00 AM)
-- Monitor sync job completion in cron status endpoint
-- Trigger manual sync only when necessary (troubleshooting)
+**Description:** Retry failed webhook event
 
-**Health Monitoring**:
-- Check system health regularly (every 15 minutes recommended)
-- Set up alerts for CRITICAL severity issues
-- Monitor provider response times for performance trends
+Marks a failed webhook event for reprocessing by resetting its status.
 
-**Cost Management**:
-- Review tenant usage monthly for billing accuracy
-- Set up budget alerts using cost estimation endpoint
-- Identify high-usage tenants for capacity planning
+**Authentication:** Bearer JWT + SystemAdmin role
 
-**Transcription Monitoring**:
-- Monitor failed transcription rate (target: <5%)
-- Retry failed transcriptions promptly
-- Review provider success rates to choose optimal provider
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `id` (string, required): Webhook event ID
 
----
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Webhook event queued for retry",
+  "event_id": "webhook-event-uuid-2",
+  "new_status": "pending"
+}
+```
 
-## Appendix D: Changelog
-
-### Version 1.0 (February 6, 2026)
-
-**Initial Release**:
-- 32 admin endpoints documented
-- Provider Management (5 endpoints)
-- Cross-Tenant Oversight (6 endpoints)
-- Usage Tracking & Billing (7 endpoints)
-- Transcription Monitoring (4 endpoints)
-- System Health (6 endpoints)
-- Metrics & Analytics (2 endpoints)
-- Cron Schedule Management (2 endpoints)
-
-**Key Features**:
-- System-level Twilio provider registration (Model B support)
-- Cross-tenant communication visibility (AC-16 fulfillment)
-- Nightly usage sync from Twilio API (AC-18 fulfillment)
-- Comprehensive health monitoring
-- Dynamic cron schedule management
-
-**Future Enhancements Planned**:
-- CSV export functionality (endpoint reserved: `/usage/export`)
-- Alert acknowledgement endpoint
-- Bulk tenant provisioning
-- Advanced analytics dashboards
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Webhook event not found
 
 ---
 
-## Support
+## 9. PHONE NUMBER OPERATIONS
 
-For questions, issues, or feature requests:
+### POST /phone-numbers/purchase
 
-- **Platform Documentation**: See `/documentation/backend/module-twillio.md`
-- **Sprint Documentation**: See `/documentation/backend/twillio_sprints/`
-- **Issue Tracking**: Contact platform administrator
+**Description:** Purchase new Twilio phone number
+
+Purchases a new phone number from Twilio and optionally allocates it to a tenant immediately.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Body:
+```json
+{
+  "phone_number": "+15555555555",
+  "capabilities": {
+    "voice": true,
+    "sms": true,
+    "mms": true
+  },
+  "tenant_id": "tenant-uuid-here",
+  "purpose": "SMS + Calls"
+}
+```
+
+**Field Details:**
+- `phone_number` (string, required): Phone number to purchase (E.164 format). Example: `+15555555555`
+- `capabilities` (object, optional): Capabilities for the phone number
+  - `voice` (boolean, optional): Enable voice capabilities
+  - `sms` (boolean, optional): Enable SMS capabilities
+  - `mms` (boolean, optional): Enable MMS capabilities
+- `tenant_id` (string, required): Tenant ID to allocate the phone number to
+- `purpose` (string, optional): Purpose of the phone number allocation. Enum: `SMS Only`, `Calls Only`, `SMS + Calls`, `WhatsApp`
+
+**Response 201 Created:**
+```json
+{
+  "success": true,
+  "message": "Phone number purchased and allocated successfully",
+  "phone_number": {
+    "sid": "PN1234567890abcdef1234567890abcd",
+    "phone_number": "+15555555555",
+    "friendly_name": "(555) 555-5555",
+    "capabilities": {
+      "voice": true,
+      "sms": true,
+      "mms": true
+    },
+    "monthly_cost": "$1.00"
+  },
+  "allocation": {
+    "tenant_id": "tenant-uuid-here",
+    "purpose": "SMS + Calls",
+    "allocated_at": "2026-02-06T11:00:00.000Z"
+  }
+}
+```
+
+**Response 400 Bad Request:** Invalid phone number or capabilities
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 409 Conflict:** Phone number already owned
 
 ---
 
-**End of Twilio Admin REST API Documentation**
+### POST /phone-numbers/:sid/allocate
 
-*Generated from actual codebase - February 6, 2026*
+**Description:** Allocate phone number to tenant
+
+Allocates an existing owned phone number to a specific tenant for their use.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `sid` (string, required): Twilio phone number SID
+- Body:
+```json
+{
+  "tenant_id": "tenant-uuid-here",
+  "purpose": "SMS + Calls"
+}
+```
+
+**Field Details:**
+- `tenant_id` (string, required): Tenant ID to allocate the phone number to
+- `purpose` (string, optional): Purpose of the phone number allocation. Enum: `SMS Only`, `Calls Only`, `SMS + Calls`, `WhatsApp`
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Phone number allocated successfully",
+  "phone_number": {
+    "sid": "PN1234567890abcdef1234567890abcd",
+    "phone_number": "+15555555555",
+    "friendly_name": "(555) 555-5555"
+  },
+  "allocation": {
+    "tenant_id": "tenant-uuid-here",
+    "tenant_name": "Acme Corp",
+    "purpose": "SMS + Calls",
+    "allocated_at": "2026-02-06T11:05:00.000Z"
+  }
+}
+```
+
+**Response 400 Bad Request:** Invalid tenant_id
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Phone number not found
+**Response 409 Conflict:** Phone number already allocated
+
+---
+
+### DELETE /phone-numbers/:sid/allocate
+
+**Description:** Deallocate phone number from tenant
+
+Removes tenant allocation from a phone number, making it available for reassignment. Optionally deletes tenant SMS/WhatsApp configuration using this number.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `sid` (string, required): Twilio phone number SID
+- Body:
+```json
+{
+  "delete_config": false,
+  "reason": "Tenant requested removal"
+}
+```
+
+**Field Details:**
+- `delete_config` (boolean, optional): Also delete tenant SMS/WhatsApp configuration using this number (default: false)
+- `reason` (string, optional): Reason for deallocation (for audit log)
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Phone number deallocated successfully",
+  "phone_number": {
+    "sid": "PN1234567890abcdef1234567890abcd",
+    "phone_number": "+15555555555",
+    "status": "available"
+  },
+  "previous_allocation": {
+    "tenant_id": "tenant-uuid-here",
+    "tenant_name": "Acme Corp",
+    "deallocated_at": "2026-02-06T11:10:00.000Z"
+  },
+  "config_deleted": false
+}
+```
+
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Phone number not found or not allocated
+
+---
+
+### DELETE /phone-numbers/:sid
+
+**Description:** Release phone number to Twilio
+
+Releases a phone number back to Twilio (deletes from account). Number must be deallocated from all tenants first.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `sid` (string, required): Twilio phone number SID
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Phone number released successfully",
+  "phone_number": {
+    "sid": "PN1234567890abcdef1234567890abcd",
+    "phone_number": "+15555555555",
+    "released_at": "2026-02-06T11:15:00.000Z"
+  }
+}
+```
+
+**Response 400 Bad Request:** Phone number is still allocated to a tenant
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Phone number not found
+
+---
+
+## 10. TRANSCRIPTION PROVIDER CRUD
+
+### POST /transcription-providers
+
+**Description:** Create transcription provider
+
+Creates a new transcription provider configuration (OpenAI, Deepgram, or AssemblyAI). API keys are encrypted before storage.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Body:
+```json
+{
+  "tenant_id": "tenant-uuid-here",
+  "provider_name": "openai_whisper",
+  "api_key": "sk-proj-...",
+  "api_endpoint": "https://api.openai.com/v1/audio/transcriptions",
+  "model": "whisper-1",
+  "language": "en",
+  "additional_settings": {
+    "temperature": 0,
+    "response_format": "json"
+  },
+  "is_system_default": false,
+  "usage_limit": 10000,
+  "cost_per_minute": 0.006
+}
+```
+
+**Field Details:**
+- `tenant_id` (string, optional): Tenant ID (optional, for creating tenant-specific provider)
+- `provider_name` (string, required): Provider name/type. Enum: `openai_whisper`, `assemblyai`, `deepgram`
+- `api_key` (string, required): API key for the provider (will be encrypted)
+- `api_endpoint` (string, optional): API endpoint URL (if different from default)
+- `model` (string, optional): Model to use for transcription. Example: `whisper-1`
+- `language` (string, optional): Language code for transcription. Example: `en`
+- `additional_settings` (object, optional): Additional provider-specific settings
+- `is_system_default` (boolean, optional): Set as system default provider (default: false)
+- `usage_limit` (integer, optional): Monthly usage limit (transcription requests). Min: 1
+- `cost_per_minute` (number, optional): Cost per minute of transcription (USD). Min: 0
+
+**Response 201 Created:**
+```json
+{
+  "id": "provider-uuid-new",
+  "tenant_id": "tenant-uuid-here",
+  "provider_name": "openai_whisper",
+  "api_endpoint": "https://api.openai.com/v1/audio/transcriptions",
+  "model": "whisper-1",
+  "language": "en",
+  "additional_settings": {
+    "temperature": 0,
+    "response_format": "json"
+  },
+  "is_system_default": false,
+  "status": "active",
+  "usage_limit": 10000,
+  "usage_current": 0,
+  "cost_per_minute": 0.006,
+  "created_at": "2026-02-06T11:20:00.000Z",
+  "updated_at": "2026-02-06T11:20:00.000Z"
+}
+```
+
+**Response 400 Bad Request:** Invalid provider configuration
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+
+---
+
+### GET /transcription-providers/:id
+
+**Description:** Get transcription provider
+
+Returns a specific transcription provider configuration with usage statistics.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `id` (string, required): Provider ID
+
+**Response 200 OK:**
+```json
+{
+  "id": "provider-uuid-1",
+  "tenant": {
+    "id": "tenant-uuid-1",
+    "company_name": "Acme Corp",
+    "subdomain": "acme"
+  },
+  "provider_name": "openai_whisper",
+  "api_endpoint": "https://api.openai.com/v1/audio/transcriptions",
+  "model": "whisper-1",
+  "language": "en",
+  "additional_settings": {
+    "temperature": 0,
+    "response_format": "json"
+  },
+  "is_system_default": true,
+  "status": "active",
+  "usage_limit": 10000,
+  "usage_current": 3456,
+  "cost_per_minute": 0.006,
+  "statistics": {
+    "total_transcriptions": 3456,
+    "successful": 3378,
+    "failed": 78,
+    "success_rate": "97.74%",
+    "total_cost": "$20.74"
+  },
+  "created_at": "2026-01-15T10:00:00.000Z",
+  "updated_at": "2026-02-06T08:00:00.000Z"
+}
+```
+
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Provider not found
+
+---
+
+### PATCH /transcription-providers/:id
+
+**Description:** Update transcription provider
+
+Updates transcription provider configuration. Can update API key, endpoint, config, or enabled status.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `id` (string, required): Provider ID
+- Body:
+```json
+{
+  "api_key": "sk-proj-new-key...",
+  "api_endpoint": "https://api.openai.com/v1/audio/transcriptions",
+  "model": "whisper-1",
+  "language": "en",
+  "additional_settings": {
+    "temperature": 0,
+    "response_format": "json"
+  },
+  "status": "active",
+  "usage_limit": 15000,
+  "cost_per_minute": 0.006,
+  "is_system_default": false
+}
+```
+
+**Field Details:** All fields optional
+- `api_key` (string): New API key for the provider (will be encrypted)
+- `api_endpoint` (string): API endpoint URL
+- `model` (string): Model to use for transcription
+- `language` (string): Language code for transcription
+- `additional_settings` (object): Additional provider-specific settings
+- `status` (string): Provider status. Enum: `active`, `inactive`
+- `usage_limit` (integer): Monthly usage limit (transcription requests). Min: 1
+- `cost_per_minute` (number): Cost per minute of transcription (USD). Min: 0
+- `is_system_default` (boolean): Set/unset as system default provider
+
+**Response 200 OK:**
+```json
+{
+  "id": "provider-uuid-1",
+  "provider_name": "openai_whisper",
+  "status": "active",
+  "usage_limit": 15000,
+  "cost_per_minute": 0.006,
+  "is_system_default": false,
+  "updated_at": "2026-02-06T11:25:00.000Z"
+}
+```
+
+**Response 400 Bad Request:** Invalid update data
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Provider not found
+
+---
+
+### DELETE /transcription-providers/:id
+
+**Description:** Delete transcription provider
+
+Deletes a transcription provider. Cannot delete if provider is set as system default or has active transcriptions in progress.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `id` (string, required): Provider ID
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Transcription provider deleted successfully",
+  "provider_id": "provider-uuid-1",
+  "deleted_at": "2026-02-06T11:30:00.000Z"
+}
+```
+
+**Response 400 Bad Request:** Cannot delete system default provider or provider with active transcriptions
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Provider not found
+
+---
+
+### POST /transcription-providers/:id/test
+
+**Description:** Test transcription provider
+
+Tests transcription provider API connectivity by attempting a test transcription. Uses provided audio URL or default test file.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `id` (string, required): Provider ID
+- Body:
+```json
+{
+  "audio_url": "https://storage.example.com/test-audio.mp3"
+}
+```
+
+**Field Details:**
+- `audio_url` (string, optional): URL of audio file to test transcription (if not provided, uses default test file)
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Transcription provider test successful",
+  "provider_id": "provider-uuid-1",
+  "provider_name": "openai_whisper",
+  "test_transcription": {
+    "text": "This is a test audio file for transcription testing.",
+    "language": "en",
+    "confidence": 0.98,
+    "duration_seconds": 3.5,
+    "processing_time_seconds": 2.1
+  },
+  "api_response_time_ms": 2134,
+  "tested_at": "2026-02-06T11:35:00.000Z"
+}
+```
+
+**Response 200 OK (Failed):**
+```json
+{
+  "success": false,
+  "message": "Transcription provider test failed",
+  "provider_id": "provider-uuid-1",
+  "provider_name": "openai_whisper",
+  "error": "API key invalid",
+  "tested_at": "2026-02-06T11:35:00.000Z"
+}
+```
+
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Provider not found
+
+---
+
+## 11. TENANT ASSISTANCE
+
+### POST /tenants/:tenantId/sms-config
+
+**Description:** Create SMS config for tenant
+
+Admin creates SMS configuration on behalf of a tenant. Supports both system provider (Model B) and custom credentials (Model A).
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `tenantId` (string, required): Tenant ID
+- Body:
+```json
+{
+  "provider_type": "system",
+  "from_phone": "+15555555555",
+  "account_sid": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "auth_token": "your_auth_token_here"
+}
+```
+
+**Field Details:**
+- `provider_type` (string, optional): Provider type. Enum: `system` (Model B), `custom` (Model A). Default: `system`
+- `from_phone` (string, required): Phone number for sending SMS (E.164 format). Example: `+15555555555`
+- `account_sid` (string, optional): Twilio Account SID (required for custom provider)
+- `auth_token` (string, optional): Twilio Auth Token (required for custom provider, will be encrypted)
+
+**Response 201 Created:**
+```json
+{
+  "id": "config-uuid-new",
+  "tenant_id": "tenant-uuid-here",
+  "provider_type": "system",
+  "from_phone": "+15555555555",
+  "is_primary": true,
+  "is_active": true,
+  "created_by": "system-admin",
+  "created_at": "2026-02-06T11:40:00.000Z",
+  "updated_at": "2026-02-06T11:40:00.000Z"
+}
+```
+
+**Response 400 Bad Request:** Invalid configuration (missing required fields for custom provider)
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Tenant not found
+
+---
+
+### PATCH /tenants/:tenantId/sms-config/:configId
+
+**Description:** Update SMS config for tenant
+
+Admin updates SMS configuration on behalf of a tenant. Can switch between system provider and custom credentials.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `tenantId` (string, required): Tenant ID
+  - `configId` (string, required): SMS Config ID
+- Body:
+```json
+{
+  "from_phone": "+15555559999",
+  "is_active": true,
+  "account_sid": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "auth_token": "new_auth_token_here"
+}
+```
+
+**Field Details:** All fields optional
+- `from_phone` (string): Phone number for sending SMS (E.164 format)
+- `is_active` (boolean): Enable/disable this configuration
+- `account_sid` (string): Twilio Account SID (for updating custom provider credentials)
+- `auth_token` (string): Twilio Auth Token (for updating custom provider credentials)
+
+**Response 200 OK:**
+```json
+{
+  "id": "config-uuid-1",
+  "tenant_id": "tenant-uuid-here",
+  "provider_type": "system",
+  "from_phone": "+15555559999",
+  "is_primary": true,
+  "is_active": true,
+  "updated_by": "system-admin",
+  "updated_at": "2026-02-06T11:45:00.000Z"
+}
+```
+
+**Response 400 Bad Request:** Invalid update data
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Tenant or config not found
+
+---
+
+### POST /tenants/:tenantId/whatsapp-config
+
+**Description:** Create WhatsApp config for tenant
+
+Admin creates WhatsApp configuration on behalf of a tenant. Supports both system provider (Model B) and custom credentials (Model A).
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `tenantId` (string, required): Tenant ID
+- Body:
+```json
+{
+  "provider_type": "system",
+  "from_phone": "+15555555555",
+  "account_sid": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "auth_token": "your_auth_token_here"
+}
+```
+
+**Field Details:**
+- `provider_type` (string, optional): Provider type. Enum: `system`, `custom`. Default: `system`
+- `from_phone` (string, required): WhatsApp phone number (E.164 format). Example: `+15555555555`
+- `account_sid` (string, optional): Twilio Account SID (required for custom provider)
+- `auth_token` (string, optional): Twilio Auth Token (required for custom provider, will be encrypted)
+
+**Response 201 Created:**
+```json
+{
+  "id": "config-uuid-new",
+  "tenant_id": "tenant-uuid-here",
+  "provider_type": "system",
+  "from_phone": "+15555555555",
+  "is_primary": true,
+  "is_active": true,
+  "created_by": "system-admin",
+  "created_at": "2026-02-06T11:50:00.000Z",
+  "updated_at": "2026-02-06T11:50:00.000Z"
+}
+```
+
+**Response 400 Bad Request:** Invalid configuration
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Tenant not found
+
+---
+
+### PATCH /tenants/:tenantId/whatsapp-config/:configId
+
+**Description:** Update WhatsApp config for tenant
+
+Admin updates WhatsApp configuration on behalf of a tenant. Can switch between system provider and custom credentials.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `tenantId` (string, required): Tenant ID
+  - `configId` (string, required): WhatsApp Config ID
+- Body:
+```json
+{
+  "from_phone": "+15555559999",
+  "is_active": true,
+  "account_sid": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "auth_token": "new_auth_token_here"
+}
+```
+
+**Field Details:** All fields optional
+- `from_phone` (string): WhatsApp phone number (E.164 format)
+- `is_active` (boolean): Enable/disable this configuration
+- `account_sid` (string): Twilio Account SID (for updating custom provider credentials)
+- `auth_token` (string): Twilio Auth Token (for updating custom provider credentials)
+
+**Response 200 OK:**
+```json
+{
+  "id": "config-uuid-2",
+  "tenant_id": "tenant-uuid-here",
+  "provider_type": "system",
+  "from_phone": "+15555559999",
+  "is_primary": true,
+  "is_active": true,
+  "updated_by": "system-admin",
+  "updated_at": "2026-02-06T11:55:00.000Z"
+}
+```
+
+**Response 400 Bad Request:** Invalid update data
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Tenant or config not found
+
+---
+
+### POST /tenants/:tenantId/test-sms
+
+**Description:** Test tenant SMS configuration
+
+Sends a test SMS using the tenant's configuration to verify it works correctly.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `tenantId` (string, required): Tenant ID
+- Query Parameters:
+  - `configId` (string, optional): SMS Config ID (uses primary if not provided)
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Test SMS sent successfully",
+  "config_id": "config-uuid-1",
+  "from_phone": "+15555555555",
+  "test_message_sid": "SM1234567890abcdef1234567890abcd",
+  "sent_at": "2026-02-06T12:00:00.000Z"
+}
+```
+
+**Response 200 OK (Failed):**
+```json
+{
+  "success": false,
+  "message": "Test SMS failed",
+  "config_id": "config-uuid-1",
+  "error": "Invalid credentials",
+  "tested_at": "2026-02-06T12:00:00.000Z"
+}
+```
+
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Tenant or config not found
+
+---
+
+### POST /tenants/:tenantId/test-whatsapp
+
+**Description:** Test tenant WhatsApp configuration
+
+Sends a test WhatsApp message using the tenant's configuration to verify it works correctly.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `tenantId` (string, required): Tenant ID
+- Query Parameters:
+  - `configId` (string, optional): WhatsApp Config ID (uses primary if not provided)
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Test WhatsApp message sent successfully",
+  "config_id": "config-uuid-2",
+  "from_phone": "+15555555555",
+  "test_message_sid": "SM1234567890abcdef1234567890abcd",
+  "sent_at": "2026-02-06T12:05:00.000Z"
+}
+```
+
+**Response 200 OK (Failed):**
+```json
+{
+  "success": false,
+  "message": "Test WhatsApp message failed",
+  "config_id": "config-uuid-2",
+  "error": "Number not approved for WhatsApp",
+  "tested_at": "2026-02-06T12:05:00.000Z"
+}
+```
+
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Tenant or config not found
+
+---
+
+## 12. ALERT MANAGEMENT
+
+### PATCH /alerts/:id/acknowledge
+
+**Description:** Acknowledge alert
+
+Marks an alert as acknowledged with optional admin comment. All actions are audit logged.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Authentication Note:** Admin user ID is automatically extracted from the JWT token in the Authorization header. No need to include it in the request body.
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `id` (string, required): Alert ID
+- Body:
+```json
+{
+  "comment": "Investigating this issue with development team"
+}
+```
+
+**Field Details:**
+- `comment` (string, optional): Admin comment about the alert
+
+**Response 200 OK:**
+```json
+{
+  "id": "alert-uuid-1",
+  "type": "health_check_failed",
+  "severity": "HIGH",
+  "message": "Transcription provider 'deepgram' API connectivity failed",
+  "acknowledged": true,
+  "acknowledged_by": {
+    "id": "user-uuid-1",
+    "name": "Admin User",
+    "email": "admin@lead360.app"
+  },
+  "acknowledged_at": "2026-02-06T12:10:00.000Z",
+  "comment": "Investigating this issue with development team"
+}
+```
+
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Alert not found
+
+---
+
+### PATCH /alerts/:id/resolve
+
+**Description:** Resolve alert
+
+Marks an alert as resolved with resolution notes. Automatically acknowledges the alert if not already acknowledged. All actions are audit logged.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Authentication Note:** Admin user ID is automatically extracted from the JWT token in the Authorization header. No need to include it in the request body.
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `id` (string, required): Alert ID
+- Body:
+```json
+{
+  "resolution": "Issue resolved by restarting Twilio webhook processor service"
+}
+```
+
+**Field Details:**
+- `resolution` (string, required): Resolution notes describing how the issue was fixed
+
+**Response 200 OK:**
+```json
+{
+  "id": "alert-uuid-1",
+  "type": "health_check_failed",
+  "severity": "HIGH",
+  "message": "Transcription provider 'deepgram' API connectivity failed",
+  "acknowledged": true,
+  "resolved": true,
+  "resolution": "Issue resolved by restarting Twilio webhook processor service",
+  "resolved_by": {
+    "id": "user-uuid-1",
+    "name": "Admin User",
+    "email": "admin@lead360.app"
+  },
+  "resolved_at": "2026-02-06T12:15:00.000Z"
+}
+```
+
+**Response 400 Bad Request:** Missing resolution
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Alert not found
+
+---
+
+### POST /alerts/bulk-acknowledge
+
+**Description:** Bulk acknowledge alerts (Best-Effort)
+
+Acknowledges multiple alerts at once with the same comment. Uses a **best-effort approach** - acknowledges all valid alerts and skips invalid IDs, returning detailed status for transparency. Useful for acknowledging related alerts from the same incident.
+
+**Behavior:**
+- ✅ Acknowledges all valid alert IDs
+- ⚠️ Skips invalid/not-found IDs (doesn't fail entire operation)
+- 📊 Returns detailed breakdown of what succeeded and what failed
+- 🔒 Only fails if ALL IDs are invalid or empty array provided
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Authentication Note:** Admin user ID is automatically extracted from the JWT token in the Authorization header. No need to include it in the request body.
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Body:
+```json
+{
+  "alert_ids": ["alert-uuid-1", "alert-uuid-2", "invalid-id"],
+  "comment": "Bulk acknowledged - investigating related issues"
+}
+```
+
+**Field Details:**
+- `alert_ids` (array of strings, required): Array of alert IDs to acknowledge (minimum: 1)
+- `comment` (string, optional): Comment to apply to all alerts
+
+**Response 200 OK - All Valid:**
+```json
+{
+  "success": true,
+  "acknowledged_count": 3,
+  "acknowledged_ids": ["alert-uuid-1", "alert-uuid-2", "alert-uuid-3"],
+  "not_found_ids": [],
+  "total_requested": 3,
+  "message": "Successfully acknowledged 3 alert(s)"
+}
+```
+
+**Response 200 OK - Partial Success:**
+```json
+{
+  "success": true,
+  "acknowledged_count": 2,
+  "acknowledged_ids": ["alert-uuid-1", "alert-uuid-2"],
+  "not_found_ids": ["invalid-id"],
+  "total_requested": 3,
+  "message": "Successfully acknowledged 2 alert(s). 1 alert(s) not found."
+}
+```
+
+**Response 200 OK - All Invalid:**
+```json
+{
+  "success": false,
+  "acknowledged_count": 0,
+  "acknowledged_ids": [],
+  "not_found_ids": ["invalid-id-1", "invalid-id-2"],
+  "total_requested": 2,
+  "message": "No valid alerts found - all IDs were invalid"
+}
+```
+
+**Response 400 Bad Request:** Empty alert_ids array
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+
+---
+
+## 13. COMMUNICATION EVENT MANAGEMENT
+
+### POST /communication-events/:id/resend
+
+**Description:** Resend failed communication event
+
+Manually retry a single failed message (SMS, email, WhatsApp). Useful for individual customer escalations, testing fixes after provider outage, or recovering specific important messages. Event must be in failed or bounced status.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Authentication Note:** Admin user ID is automatically extracted from the JWT token in the Authorization header. No need to include it in the request body.
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `id` (string, required): Communication event ID
+- Body:
+
+No request body required - admin user ID is automatically extracted from JWT token.
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Message queued for resend",
+  "event_id": "event-uuid-1",
+  "channel": "sms",
+  "status": "pending",
+  "queued_at": "2026-02-06T12:25:00.000Z"
+}
+```
+
+**Response 400 Bad Request:** Event not in failed/bounced status
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Event not found
+
+---
+
+### PATCH /communication-events/:id/status
+
+**Description:** Update communication event status
+
+Manually correct stuck or erroneous message statuses. Use cases: mark message as delivered when webhook was missed, fix status discrepancies, correct erroneous bounces. Includes complete audit trail with reason.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Authentication Note:** Admin user ID is automatically extracted from the JWT token in the Authorization header. No need to include it in the request body.
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `id` (string, required): Communication event ID
+- Body:
+```json
+{
+  "status": "delivered",
+  "reason": "Webhook was missed, manually confirmed delivery with customer"
+}
+```
+
+**Field Details:**
+- `status` (string, required): New status for the communication event. Enum: `pending`, `sent`, `delivered`, `failed`, `bounced`, `opened`, `clicked`
+- `reason` (string, required): Reason for manual status change (for audit log)
+
+**Response 200 OK:**
+```json
+{
+  "id": "event-uuid-1",
+  "channel": "sms",
+  "old_status": "failed",
+  "new_status": "delivered",
+  "reason": "Webhook was missed, manually confirmed delivery with customer",
+  "updated_by": {
+    "id": "user-uuid-1",
+    "name": "Admin User"
+  },
+  "updated_at": "2026-02-06T12:30:00.000Z"
+}
+```
+
+**Response 400 Bad Request:** Invalid status or missing reason
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Event not found
+
+---
+
+### DELETE /communication-events/:id
+
+**Description:** Delete communication event
+
+Permanently delete erroneous or duplicate communication events. Use cases: remove test messages sent to production, clean up duplicates from bugs, remove erroneous events. Safety checks: cannot delete successfully delivered messages or recent messages without force flag. Complete audit trail required.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Authentication Note:** Admin user ID is automatically extracted from the JWT token in the Authorization header. No need to include it in the request body.
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Path Parameters:
+  - `id` (string, required): Communication event ID
+- Body:
+```json
+{
+  "reason": "Test message sent to production environment",
+  "force": false
+}
+```
+
+**Field Details:**
+- `reason` (string, required): Reason for deletion (required for audit log)
+- `force` (boolean, optional): Force delete even if message was delivered or recent (bypasses safety checks). Default: false
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Event deleted permanently",
+  "event_id": "event-uuid-1",
+  "channel": "sms",
+  "reason": "Test message sent to production environment",
+  "deleted_by": {
+    "id": "user-uuid-1",
+    "name": "Admin User"
+  },
+  "deleted_at": "2026-02-06T12:35:00.000Z"
+}
+```
+
+**Response 400 Bad Request:** Cannot delete delivered message without force flag, or missing reason
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+**Response 404 Not Found:** Event not found
+
+---
+
+## 14. BULK OPERATIONS
+
+### POST /transcriptions/batch-retry
+
+**Description:** Batch retry failed transcriptions
+
+Queues multiple failed transcriptions for retry using BullMQ. Supports filtering by tenant, provider, and date range. Maximum 1000 transcriptions per batch.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Body:
+```json
+{
+  "tenant_id": "tenant-uuid-here",
+  "provider_id": "provider-uuid-here",
+  "start_date": "2026-01-01T00:00:00.000Z",
+  "end_date": "2026-01-31T23:59:59.999Z",
+  "limit": 100
+}
+```
+
+**Field Details:** All fields optional
+- `tenant_id` (string): Filter by tenant ID
+- `provider_id` (string): Filter by transcription provider ID
+- `start_date` (string): Start date for filtering (ISO 8601)
+- `end_date` (string): End date for filtering (ISO 8601)
+- `limit` (integer): Maximum number of transcriptions to queue (min: 1, max: 1000)
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Transcriptions queued for retry",
+  "queued_count": 78,
+  "filters_applied": {
+    "tenant_id": "tenant-uuid-here",
+    "provider_id": "provider-uuid-here",
+    "date_range": {
+      "start": "2026-01-01T00:00:00.000Z",
+      "end": "2026-01-31T23:59:59.999Z"
+    }
+  },
+  "queued_at": "2026-02-06T12:40:00.000Z"
+}
+```
+
+**Response 400 Bad Request:** Invalid filters or limit exceeds 1000
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+
+---
+
+### POST /communication-events/batch-resend
+
+**Description:** Batch resend failed communication events
+
+Queues multiple failed communication events (SMS, email, WhatsApp) for retry. Supports filtering by tenant, channel, and date range. Maximum 1000 events per batch.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Body:
+```json
+{
+  "tenant_id": "tenant-uuid-here",
+  "channel": "sms",
+  "start_date": "2026-01-01T00:00:00.000Z",
+  "end_date": "2026-01-31T23:59:59.999Z",
+  "limit": 100
+}
+```
+
+**Field Details:** All fields optional
+- `tenant_id` (string): Filter by tenant ID
+- `channel` (string): Filter by communication channel. Enum: `email`, `sms`, `whatsapp`
+- `start_date` (string): Start date for filtering (ISO 8601)
+- `end_date` (string): End date for filtering (ISO 8601)
+- `limit` (integer): Maximum number of events to queue (min: 1, max: 1000)
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Communication events queued for retry",
+  "queued_count": 132,
+  "filters_applied": {
+    "tenant_id": "tenant-uuid-here",
+    "channel": "sms",
+    "date_range": {
+      "start": "2026-01-01T00:00:00.000Z",
+      "end": "2026-01-31T23:59:59.999Z"
+    }
+  },
+  "queued_at": "2026-02-06T12:45:00.000Z"
+}
+```
+
+**Response 400 Bad Request:** Invalid filters or limit exceeds 1000
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+
+---
+
+### POST /webhook-events/batch-retry
+
+**Description:** Batch retry failed webhook events
+
+Queues multiple failed webhook events for reprocessing. Supports filtering by tenant, event type, and date range. Maximum 1000 events per batch.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Body:
+```json
+{
+  "tenant_id": "tenant-uuid-here",
+  "event_type": "sms",
+  "start_date": "2026-01-01T00:00:00.000Z",
+  "end_date": "2026-01-31T23:59:59.999Z",
+  "limit": 100
+}
+```
+
+**Field Details:** All fields optional
+- `tenant_id` (string): Filter by tenant ID
+- `event_type` (string): Filter by webhook event type
+- `start_date` (string): Start date for filtering (ISO 8601)
+- `end_date` (string): End date for filtering (ISO 8601)
+- `limit` (integer): Maximum number of webhook events to queue (min: 1, max: 1000)
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Webhook events queued for retry",
+  "queued_count": 23,
+  "filters_applied": {
+    "tenant_id": "tenant-uuid-here",
+    "event_type": "sms",
+    "date_range": {
+      "start": "2026-01-01T00:00:00.000Z",
+      "end": "2026-01-31T23:59:59.999Z"
+    }
+  },
+  "queued_at": "2026-02-06T12:50:00.000Z"
+}
+```
+
+**Response 400 Bad Request:** Invalid filters or limit exceeds 1000
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+
+---
+
+### GET /usage/export
+
+**Description:** Export usage data to CSV
+
+Generates a CSV export of Twilio usage data with flexible filtering. Supports filtering by tenant, date range, and usage category. Defaults to last 30 days if no date range provided.
+
+**Authentication:** Bearer JWT + SystemAdmin role
+
+**Request:**
+- Headers: `Authorization: Bearer <token>`
+- Query Parameters:
+  - `tenant_id` (string, optional): Filter by tenant ID (omit for all tenants)
+  - `start_date` (string, optional): Start date for export (ISO 8601, defaults to 30 days ago)
+  - `end_date` (string, optional): End date for export (ISO 8601, defaults to today)
+  - `category` (string, optional): Filter by usage category
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "filename": "twilio-usage-export-2026-02-06.csv",
+  "content": "tenant_id,tenant_name,category,date,count,duration_minutes,cost\ntenant-uuid-1,Acme Corp,calls-inbound,2026-02-01,125,320.5,32.05\ntenant-uuid-1,Acme Corp,calls-outbound,2026-02-01,89,245.2,24.52\n...",
+  "record_count": 1523,
+  "date_range": {
+    "start": "2026-01-07T00:00:00.000Z",
+    "end": "2026-02-06T23:59:59.999Z"
+  }
+}
+```
+
+**Response 400 Bad Request:** Invalid query parameters
+**Response 401 Unauthorized:** Missing or invalid token
+**Response 403 Forbidden:** User not SystemAdmin
+
+---
+
+## Appendix
+
+### Data Models
+
+#### Call Record
+```typescript
+{
+  id: string;
+  tenant_id: string;
+  twilio_call_sid: string;
+  direction: 'inbound' | 'outbound';
+  from_phone: string;
+  to_phone: string;
+  status: 'initiated' | 'ringing' | 'in_progress' | 'completed' | 'failed' | 'no_answer' | 'busy' | 'canceled';
+  duration_seconds: number;
+  recording_url: string | null;
+  recording_duration_seconds: number | null;
+  lead_id: string | null;
+  created_at: Date;
+  completed_at: Date | null;
+}
+```
+
+#### SMS/WhatsApp Event
+```typescript
+{
+  id: string;
+  tenant_id: string;
+  channel: 'sms' | 'whatsapp';
+  direction: 'inbound' | 'outbound';
+  from_phone: string;
+  to_phone: string;
+  message_body: string;
+  status: 'pending' | 'sent' | 'delivered' | 'failed' | 'bounced';
+  twilio_message_sid: string;
+  lead_id: string | null;
+  sent_at: Date | null;
+  delivered_at: Date | null;
+  created_at: Date;
+}
+```
+
+#### Transcription
+```typescript
+{
+  id: string;
+  call_id: string;
+  tenant_id: string;
+  transcription_provider: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  transcription_text: string | null;
+  language_detected: string | null;
+  confidence_score: number | null;
+  processing_duration_seconds: number | null;
+  cost: number | null;
+  error_message: string | null;
+  created_at: Date;
+  completed_at: Date | null;
+}
+```
+
+### Rate Limits
+
+Admin endpoints have higher rate limits than tenant endpoints:
+
+- **Standard Admin Endpoints**: 1000 requests per minute
+- **Bulk Operations**: 100 requests per minute
+- **Export Endpoints**: 10 requests per minute
+
+### Changelog
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.1 | 2026-02-06 | Sprint 11 Complete - Added 28 new endpoints (Webhook Management, Phone Number Operations, Transcription Provider CRUD, Tenant Assistance, Alert Management, Communication Event Management, Bulk Operations) |
+| 1.0 | 2026-01-25 | Sprint 8-10 - Initial 40 endpoints (Provider Management, Cross-Tenant Oversight, Usage Tracking, Transcription Monitoring, System Health, Metrics, Cron Management) |
+
+---
+
+**End of Documentation**
+
+*For questions or issues, contact the Lead360 platform team.*
