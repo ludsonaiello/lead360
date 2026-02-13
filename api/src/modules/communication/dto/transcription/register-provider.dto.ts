@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsObject, IsBoolean, IsOptional, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsObject,
+  IsBoolean,
+  IsOptional,
+  IsEnum,
+} from 'class-validator';
 
 /**
  * Register Transcription Provider DTO

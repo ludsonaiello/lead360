@@ -77,9 +77,7 @@ export class CommunicationEventManagementService {
       });
 
       if (!event) {
-        throw new NotFoundException(
-          `Communication event ${eventId} not found`,
-        );
+        throw new NotFoundException(`Communication event ${eventId} not found`);
       }
 
       // Verify event is in a failed state
@@ -133,10 +131,7 @@ export class CommunicationEventManagementService {
         message: `${event.channel.toUpperCase()} message queued for resend`,
       };
     } catch (error) {
-      this.logger.error(
-        'Failed to resend communication event:',
-        error.message,
-      );
+      this.logger.error('Failed to resend communication event:', error.message);
       this.logger.error('Error stack:', error.stack);
 
       if (
@@ -189,9 +184,7 @@ export class CommunicationEventManagementService {
       });
 
       if (!event) {
-        throw new NotFoundException(
-          `Communication event ${eventId} not found`,
-        );
+        throw new NotFoundException(`Communication event ${eventId} not found`);
       }
 
       const oldStatus = event.status;
@@ -310,7 +303,9 @@ export class CommunicationEventManagementService {
     adminUserId: string,
     force: boolean = false,
   ): Promise<DeletionResult> {
-    this.logger.log(`Admin ${adminUserId} deleting communication event ${eventId}`);
+    this.logger.log(
+      `Admin ${adminUserId} deleting communication event ${eventId}`,
+    );
 
     try {
       // Fetch event
@@ -327,9 +322,7 @@ export class CommunicationEventManagementService {
       });
 
       if (!event) {
-        throw new NotFoundException(
-          `Communication event ${eventId} not found`,
-        );
+        throw new NotFoundException(`Communication event ${eventId} not found`);
       }
 
       // Safety check: prevent deletion of successfully delivered messages
@@ -343,8 +336,7 @@ export class CommunicationEventManagementService {
       }
 
       // Safety check: warn about recent messages
-      const eventAge =
-        Date.now() - new Date(event.created_at).getTime();
+      const eventAge = Date.now() - new Date(event.created_at).getTime();
       const ONE_HOUR = 60 * 60 * 1000;
 
       if (eventAge < ONE_HOUR && !force) {

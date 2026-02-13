@@ -67,9 +67,9 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
           </button>
 
           {/* Admin Alerts (only for platform admins) */}
-          {user?.is_platform_admin && <AlertsBell />}
+          {user?.is_platform_admin === true && <AlertsBell />}
 
-          {/* User Notifications Bell */}
+          {/* User Notifications Bell (for all authenticated users) */}
           <NotificationBell />
 
           {/* Profile dropdown */}

@@ -10,7 +10,7 @@ import { PrismaService } from '../../../core/database/prisma.service';
 import { randomUUID } from 'crypto';
 
 export interface CommunicationHistoryFilters {
-  channel?: 'email' | 'sms' | 'whatsapp';
+  channel?: 'email' | 'sms' | 'whatsapp' | 'call';
   status?: 'pending' | 'sent' | 'delivered' | 'failed' | 'bounced';
   to_email?: string;
   to_phone?: string;
@@ -47,88 +47,290 @@ export class CommunicationHistoryService {
 
   /**
    * List communication events with filters and pagination
+   * Includes email, SMS, WhatsApp, and call records
    */
   async findAll(tenantId: string, filters: CommunicationHistoryFilters) {
     const page = filters.page || 1;
     const limit = Math.min(filters.limit || 50, 100); // Max 100 per page
-    const skip = (page - 1) * limit;
 
-    // Build where clause
-    const where: any = {
-      tenant_id: tenantId,
-    };
+    // Check if we should query calls only, communications only, or both
+    const includeMessages =
+      !filters.channel ||
+      ['email', 'sms', 'whatsapp'].includes(filters.channel);
+    const includeCalls = !filters.channel || filters.channel === 'call';
 
-    if (filters.channel) {
-      where.channel = filters.channel;
-    }
+    let allEvents: any[] = [];
+    let totalCount = 0;
 
-    if (filters.status) {
-      where.status = filters.status;
-    }
+    // Query communication events (email, SMS, WhatsApp)
+    if (includeMessages) {
+      const messageWhere: any = {
+        tenant_id: tenantId,
+      };
 
-    if (filters.to_email) {
-      where.to_email = { contains: filters.to_email };
-    }
-
-    if (filters.to_phone) {
-      where.to_phone = { contains: filters.to_phone };
-    }
-
-    if (filters.date_from || filters.date_to) {
-      where.created_at = {};
-      if (filters.date_from) {
-        where.created_at.gte = new Date(filters.date_from);
+      if (filters.channel && filters.channel !== 'call') {
+        messageWhere.channel = filters.channel;
       }
-      if (filters.date_to) {
-        where.created_at.lte = new Date(filters.date_to);
+
+      if (filters.status) {
+        messageWhere.status = filters.status;
       }
-    }
 
-    if (filters.related_entity_type) {
-      where.related_entity_type = filters.related_entity_type;
-    }
+      if (filters.to_email) {
+        messageWhere.to_email = { contains: filters.to_email };
+      }
 
-    if (filters.related_entity_id) {
-      where.related_entity_id = filters.related_entity_id;
-    }
+      if (filters.to_phone) {
+        messageWhere.to_phone = { contains: filters.to_phone };
+      }
 
-    // Execute query
-    const [events, total] = await Promise.all([
-      this.prisma.communication_event.findMany({
-        where,
-        orderBy: { created_at: 'desc' },
-        skip,
-        take: limit,
-        include: {
-          provider: {
-            select: {
-              provider_name: true,
-              provider_key: true,
-              provider_type: true,
+      if (filters.date_from || filters.date_to) {
+        messageWhere.created_at = {};
+        if (filters.date_from) {
+          messageWhere.created_at.gte = new Date(filters.date_from);
+        }
+        if (filters.date_to) {
+          messageWhere.created_at.lte = new Date(filters.date_to);
+        }
+      }
+
+      // Handle related entity filtering with smart resolution
+      if (filters.related_entity_type === 'lead' && filters.related_entity_id) {
+        // Get all quotes, service requests, and other entities for this lead
+        const [quotes, serviceRequests] = await Promise.all([
+          this.prisma.quote.findMany({
+            where: { lead_id: filters.related_entity_id },
+            select: { id: true },
+          }),
+          this.prisma.service_request.findMany({
+            where: { lead_id: filters.related_entity_id },
+            select: { id: true },
+          }),
+        ]);
+
+        const quoteIds = quotes.map((q) => q.id);
+        const serviceRequestIds = serviceRequests.map((sr) => sr.id);
+
+        // Include communications for:
+        // 1. Directly linked to lead
+        // 2. Linked to quotes belonging to lead
+        // 3. Linked to service requests belonging to lead
+        messageWhere.OR = [
+          {
+            related_entity_type: 'lead',
+            related_entity_id: filters.related_entity_id,
+          },
+          ...(quoteIds.length > 0
+            ? [
+                {
+                  related_entity_type: 'quote',
+                  related_entity_id: { in: quoteIds },
+                },
+              ]
+            : []),
+          ...(serviceRequestIds.length > 0
+            ? [
+                {
+                  related_entity_type: 'service_request',
+                  related_entity_id: { in: serviceRequestIds },
+                },
+              ]
+            : []),
+        ];
+      } else {
+        // Standard filtering for other entity types
+        if (filters.related_entity_type) {
+          messageWhere.related_entity_type = filters.related_entity_type;
+        }
+
+        if (filters.related_entity_id) {
+          messageWhere.related_entity_id = filters.related_entity_id;
+        }
+      }
+
+      const [messageEvents, messageCount] = await Promise.all([
+        this.prisma.communication_event.findMany({
+          where: messageWhere,
+          orderBy: { created_at: 'desc' },
+          include: {
+            provider: {
+              select: {
+                provider_name: true,
+                provider_key: true,
+                provider_type: true,
+              },
+            },
+            created_by_user: {
+              select: {
+                id: true,
+                first_name: true,
+                last_name: true,
+                email: true,
+              },
             },
           },
-          created_by_user: {
-            select: {
-              id: true,
-              first_name: true,
-              last_name: true,
-              email: true,
+        }),
+        this.prisma.communication_event.count({ where: messageWhere }),
+      ]);
+
+      allEvents = [...messageEvents];
+      totalCount += messageCount;
+    }
+
+    // Query call records
+    if (includeCalls) {
+      const callWhere: any = {
+        tenant_id: tenantId,
+      };
+
+      // For calls, related_entity_type is always 'lead' and related_entity_id is lead_id
+      if (filters.related_entity_type === 'lead' && filters.related_entity_id) {
+        callWhere.lead_id = filters.related_entity_id;
+      }
+
+      // Map communication statuses to call statuses
+      if (filters.status) {
+        const statusMap: Record<string, string[]> = {
+          pending: ['initiated', 'ringing'],
+          sent: ['in_progress'],
+          delivered: ['completed'],
+          failed: ['failed', 'no_answer', 'busy', 'canceled'],
+        };
+        if (statusMap[filters.status]) {
+          callWhere.status = { in: statusMap[filters.status] };
+        }
+      }
+
+      // Filter by phone (from or to)
+      if (filters.to_phone) {
+        callWhere.OR = [
+          { from_number: { contains: filters.to_phone } },
+          { to_number: { contains: filters.to_phone } },
+        ];
+      }
+
+      if (filters.date_from || filters.date_to) {
+        callWhere.created_at = {};
+        if (filters.date_from) {
+          callWhere.created_at.gte = new Date(filters.date_from);
+        }
+        if (filters.date_to) {
+          callWhere.created_at.lte = new Date(filters.date_to);
+        }
+      }
+
+      const [callRecords, callCount] = await Promise.all([
+        this.prisma.call_record.findMany({
+          where: callWhere,
+          orderBy: { created_at: 'desc' },
+          include: {
+            lead: {
+              select: {
+                id: true,
+                first_name: true,
+                last_name: true,
+              },
+            },
+            initiated_by_user: {
+              select: {
+                id: true,
+                first_name: true,
+                last_name: true,
+                email: true,
+              },
             },
           },
+        }),
+        this.prisma.call_record.count({ where: callWhere }),
+      ]);
+
+      // Map call records to communication event format
+      const mappedCalls = callRecords.map((call) => ({
+        id: call.id,
+        channel: 'call',
+        direction: call.direction,
+        status: this.mapCallStatus(call.status),
+        to_email: null,
+        to_phone:
+          call.direction === 'inbound' ? call.to_number : call.from_number,
+        from_phone:
+          call.direction === 'inbound' ? call.from_number : call.to_number,
+        cc_emails: null,
+        bcc_emails: null,
+        from_email: null,
+        from_name: null,
+        subject: `${call.direction === 'inbound' ? 'Inbound' : 'Outbound'} Call - ${call.call_type}`,
+        html_body: null,
+        text_body: `Call duration: ${call.recording_duration_seconds || 0}s`,
+        template_key: null,
+        template_variables: null,
+        attachments: null,
+        provider: {
+          provider_name: 'Twilio',
+          provider_key: 'twilio',
+          provider_type: 'voice',
         },
-      }),
-      this.prisma.communication_event.count({ where }),
-    ]);
+        provider_message_id: call.twilio_call_sid,
+        provider_metadata: null,
+        error_message: null,
+        sent_at: call.started_at,
+        delivered_at: call.ended_at,
+        opened_at: null,
+        clicked_at: null,
+        bounced_at: null,
+        bounce_type: null,
+        related_entity_type: 'lead',
+        related_entity_id: call.lead_id,
+        created_at: call.created_at,
+        created_by_user: call.initiated_by_user,
+        // Call-specific fields
+        call_sid: call.twilio_call_sid,
+        call_status: call.status,
+        call_duration: call.recording_duration_seconds,
+        recording_url: call.recording_url,
+        cost: call.cost ? parseFloat(call.cost.toString()) : null,
+      }));
+
+      allEvents = [...allEvents, ...mappedCalls];
+      totalCount += callCount;
+    }
+
+    // Sort all events by created_at descending
+    allEvents.sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+
+    // Apply pagination
+    const skip = (page - 1) * limit;
+    const paginatedEvents = allEvents.slice(skip, skip + limit);
 
     return {
-      events,
+      events: paginatedEvents,
       pagination: {
         page,
         limit,
-        total,
-        total_pages: Math.ceil(total / limit),
+        total: totalCount,
+        total_pages: Math.ceil(totalCount / limit),
       },
     };
+  }
+
+  /**
+   * Map call status to communication event status
+   */
+  private mapCallStatus(callStatus: string): string {
+    const statusMap: Record<string, string> = {
+      initiated: 'pending',
+      ringing: 'pending',
+      in_progress: 'sent',
+      completed: 'delivered',
+      failed: 'failed',
+      no_answer: 'failed',
+      busy: 'failed',
+      canceled: 'failed',
+    };
+    return statusMap[callStatus] || callStatus;
   }
 
   /**

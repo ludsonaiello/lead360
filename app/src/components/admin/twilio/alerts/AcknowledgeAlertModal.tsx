@@ -13,7 +13,7 @@ import ModalContent from '@/components/ui/ModalContent';
 import ModalActions from '@/components/ui/ModalActions';
 import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Textarea } from '@/components/ui/Textarea';
 import { Badge } from '@/components/ui/Badge';
 import { ErrorModal } from '@/components/ui/ErrorModal';
 import { SuccessModal } from '@/components/ui/SuccessModal';
@@ -114,7 +114,7 @@ export function AcknowledgeAlertModal({
         </ModalContent>
 
         <ModalActions>
-          <Button onClick={handleClose} variant="outline" disabled={acknowledging}>
+          <Button onClick={handleClose} variant="secondary" disabled={acknowledging}>
             Cancel
           </Button>
           <Button onClick={handleAcknowledge} disabled={acknowledging} className="bg-blue-600 hover:bg-blue-700 text-white">
@@ -143,14 +143,14 @@ export function AcknowledgeAlertModal({
   );
 }
 
-function getSeverityVariant(severity: string): 'destructive' | 'default' | 'secondary' {
+function getSeverityVariant(severity: string): "danger" | "warning" | "info" | "neutral" {
   switch (severity) {
     case 'CRITICAL':
     case 'HIGH':
-      return 'destructive';
+      return 'danger';
     case 'MEDIUM':
-      return 'default';
+      return 'warning';
     default:
-      return 'secondary';
+      return 'info';
   }
 }

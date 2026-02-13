@@ -376,9 +376,10 @@ export class AlertManagementService {
         status: 'success',
       });
 
-      const message = missingIds.length > 0
-        ? `Successfully acknowledged ${result.count} alert(s). ${missingIds.length} alert(s) not found.`
-        : `Successfully acknowledged ${result.count} alert(s)`;
+      const message =
+        missingIds.length > 0
+          ? `Successfully acknowledged ${result.count} alert(s). ${missingIds.length} alert(s) not found.`
+          : `Successfully acknowledged ${result.count} alert(s)`;
 
       this.logger.log(
         `Bulk acknowledge completed: ${result.count}/${alertIds.length} alerts updated`,

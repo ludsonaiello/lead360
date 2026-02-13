@@ -235,7 +235,7 @@ export default function TenantCommunicationDetailPage() {
                 {tenantName}
               </h1>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Tenant ID: {metrics.tenant_id}
+                Tenant ID: {metrics.tenant?.id || tenantId}
               </p>
             </div>
           </div>

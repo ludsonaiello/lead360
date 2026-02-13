@@ -5,10 +5,12 @@
 
 'use client';
 
+import { useState } from 'react';
 import { format } from 'date-fns';
-import { Phone, User, Building2, Clock, DollarSign, FileAudio, FileText, X } from 'lucide-react';
+import { Phone, User, Building2, Clock, DollarSign, FileAudio, FileText, X, Play, Pause, Volume2, VolumeX, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import type { CallRecord } from '@/lib/types/twilio-admin';
+import { transcribeCallByCallId } from '@/lib/api/twilio-admin';
 import { Modal, ModalContent, ModalActions } from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 
@@ -93,7 +95,96 @@ function DetailItem({ label, value, icon: Icon }: { label: string; value: React.
 }
 
 export function CallDetailModal({ isOpen, call, onClose }: CallDetailModalProps) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  const [retryingTranscription, setRetryingTranscription] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+  const [retrySuccess, setRetrySuccess] = useState(false);
+
   if (!call) return null;
+
+  const handlePlayPause = () => {
+    if (!audioElement) return;
+    if (isPlaying) {
+      audioElement.pause();
+    } else {
+      audioElement.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const handleMuteToggle = () => {
+    if (!audioElement) return;
+    audioElement.muted = !isMuted;
+    setIsMuted(!isMuted);
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioElement) {
+      setCurrentTime(audioElement.currentTime);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (audioElement) {
+      setDuration(audioElement.duration);
+    }
+  };
+
+  const handleEnded = () => {
+    setIsPlaying(false);
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!audioElement) return;
+    const newTime = Number(e.target.value);
+    audioElement.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
+  const handlePlaybackRateChange = (rate: number) => {
+    if (!audioElement) return;
+    audioElement.playbackRate = rate;
+    setPlaybackRate(rate);
+  };
+
+  const formatTime = (seconds: number): string => {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleRetryTranscription = async () => {
+    if (!call.id) return;
+
+    try {
+      setRetryingTranscription(true);
+      setRetryError(null);
+      setRetrySuccess(false);
+
+      // Use the call-based endpoint which works for both first-time and retries
+      const reason = !call.transcription
+        ? 'Manual transcription request (no previous transcription)'
+        : call.transcription.status === 'failed' || call.transcription.status === 'error'
+        ? `Retry after ${call.transcription.status} status`
+        : 'Manual retry request';
+
+      await transcribeCallByCallId(call.id, reason);
+      setRetrySuccess(true);
+      // Show success message for 3 seconds
+      setTimeout(() => setRetrySuccess(false), 3000);
+    } catch (error: any) {
+      console.error('Error retrying transcription:', error);
+      setRetryError(error.response?.data?.message || 'Failed to retry transcription');
+    } finally {
+      setRetryingTranscription(false);
+    }
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
@@ -185,14 +276,12 @@ export function CallDetailModal({ isOpen, call, onClose }: CallDetailModalProps)
                   {call.lead.first_name} {call.lead.last_name}
                 </span>
               </div>
-              {call.lead.phones && call.lead.phones.length > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Phone:</span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {formatPhone(call.lead.phones.find((p) => p.is_primary)?.phone_number || call.lead.phones[0].phone_number)}
-                  </span>
-                </div>
-              )}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Phone:</span>
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  {formatPhone(call.from_number)}
+                </span>
+              </div>
             </div>
           </div>
         )}
@@ -204,36 +293,183 @@ export function CallDetailModal({ isOpen, call, onClose }: CallDetailModalProps)
               <FileAudio className="h-4 w-4" />
               Recording
             </h3>
-            <audio controls className="w-full">
-              <source src={call.recording_url} type="audio/mpeg" />
-              Your browser does not support the audio element.
-            </audio>
-            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              Status: {call.recording_status}
+
+            {/* Audio Element (Hidden) */}
+            <audio
+              ref={setAudioElement}
+              src={call.recording_url}
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
+              onEnded={handleEnded}
+            />
+
+            {/* Custom Audio Player */}
+            <div className="space-y-3">
+              {/* Play/Pause & Volume Controls */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handlePlayPause}
+                  className="p-2 bg-white dark:bg-gray-800 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                </button>
+
+                <div className="flex-1">
+                  <input
+                    type="range"
+                    min="0"
+                    max={duration || 0}
+                    value={currentTime}
+                    onChange={handleSeek}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <span>{formatTime(currentTime)}</span>
+                    <span>{formatTime(duration)}</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleMuteToggle}
+                  className="p-2 bg-white dark:bg-gray-800 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                </button>
+              </div>
+
+              {/* Playback Speed Controls */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 dark:text-gray-400">Speed:</span>
+                <div className="flex items-center gap-1">
+                  {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                    <button
+                      key={rate}
+                      onClick={() => handlePlaybackRateChange(rate)}
+                      className={`px-2 py-1 text-xs rounded transition-colors ${
+                        playbackRate === rate
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {rate}x
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                Status: {call.recording_status}
+              </div>
             </div>
           </div>
         )}
 
         {/* Transcription */}
-        {call.transcription && (
+        {(call.transcription || call.recording_url) && (
           <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-              <FileText className="h-4 w-4" />
-              Transcription
-            </h3>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Status:</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {call.transcription.status}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Provider:</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {call.transcription.transcription_provider}
-                </span>
-              </div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                <FileText className="h-4 w-4" />
+                Transcription
+              </h3>
+              {/* Show Try Again button when transcription failed or not available */}
+              {(!call.transcription || call.transcription.status === 'failed' || call.transcription.status === 'error') && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleRetryTranscription}
+                  disabled={retryingTranscription}
+                >
+                  {retryingTranscription ? (
+                    <>
+                      <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                      Retrying...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Try Again
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+            <div className="space-y-3">
+              {/* Success Message */}
+              {retrySuccess && (
+                <div className="p-3 bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 rounded-md text-sm text-green-800 dark:text-green-200">
+                  Transcription retry initiated successfully. The transcription will be processed shortly.
+                </div>
+              )}
+
+              {/* Error Message */}
+              {retryError && (
+                <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-md text-sm text-red-800 dark:text-red-200">
+                  {retryError}
+                </div>
+              )}
+
+              {/* No Transcription Available */}
+              {!call.transcription && (
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Transcription not available for this call.
+                </div>
+              )}
+
+              {/* Failed Transcription */}
+              {call.transcription && (call.transcription.status === 'failed' || call.transcription.status === 'error') && (
+                <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-md text-sm text-yellow-800 dark:text-yellow-200">
+                  Transcription failed. Click "Try Again" to retry.
+                </div>
+              )}
+
+              {/* Transcription Text */}
+              {call.transcription?.transcription_text && call.transcription.status === 'completed' && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+                  <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                    {call.transcription.transcription_text}
+                  </p>
+                </div>
+              )}
+
+              {/* Metadata Grid */}
+              {call.transcription && (
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Status:</span>
+                    <span className={`font-medium ${
+                      call.transcription.status === 'completed' ? 'text-green-600 dark:text-green-400' :
+                      call.transcription.status === 'failed' || call.transcription.status === 'error' ? 'text-red-600 dark:text-red-400' :
+                      call.transcription.status === 'processing' ? 'text-blue-600 dark:text-blue-400' :
+                      'text-gray-900 dark:text-gray-100'
+                    }`}>
+                      {call.transcription.status.charAt(0).toUpperCase() + call.transcription.status.slice(1)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Provider:</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                      {call.transcription.transcription_provider.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                  {call.transcription.language_detected && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Language:</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">
+                        {call.transcription.language_detected.toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  {call.transcription.confidence_score && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Confidence:</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">
+                        {(parseFloat(call.transcription.confidence_score) * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

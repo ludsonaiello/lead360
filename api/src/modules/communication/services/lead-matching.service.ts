@@ -61,26 +61,69 @@ export class LeadMatchingService {
 
     this.logger.log(`🔍 Matching phone: ${phoneNumber} → ${normalizedPhone}`);
 
-    // 2. Try to match existing Lead by phone number
-    const existingLead = await this.prisma.lead.findFirst({
+    // 2. Try EXACT match first (fast path for E.164 formatted phones in DB)
+    const exactMatch = await this.prisma.lead.findFirst({
       where: {
         tenant_id: tenantId,
         phones: {
           some: {
-            phone: normalizedPhone,
+            phone: normalizedPhone, // Exact E.164 match
           },
         },
       },
     });
 
-    if (existingLead) {
+    if (exactMatch) {
       this.logger.log(
-        `✅ Lead matched: ${existingLead.id} (${existingLead.first_name} ${existingLead.last_name})`,
+        `✅ Lead matched (exact): ${exactMatch.id} (${exactMatch.first_name} ${exactMatch.last_name})`,
       );
-      return existingLead.id;
+      return exactMatch.id;
     }
 
-    // 3. Auto-create new Lead if no match found
+    // 3. If no exact match, try normalized matching (for legacy formatted phones)
+    // IMPORTANT: Database may have phones in various formats:
+    // - E.164: +19788968047 (preferred)
+    // - Display: (978) 896-8047 (legacy)
+    // - Numeric: 9788968047 (legacy)
+    // This fallback normalizes ALL phones in DB for comparison (slower but catches all formats)
+    this.logger.debug(
+      `No exact match found, trying normalized matching for: ${normalizedPhone}`,
+    );
+
+    const allLeadsWithPhones = await this.prisma.lead.findMany({
+      where: {
+        tenant_id: tenantId,
+        phones: {
+          some: {}, // Has at least one phone
+        },
+      },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        phones: {
+          select: {
+            phone: true,
+          },
+        },
+      },
+    });
+
+    // Find lead with matching normalized phone
+    for (const lead of allLeadsWithPhones) {
+      for (const phone of lead.phones) {
+        const normalizedDbPhone = this.normalizePhoneNumber(phone.phone);
+
+        if (normalizedDbPhone === normalizedPhone) {
+          this.logger.log(
+            `✅ Lead matched (normalized): ${lead.id} (${lead.first_name} ${lead.last_name}) - DB: "${phone.phone}" → ${normalizedDbPhone}`,
+          );
+          return lead.id;
+        }
+      }
+    }
+
+    // 4. Auto-create new Lead if no match found
     this.logger.log(
       `🆕 Creating new Lead for unknown phone: ${normalizedPhone}`,
     );

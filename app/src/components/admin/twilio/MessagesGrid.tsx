@@ -118,11 +118,8 @@ export function MessagesGrid({ messages, onViewDetails }: MessagesGridProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {messages.map((message) => (
-        <Card
-          key={message.id}
-          className="p-4 cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => onViewDetails(message)}
-        >
+        <div key={message.id} onClick={() => onViewDetails(message)} className="cursor-pointer">
+          <Card className="p-4 hover:shadow-md transition-shadow">
           {/* Header */}
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1">
@@ -189,6 +186,7 @@ export function MessagesGrid({ messages, onViewDetails }: MessagesGridProps) {
             </Button>
           </div>
         </Card>
+        </div>
       ))}
     </div>
   );

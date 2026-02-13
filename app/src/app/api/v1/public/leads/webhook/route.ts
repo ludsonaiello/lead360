@@ -1,4 +1,30 @@
 /**
+ * ⚠️⚠️⚠️ DEPRECATED - NO LONGER USED IN PRODUCTION ⚠️⚠️⚠️
+ *
+ * This route is NO LONGER CALLED in production due to Nginx configuration changes.
+ * As of 2026-02-12, Nginx routes /api/v1/* requests directly to the backend,
+ * bypassing this Next.js proxy entirely.
+ *
+ * Reason for deprecation:
+ * - Nginx path-based routing now handles /api/v1/public/leads/webhook → backend
+ * - This eliminates the sanitizeWebhookData transformation step (line 161)
+ * - Backend now receives raw webhook data directly from external sources
+ * - See /etc/nginx/sites-available/tenants.lead360.app.conf (location /api/v1/)
+ *
+ * ⚠️ IMPORTANT: If lead webhook data format issues occur after this change,
+ * the sanitization logic below (sanitizeWebhookData) may need to be moved to
+ * the backend service layer. This proxy was transforming:
+ * - Name fields (name/full_name → first_name/last_name)
+ * - Email arrays → single email field
+ * - Phone arrays → single phone field (with formatting stripped)
+ * - Address arrays → flat address fields
+ *
+ * This file is kept for reference only. Safe to delete in future cleanup.
+ *
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * ORIGINAL DOCUMENTATION (for reference):
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ *
  * Webhook Proxy Route
  * Proxies webhook requests from external sources to the backend NestJS API
  * This allows webhook URLs to use the frontend domain while routing to the backend

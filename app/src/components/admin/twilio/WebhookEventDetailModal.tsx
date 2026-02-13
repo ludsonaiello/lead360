@@ -131,7 +131,7 @@ export function WebhookEventDetailModal({
       </ModalContent>
 
       <ModalActions>
-        <Button onClick={onClose} variant="outline">
+        <Button onClick={onClose} variant="secondary">
           Close
         </Button>
       </ModalActions>

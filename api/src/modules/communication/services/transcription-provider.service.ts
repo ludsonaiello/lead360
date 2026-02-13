@@ -90,9 +90,7 @@ export class TranscriptionProviderService {
     await this.validateConfiguration(providerName, configJson);
 
     // Encrypt configuration (credentials must be encrypted at rest)
-    const encryptedConfig = this.encryption.encrypt(
-      JSON.stringify(configJson),
-    );
+    const encryptedConfig = this.encryption.encrypt(JSON.stringify(configJson));
 
     // If this is a system default, disable other system defaults
     if (isSystemDefault) {
@@ -272,19 +270,33 @@ export class TranscriptionProviderService {
 
       this.logger.log('OpenAI Whisper API key validated successfully');
     } catch (error) {
-      this.logger.error(
-        `OpenAI API key validation failed: ${error.message}`,
-      );
+      this.logger.error(`OpenAI API key validation failed: ${error.message}`);
       throw new BadRequestException(
         `Invalid OpenAI API key: ${error.message}. Please check your key and try again.`,
       );
     }
 
     // Validate optional model parameter
-    if (config.model && !['whisper-1'].includes(config.model)) {
-      this.logger.warn(
-        `Unknown Whisper model: ${config.model}. Using whisper-1 as fallback.`,
+    // Supported models:
+    // - whisper-1: Classic Whisper model (supports verbose_json)
+    // - gpt-4o-transcribe-*: GPT-4o based transcription models (use 'json' format)
+    const supportedModels = [
+      'whisper-1',
+      'gpt-4o-transcribe',
+      'gpt-4o-transcribe-diarize',
+      'gpt-4o-transcribe-diarize-api-ev3',
+    ];
+
+    if (config.model) {
+      const isSupported = supportedModels.some(
+        (model) => config.model === model || config.model.startsWith(model),
       );
+
+      if (!isSupported) {
+        this.logger.warn(
+          `Unknown OpenAI model: ${config.model}. Supported models: ${supportedModels.join(', ')}`,
+        );
+      }
     }
 
     // Validate optional language parameter (ISO 639-1 codes)
@@ -360,24 +372,30 @@ export class TranscriptionProviderService {
    * after each successful transcription.
    *
    * @param providerId - Provider configuration ID
+   * @param count - Number of transcriptions to increment (default: 1, use 2 for dual-channel)
    *
    * @example
    * ```typescript
-   * // After successful transcription
+   * // After successful mono transcription
    * await incrementUsage(provider.id);
+   *
+   * // After successful dual-channel transcription
+   * await incrementUsage(provider.id, 2);
    * ```
    */
-  async incrementUsage(providerId: string) {
+  async incrementUsage(providerId: string, count: number = 1) {
     await this.prisma.transcription_provider_configuration.update({
       where: { id: providerId },
       data: {
         usage_current: {
-          increment: 1,
+          increment: count,
         },
       },
     });
 
-    this.logger.debug(`Incremented usage for provider ${providerId}`);
+    this.logger.debug(
+      `Incremented usage for provider ${providerId} by ${count}`,
+    );
   }
 
   /**

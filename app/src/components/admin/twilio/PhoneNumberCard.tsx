@@ -41,7 +41,7 @@ export function PhoneNumberCard({
 
           {/* Status and SID */}
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Badge variant={isAllocated ? 'success' : 'default'}>
+            <Badge variant={isAllocated ? 'success' : 'neutral'}>
               {number.status}
             </Badge>
             <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -76,13 +76,13 @@ export function PhoneNumberCard({
             </p>
             <div className="flex flex-wrap gap-2">
               {number.capabilities.voice && (
-                <Badge variant="outline">Voice</Badge>
+                <Badge variant="neutral">Voice</Badge>
               )}
               {number.capabilities.sms && (
-                <Badge variant="outline">SMS</Badge>
+                <Badge variant="neutral">SMS</Badge>
               )}
               {number.capabilities.mms && (
-                <Badge variant="outline">MMS</Badge>
+                <Badge variant="neutral">MMS</Badge>
               )}
             </div>
           </div>

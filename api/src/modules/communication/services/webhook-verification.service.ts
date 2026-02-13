@@ -325,9 +325,50 @@ export class WebhookVerificationService {
     authToken: string,
   ): boolean {
     try {
+      this.logger.debug(
+        '[TWILIO VERIFY] ========== Starting Verification ==========',
+      );
+      this.logger.debug(`[TWILIO VERIFY] URL: ${url}`);
+      this.logger.debug(
+        `[TWILIO VERIFY] Signature (X-Twilio-Signature): ${signature}`,
+      );
+      this.logger.debug(
+        `[TWILIO VERIFY] Auth Token (first 8 chars): ${authToken ? authToken.substring(0, 8) + '...' : 'MISSING'}`,
+      );
+      this.logger.debug(
+        `[TWILIO VERIFY] Auth Token length: ${authToken ? authToken.length : 0} chars`,
+      );
+      this.logger.debug(
+        `[TWILIO VERIFY] Account SID from webhook: ${params.AccountSid || 'NOT FOUND'}`,
+      );
+      this.logger.warn(
+        `[TWILIO VERIFY] ⚠️ Verify the auth token above belongs to AccountSid: ${params.AccountSid}`,
+      );
+      this.logger.debug(
+        `[TWILIO VERIFY] Params count: ${Object.keys(params).length} params`,
+      );
+      this.logger.debug(
+        `[TWILIO VERIFY] Params keys: ${Object.keys(params).sort().join(', ')}`,
+      );
+
+      // Log first 5 params for debugging
+      const paramEntries = Object.entries(params).slice(0, 5);
+      paramEntries.forEach(([key, value]) => {
+        const displayValue =
+          value.length > 50 ? value.substring(0, 50) + '...' : value;
+        this.logger.debug(`[TWILIO VERIFY]   ${key}: ${displayValue}`);
+      });
+
+      if (Object.keys(params).length > 5) {
+        this.logger.debug(
+          `[TWILIO VERIFY]   ... and ${Object.keys(params).length - 5} more params`,
+        );
+      }
+
       const twilio = require('twilio');
 
       // Use Twilio's official validation
+      this.logger.debug('[TWILIO VERIFY] Calling twilio.validateRequest()...');
       const verified = twilio.validateRequest(
         authToken,
         signature,
@@ -336,13 +377,46 @@ export class WebhookVerificationService {
       );
 
       if (!verified) {
-        this.logger.warn('Twilio webhook signature verification failed');
+        this.logger.warn(
+          '========== Twilio Signature Verification FAILED ==========',
+        );
+        this.logger.warn('Possible reasons:');
+        this.logger.warn(
+          '1. Wrong Auth Token (check if using correct Twilio account)',
+        );
+        this.logger.warn('2. Wrong URL (protocol, domain, or path mismatch)');
+        this.logger.warn(
+          '3. Modified request (proxy added/removed headers/params)',
+        );
+        this.logger.warn('4. URL encoding issues (spaces, special characters)');
+        this.logger.warn('');
+        this.logger.warn(
+          'Expected URL format: https://subdomain.lead360.app/api/v1/twilio/...',
+        );
+        this.logger.warn(`Actual URL used: ${url}`);
+        this.logger.warn('');
+        this.logger.warn('To fix:');
+        this.logger.warn('- Verify Twilio webhook URL matches exactly');
+        this.logger.warn(
+          '- Check Auth Token in database matches Twilio account',
+        );
+        this.logger.warn('- Ensure no proxy modifying the request');
+        this.logger.warn(
+          '===============================================================',
+        );
+      } else {
+        this.logger.debug('[TWILIO VERIFY] ✅ Signature verified successfully');
       }
 
       return verified;
     } catch (error) {
       this.logger.error(
-        `Twilio signature verification error: ${error.message}`,
+        '========== Twilio Signature Verification ERROR ==========',
+      );
+      this.logger.error(`Error: ${error.message}`);
+      this.logger.error(`Stack: ${error.stack}`);
+      this.logger.error(
+        '===========================================================',
       );
       return false;
     }

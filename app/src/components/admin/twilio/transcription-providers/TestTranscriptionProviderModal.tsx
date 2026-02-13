@@ -135,7 +135,7 @@ export function TestTranscriptionProviderModal({
           )}
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button onClick={handleClose} variant="outline" disabled={testing}>
+            <Button onClick={handleClose} variant="secondary" disabled={testing}>
               Close
             </Button>
             <Button onClick={handleTest} disabled={testing}>

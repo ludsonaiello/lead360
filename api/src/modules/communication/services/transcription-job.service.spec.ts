@@ -46,9 +46,7 @@ describe('TranscriptionJobService', () => {
       ],
     }).compile();
 
-    service = module.get<TranscriptionJobService>(
-      TranscriptionJobService,
-    );
+    service = module.get<TranscriptionJobService>(TranscriptionJobService);
     prisma = module.get<PrismaService>(PrismaService);
     queue = mockQueue;
 
@@ -73,9 +71,7 @@ describe('TranscriptionJobService', () => {
         status: 'queued',
       };
 
-      mockPrismaService.call_record.findUnique.mockResolvedValue(
-        callRecord,
-      );
+      mockPrismaService.call_record.findUnique.mockResolvedValue(callRecord);
       mockPrismaService.call_transcription.create.mockResolvedValue(
         transcription,
       );
@@ -105,9 +101,9 @@ describe('TranscriptionJobService', () => {
     it('should throw NotFoundException if call record not found', async () => {
       mockPrismaService.call_record.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.queueTranscription('invalid-id'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.queueTranscription('invalid-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should return failure if no recording URL', async () => {
@@ -116,9 +112,7 @@ describe('TranscriptionJobService', () => {
         recording_url: null,
       };
 
-      mockPrismaService.call_record.findUnique.mockResolvedValue(
-        callRecord,
-      );
+      mockPrismaService.call_record.findUnique.mockResolvedValue(callRecord);
 
       const result = await service.queueTranscription('call-123');
 
@@ -138,9 +132,7 @@ describe('TranscriptionJobService', () => {
         status: 'completed',
       };
 
-      mockPrismaService.call_record.findUnique.mockResolvedValue(
-        callRecord,
-      );
+      mockPrismaService.call_record.findUnique.mockResolvedValue(callRecord);
       mockPrismaService.call_transcription.findUnique.mockResolvedValue(
         existingTranscription,
       );
@@ -229,9 +221,7 @@ describe('TranscriptionJobService', () => {
     });
 
     it('should throw NotFoundException if not found', async () => {
-      mockPrismaService.call_transcription.findFirst.mockResolvedValue(
-        null,
-      );
+      mockPrismaService.call_transcription.findFirst.mockResolvedValue(null);
 
       await expect(
         service.getTranscriptionById('invalid-id', 'tenant-123'),
@@ -241,21 +231,14 @@ describe('TranscriptionJobService', () => {
 
   describe('listTranscriptions', () => {
     it('should list transcriptions with pagination', async () => {
-      const transcriptions = [
-        { id: 'trans-1' },
-        { id: 'trans-2' },
-      ];
+      const transcriptions = [{ id: 'trans-1' }, { id: 'trans-2' }];
 
       mockPrismaService.call_transcription.findMany.mockResolvedValue(
         transcriptions,
       );
       mockPrismaService.call_transcription.count.mockResolvedValue(25);
 
-      const result = await service.listTranscriptions(
-        'tenant-123',
-        1,
-        20,
-      );
+      const result = await service.listTranscriptions('tenant-123', 1, 20);
 
       expect(result.data).toEqual(transcriptions);
       expect(result.meta.total).toBe(25);
@@ -263,17 +246,10 @@ describe('TranscriptionJobService', () => {
     });
 
     it('should filter by status if provided', async () => {
-      mockPrismaService.call_transcription.findMany.mockResolvedValue(
-        [],
-      );
+      mockPrismaService.call_transcription.findMany.mockResolvedValue([]);
       mockPrismaService.call_transcription.count.mockResolvedValue(0);
 
-      await service.listTranscriptions(
-        'tenant-123',
-        1,
-        20,
-        'completed',
-      );
+      await service.listTranscriptions('tenant-123', 1, 20, 'completed');
 
       expect(
         mockPrismaService.call_transcription.findMany,
@@ -362,9 +338,7 @@ describe('TranscriptionJobService', () => {
     });
 
     it('should throw NotFoundException if transcription not found', async () => {
-      mockPrismaService.call_transcription.findFirst.mockResolvedValue(
-        null,
-      );
+      mockPrismaService.call_transcription.findFirst.mockResolvedValue(null);
 
       await expect(
         service.retryTranscription('invalid-id', 'tenant-123'),

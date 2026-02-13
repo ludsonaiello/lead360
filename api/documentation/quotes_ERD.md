@@ -43,12 +43,14 @@ inbound inbound
 
         communication_status {
             pending pending
+scheduled scheduled
 sent sent
 delivered delivered
 failed failed
 bounced bounced
 opened opened
 clicked clicked
+cancelled cancelled
         }
     
 
@@ -380,6 +382,7 @@ unknown unknown
     String default_invoice_footer "❓"
     String default_payment_instructions "❓"
     String timezone 
+    String default_language "❓"
     String subscription_status 
     DateTime trial_end_date "❓"
     String billing_cycle "❓"
@@ -735,7 +738,6 @@ unknown unknown
     String recording_url "❓"
     Int recording_duration_seconds "❓"
     String recording_status 
-    String transcription_id "❓"
     Json ivr_action_taken "❓"
     Boolean consent_message_played 
     Decimal cost "❓"
@@ -776,11 +778,20 @@ unknown unknown
     String transcription_provider 
     String status 
     String transcription_text "❓"
+    Int channel_count "❓"
+    String speaker_1_transcription "❓"
+    String speaker_2_transcription "❓"
+    String speaker_1_label "❓"
+    String speaker_2_label "❓"
+    String language_requested "❓"
     String language_detected "❓"
     Decimal confidence_score "❓"
     Int processing_duration_seconds "❓"
     Decimal cost "❓"
     String error_message "❓"
+    Boolean is_current 
+    Int retry_count 
+    String previous_transcription_id "❓"
     DateTime created_at 
     DateTime completed_at "❓"
     }
@@ -875,6 +886,10 @@ unknown unknown
     DateTime updated_at 
     String lost_reason "❓"
     DateTime lost_at "❓"
+    Boolean sms_opt_out 
+    DateTime sms_opt_out_at "❓"
+    DateTime sms_opt_in_at "❓"
+    String sms_opt_out_reason "❓"
     }
   
 
@@ -1054,6 +1069,8 @@ unknown unknown
     String related_entity_type "❓"
     String related_entity_id "❓"
     DateTime created_at 
+    DateTime scheduled_at "❓"
+    String scheduled_by "❓"
     }
   
 
@@ -1511,6 +1528,20 @@ unknown unknown
     DateTime created_at 
     }
   
+
+  "sms_template" {
+    String id "🗝️"
+    String name 
+    String description "❓"
+    String template_body 
+    String category "❓"
+    Boolean is_active 
+    Boolean is_default 
+    Int usage_count 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
     "audit_log" |o--|| "audit_log_actor_type" : "enum:actor_type"
     "audit_log" |o--|| "audit_log_status" : "enum:status"
     "audit_log" }o--|o "user" : "user"
@@ -1570,7 +1601,7 @@ unknown unknown
     "ivr_configuration" |o--|| "tenant" : "tenant"
     "office_number_whitelist" }o--|| "tenant" : "tenant"
     "call_transcription" }o--|o "tenant" : "tenant"
-    "call_transcription" |o--|| call_record : "call_record"
+    "call_transcription" }o--|| call_record : "call_record"
     "transcription_provider_configuration" }o--|o "tenant" : "tenant"
     "job_log" }o--|| "job" : "job"
     "email_queue" |o--|| "job" : "job"
@@ -1676,4 +1707,6 @@ unknown unknown
     "quote_bundle" }o--|o "user" : "created_by_user"
     "quote_bundle_item" }o--|| quote_bundle : "quote_bundle"
     "quote_bundle_item" }o--|| unit_measurement : "unit_measurement"
+    "sms_template" }o--|| "tenant" : "tenant"
+    "sms_template" }o--|| "user" : "creator"
 ```

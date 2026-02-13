@@ -5,18 +5,15 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { AlertTriangle, CheckCircle, X, Loader2, Filter } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { AlertTriangle, CheckCircle, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/Badge';
-import { Select } from '@/components/ui/Select';
+import Card from '@/components/ui/Card';
 import { AlertCard } from '@/components/admin/twilio/alerts/AlertCard';
 import { AcknowledgeAlertModal } from '@/components/admin/twilio/alerts/AcknowledgeAlertModal';
 import { ResolveAlertModal } from '@/components/admin/twilio/alerts/ResolveAlertModal';
 import { BulkAcknowledgeAlertsModal } from '@/components/admin/twilio/alerts/BulkAcknowledgeAlertsModal';
 import { ErrorModal } from '@/components/ui/ErrorModal';
-import { Checkbox } from '@/components/ui/checkbox';
 import { getSystemAlerts } from '@/lib/api/twilio-admin';
 import { getUserFriendlyError } from '@/lib/utils/errors';
 import type { SystemAlertDetail, AlertsQuery } from '@/lib/types/twilio-admin';
@@ -197,45 +194,50 @@ export default function SystemAlertsPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-3 flex-1">
-            <Select
+            <select
               value={severityFilter}
               onChange={(e) => {
                 setSeverityFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Severities</option>
               <option value="CRITICAL">Critical</option>
               <option value="HIGH">High</option>
               <option value="MEDIUM">Medium</option>
               <option value="LOW">Low</option>
-            </Select>
+            </select>
 
-            <Select
+            <select
               value={acknowledgedFilter}
               onChange={(e) => {
                 setAcknowledgedFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Statuses</option>
               <option value="false">Unacknowledged</option>
               <option value="true">Acknowledged</option>
-            </Select>
+            </select>
           </div>
 
           {/* Bulk Actions */}
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <Checkbox checked={selectAll} onCheckedChange={handleSelectAll} />
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectAll}
+                onChange={(e) => handleSelectAll(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-blue-600"
+              />
               Select All
             </label>
             <Button
               onClick={handleBulkAcknowledge}
               disabled={selectedAlertIds.length === 0}
-              variant="outline"
+              variant="secondary"
               size="sm"
               className="text-blue-600 border-blue-300 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-700 dark:hover:bg-blue-950"
             >
@@ -284,7 +286,7 @@ export default function SystemAlertsPage() {
               <Button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                variant="outline"
+                variant="secondary"
                 size="sm"
               >
                 Previous
@@ -292,7 +294,7 @@ export default function SystemAlertsPage() {
               <Button
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                variant="outline"
+                variant="secondary"
                 size="sm"
               >
                 Next

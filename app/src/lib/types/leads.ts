@@ -23,6 +23,10 @@ export interface Lead {
   last_name: string;
   language_spoken: string;
   accept_sms: boolean;
+  sms_opt_out: boolean; // Legal opt-out flag (TCPA compliance)
+  sms_opt_out_at?: string | null;
+  sms_opt_in_at?: string | null;
+  sms_opt_out_reason?: string | null;
   preferred_communication: 'email' | 'phone' | 'sms';
   status: 'lead' | 'prospect' | 'customer' | 'lost';
   source: 'manual' | 'webhook' | 'ai_phone' | 'ai_sms' | 'website' | 'referral' | 'phone_call' | 'walk_in' | 'social_media' | 'email' | 'other';

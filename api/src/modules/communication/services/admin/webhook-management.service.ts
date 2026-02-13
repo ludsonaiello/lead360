@@ -112,7 +112,9 @@ export class WebhookManagementService {
    * @param dto - Update webhook configuration DTO
    * @returns Promise<WebhookConfig> - Updated webhook configuration
    */
-  async updateWebhookConfig(dto: UpdateWebhookConfigDto): Promise<WebhookConfig> {
+  async updateWebhookConfig(
+    dto: UpdateWebhookConfigDto,
+  ): Promise<WebhookConfig> {
     this.logger.log(
       `Updating webhook configuration (rotate_secret: ${dto.rotate_secret})`,
     );
@@ -299,7 +301,7 @@ export class WebhookManagementService {
       const endpoint = endpointMap[type];
       if (!endpoint) {
         const validTypes = Object.keys(endpointMap)
-          .filter(key => !['call', 'sms', 'whatsapp', 'email'].includes(key)) // Hide legacy types from error message
+          .filter((key) => !['call', 'sms', 'whatsapp', 'email'].includes(key)) // Hide legacy types from error message
           .join(', ');
         throw new BadRequestException(
           `Invalid webhook type: ${type}. Must be one of: ${validTypes}`,
@@ -339,7 +341,10 @@ export class WebhookManagementService {
         );
 
         return {
-          status: response.status >= 200 && response.status < 300 ? 'success' : 'failed',
+          status:
+            response.status >= 200 && response.status < 300
+              ? 'success'
+              : 'failed',
           webhook_url: fullUrl,
           response_time_ms: responseTime,
           status_code: response.status,
@@ -352,9 +357,7 @@ export class WebhookManagementService {
       } catch (error) {
         const responseTime = Date.now() - startTime;
 
-        this.logger.error(
-          `Webhook test failed: ${error.message}`,
-        );
+        this.logger.error(`Webhook test failed: ${error.message}`);
 
         return {
           status: 'failed',
@@ -464,7 +467,9 @@ export class WebhookManagementService {
         this.prisma.webhook_event.count({ where }),
       ]);
 
-      this.logger.log(`Found ${total} webhook events (returning ${events.length})`);
+      this.logger.log(
+        `Found ${total} webhook events (returning ${events.length})`,
+      );
 
       return {
         data: events.map((event) => ({
@@ -496,7 +501,9 @@ export class WebhookManagementService {
     } catch (error) {
       this.logger.error('Failed to fetch webhook events:', error.message);
       this.logger.error('Error stack:', error.stack);
-      throw new InternalServerErrorException('Failed to retrieve webhook events');
+      throw new InternalServerErrorException(
+        'Failed to retrieve webhook events',
+      );
     }
   }
 
@@ -541,7 +548,9 @@ export class WebhookManagementService {
         },
       });
 
-      this.logger.log(`Webhook event ${id} queued for retry (attempt #${event.retry_count + 1})`);
+      this.logger.log(
+        `Webhook event ${id} queued for retry (attempt #${event.retry_count + 1})`,
+      );
 
       return {
         success: true,

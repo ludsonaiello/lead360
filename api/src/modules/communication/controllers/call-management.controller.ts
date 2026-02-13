@@ -329,10 +329,27 @@ export class CallManagementController {
         url: {
           type: 'string',
           example:
-            '/public/tenant-id/communication/recordings/2026/01/call-id.mp3',
+            'https://tenant.lead360.app/uploads/public/tenant-id/communication/recordings/2026/01/call-id.mp3',
         },
         duration_seconds: { type: 'number', example: 127 },
-        transcription_available: { type: 'boolean', example: false },
+        transcription_available: { type: 'boolean', example: true },
+        transcription: {
+          type: 'object',
+          nullable: true,
+          properties: {
+            transcription_text: {
+              type: 'string',
+              example: 'Full transcription text here...',
+            },
+            language_detected: { type: 'string', example: 'en' },
+            confidence_score: { type: 'number', example: 0.95 },
+            transcription_provider: {
+              type: 'string',
+              example: 'openai_whisper',
+            },
+            status: { type: 'string', example: 'completed' },
+          },
+        },
       },
     },
   })
@@ -350,5 +367,62 @@ export class CallManagementController {
   })
   async getRecordingUrl(@Request() req, @Param('id') callId: string) {
     return this.callService.getRecordingUrl(req.user.tenant_id, callId);
+  }
+
+  /**
+   * Get transcription for a call
+   *
+   * GET /api/v1/communication/twilio/calls/:id/transcription
+   *
+   * Returns:
+   * - Transcription text
+   * - Language detected
+   * - Confidence score
+   * - Provider used
+   *
+   * @param req - Express request with authenticated user
+   * @param callId - CallRecord UUID
+   * @returns Transcription data
+   */
+  @Get('calls/:id/transcription')
+  @Roles('Owner', 'Admin', 'Manager', 'Sales')
+  @ApiOperation({
+    summary: 'Get transcription for call',
+    description:
+      'Retrieves the transcription data for a specific call if available.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'CallRecord UUID',
+    example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Transcription retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        transcription_text: { type: 'string' },
+        language_detected: { type: 'string', example: 'en' },
+        confidence_score: { type: 'number', example: 0.95 },
+        transcription_provider: { type: 'string', example: 'openai_whisper' },
+        status: { type: 'string', example: 'completed' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Call record not found or transcription not available',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized (invalid or missing JWT)',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden (insufficient permissions)',
+  })
+  async getTranscription(@Request() req, @Param('id') callId: string) {
+    return this.callService.getTranscription(req.user.tenant_id, callId);
   }
 }

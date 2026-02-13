@@ -114,7 +114,7 @@ export default function TemplateBuilderPage() {
 
       const result = await listBuilderTemplates(filters);
       setTemplates(result.data);
-      setTotalPages(result.pagination.pages);
+      setTotalPages(result.pagination.total);
     } catch (error: any) {
       toast.error(error.message || 'Failed to load templates');
       console.error('[TEMPLATES] Load error:', error);

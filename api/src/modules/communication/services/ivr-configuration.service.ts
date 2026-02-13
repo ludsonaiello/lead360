@@ -225,6 +225,15 @@ export class IvrConfigurationService {
       throw new BadRequestException('IVR is not enabled for this tenant');
     }
 
+    // Fetch tenant for subdomain (needed for webhook URLs)
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+
+    if (!tenant) {
+      throw new Error(`Tenant not found: ${tenantId}`);
+    }
+
     this.logger.log(`Generating IVR menu TwiML for tenant: ${tenantId}`);
 
     const twiml = new twilio.twiml.VoiceResponse();
@@ -257,7 +266,7 @@ export class IvrConfigurationService {
     const gather = twiml.gather({
       numDigits: 1,
       timeout: config.timeout_seconds,
-      action: `${this.apiBaseUrl}/webhooks/communication/twilio-ivr-input`,
+      action: `https://${tenant.subdomain}.lead360.app/api/v1/twilio/ivr/input`,
       method: 'POST',
     });
 
@@ -274,7 +283,7 @@ export class IvrConfigurationService {
       {
         method: 'POST',
       },
-      `${this.apiBaseUrl}/webhooks/communication/twilio-ivr-default`,
+      `https://${tenant.subdomain}.lead360.app/api/v1/twilio/ivr/default`,
     );
 
     return twiml.toString();
@@ -298,6 +307,15 @@ export class IvrConfigurationService {
   async executeIvrAction(tenantId: string, digit: string): Promise<string> {
     const config = await this.findByTenantId(tenantId);
 
+    // Fetch tenant for subdomain (needed for webhook URLs)
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+
+    if (!tenant) {
+      throw new Error(`Tenant not found: ${tenantId}`);
+    }
+
     const menuOptions = config.menu_options as unknown as IvrMenuOptionDto[];
     const selectedOption = menuOptions.find((opt) => opt.digit === digit);
 
@@ -319,7 +337,7 @@ export class IvrConfigurationService {
         {
           method: 'POST',
         },
-        `${this.apiBaseUrl}/webhooks/communication/twilio-ivr-menu`,
+        `https://${tenant.subdomain}.lead360.app/api/v1/twilio/ivr/menu`,
       );
       return twiml.toString();
     }
@@ -328,7 +346,7 @@ export class IvrConfigurationService {
     this.logger.log(
       `Executing IVR action: ${selectedOption.action} for tenant ${tenantId}`,
     );
-    this.executeActionTwiML(twiml, selectedOption);
+    this.executeActionTwiML(twiml, selectedOption, tenant.subdomain);
 
     return twiml.toString();
   }
@@ -345,14 +363,24 @@ export class IvrConfigurationService {
   async executeDefaultAction(tenantId: string): Promise<string> {
     const config = await this.findByTenantId(tenantId);
 
+    // Fetch tenant for subdomain (needed for webhook URLs)
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+
+    if (!tenant) {
+      throw new Error(`Tenant not found: ${tenantId}`);
+    }
+
     this.logger.log(
       `Executing default IVR action for tenant: ${tenantId} (timeout/no input)`,
     );
 
     const twiml = new twilio.twiml.VoiceResponse();
-    const defaultAction = config.default_action as unknown as IvrDefaultActionDto;
+    const defaultAction =
+      config.default_action as unknown as IvrDefaultActionDto;
 
-    this.executeActionTwiML(twiml, defaultAction);
+    this.executeActionTwiML(twiml, defaultAction, tenant.subdomain);
 
     return twiml.toString();
   }
@@ -370,10 +398,12 @@ export class IvrConfigurationService {
    *
    * @param twiml - TwiML VoiceResponse object (mutated)
    * @param action - Action configuration
+   * @param tenantSubdomain - Tenant subdomain for webhook URL generation
    */
   private executeActionTwiML(
     twiml: twilio.twiml.VoiceResponse,
     action: IvrMenuOptionDto | IvrDefaultActionDto,
+    tenantSubdomain: string,
   ) {
     switch (action.action) {
       case 'route_to_number':
@@ -388,10 +418,10 @@ export class IvrConfigurationService {
         twiml.dial(
           {
             callerId: action.config.phone_number,
-            record: 'record-from-answer',
-            recordingStatusCallback: `${this.apiBaseUrl}/webhooks/communication/twilio-recording-ready`,
+            record: 'record-from-answer-dual', // Enable dual-channel stereo recording
+            recordingStatusCallback: `https://${tenantSubdomain}.lead360.app/api/v1/twilio/recording/ready`,
           },
-          action.config.phone_number!,
+          action.config.phone_number,
         );
         break;
 
@@ -406,18 +436,16 @@ export class IvrConfigurationService {
         );
         twiml.dial(
           {
-            record: 'record-from-answer',
-            recordingStatusCallback: `${this.apiBaseUrl}/webhooks/communication/twilio-recording-ready`,
+            record: 'record-from-answer-dual', // Enable dual-channel stereo recording
+            recordingStatusCallback: `https://${tenantSubdomain}.lead360.app/api/v1/twilio/recording/ready`,
           },
-          action.config.phone_number!,
+          action.config.phone_number,
         );
         break;
 
       case 'trigger_webhook':
         // Webhook trigger (not directly in TwiML - log for async processing)
-        this.logger.log(
-          `Webhook trigger action: ${action.config.webhook_url}`,
-        );
+        this.logger.log(`Webhook trigger action: ${action.config.webhook_url}`);
         twiml.say(
           {
             voice: 'Polly.Joanna',
@@ -441,7 +469,7 @@ export class IvrConfigurationService {
           maxLength: action.config.max_duration_seconds || 180,
           playBeep: true,
           transcribe: false, // Use dedicated transcription service instead
-          recordingStatusCallback: `${this.apiBaseUrl}/webhooks/communication/twilio-recording-ready`,
+          recordingStatusCallback: `https://${tenantSubdomain}.lead360.app/api/v1/twilio/recording/ready`,
         });
         twiml.say(
           {
@@ -518,12 +546,16 @@ export class IvrConfigurationService {
       }
 
       // Validate digit is 0-9
-      if (!['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(option.digit)) {
+      if (
+        !['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(
+          option.digit,
+        )
+      ) {
         throw new BadRequestException(`${position}: Digit must be 0-9`);
       }
 
       // Validate action type
-      if (!IVR_ACTION_TYPES.includes(option.action as IvrActionType)) {
+      if (!IVR_ACTION_TYPES.includes(option.action)) {
         throw new BadRequestException(
           `${position}: Invalid action type '${option.action}'. Must be one of: ${IVR_ACTION_TYPES.join(', ')}`,
         );
@@ -637,13 +669,11 @@ export class IvrConfigurationService {
 
     // Validate required fields
     if (!defaultAction.action || !defaultAction.config) {
-      throw new BadRequestException(
-        `${position}: Must have action and config`,
-      );
+      throw new BadRequestException(`${position}: Must have action and config`);
     }
 
     // Validate action type
-    if (!IVR_ACTION_TYPES.includes(defaultAction.action as IvrActionType)) {
+    if (!IVR_ACTION_TYPES.includes(defaultAction.action)) {
       throw new BadRequestException(
         `${position}: Invalid action type '${defaultAction.action}'. Must be one of: ${IVR_ACTION_TYPES.join(', ')}`,
       );

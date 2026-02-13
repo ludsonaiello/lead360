@@ -8,12 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import type { UpdateTenantSmsConfigDto, TenantSmsConfig } from '@/lib/types/twilio-admin';
+import type { UpdateTenantSmsConfigDto, TenantSMSConfig } from '@/lib/types/twilio-admin';
 
 interface EditTenantSmsConfigModalProps {
   open: boolean;
   onClose: () => void;
-  config: TenantSmsConfig;
+  config: TenantSMSConfig;
   tenantName: string;
   onUpdate: (configId: string, data: UpdateTenantSmsConfigDto) => Promise<void>;
 }
@@ -95,7 +95,7 @@ export function EditTenantSmsConfigModal({
                   {isCustomProvider ? "Tenant's own Twilio account (Model A)" : "Platform's Twilio account (Model B)"}
                 </p>
               </div>
-              <Badge variant="outline" className="font-mono">
+              <Badge variant="secondary" className="font-mono">
                 {isCustomProvider ? 'Custom' : 'System'}
               </Badge>
             </div>
@@ -190,7 +190,7 @@ export function EditTenantSmsConfigModal({
           </Alert>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button onClick={onClose} variant="outline" disabled={updating}>
+            <Button onClick={onClose} variant="secondary" disabled={updating}>
               Cancel
             </Button>
             <Button onClick={handleUpdate} disabled={updating}>

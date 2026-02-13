@@ -29,9 +29,9 @@ export default function TwilioAdminOverviewPage() {
           getSystemWideMetrics(),
         ]);
         console.log('[TwilioAdminOverview] Health Data:', healthData);
-        console.log('[TwilioAdminOverview] Components:', healthData?.components);
-        console.log('[TwilioAdminOverview] Twilio API:', healthData?.components?.twilio_api);
-        console.log('[TwilioAdminOverview] Twilio Status:', healthData?.components?.twilio_api?.status);
+        console.log('[TwilioAdminOverview] Checks:', healthData?.checks);
+        console.log('[TwilioAdminOverview] Twilio API:', healthData?.checks?.twilio_api);
+        console.log('[TwilioAdminOverview] Twilio Status:', healthData?.checks?.twilio_api?.status);
         setHealth(healthData);
         setMetrics(metricsData);
       } catch (error) {

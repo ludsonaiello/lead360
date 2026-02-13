@@ -256,7 +256,7 @@ export default function SystemHealthPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <SystemHealthCard
                 title="Twilio API"
-                component={health.checks.twilio_api}
+                component={health.checks.twilio_api as any}
                 onTest={handleTestTwilio}
                 testing={testingTwilio}
               />

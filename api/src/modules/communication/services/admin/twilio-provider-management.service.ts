@@ -201,15 +201,11 @@ export class TwilioProviderManagementService {
         systemProvider.auth_token,
       );
 
-      const phoneNumberDetails = await client
-        .incomingPhoneNumbers(sid)
-        .fetch();
+      const phoneNumberDetails = await client.incomingPhoneNumbers(sid).fetch();
 
       const phoneNumber = phoneNumberDetails.phoneNumber;
 
-      this.logger.debug(
-        `Resolved SID ${sid} to phone number ${phoneNumber}`,
-      );
+      this.logger.debug(`Resolved SID ${sid} to phone number ${phoneNumber}`);
 
       // Check if phone number is already allocated
       const existingConfig = await this.prisma.tenant_sms_config.findFirst({
@@ -232,7 +228,9 @@ export class TwilioProviderManagementService {
 
       // Determine which config(s) to create based on purpose
       const isWhatsApp = finalPurpose === 'WhatsApp';
-      const isSmsOrVoice = ['SMS Only', 'Calls Only', 'SMS + Calls'].includes(finalPurpose);
+      const isSmsOrVoice = ['SMS Only', 'Calls Only', 'SMS + Calls'].includes(
+        finalPurpose,
+      );
 
       // Create appropriate configuration(s) based on purpose
       if (isSmsOrVoice) {
@@ -321,9 +319,7 @@ export class TwilioProviderManagementService {
           },
         });
 
-        this.logger.log(
-          `Created/Updated WhatsApp config for ${phoneNumber}`,
-        );
+        this.logger.log(`Created/Updated WhatsApp config for ${phoneNumber}`);
       }
 
       this.logger.log(
@@ -364,9 +360,7 @@ export class TwilioProviderManagementService {
       const systemProvider = await this.loadSystemProvider();
 
       if (!systemProvider) {
-        throw new BadRequestException(
-          'System Twilio provider not configured',
-        );
+        throw new BadRequestException('System Twilio provider not configured');
       }
 
       // Initialize Twilio client with system credentials
@@ -407,7 +401,10 @@ export class TwilioProviderManagementService {
 
       return numbers;
     } catch (error) {
-      this.logger.error('Failed to fetch available phone numbers:', error.message);
+      this.logger.error(
+        'Failed to fetch available phone numbers:',
+        error.message,
+      );
       throw error;
     }
   }
@@ -434,9 +431,7 @@ export class TwilioProviderManagementService {
       const systemProvider = await this.loadSystemProvider();
 
       if (!systemProvider) {
-        throw new BadRequestException(
-          'System Twilio provider not configured',
-        );
+        throw new BadRequestException('System Twilio provider not configured');
       }
 
       // Initialize Twilio client
@@ -690,7 +685,7 @@ export class TwilioProviderManagementService {
           company_name: string;
           subdomain: string;
         } | null = null;
-        let allocated_for: string[] = [];
+        const allocated_for: string[] = [];
 
         if (smsAllocation) {
           allocated_to_tenant = {
@@ -781,7 +776,10 @@ export class TwilioProviderManagementService {
         model_b_tenant_count: modelBTenantCount,
       };
     } catch (error) {
-      this.logger.error('Failed to fetch system provider status:', error.message);
+      this.logger.error(
+        'Failed to fetch system provider status:',
+        error.message,
+      );
       throw error;
     }
   }
@@ -866,10 +864,12 @@ export class TwilioProviderManagementService {
         include: { tenant: true },
       });
 
-      const whatsappConfigs = await this.prisma.tenant_whatsapp_config.findMany({
-        where: { from_phone: { contains: sid } },
-        include: { tenant: true },
-      });
+      const whatsappConfigs = await this.prisma.tenant_whatsapp_config.findMany(
+        {
+          where: { from_phone: { contains: sid } },
+          include: { tenant: true },
+        },
+      );
 
       if (smsConfigs.length === 0 && whatsappConfigs.length === 0) {
         throw new NotFoundException(
@@ -926,7 +926,9 @@ export class TwilioProviderManagementService {
         throw error;
       }
 
-      throw new BadRequestException('Failed to deallocate phone number from tenant');
+      throw new BadRequestException(
+        'Failed to deallocate phone number from tenant',
+      );
     }
   }
 
@@ -983,20 +985,25 @@ export class TwilioProviderManagementService {
           .fetch();
         phoneNumber = incomingPhoneNumber.phoneNumber;
       } catch (error) {
-        this.logger.warn(`Could not fetch phone number details: ${error.message}`);
+        this.logger.warn(
+          `Could not fetch phone number details: ${error.message}`,
+        );
       }
 
       // Release phone number from Twilio
       await twilioClient.incomingPhoneNumbers(sid).remove();
 
-      this.logger.log(`Phone number ${sid} released successfully from Twilio account`);
+      this.logger.log(
+        `Phone number ${sid} released successfully from Twilio account`,
+      );
 
       return {
         release_status: 'success',
         phone_number: phoneNumber || sid,
         released_at: new Date(),
         final_cost_impact: '-1.00', // Typical monthly cost per number
-        message: 'Phone number released successfully. It is no longer available.',
+        message:
+          'Phone number released successfully. It is no longer available.',
       };
     } catch (error) {
       this.logger.error('Failed to release phone number:', error.message);
@@ -1007,7 +1014,9 @@ export class TwilioProviderManagementService {
       }
 
       if (error.code === 20404) {
-        throw new NotFoundException(`Phone number ${sid} not found in Twilio account`);
+        throw new NotFoundException(
+          `Phone number ${sid} not found in Twilio account`,
+        );
       }
 
       throw new BadRequestException('Failed to release phone number to Twilio');

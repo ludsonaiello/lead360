@@ -394,6 +394,36 @@ export async function retryTranscription(id: string): Promise<{ message: string 
 }
 
 /**
+ * POST /admin/communication/transcriptions/call/:callRecordId/transcribe
+ * Transcribe a call by call record ID (works for first-time and retries)
+ * Creates transcription if none exists, retries if it does
+ */
+export async function transcribeCallByCallId(
+  callRecordId: string,
+  reason?: string
+): Promise<{
+  success: boolean;
+  transcription_id: string;
+  previous_transcription_id: string | null;
+  call_record_id: string;
+  retry_count: number;
+  status: string;
+  recording_url: string;
+  message: string;
+}> {
+  try {
+    const { data } = await apiClient.post(
+      `/admin/communication/transcriptions/call/${callRecordId}/transcribe`,
+      reason ? { reason } : {}
+    );
+    return data;
+  } catch (error) {
+    console.error(`[transcribeCallByCallId] Error for call ${callRecordId}:`, error);
+    throw error;
+  }
+}
+
+/**
  * GET /admin/communication/transcription-providers
  * Get all transcription providers with statistics
  */

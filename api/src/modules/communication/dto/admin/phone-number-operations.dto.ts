@@ -93,7 +93,8 @@ export class AllocatePhoneNumberDto {
 export class DeallocatePhoneNumberDto {
   @ApiProperty({
     required: false,
-    description: 'Also delete tenant SMS/WhatsApp configuration using this number',
+    description:
+      'Also delete tenant SMS/WhatsApp configuration using this number',
     example: false,
   })
   @IsOptional()

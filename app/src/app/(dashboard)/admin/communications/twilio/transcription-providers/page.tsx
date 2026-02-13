@@ -179,7 +179,7 @@ export default function TranscriptionProvidersPage() {
         </div>
         <div className="flex gap-2">
           <Button
-            variant="outline"
+            variant="secondary"
             onClick={handleRefresh}
             disabled={refreshing}
           >

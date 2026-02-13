@@ -142,7 +142,7 @@ export function EditWebhookConfigModal({
       </ModalContent>
 
       <ModalActions>
-        <Button onClick={onClose} variant="outline" disabled={saving}>
+        <Button onClick={onClose} variant="secondary" disabled={saving}>
           Cancel
         </Button>
         <Button onClick={handleSave} variant="primary" disabled={saving}>

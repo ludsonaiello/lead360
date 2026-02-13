@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent } from '@/components/ui/card';
+import Card from '@/components/ui/Card';
 import { SuccessModal } from '@/components/ui/SuccessModal';
 import { ErrorModal } from '@/components/ui/ErrorModal';
 import { TenantConfigCard } from '@/components/admin/twilio/tenant-assistance/TenantConfigCard';
@@ -26,7 +26,7 @@ import {
 } from '@/lib/api/twilio-admin';
 import type {
   Tenant,
-  TenantSmsConfig,
+  TenantSMSConfig,
   TenantWhatsAppConfig,
   CreateTenantSmsConfigDto,
   CreateTenantWhatsAppConfigDto,
@@ -45,7 +45,7 @@ export default function TenantDetailPage() {
   const tenantId = params.id as string;
 
   const [tenant, setTenant] = useState<Tenant | null>(null);
-  const [smsConfigs, setSmsConfigs] = useState<TenantSmsConfig[]>([]);
+  const [smsConfigs, setSmsConfigs] = useState<TenantSMSConfig[]>([]);
   const [whatsappConfigs, setWhatsappConfigs] = useState<TenantWhatsAppConfig[]>([]);
   const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([]);
   const [metrics, setMetrics] = useState<TenantMetricsResponse | null>(null);
@@ -57,7 +57,7 @@ export default function TenantDetailPage() {
   const [editWhatsAppModalOpen, setEditWhatsAppModalOpen] = useState(false);
   const [testSmsModalOpen, setTestSmsModalOpen] = useState(false);
   const [testWhatsAppModalOpen, setTestWhatsAppModalOpen] = useState(false);
-  const [editingSmsConfig, setEditingSmsConfig] = useState<TenantSmsConfig | null>(null);
+  const [editingSmsConfig, setEditingSmsConfig] = useState<TenantSMSConfig | null>(null);
   const [editingWhatsAppConfig, setEditingWhatsAppConfig] = useState<TenantWhatsAppConfig | null>(null);
 
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -134,7 +134,7 @@ export default function TenantDetailPage() {
     }
   };
 
-  const handleEditSms = (config: TenantSmsConfig) => {
+  const handleEditSms = (config: TenantSMSConfig) => {
     setEditingSmsConfig(config);
     setEditSmsModalOpen(true);
   };
@@ -170,7 +170,7 @@ export default function TenantDetailPage() {
     }
   };
 
-  const handleToggleSmsActive = async (config: TenantSmsConfig) => {
+  const handleToggleSmsActive = async (config: TenantSMSConfig) => {
     try {
       await updateTenantSmsConfig(tenantId, config.id, {
         is_active: !config.is_active,
@@ -252,52 +252,46 @@ export default function TenantDetailPage() {
         {/* Metrics */}
         {metrics && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <Card className="border-0 shadow-lg">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-xl">
-                    <Phone className="h-7 w-7 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Calls</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                      {metrics.calls?.total || 0}
-                    </p>
-                  </div>
+            <Card className="border-0 shadow-lg p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-xl">
+                  <Phone className="h-7 w-7 text-blue-600 dark:text-blue-400" />
                 </div>
-              </CardContent>
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Calls</p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                    {metrics.calls?.total || 0}
+                  </p>
+                </div>
+              </div>
             </Card>
 
-            <Card className="border-0 shadow-lg">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-xl">
-                    <MessageSquare className="h-7 w-7 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Messages</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                      {(metrics.sms?.total || 0) + (metrics.whatsapp?.total || 0)}
-                    </p>
-                  </div>
+            <Card className="border-0 shadow-lg p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-xl">
+                  <MessageSquare className="h-7 w-7 text-green-600 dark:text-green-400" />
                 </div>
-              </CardContent>
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Messages</p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                    {(metrics.sms?.total || 0) + (metrics.whatsapp?.total || 0)}
+                  </p>
+                </div>
+              </div>
             </Card>
 
-            <Card className="border-0 shadow-lg">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-purple-50 dark:bg-purple-900/30 rounded-xl">
-                    <Activity className="h-7 w-7 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Activity</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                      {(metrics.calls?.total || 0) + (metrics.sms?.total || 0) + (metrics.whatsapp?.total || 0)}
-                    </p>
-                  </div>
+            <Card className="border-0 shadow-lg p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-purple-50 dark:bg-purple-900/30 rounded-xl">
+                  <Activity className="h-7 w-7 text-purple-600 dark:text-purple-400" />
                 </div>
-              </CardContent>
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Activity</p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                    {(metrics.calls?.total || 0) + (metrics.sms?.total || 0) + (metrics.whatsapp?.total || 0)}
+                  </p>
+                </div>
+              </div>
             </Card>
           </div>
         )}
@@ -313,20 +307,18 @@ export default function TenantDetailPage() {
           </div>
 
           {smsConfigs.length === 0 ? (
-            <Card className="border-2 border-dashed border-gray-300 dark:border-gray-700">
-              <CardContent className="py-16 text-center">
-                <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                  No SMS configurations
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  Get started by creating your first SMS configuration
-                </p>
-                <Button onClick={() => setAddSmsModalOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create SMS Config
-                </Button>
-              </CardContent>
+            <Card className="border-2 border-dashed border-gray-300 dark:border-gray-700 py-16 text-center">
+              <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                No SMS configurations
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Get started by creating your first SMS configuration
+              </p>
+              <Button onClick={() => setAddSmsModalOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create SMS Config
+              </Button>
             </Card>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -355,20 +347,18 @@ export default function TenantDetailPage() {
           </div>
 
           {whatsappConfigs.length === 0 ? (
-            <Card className="border-2 border-dashed border-gray-300 dark:border-gray-700">
-              <CardContent className="py-16 text-center">
-                <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                  No WhatsApp configurations
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  Get started by creating your first WhatsApp configuration
-                </p>
-                <Button onClick={() => setAddWhatsAppModalOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create WhatsApp Config
-                </Button>
-              </CardContent>
+            <Card className="border-2 border-dashed border-gray-300 dark:border-gray-700 py-16 text-center">
+              <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                No WhatsApp configurations
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Get started by creating your first WhatsApp configuration
+              </p>
+              <Button onClick={() => setAddWhatsAppModalOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create WhatsApp Config
+              </Button>
             </Card>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

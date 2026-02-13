@@ -2,10 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TranscriptionProviderService } from './transcription-provider.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { EncryptionService } from '../../../core/encryption/encryption.service';
-import {
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 
 describe('TranscriptionProviderService', () => {
   let service: TranscriptionProviderService;
@@ -78,7 +75,9 @@ describe('TranscriptionProviderService', () => {
       );
 
       // Mock OpenAI API validation
-      jest.spyOn(service as any, 'validateOpenAIWhisperConfig').mockResolvedValue(undefined);
+      jest
+        .spyOn(service as any, 'validateOpenAIWhisperConfig')
+        .mockResolvedValue(undefined);
 
       const result = await service.registerProvider(
         'openai_whisper',
@@ -88,9 +87,7 @@ describe('TranscriptionProviderService', () => {
       );
 
       expect(result).toEqual(expectedProvider);
-      expect(encryption.encrypt).toHaveBeenCalledWith(
-        JSON.stringify(config),
-      );
+      expect(encryption.encrypt).toHaveBeenCalledWith(JSON.stringify(config));
       expect(
         mockPrismaService.transcription_provider_configuration.create,
       ).toHaveBeenCalledWith({
@@ -115,7 +112,9 @@ describe('TranscriptionProviderService', () => {
         { id: 'new-provider' },
       );
 
-      jest.spyOn(service as any, 'validateOpenAIWhisperConfig').mockResolvedValue(undefined);
+      jest
+        .spyOn(service as any, 'validateOpenAIWhisperConfig')
+        .mockResolvedValue(undefined);
 
       await service.registerProvider('openai_whisper', config, null, true);
 
@@ -185,9 +184,9 @@ describe('TranscriptionProviderService', () => {
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null);
 
-      await expect(
-        service.getActiveProvider('tenant-123'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getActiveProvider('tenant-123')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -218,9 +217,9 @@ describe('TranscriptionProviderService', () => {
         null,
       );
 
-      await expect(
-        service.getDecryptedConfig('invalid-id'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getDecryptedConfig('invalid-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -290,9 +289,9 @@ describe('TranscriptionProviderService', () => {
         null,
       );
 
-      await expect(
-        service.hasExceededUsageLimit('invalid-id'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.hasExceededUsageLimit('invalid-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -364,16 +363,10 @@ describe('TranscriptionProviderService', () => {
         mockPrismaService.transcription_provider_configuration.findMany,
       ).toHaveBeenCalledWith({
         where: {
-          OR: [
-            { is_system_default: true },
-            { tenant_id: 'tenant-123' },
-          ],
+          OR: [{ is_system_default: true }, { tenant_id: 'tenant-123' }],
         },
         select: expect.any(Object),
-        orderBy: [
-          { is_system_default: 'desc' },
-          { created_at: 'desc' },
-        ],
+        orderBy: [{ is_system_default: 'desc' }, { created_at: 'desc' }],
       });
     });
   });

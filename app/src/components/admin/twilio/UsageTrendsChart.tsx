@@ -31,7 +31,8 @@ interface UsageTrendsChartProps {
 
 export default function UsageTrendsChart({ data }: UsageTrendsChartProps) {
   // Custom tooltip formatter
-  const formatTooltip = (value: number, name: string) => {
+  const formatTooltip = (value: number | undefined, name: string | undefined) => {
+    if (value === undefined) return '';
     if (name === 'cost') {
       return `$${value.toFixed(2)}`;
     }

@@ -58,7 +58,7 @@ export function TenantConfigCard({
   const router = useRouter();
 
   return (
-    <Card className="p-6 hover:shadow-lg transition-shadow" style={{ contentVisibility: 'auto' }}>
+    <Card className="p-6 hover:shadow-lg transition-shadow">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-start gap-3">

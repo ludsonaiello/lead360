@@ -101,8 +101,8 @@ describe('IvrConfigurationService', () => {
     }).compile();
 
     service = module.get<IvrConfigurationService>(IvrConfigurationService);
-    prisma = module.get(PrismaService) as jest.Mocked<PrismaService>;
-    config = module.get(ConfigService) as jest.Mocked<ConfigService>;
+    prisma = module.get(PrismaService);
+    config = module.get(ConfigService);
   });
 
   afterEach(() => {
@@ -355,20 +355,20 @@ describe('IvrConfigurationService', () => {
       const disabledConfig = { ...mockIvrConfig, ivr_enabled: false };
       prisma.ivr_configuration.findUnique.mockResolvedValue(disabledConfig);
 
-      await expect(
-        service.generateIvrMenuTwiML(mockTenantId),
-      ).rejects.toThrow(BadRequestException);
-      await expect(
-        service.generateIvrMenuTwiML(mockTenantId),
-      ).rejects.toThrow(/not enabled/);
+      await expect(service.generateIvrMenuTwiML(mockTenantId)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.generateIvrMenuTwiML(mockTenantId)).rejects.toThrow(
+        /not enabled/,
+      );
     });
 
     it('should throw NotFoundException if config does not exist', async () => {
       prisma.ivr_configuration.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.generateIvrMenuTwiML(mockTenantId),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.generateIvrMenuTwiML(mockTenantId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -422,9 +422,9 @@ describe('IvrConfigurationService', () => {
     it('should throw NotFoundException if config does not exist', async () => {
       prisma.ivr_configuration.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.executeDefaultAction(mockTenantId),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.executeDefaultAction(mockTenantId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

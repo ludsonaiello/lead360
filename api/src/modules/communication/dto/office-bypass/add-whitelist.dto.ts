@@ -4,6 +4,8 @@ import {
   IsNotEmpty,
   MinLength,
   MaxLength,
+  IsOptional,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -80,22 +82,51 @@ export class AddWhitelistDto {
  * UpdateWhitelistDto
  *
  * DTO for updating a whitelist entry.
- * Currently only supports updating the label (phone number is immutable).
- *
- * To change the phone number, remove and re-add the entry.
+ * All fields are optional - only provide the fields you want to update.
  */
 export class UpdateWhitelistDto {
+  @ApiProperty({
+    description: 'Updated phone number in E.164 format',
+    example: '+19787654321',
+    pattern: E164_PHONE_REGEX.source,
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty({ message: 'Phone number cannot be empty' })
+  @Matches(E164_PHONE_REGEX, {
+    message:
+      'Phone number must be in E.164 format (e.g., +12025551234). Start with + followed by country code and number, no spaces or formatting.',
+  })
+  phone_number?: string;
+
   @ApiProperty({
     description: 'Updated label for this whitelist entry',
     example: "John Doe - VP of Sales's Mobile",
     minLength: 1,
     maxLength: 100,
+    required: false,
   })
+  @IsOptional()
   @IsString()
   @IsNotEmpty({ message: 'Label cannot be empty' })
   @MinLength(1, { message: 'Label must be at least 1 character' })
   @MaxLength(100, { message: 'Label must not exceed 100 characters' })
-  label: string;
+  label?: string;
+
+  @ApiProperty({
+    description: 'Updated status (active or inactive)',
+    example: 'active',
+    enum: ['active', 'inactive'],
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty({ message: 'Status cannot be empty' })
+  @IsIn(['active', 'inactive'], {
+    message: 'Status must be either active or inactive',
+  })
+  status?: string;
 }
 
 /**

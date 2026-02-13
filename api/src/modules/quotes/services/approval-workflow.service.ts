@@ -689,9 +689,12 @@ export class ApprovalWorkflowService {
       where: {
         approver_user_id: userId,
         status: 'pending',
-        quote: {
-          tenant_id: tenantId,
-        },
+        // Only filter by tenant_id if provided (system admins have no tenant)
+        ...(tenantId && {
+          quote: {
+            tenant_id: tenantId,
+          },
+        }),
       },
       include: {
         quote: {

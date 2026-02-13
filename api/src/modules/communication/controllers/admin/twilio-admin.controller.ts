@@ -337,8 +337,8 @@ export class TwilioAdminController {
   @ApiOperation({
     summary: "Get specific tenant's communication configurations",
     description:
-      "Returns all communication configurations for a specific tenant. " +
-      "Includes SMS, WhatsApp, and IVR settings.",
+      'Returns all communication configurations for a specific tenant. ' +
+      'Includes SMS, WhatsApp, and IVR settings.',
   })
   @ApiParam({
     name: 'id',
@@ -405,12 +405,10 @@ export class TwilioAdminController {
   })
   async syncAllUsage() {
     // Run sync asynchronously (don't wait for completion)
-    this.twilioUsageTrackingService
-      .syncUsageForAllTenants()
-      .catch((error) => {
-        this.logger.error('Usage sync failed:', error.message);
-        this.logger.error('Error stack:', error.stack);
-      });
+    this.twilioUsageTrackingService.syncUsageForAllTenants().catch((error) => {
+      this.logger.error('Usage sync failed:', error.message);
+      this.logger.error('Error stack:', error.stack);
+    });
 
     return { message: 'Usage sync initiated for all tenants' };
   }
@@ -460,9 +458,7 @@ export class TwilioAdminController {
     const startDate = query.start_date
       ? new Date(query.start_date)
       : new Date(new Date().setDate(1)); // First day of current month
-    const endDate = query.end_date
-      ? new Date(query.end_date)
-      : new Date();
+    const endDate = query.end_date ? new Date(query.end_date) : new Date();
 
     return this.twilioUsageTrackingService.getSystemWideUsage(
       startDate,
@@ -509,9 +505,7 @@ export class TwilioAdminController {
     const startDate = query.start_date
       ? new Date(query.start_date)
       : new Date(new Date().setDate(1));
-    const endDate = query.end_date
-      ? new Date(query.end_date)
-      : new Date();
+    const endDate = query.end_date ? new Date(query.end_date) : new Date();
 
     return this.twilioUsageTrackingService.getSystemWideUsage(
       startDate,
@@ -538,10 +532,7 @@ export class TwilioAdminController {
     @Param('id') tenantId: string,
     @Query() query: CostQueryDto,
   ) {
-    return this.twilioUsageTrackingService.estimateCosts(
-      tenantId,
-      query.month,
-    );
+    return this.twilioUsageTrackingService.estimateCosts(tenantId, query.month);
   }
 
   // ============================================================================
@@ -581,7 +572,9 @@ export class TwilioAdminController {
   })
   async getTranscriptionDetails(@Param('id') transcriptionId: string) {
     // Fetch detailed transcription with call and tenant info
-    const transcription = await this.twilioAdminService['prisma'].call_transcription.findUnique({
+    const transcription = await this.twilioAdminService[
+      'prisma'
+    ].call_transcription.findUnique({
       where: { id: transcriptionId },
       include: {
         call_record: {
@@ -666,70 +659,7 @@ export class TwilioAdminController {
     description: 'Transcription providers list',
   })
   async getTranscriptionProviders() {
-    // Fetch all transcription provider configurations
-    const providers = await this.twilioAdminService['prisma'].transcription_provider_configuration.findMany({
-      include: {
-        tenant: {
-          select: {
-            id: true,
-            company_name: true,
-            subdomain: true,
-          },
-        },
-      },
-      orderBy: { created_at: 'desc' },
-    });
-
-    // Get usage statistics for each provider
-    const providersWithStats = await Promise.all(
-      providers.map(async (provider) => {
-        const transcriptionCount = await this.twilioAdminService['prisma'].call_transcription.count({
-          where: {
-            transcription_provider: provider.provider_name,
-            tenant_id: provider.tenant_id,
-          },
-        });
-
-        const successCount = await this.twilioAdminService['prisma'].call_transcription.count({
-          where: {
-            transcription_provider: provider.provider_name,
-            tenant_id: provider.tenant_id,
-            status: 'completed',
-          },
-        });
-
-        const failureCount = await this.twilioAdminService['prisma'].call_transcription.count({
-          where: {
-            transcription_provider: provider.provider_name,
-            tenant_id: provider.tenant_id,
-            status: 'failed',
-          },
-        });
-
-        return {
-          id: provider.id,
-          provider_name: provider.provider_name,
-          tenant: provider.tenant,
-          is_system_default: provider.is_system_default,
-          status: provider.status,
-          usage_limit: provider.usage_limit,
-          usage_current: provider.usage_current,
-          cost_per_minute: provider.cost_per_minute,
-          statistics: {
-            total_transcriptions: transcriptionCount,
-            successful: successCount,
-            failed: failureCount,
-            success_rate: transcriptionCount > 0
-              ? ((successCount / transcriptionCount) * 100).toFixed(2)
-              : '0.00',
-          },
-          created_at: provider.created_at,
-          updated_at: provider.updated_at,
-        };
-      }),
-    );
-
-    return providersWithStats;
+    return this.transcriptionProviderManagementService.listProviders();
   }
 
   // ============================================================================
@@ -1185,7 +1115,9 @@ export class TwilioAdminController {
     status: 201,
     description: 'Transcription provider created',
   })
-  async createTranscriptionProvider(@Body() dto: CreateTranscriptionProviderDto) {
+  async createTranscriptionProvider(
+    @Body() dto: CreateTranscriptionProviderDto,
+  ) {
     return this.transcriptionProviderManagementService.createProvider(dto);
   }
 
@@ -1261,14 +1193,19 @@ export class TwilioAdminController {
     @Body() dto: TestTranscriptionProviderDto,
   ) {
     this.logger.log(`[CONTROLLER] Testing transcription provider: ${id}`);
-    this.logger.log(`[CONTROLLER] Audio URL: ${dto.audio_url || 'NOT PROVIDED'}`);
-
-    const result = await this.transcriptionProviderManagementService.testProvider(
-      id,
-      dto.audio_url,
+    this.logger.log(
+      `[CONTROLLER] Audio URL: ${dto.audio_url || 'NOT PROVIDED'}`,
     );
 
-    this.logger.log(`[CONTROLLER] Test completed. Returning response to frontend:`);
+    const result =
+      await this.transcriptionProviderManagementService.testProvider(
+        id,
+        dto.audio_url,
+      );
+
+    this.logger.log(
+      `[CONTROLLER] Test completed. Returning response to frontend:`,
+    );
     this.logger.log(`[CONTROLLER] Response: ${JSON.stringify(result)}`);
 
     return result;
@@ -1384,7 +1321,7 @@ export class TwilioAdminController {
   @ApiOperation({
     summary: 'Test tenant SMS configuration',
     description:
-      'Sends a test SMS using the tenant\'s configuration to verify it works correctly.',
+      "Sends a test SMS using the tenant's configuration to verify it works correctly.",
   })
   @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
   @ApiQuery({
@@ -1408,7 +1345,7 @@ export class TwilioAdminController {
   @ApiOperation({
     summary: 'Test tenant WhatsApp configuration',
     description:
-      'Sends a test WhatsApp message using the tenant\'s configuration to verify it works correctly.',
+      "Sends a test WhatsApp message using the tenant's configuration to verify it works correctly.",
   })
   @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
   @ApiQuery({

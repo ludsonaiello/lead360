@@ -12,7 +12,7 @@ import ModalContent from '@/components/ui/ModalContent';
 import ModalActions from '@/components/ui/ModalActions';
 import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Textarea } from '@/components/ui/Textarea';
 import { ErrorModal } from '@/components/ui/ErrorModal';
 import { SuccessModal } from '@/components/ui/SuccessModal';
 import { bulkAcknowledgeAlerts } from '@/lib/api/twilio-admin';
@@ -133,7 +133,7 @@ export function BulkAcknowledgeAlertsModal({
         </ModalContent>
 
         <ModalActions>
-          <Button onClick={handleClose} variant="outline" disabled={acknowledging}>
+          <Button onClick={handleClose} variant="secondary" disabled={acknowledging}>
             Cancel
           </Button>
           <Button

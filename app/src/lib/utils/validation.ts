@@ -63,6 +63,55 @@ export const phoneSchema = z
   );
 
 /**
+ * Sanitize phone number to E.164 format
+ * Converts various phone formats to E.164 (e.g., +12025551234)
+ * Assumes US country code (+1) if not present
+ *
+ * @param phone - Phone number in any format
+ * @returns Phone number in E.164 format or null if invalid
+ *
+ * @example
+ * sanitizePhoneToE164('(202) 555-1234') // '+12025551234'
+ * sanitizePhoneToE164('202-555-1234')   // '+12025551234'
+ * sanitizePhoneToE164('2025551234')     // '+12025551234'
+ * sanitizePhoneToE164('+12025551234')   // '+12025551234'
+ */
+export function sanitizePhoneToE164(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+
+  // Remove all non-digit characters except leading +
+  let cleaned = phone.replace(/[^\d+]/g, '');
+
+  // If it starts with +, keep it
+  if (cleaned.startsWith('+')) {
+    // Already in E.164 format or close to it
+    return cleaned;
+  }
+
+  // Remove any remaining + signs (in case they're in the middle)
+  cleaned = cleaned.replace(/\+/g, '');
+
+  // If it's 10 digits, assume US number and add +1
+  if (cleaned.length === 10) {
+    return `+1${cleaned}`;
+  }
+
+  // If it's 11 digits and starts with 1, it's a US number with country code
+  if (cleaned.length === 11 && cleaned.startsWith('1')) {
+    return `+${cleaned}`;
+  }
+
+  // If it's between 10-15 digits and doesn't start with 1, assume it needs +1
+  if (cleaned.length >= 10 && cleaned.length <= 15) {
+    // Could be international, but we'll assume US for now
+    return `+1${cleaned}`;
+  }
+
+  // Invalid format
+  return null;
+}
+
+/**
  * Subdomain validation schema
  */
 export const subdomainSchema = z
@@ -284,6 +333,7 @@ export const businessLegalSchema = z.object({
   ein: einSchema,
   state_tax_id: z.string().max(50).optional().or(z.literal('')),
   sales_tax_permit: z.string().max(50).optional().or(z.literal('')),
+  default_language: z.enum(['en-US', 'es-ES', 'pt-BR']).optional(),
   services_offered: z.array(z.string().uuid()).min(1, 'At least one service is required').max(50, 'Maximum 50 services allowed'),
 });
 

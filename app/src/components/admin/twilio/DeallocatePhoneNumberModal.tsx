@@ -119,8 +119,8 @@ export function DeallocatePhoneNumberModal({
               </p>
             </div>
             <ToggleSwitch
-              checked={deleteConfig}
-              onChange={setDeleteConfig}
+              enabled={deleteConfig}
+              onChange={(value) => setDeleteConfig(value)}
             />
           </div>
 
@@ -136,7 +136,7 @@ export function DeallocatePhoneNumberModal({
       </ModalContent>
 
       <ModalActions>
-        <Button onClick={handleClose} variant="outline" disabled={deallocating}>
+        <Button onClick={handleClose} variant="secondary" disabled={deallocating}>
           Cancel
         </Button>
         <Button onClick={handleDeallocate} variant="danger" disabled={deallocating}>

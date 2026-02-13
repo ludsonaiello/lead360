@@ -893,27 +893,60 @@ export const deleteNotificationRule = async (id: string): Promise<void> => {
 // Not implemented in frontend - backend only
 
 /**
- * Twilio SMS webhook handler
- * @endpoint POST /webhooks/communication/twilio-sms
+ * Twilio SMS webhook handlers
+ * @endpoint POST /api/v1/twilio/sms/inbound
+ * @endpoint POST /api/v1/twilio/sms/status
  * @permission Public (signature verified)
  */
 // Not implemented in frontend - backend only
 
 /**
- * Twilio WhatsApp webhook handler
- * @endpoint POST /webhooks/communication/twilio-whatsapp
+ * Twilio WhatsApp webhook handlers
+ * @endpoint POST /api/v1/twilio/whatsapp/inbound
+ * @endpoint POST /api/v1/twilio/whatsapp/status
  * @permission Public (signature verified)
  */
 // Not implemented in frontend - backend only
 
 // ==========================================
-// TOTAL: 41 ENDPOINTS
+// SMS - 1 endpoint
+// ==========================================
+
+/**
+ * Send SMS to recipient (Lead or custom phone number)
+ * @endpoint POST /communication/sms/send
+ * @permission Owner, Admin, Manager, Sales
+ * @throws 400 - Validation error, missing phone, unverified config
+ * @throws 403 - Opted out or insufficient permissions
+ * @throws 404 - No SMS config or Lead not found
+ */
+export const sendSMS = async (dto: {
+  to_phone?: string;
+  text_body: string;
+  related_entity_type?: string;
+  related_entity_id?: string;
+  lead_id?: string;
+}): Promise<{
+  communication_event_id: string;
+  job_id: string;
+  status: string;
+  message: string;
+  to_phone: string;
+  from_phone: string;
+}> => {
+  const { data } = await apiClient.post('/communication/sms/send', dto);
+  return data;
+};
+
+// ==========================================
+// TOTAL: 42 ENDPOINTS
 // ==========================================
 // Provider Management (Admin): 7
 // Platform Email Config (Admin): 3
 // Tenant Email Configuration: 4
 // Email Templates: 8
 // Send Email: 2
+// SMS: 1
 // Communication History: 3
 // Notifications: 5
 // Notification Rules: 4

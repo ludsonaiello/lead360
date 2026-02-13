@@ -95,7 +95,7 @@ export function EditTenantWhatsAppConfigModal({
                   {isCustomProvider ? "Tenant's own Twilio account (Model A)" : "Platform's Twilio account (Model B)"}
                 </p>
               </div>
-              <Badge variant="outline" className="font-mono">
+              <Badge variant="secondary" className="font-mono">
                 {isCustomProvider ? 'Custom' : 'System'}
               </Badge>
             </div>
@@ -190,7 +190,7 @@ export function EditTenantWhatsAppConfigModal({
           </Alert>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button onClick={onClose} variant="outline" disabled={updating}>
+            <Button onClick={onClose} variant="secondary" disabled={updating}>
               Cancel
             </Button>
             <Button onClick={handleUpdate} disabled={updating}>

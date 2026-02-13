@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, IsInt, Min, IsDateString, IsIn } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsInt,
+  Min,
+  IsDateString,
+  IsIn,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 /**
@@ -23,12 +30,30 @@ export class AdminCallFiltersDto {
   @ApiProperty({
     required: false,
     description: 'Filter by call status',
-    enum: ['initiated', 'ringing', 'in_progress', 'completed', 'failed', 'no_answer', 'busy', 'canceled'],
+    enum: [
+      'initiated',
+      'ringing',
+      'in_progress',
+      'completed',
+      'failed',
+      'no_answer',
+      'busy',
+      'canceled',
+    ],
     example: 'completed',
   })
   @IsOptional()
   @IsString()
-  @IsIn(['initiated', 'ringing', 'in_progress', 'completed', 'failed', 'no_answer', 'busy', 'canceled'])
+  @IsIn([
+    'initiated',
+    'ringing',
+    'in_progress',
+    'completed',
+    'failed',
+    'no_answer',
+    'busy',
+    'canceled',
+  ])
   status?: string;
 
   @ApiProperty({

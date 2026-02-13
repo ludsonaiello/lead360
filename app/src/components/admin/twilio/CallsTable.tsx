@@ -191,11 +191,8 @@ export function CallsTable({ calls, onViewDetails }: CallsTableProps) {
       {/* Mobile Cards */}
       <div className="lg:hidden space-y-4">
         {calls.map((call) => (
-          <Card
-            key={call.id}
-            className="p-4 cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => onViewDetails(call)}
-          >
+          <div key={call.id} onClick={() => onViewDetails(call)} className="cursor-pointer">
+            <Card className="p-4 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
                 <div className="font-semibold text-gray-900 dark:text-gray-100">
@@ -234,11 +231,12 @@ export function CallsTable({ calls, onViewDetails }: CallsTableProps) {
             </div>
 
             <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-              <Button variant="ghost" size="sm" onClick={() => onViewDetails(call)} className="w-full">
+              <Button variant="ghost" size="sm" className="w-full">
                 View Details
               </Button>
             </div>
           </Card>
+          </div>
         ))}
       </div>
     </>

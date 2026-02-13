@@ -41,8 +41,8 @@ import {
  * Endpoints:
  * - POST   /communication/twilio/office-whitelist        Add number to whitelist
  * - GET    /communication/twilio/office-whitelist        List all whitelisted numbers
- * - PATCH  /communication/twilio/office-whitelist/:id    Update whitelist entry label
- * - DELETE /communication/twilio/office-whitelist/:id    Remove number from whitelist
+ * - PATCH  /communication/twilio/office-whitelist/:id    Update whitelist entry (phone, label, status)
+ * - DELETE /communication/twilio/office-whitelist/:id    Remove number from whitelist (HARD DELETE)
  *
  * Access Control:
  * - Add/Remove: Owner, Admin only
@@ -57,7 +57,8 @@ import {
  * - All inputs validated via DTOs
  *
  * Best Practices:
- * - Soft delete for audit trail (status = 'inactive')
+ * - Hard delete on DELETE (permanent removal)
+ * - Soft delete via PATCH (set status='inactive')
  * - Duplicate detection (reactivates if exists)
  * - Comprehensive API documentation (Swagger)
  * - Proper HTTP status codes
@@ -213,25 +214,25 @@ export class OfficeBypassController {
   }
 
   /**
-   * Update whitelist entry label
+   * Update whitelist entry
    *
-   * Updates the human-readable label for a whitelist entry.
-   * Phone number itself is immutable (delete and re-add to change).
+   * Updates phone number, label, and/or status for a whitelist entry.
+   * All fields are optional - only provide the fields you want to update.
    *
    * Access: Owner, Admin only
    *
    * @param req - Express request (contains user with tenant_id)
    * @param id - Whitelist entry UUID
-   * @param dto - New label
+   * @param dto - Fields to update (phone_number, label, and/or status)
    * @returns Updated whitelist entry
    */
   @Patch(':id')
   @Roles('Owner', 'Admin')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Update whitelist entry label',
+    summary: 'Update whitelist entry',
     description:
-      'Updates the label for a whitelist entry. Phone number itself cannot be changed (delete and re-add to change number). Only accessible by Owner or Admin roles.',
+      'Updates phone number, label, and/or status for a whitelist entry. All fields are optional - only provide the fields you want to update. Only accessible by Owner or Admin roles.',
   })
   @ApiParam({
     name: 'id',
@@ -247,7 +248,7 @@ export class OfficeBypassController {
       example: {
         id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
         tenant_id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
-        phone_number: '+19781234567',
+        phone_number: '+19787654321',
         label: 'John Doe - VP of Sales',
         status: 'active',
         created_at: '2026-01-15T10:30:00.000Z',
@@ -257,7 +258,15 @@ export class OfficeBypassController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Invalid input (validation failed)',
+    description: 'Invalid input (validation failed or no fields provided)',
+    schema: {
+      example: {
+        statusCode: 400,
+        message:
+          'At least one field (phone_number, label, or status) must be provided',
+        error: 'Bad Request',
+      },
+    },
   })
   @ApiResponse({
     status: 401,
@@ -271,33 +280,44 @@ export class OfficeBypassController {
     status: 404,
     description: 'Whitelist entry not found or does not belong to this tenant',
   })
-  async updateLabel(
+  @ApiResponse({
+    status: 409,
+    description: 'Phone number already whitelisted for another entry',
+    schema: {
+      example: {
+        statusCode: 409,
+        message: 'This phone number is already whitelisted for another entry',
+        error: 'Conflict',
+      },
+    },
+  })
+  async update(
     @Request() req,
     @Param('id') id: string,
     @Body() dto: UpdateWhitelistDto,
   ) {
-    return this.bypassService.updateLabel(req.user.tenant_id, id, dto.label);
+    return this.bypassService.update(req.user.tenant_id, id, dto);
   }
 
   /**
    * Remove phone number from whitelist
    *
-   * Soft deletes the whitelist entry (sets status to 'inactive').
-   * Does not physically delete data for audit trail purposes.
+   * Permanently deletes the whitelist entry from the database.
+   * This action cannot be undone. Use PATCH to set status='inactive' for soft delete.
    *
    * Access: Owner, Admin only
    *
    * @param req - Express request (contains user with tenant_id)
    * @param id - Whitelist entry UUID
-   * @returns Updated entry with status = 'inactive'
+   * @returns Success confirmation
    */
   @Delete(':id')
   @Roles('Owner', 'Admin')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Remove phone number from whitelist',
+    summary: 'Remove phone number from whitelist (hard delete)',
     description:
-      'Removes a phone number from the office whitelist (soft delete). Sets status to inactive. Data is retained for audit purposes. Only accessible by Owner or Admin roles.',
+      'Permanently deletes a phone number from the office whitelist. This action cannot be undone. Use PATCH to set status=inactive for soft delete. Only accessible by Owner or Admin roles.',
   })
   @ApiParam({
     name: 'id',
@@ -306,17 +326,12 @@ export class OfficeBypassController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Phone number removed from whitelist successfully',
-    type: OfficeWhitelistResponseDto,
+    description: 'Phone number permanently deleted from whitelist',
     schema: {
       example: {
-        id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-        tenant_id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
-        phone_number: '+19781234567',
-        label: "John Doe - Sales Manager's Mobile",
-        status: 'inactive',
-        created_at: '2026-01-15T10:30:00.000Z',
-        updated_at: '2026-01-15T11:00:00.000Z',
+        success: true,
+        message: 'Whitelist entry permanently deleted',
+        deleted_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
       },
     },
   })

@@ -5,10 +5,10 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MessageSquare, Phone, Edit2, TestTube2, Power, Star } from 'lucide-react';
-import type { TenantSmsConfig, TenantWhatsAppConfig } from '@/lib/types/twilio-admin';
+import type { TenantSMSConfig, TenantWhatsAppConfig } from '@/lib/types/twilio-admin';
 
 interface TenantConfigCardProps {
-  config: TenantSmsConfig | TenantWhatsAppConfig;
+  config: TenantSMSConfig | TenantWhatsAppConfig;
   type: 'sms' | 'whatsapp';
   onTest: () => void;
   onEdit: () => void;
@@ -55,7 +55,7 @@ export function TenantConfigCard({
           </div>
           <div className="flex justify-between items-center">
             <span className="text-gray-600 dark:text-gray-400 font-medium">Provider Type</span>
-            <Badge variant="outline" className="font-mono text-xs">
+            <Badge variant="secondary" className="font-mono text-xs">
               {config.provider_type === 'system' ? 'System' : 'Custom'}
             </Badge>
           </div>
@@ -72,7 +72,7 @@ export function TenantConfigCard({
         <div className="grid grid-cols-3 gap-2 pt-2">
           <Button 
             onClick={onTest} 
-            variant="outline" 
+            variant="secondary" 
             size="sm" 
             className="flex items-center justify-center gap-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20"
           >
@@ -81,7 +81,7 @@ export function TenantConfigCard({
           </Button>
           <Button 
             onClick={onEdit} 
-            variant="outline" 
+            variant="secondary" 
             size="sm" 
             className="flex items-center justify-center gap-1.5 hover:bg-gray-50 dark:hover:bg-gray-800"
           >

@@ -13,7 +13,7 @@ import ModalContent from '@/components/ui/ModalContent';
 import ModalActions from '@/components/ui/ModalActions';
 import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Textarea } from '@/components/ui/Textarea';
 import { Badge } from '@/components/ui/Badge';
 import { ErrorModal } from '@/components/ui/ErrorModal';
 import { SuccessModal } from '@/components/ui/SuccessModal';
@@ -131,7 +131,7 @@ export function ResolveAlertModal({
         </ModalContent>
 
         <ModalActions>
-          <Button onClick={handleClose} variant="outline" disabled={resolving}>
+          <Button onClick={handleClose} variant="secondary" disabled={resolving}>
             Cancel
           </Button>
           <Button
@@ -164,14 +164,14 @@ export function ResolveAlertModal({
   );
 }
 
-function getSeverityVariant(severity: string): 'destructive' | 'default' | 'secondary' {
+function getSeverityVariant(severity: string): "danger" | "warning" | "info" | "neutral" {
   switch (severity) {
     case 'CRITICAL':
     case 'HIGH':
-      return 'destructive';
+      return 'danger';
     case 'MEDIUM':
-      return 'default';
+      return 'warning';
     default:
-      return 'secondary';
+      return 'neutral';
   }
 }

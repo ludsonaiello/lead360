@@ -43,12 +43,12 @@ export class CommunicationHistoryController {
   @ApiOperation({
     summary: 'List communication events with filters',
     description:
-      'Get paginated list of communication events (email, SMS, WhatsApp)',
+      'Get paginated list of communication events (email, SMS, WhatsApp, calls)',
   })
   @ApiQuery({
     name: 'channel',
     required: false,
-    enum: ['email', 'sms', 'whatsapp'],
+    enum: ['email', 'sms', 'whatsapp', 'call'],
     description: 'Filter by channel',
   })
   @ApiQuery({

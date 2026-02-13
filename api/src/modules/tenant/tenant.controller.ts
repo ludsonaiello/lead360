@@ -17,6 +17,7 @@ import {
   UploadedFile,
   UseInterceptors,
   Logger,
+  ForbiddenException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -79,6 +80,20 @@ export class TenantController {
     private readonly serviceService: ServiceService,
   ) {}
 
+  /**
+   * Validate that user has a tenant_id
+   * Platform Admins don't have tenant_id and should use admin endpoints or impersonation
+   */
+  private validateTenantAccess(req: any): string {
+    if (!req.user?.tenant_id) {
+      throw new ForbiddenException(
+        'Platform Admins cannot access tenant-specific endpoints directly. ' +
+          'Please use admin endpoints (/api/v1/admin/tenants/:id) or set X-Impersonate-Tenant-Id header to view tenant data.',
+      );
+    }
+    return req.user.tenant_id;
+  }
+
   // ========== TENANT PROFILE ==========
 
   @Get('current')
@@ -87,8 +102,13 @@ export class TenantController {
     status: 200,
     description: 'Tenant profile retrieved successfully',
   })
+  @ApiResponse({
+    status: 403,
+    description: 'Platform Admins must use admin endpoints or impersonation',
+  })
   async getCurrentTenant(@Request() req) {
-    return this.tenantService.findById(req.user.tenant_id);
+    const tenantId = this.validateTenantAccess(req);
+    return this.tenantService.findById(tenantId);
   }
 
   @Patch('current')
@@ -146,8 +166,13 @@ export class TenantController {
     status: 200,
     description: 'Statistics retrieved successfully',
   })
+  @ApiResponse({
+    status: 403,
+    description: 'Platform Admins must use admin endpoints or impersonation',
+  })
   async getStatistics(@Request() req) {
-    return this.tenantService.getStatistics(req.user.tenant_id);
+    const tenantId = this.validateTenantAccess(req);
+    return this.tenantService.getStatistics(tenantId);
   }
 
   @Post('current/logo')
@@ -784,8 +809,13 @@ export class TenantController {
     status: 200,
     description: 'Assigned services retrieved successfully',
   })
+  @ApiResponse({
+    status: 403,
+    description: 'Platform Admins must use admin endpoints or impersonation',
+  })
   async getAssignedServices(@Request() req) {
-    return this.serviceService.getTenantServices(req.user.tenant_id);
+    const tenantId = this.validateTenantAccess(req);
+    return this.serviceService.getTenantServices(tenantId);
   }
 
   @Post('current/assign-services')

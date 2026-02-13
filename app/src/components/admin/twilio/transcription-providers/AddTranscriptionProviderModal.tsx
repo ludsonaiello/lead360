@@ -25,13 +25,24 @@ export function AddTranscriptionProviderModal({
   const [providerName, setProviderName] = useState<'openai_whisper' | 'deepgram' | 'assemblyai'>('openai_whisper');
   const [apiKey, setApiKey] = useState('');
   const [apiEndpoint, setApiEndpoint] = useState('');
-  const [model, setModel] = useState('');
-  const [language, setLanguage] = useState('en');
+  const [model, setModel] = useState('whisper-1');
+  const [language, setLanguage] = useState('');
   const [costPerMinute, setCostPerMinute] = useState('0.006');
   const [usageLimit, setUsageLimit] = useState('10000');
   const [isSystemDefault, setIsSystemDefault] = useState(false);
   const [tenantId, setTenantId] = useState('');
   const [creating, setCreating] = useState(false);
+
+  // Update default model when provider changes
+  const handleProviderChange = (newProvider: 'openai_whisper' | 'deepgram' | 'assemblyai') => {
+    setProviderName(newProvider);
+    // Set default model for OpenAI, clear for others
+    if (newProvider === 'openai_whisper') {
+      setModel('whisper-1');
+    } else {
+      setModel('');
+    }
+  };
 
   const handleCreate = async () => {
     setCreating(true);
@@ -52,8 +63,8 @@ export function AddTranscriptionProviderModal({
       setProviderName('openai_whisper');
       setApiKey('');
       setApiEndpoint('');
-      setModel('');
-      setLanguage('en');
+      setModel('whisper-1');
+      setLanguage('');
       setCostPerMinute('0.006');
       setUsageLimit('10000');
       setIsSystemDefault(false);
@@ -76,7 +87,7 @@ export function AddTranscriptionProviderModal({
             <Label htmlFor="providerName">Provider</Label>
             <Select
               value={providerName}
-              onValueChange={(v) => setProviderName(v as any)}
+              onValueChange={(v) => handleProviderChange(v as any)}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -117,25 +128,50 @@ export function AddTranscriptionProviderModal({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="model">Model (Optional)</Label>
-              <Input
-                id="model"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                placeholder="whisper-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="language">Language</Label>
-              <Input
-                id="language"
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                placeholder="en"
-              />
-            </div>
+          <div>
+            <Label htmlFor="model">Model</Label>
+            {providerName === 'openai_whisper' ? (
+              <>
+                <Select value={model} onValueChange={setModel}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="whisper-1">whisper-1 (Classic Whisper)</SelectItem>
+                    <SelectItem value="gpt-4o-transcribe">gpt-4o-transcribe (Fast)</SelectItem>
+                    <SelectItem value="gpt-4o-transcribe-diarize">gpt-4o-transcribe-diarize (Speaker Detection)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  GPT-4o models support speaker diarization
+                </p>
+              </>
+            ) : (
+              <>
+                <Input
+                  id="model"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  placeholder="Model name (optional)"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Leave empty to use provider default
+                </p>
+              </>
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="language">Language (Optional)</Label>
+            <Input
+              id="language"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              placeholder="en"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              ISO 639-1 code (e.g., en, es, fr). Leave empty for auto-detect.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -193,7 +229,7 @@ export function AddTranscriptionProviderModal({
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button onClick={onClose} variant="outline" disabled={creating}>
+            <Button onClick={onClose} variant="secondary" disabled={creating}>
               Cancel
             </Button>
             <Button onClick={handleCreate} disabled={creating || !apiKey}>

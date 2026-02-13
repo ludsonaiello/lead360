@@ -5,13 +5,11 @@
 
 'use client';
 
-import React, { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { AlertTriangle, CheckCircle, Clock, User } from 'lucide-react';
+import { CheckCircle, Clock, User } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Card } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
+import Card from '@/components/ui/Card';
 import type { SystemAlertDetail } from '@/lib/types/twilio-admin';
 
 export interface AlertCardProps {
@@ -38,10 +36,11 @@ export function AlertCard({
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 flex-1">
             {onSelect && (
-              <Checkbox
+              <input
+                type="checkbox"
                 checked={selected}
-                onCheckedChange={(checked) => onSelect(alert.id, checked as boolean)}
-                className="mt-1"
+                onChange={(e) => onSelect(alert.id, e.target.checked)}
+                className="mt-1.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-blue-600"
               />
             )}
             <div className="flex-1">
@@ -50,15 +49,15 @@ export function AlertCard({
                 <Badge variant={getSeverityVariant(alert.severity)} className="font-semibold">
                   {alert.severity}
                 </Badge>
-                <Badge variant="outline">{formatAlertType(alert.type)}</Badge>
+                <Badge variant="neutral">{formatAlertType(alert.type)}</Badge>
                 {alert.acknowledged && !alert.resolved && (
-                  <Badge variant="secondary" className="flex items-center gap-1">
+                  <Badge variant="info" className="flex items-center gap-1">
                     <CheckCircle className="h-3 w-3" />
                     Acknowledged
                   </Badge>
                 )}
                 {alert.resolved && (
-                  <Badge variant="success" className="flex items-center gap-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                  <Badge variant="success" className="flex items-center gap-1">
                     <CheckCircle className="h-3 w-3" />
                     Resolved
                   </Badge>
@@ -141,7 +140,7 @@ export function AlertCard({
           {!alert.acknowledged && (
             <Button
               onClick={() => onAcknowledge(alert.id)}
-              variant="outline"
+              variant="secondary"
               size="sm"
               className="text-blue-600 border-blue-300 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-700 dark:hover:bg-blue-950"
             >
@@ -152,7 +151,7 @@ export function AlertCard({
           {!alert.resolved && (
             <Button
               onClick={() => onResolve(alert.id, '')}
-              variant="default"
+              variant="primary"
               size="sm"
               className="bg-green-600 hover:bg-green-700 text-white"
             >
@@ -183,15 +182,17 @@ function getSeverityBorderColor(severity: string): string {
   }
 }
 
-function getSeverityVariant(severity: string): 'destructive' | 'default' | 'secondary' {
+function getSeverityVariant(severity: string): 'danger' | 'warning' | 'info' | 'neutral' {
   switch (severity) {
     case 'CRITICAL':
     case 'HIGH':
-      return 'destructive';
+      return 'danger';
     case 'MEDIUM':
-      return 'default';
+      return 'warning';
+    case 'LOW':
+      return 'info';
     default:
-      return 'secondary';
+      return 'neutral';
   }
 }
 

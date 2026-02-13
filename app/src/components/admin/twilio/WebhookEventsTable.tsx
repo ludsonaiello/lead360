@@ -117,7 +117,7 @@ export function WebhookEventsTable({
                     {event.status === 'failed' && (
                       <Button
                         onClick={() => onRetry(event.id)}
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         disabled={isRetrying}
                       >

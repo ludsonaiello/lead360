@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { ThrottlerModule } from '@nestjs/throttler';
+import {
+  makeCounterProvider,
+  makeHistogramProvider,
+} from '@willsoto/nestjs-prometheus';
 
 // Core modules
 import { PrismaModule } from '../../core/database/prisma.module';
@@ -31,6 +35,19 @@ import { IvrConfigurationService } from './services/ivr-configuration.service';
 import { OfficeBypassService } from './services/office-bypass.service';
 import { TranscriptionProviderService } from './services/transcription-provider.service';
 import { TranscriptionJobService } from './services/transcription-job.service';
+import { AudioProcessingService } from './services/audio-processing.service';
+import { SpeakerLabelResolverService } from './services/speaker-label-resolver.service';
+import { TranscriptMergerService } from './services/transcript-merger.service';
+import { SmsKeywordDetectionService } from './services/sms-keyword-detection.service';
+import { SmsSendingService } from './services/sms-sending.service';
+import { BulkSmsService } from './services/bulk-sms.service';
+import { TemplateMergeService } from './services/template-merge.service';
+import { SmsTemplateService } from './services/sms-template.service';
+import { SmsAnalyticsService } from './services/sms-analytics.service';
+import { WebhookRetryService } from './services/webhook-retry.service';
+import { SmsMetricsService } from './services/sms-metrics.service';
+import { CommunicationHealthService } from './services/communication-health.service';
+import { SmsExportService } from './services/sms-export.service';
 
 // Admin Services (Sprint 8)
 import { TwilioAdminService } from './services/admin/twilio-admin.service';
@@ -50,6 +67,8 @@ import { CommunicationEventManagementService } from './services/admin/communicat
 // Schedulers (Sprint 8)
 import { TwilioUsageSyncScheduler } from './schedulers/twilio-usage-sync.scheduler';
 import { TwilioHealthCheckScheduler } from './schedulers/twilio-health-check.scheduler';
+import { WebhookRetryScheduler } from './schedulers/webhook-retry.scheduler';
+import { ExportCleanupScheduler } from './schedulers/export-cleanup.scheduler';
 
 // Controllers
 import {
@@ -70,6 +89,15 @@ import { IvrConfigurationController } from './controllers/ivr-configuration.cont
 import { OfficeBypassController } from './controllers/office-bypass.controller';
 import { TwilioWebhooksController } from './controllers/twilio-webhooks.controller';
 import { TwilioAdminController } from './controllers/admin/twilio-admin.controller';
+import { TranscriptionController } from './controllers/transcription.controller';
+import { SmsOptOutController } from './controllers/sms-opt-out.controller';
+import { SmsOptOutAdminController } from './controllers/admin/sms-opt-out-admin.controller';
+import { SmsController } from './controllers/sms.controller';
+import { SmsTemplateController } from './controllers/sms-template.controller';
+import { SmsAnalyticsController } from './controllers/sms-analytics.controller';
+import { SmsAnalyticsAdminController } from './controllers/admin/sms-analytics-admin.controller';
+import { CommunicationHealthController } from './controllers/communication-health.controller';
+import { SmsExportController } from './controllers/sms-export.controller';
 
 // Processors
 import {
@@ -79,6 +107,7 @@ import {
   NotificationProcessor,
 } from './processors';
 import { TranscriptionJobProcessor } from './processors/transcription-job.processor';
+import { WebhookRetryProcessor } from './processors/webhook-retry.processor';
 
 /**
  * Communication Module
@@ -92,6 +121,7 @@ import { TranscriptionJobProcessor } from './processors/transcription-job.proces
  * - Office Bypass (Whitelisted outbound calls) - Sprint 4
  * - Call Transcription (OpenAI Whisper) - NEW: Sprint 5
  * - Twilio Webhooks (SMS, Call, Recording, IVR) - NEW: Sprint 5
+ * - Webhook Retry System (Automatic retry with exponential backoff) - NEW: Sprint 7
  * - In-app Notifications
  * - Webhooks (real-time status tracking)
  *
@@ -113,6 +143,7 @@ import { TranscriptionJobProcessor } from './processors/transcription-job.proces
  * - Usage Tracking (Sprint 8) - Nightly sync from Twilio API (AC-18)
  * - System Health Monitoring (Sprint 8) - Every 15 minutes
  * - Cross-Tenant Visibility (Sprint 8) - View all activity (AC-16)
+ * - Webhook Retry System (Sprint 7) - Automatic exponential backoff (1min, 5min, 15min, 1hr, 24hr)
  *
  * Endpoints: 79+ REST API endpoints + 16 webhook receivers
  * - Tenant/User endpoints: 45+
@@ -153,6 +184,7 @@ import { TranscriptionJobProcessor } from './processors/transcription-job.proces
       { name: 'communication-notifications' },
       { name: 'communication-call-transcription' },
       { name: 'communication-twilio-usage-sync' },
+      { name: 'webhook-retry' },
     ),
   ],
   controllers: [
@@ -160,6 +192,8 @@ import { TranscriptionJobProcessor } from './processors/transcription-job.proces
     CommunicationProvidersAdminController,
     PlatformEmailConfigAdminController,
     TwilioAdminController, // Sprint 8: 34 admin endpoints
+    SmsOptOutAdminController, // Sprint 1 (SMS): SMS opt-out management (TCPA compliance)
+    SmsAnalyticsAdminController, // Sprint 6 (SMS): SMS analytics dashboard (cross-tenant)
 
     // Tenant Controllers
     // - Email Configuration & Templates
@@ -171,21 +205,40 @@ import { TranscriptionJobProcessor } from './processors/transcription-job.proces
     NotificationRulesController,
 
     // - Twilio Configuration (Sprint 2)
-    TenantSmsConfigController,           // /communication/twilio/sms-config
-    TenantWhatsAppConfigController,      // /communication/twilio/whatsapp-config
+    TenantSmsConfigController, // /communication/twilio/sms-config
+    TenantWhatsAppConfigController, // /communication/twilio/whatsapp-config
 
     // - Twilio Call Management (Sprint 3)
     // CRITICAL: CallManagementController has static routes registered BEFORE dynamic routes
     // to prevent route conflicts (e.g., /call-history must come before /calls/:id)
-    CallManagementController,            // /communication/twilio/calls, /communication/twilio/call-history
+    CallManagementController, // /communication/twilio/calls, /communication/twilio/call-history
+    TranscriptionController, // /communication/transcriptions (Sprint 5 - with retry support)
 
     // - Twilio IVR & Office Bypass (Sprint 4)
-    IvrConfigurationController,          // /communication/twilio/ivr
-    OfficeBypassController,              // /communication/twilio/office-whitelist
+    IvrConfigurationController, // /communication/twilio/ivr
+    OfficeBypassController, // /communication/twilio/office-whitelist
+
+    // - SMS Opt-Out Management (Sprint 1 - TCPA Compliance)
+    SmsOptOutController, // /communication/sms/opt-outs
+
+    // - SMS Sending (Sprint 2)
+    SmsController, // /communication/sms/send
+
+    // - SMS Templates (Sprint 3)
+    SmsTemplateController, // /communication/sms/templates
+
+    // - SMS Analytics (Sprint 6)
+    SmsAnalyticsController, // /communication/sms/analytics
+
+    // - SMS Export (Sprint 10)
+    SmsExportController, // /communication/sms/export
+
+    // - Health Check (Sprint 9)
+    CommunicationHealthController, // /communication/health
 
     // Public Webhooks (No authentication)
     WebhooksController,
-    TwilioWebhooksController,            // /api/twilio/* (called by Twilio)
+    TwilioWebhooksController, // /api/twilio/* (called by Twilio)
   ],
   providers: [
     // Validation
@@ -198,6 +251,61 @@ import { TranscriptionJobProcessor } from './processors/transcription-job.proces
     EmailSenderService,
     SmsSenderService,
     WhatsAppSenderService,
+
+    // SMS Keyword Detection (TCPA Compliance)
+    SmsKeywordDetectionService,
+
+    // SMS Sending (Sprint 2)
+    SmsSendingService,
+
+    // Bulk SMS (Sprint 5)
+    BulkSmsService,
+
+    // SMS Templates (Sprint 3)
+    TemplateMergeService,
+    SmsTemplateService,
+
+    // SMS Analytics (Sprint 6)
+    SmsAnalyticsService,
+
+    // SMS Export (Sprint 10)
+    SmsExportService,
+
+    // Webhook Retry (Sprint 7)
+    WebhookRetryService,
+
+    // Prometheus Metrics (Sprint 8)
+    makeCounterProvider({
+      name: 'sms_sent_total',
+      help: 'Total SMS messages sent',
+      labelNames: ['tenant_id'],
+    }),
+    makeCounterProvider({
+      name: 'sms_delivered_total',
+      help: 'Total SMS messages delivered',
+      labelNames: ['tenant_id'],
+    }),
+    makeCounterProvider({
+      name: 'sms_failed_total',
+      help: 'Total SMS messages failed',
+      labelNames: ['tenant_id', 'error_code'],
+    }),
+    makeHistogramProvider({
+      name: 'twilio_api_duration_seconds',
+      help: 'Twilio API call duration',
+      labelNames: ['tenant_id'],
+      buckets: [0.1, 0.5, 1, 2, 5],
+    }),
+    makeHistogramProvider({
+      name: 'webhook_processing_duration_seconds',
+      help: 'Webhook processing duration',
+      labelNames: ['provider'],
+      buckets: [0.01, 0.05, 0.1, 0.5, 1],
+    }),
+    SmsMetricsService,
+
+    // Health Check (Sprint 9)
+    CommunicationHealthService,
 
     // Configuration
     PlatformEmailConfigService,
@@ -233,6 +341,9 @@ import { TranscriptionJobProcessor } from './processors/transcription-job.proces
     // Transcription (Sprint 5)
     TranscriptionProviderService,
     TranscriptionJobService,
+    AudioProcessingService,
+    SpeakerLabelResolverService,
+    TranscriptMergerService,
 
     // Admin Services (Sprint 8)
     TwilioAdminService,
@@ -252,6 +363,8 @@ import { TranscriptionJobProcessor } from './processors/transcription-job.proces
     // Schedulers (Sprint 8) - Now managed by DynamicCronManagerService
     TwilioUsageSyncScheduler,
     TwilioHealthCheckScheduler,
+    WebhookRetryScheduler,
+    ExportCleanupScheduler, // Sprint 10: Cleanup old export files hourly
 
     // BullMQ Processors
     SendCommunicationEmailProcessor,
@@ -259,6 +372,7 @@ import { TranscriptionJobProcessor } from './processors/transcription-job.proces
     SendWhatsAppProcessor,
     NotificationProcessor,
     TranscriptionJobProcessor,
+    WebhookRetryProcessor,
   ],
   exports: [
     // Export core services for use by other modules
@@ -267,6 +381,7 @@ import { TranscriptionJobProcessor } from './processors/transcription-job.proces
     EmailSenderService,
     SmsSenderService,
     WhatsAppSenderService,
+    SmsKeywordDetectionService,
     WebhookVerificationService,
     PlatformEmailConfigService,
     TenantEmailConfigService,
@@ -284,6 +399,8 @@ import { TranscriptionJobProcessor } from './processors/transcription-job.proces
     OfficeBypassService,
     TranscriptionProviderService,
     TranscriptionJobService,
+    WebhookRetryService,
+    SmsMetricsService,
     // Admin Services (Sprint 8) - for use by Admin Module
     TwilioAdminService,
     TwilioUsageTrackingService,

@@ -166,7 +166,7 @@ export function CreateTenantSmsConfigModal({
           </Alert>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button onClick={onClose} variant="outline" disabled={creating}>
+            <Button onClick={onClose} variant="secondary" disabled={creating}>
               Cancel
             </Button>
             <Button onClick={handleCreate} disabled={creating || !fromPhone}>

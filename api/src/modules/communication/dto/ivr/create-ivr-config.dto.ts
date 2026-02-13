@@ -73,7 +73,8 @@ export class IvrMenuOptionDto {
   label: string;
 
   @ApiProperty({
-    description: 'Action-specific configuration (validated based on action type)',
+    description:
+      'Action-specific configuration (validated based on action type)',
     example: { phone_number: '+19781234567' },
   })
   @IsObject()
@@ -237,8 +238,7 @@ export class CreateIvrConfigDto {
   @IsInt({ message: 'max_retries must be an integer' })
   @Min(1, { message: 'At least 1 retry attempt is required' })
   @Max(5, {
-    message:
-      'Maximum 5 retry attempts allowed (prevents caller frustration)',
+    message: 'Maximum 5 retry attempts allowed (prevents caller frustration)',
   })
   max_retries: number;
 }

@@ -27,6 +27,7 @@ import {
   X,
   ChevronDown,
   ChevronUp,
+  MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -40,6 +41,7 @@ import { ServiceRequestCardExpanded } from '@/components/leads/ServiceRequestCar
 import { AddServiceRequestModal, type ServiceRequestFormData } from '@/components/leads/AddServiceRequestModal';
 import { ActivityTimeline } from '@/components/leads/ActivityTimeline';
 import { NotesList } from '@/components/leads/NotesList';
+import { CommunicationTimeline } from '@/components/leads/CommunicationTimeline';
 import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete';
 import { AddressesMap } from '@/components/leads/AddressesMap';
 import {
@@ -108,6 +110,7 @@ export default function LeadDetailsPage() {
   const [showAddresses, setShowAddresses] = useState(true);
   const [showServiceRequests, setShowServiceRequests] = useState(true);
   const [showNotes, setShowNotes] = useState(true);
+  const [showCommunications, setShowCommunications] = useState(true);
   const [showTimeline, setShowTimeline] = useState(true);
 
   // Check permissions
@@ -465,8 +468,13 @@ export default function LeadDetailsPage() {
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <div className="flex-1 sm:flex-initial">
             <FastActionButtons
+              leadId={leadId}
+              leadName={`${lead.first_name} ${lead.last_name}`}
               primaryPhone={primaryPhone?.phone}
               primaryEmail={primaryEmail?.email}
+              phones={lead.phones}
+              acceptSms={lead.accept_sms}
+              smsOptOut={lead.sms_opt_out}
               size="lg"
             />
           </div>
@@ -1012,6 +1020,30 @@ export default function LeadDetailsPage() {
             {showNotes && (
               <div className="p-3 sm:p-4">
                 <NotesList leadId={leadId} canEdit={canEdit} />
+              </div>
+            )}
+          </div>
+
+          {/* Communications Section (SMS, Calls, Emails) */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="p-3 sm:p-4 border-b-2 border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setShowCommunications(!showCommunications)}
+                className="flex items-center gap-2 text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
+                Communications
+                {showCommunications ? (
+                  <ChevronUp className="w-4 h-4 ml-auto" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 ml-auto" />
+                )}
+              </button>
+            </div>
+
+            {showCommunications && (
+              <div className="p-3 sm:p-4">
+                <CommunicationTimeline leadId={leadId} />
               </div>
             )}
           </div>

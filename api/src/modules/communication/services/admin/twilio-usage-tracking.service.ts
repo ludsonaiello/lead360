@@ -97,7 +97,7 @@ export class TwilioUsageTrackingService {
 
       // Decrypt and parse Twilio credentials
       // Note: credentials are stored encrypted in the database
-      const credentials = JSON.parse(config.credentials as string);
+      const credentials = JSON.parse(config.credentials);
       const { account_sid, auth_token } = credentials;
 
       if (!account_sid || !auth_token) {
@@ -293,7 +293,9 @@ export class TwilioUsageTrackingService {
     tenantId: string,
     month: string,
   ): Promise<TenantUsageReport> {
-    this.logger.debug(`Generating usage summary for tenant ${tenantId}, month: ${month}`);
+    this.logger.debug(
+      `Generating usage summary for tenant ${tenantId}, month: ${month}`,
+    );
 
     try {
       // Parse month string to date range
@@ -350,8 +352,14 @@ export class TwilioUsageTrackingService {
       // Build usage_breakdown with documented structure
       const callsData = usageMap.get('calls') || { count: 0, cost: 0 };
       const smsData = usageMap.get('sms') || { count: 0, cost: 0 };
-      const recordingsData = usageMap.get('recordings') || { count: 0, cost: 0 };
-      const transcriptionsData = usageMap.get('transcriptions') || { count: 0, cost: 0 };
+      const recordingsData = usageMap.get('recordings') || {
+        count: 0,
+        cost: 0,
+      };
+      const transcriptionsData = usageMap.get('transcriptions') || {
+        count: 0,
+        cost: 0,
+      };
 
       const usage_breakdown = {
         calls: {
@@ -392,7 +400,8 @@ export class TwilioUsageTrackingService {
         month,
         usage_breakdown,
         total_cost: totalCost,
-        synced_at: lastSync?.created_at.toISOString() || new Date().toISOString(),
+        synced_at:
+          lastSync?.created_at.toISOString() || new Date().toISOString(),
       };
     } catch (error) {
       this.logger.error(
@@ -461,8 +470,14 @@ export class TwilioUsageTrackingService {
       // Build platform_totals with documented structure
       const callsData = usageMap.get('calls') || { count: 0, cost: 0 };
       const smsData = usageMap.get('sms') || { count: 0, cost: 0 };
-      const recordingsData = usageMap.get('recordings') || { count: 0, cost: 0 };
-      const transcriptionsData = usageMap.get('transcriptions') || { count: 0, cost: 0 };
+      const recordingsData = usageMap.get('recordings') || {
+        count: 0,
+        cost: 0,
+      };
+      const transcriptionsData = usageMap.get('transcriptions') || {
+        count: 0,
+        cost: 0,
+      };
 
       const platform_totals = {
         total_tenants: uniqueTenants.length,
@@ -532,11 +547,10 @@ export class TwilioUsageTrackingService {
    * //   currency: 'USD'
    * // }
    */
-  async estimateCosts(
-    tenantId: string,
-    month: string,
-  ): Promise<CostEstimate> {
-    this.logger.debug(`Estimating costs for tenant ${tenantId}, month: ${month}`);
+  async estimateCosts(tenantId: string, month: string): Promise<CostEstimate> {
+    this.logger.debug(
+      `Estimating costs for tenant ${tenantId}, month: ${month}`,
+    );
 
     try {
       // Get usage summary for the month (now returns TenantUsageReport)
@@ -565,7 +579,9 @@ export class TwilioUsageTrackingService {
         {
           category: 'transcriptions',
           total_count: usageReport.usage_breakdown.transcriptions.count,
-          total_cost: parseFloat(usageReport.usage_breakdown.transcriptions.cost),
+          total_cost: parseFloat(
+            usageReport.usage_breakdown.transcriptions.cost,
+          ),
           currency: 'USD',
         },
       ];

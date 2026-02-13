@@ -332,6 +332,7 @@ model tenant {
   default_invoice_footer                  String?                                @db.Text
   default_payment_instructions            String?                                @db.Text
   timezone                                String                                 @default("America/New_York") @db.VarChar(50)
+  default_language                        String?                                @db.VarChar(10) // ISO 639-1 language code (e.g., 'en', 'pt', 'es')
   subscription_plan_id                    String?                                @db.VarChar(36)
   subscription_status                     String                                 @default("trial") @db.VarChar(20)
   trial_end_date                          DateTime?
@@ -388,6 +389,7 @@ model tenant {
   quote_bundles                           quote_bundle[]                         @relation("quote_bundle_tenant")
   quote_jobsite_addresses                 quote_jobsite_address[]                @relation("quote_jobsite_addresses")
   template_components                     template_component[]                   @relation("template_component_tenant")
+  sms_templates                           sms_template[]                         @relation("sms_template_tenant")
   template_usage_logs                     template_usage_log[]                   @relation("template_usage_tenant")
   tenant_sms_configs                      tenant_sms_config[]                    @relation("tenant_sms_configs")
   tenant_whatsapp_configs                 tenant_whatsapp_config[]               @relation("tenant_whatsapp_configs")
@@ -640,6 +642,7 @@ model user {
   initiated_calls                               call_record[]            @relation("user_initiated_calls")
   admin_alerts_acknowledged                     admin_alert[]            @relation("alert_acknowledged_by")
   admin_alerts_resolved                         admin_alert[]            @relation("alert_resolved_by")
+  sms_templates_created                         sms_template[]           @relation("sms_template_creator")
 
   @@unique([email, tenant_id])
   @@index([activation_token])
@@ -915,7 +918,6 @@ model call_record {
   recording_url              String?   @db.VarChar(500)
   recording_duration_seconds Int?
   recording_status           String    @default("pending") @db.VarChar(30) // 'pending' | 'available' | 'processing_transcription' | 'transcribed' | 'failed'
-  transcription_id           String?   @unique @db.VarChar(36)
   ivr_action_taken           Json?
   consent_message_played     Boolean   @default(false)
   cost                       Decimal?  @db.Decimal(10, 4)
@@ -925,10 +927,10 @@ model call_record {
   updated_at                 DateTime  @updatedAt
 
   // Relations
-  tenant            tenant?             @relation("tenant_call_records", fields: [tenant_id], references: [id], onDelete: Cascade)
-  lead              lead?               @relation("lead_call_records", fields: [lead_id], references: [id], onDelete: SetNull)
-  initiated_by_user user?               @relation("user_initiated_calls", fields: [initiated_by], references: [id], onDelete: SetNull)
-  transcription     call_transcription?
+  tenant            tenant?               @relation("tenant_call_records", fields: [tenant_id], references: [id], onDelete: Cascade)
+  lead              lead?                 @relation("lead_call_records", fields: [lead_id], references: [id], onDelete: SetNull)
+  initiated_by_user user?                 @relation("user_initiated_calls", fields: [initiated_by], references: [id], onDelete: SetNull)
+  transcriptions    call_transcription[] // One-to-many: allows retries
 
   // Indexes
   @@index([tenant_id, created_at])
@@ -985,15 +987,26 @@ model office_number_whitelist {
 model call_transcription {
   id                          String    @id @default(uuid()) @db.VarChar(36)
   tenant_id                   String?   @db.VarChar(36) // Nullable for system-level
-  call_record_id              String    @unique @db.VarChar(36)
+  call_record_id              String    @db.VarChar(36) // Removed @unique to allow retries
   transcription_provider      String    @db.VarChar(50) // 'openai_whisper' | 'oracle' | 'assemblyai'
   status                      String    @default("queued") @db.VarChar(20) // 'queued' | 'processing' | 'completed' | 'failed'
-  transcription_text          String?   @db.Text // Full-text searchable
+  transcription_text          String?   @db.Text // Full-text searchable (merged speaker-labeled transcript)
+  // Dual-channel transcription fields
+  channel_count               Int?      @db.TinyInt // 1 = mono (legacy), 2 = stereo
+  speaker_1_transcription     String?   @db.Text // Channel 1 full transcription with timestamps (JSON)
+  speaker_2_transcription     String?   @db.Text // Channel 2 full transcription with timestamps (JSON)
+  speaker_1_label             String?   @db.VarChar(50) // e.g., "Business", "Lead", "Maria Silva"
+  speaker_2_label             String?   @db.VarChar(50) // e.g., "Lead", "Business", "John Doe"
+  language_requested          String?   @db.VarChar(10) // Language code sent to provider (from tenant setting)
   language_detected           String?   @db.VarChar(10) // ISO code
   confidence_score            Decimal?  @db.Decimal(3, 2)
   processing_duration_seconds Int?
   cost                        Decimal?  @db.Decimal(10, 4)
   error_message               String?   @db.Text
+  // Retry/versioning fields
+  is_current                  Boolean   @default(true) // Only the latest/active transcription is true
+  retry_count                 Int       @default(0) // Number of retries (0 = first attempt)
+  previous_transcription_id   String?   @db.VarChar(36) // Points to the transcription this one replaces
   created_at                  DateTime  @default(now())
   completed_at                DateTime?
 
@@ -1004,6 +1017,7 @@ model call_transcription {
   // Indexes
   @@index([tenant_id, status])
   @@index([call_record_id])
+  @@index([call_record_id, is_current]) // Fast lookup for current transcription
   @@fulltext([transcription_text]) // Full-text search index
   @@map("call_transcription")
 }
@@ -1145,6 +1159,12 @@ model lead {
   created_by_user_id      String?   @db.VarChar(36)
   lost_reason             String?   @db.Text
   lost_at                 DateTime?
+
+  // SMS Opt-Out Management (TCPA Compliance - Sprint 1)
+  sms_opt_out             Boolean   @default(false)
+  sms_opt_out_at          DateTime?
+  sms_opt_in_at           DateTime?
+  sms_opt_out_reason      String?   @db.VarChar(255)
 
   tenant           tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   created_by_user  user?             @relation("lead_created_by_user", fields: [created_by_user_id], references: [id], onDelete: SetNull)
@@ -1437,6 +1457,8 @@ model communication_event {
   related_entity_id   String?                 @db.VarChar(36)
   created_at          DateTime                @default(now())
   created_by_user_id  String?                 @db.VarChar(36)
+  scheduled_at        DateTime?
+  scheduled_by        String?                 @db.VarChar(36)
 
   tenant          tenant?                @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   provider        communication_provider @relation(fields: [provider_id], references: [id])
@@ -1448,6 +1470,7 @@ model communication_event {
   @@index([tenant_id, status])
   @@index([tenant_id, channel])
   @@index([tenant_id, channel, created_at(sort: Desc)])
+  @@index([tenant_id, status, scheduled_at])
   @@index([related_entity_type, related_entity_id])
   @@index([to_email])
   @@index([to_phone])
@@ -2329,6 +2352,30 @@ model quote_bundle_item {
   @@map("quote_bundle_item")
 }
 
+// SMS Templates (Sprint 3)
+model sms_template {
+  id            String   @id @default(uuid()) @db.VarChar(36)
+  tenant_id     String   @db.VarChar(36)
+  name          String   @db.VarChar(100)
+  description   String?  @db.VarChar(255)
+  template_body String   @db.Text
+  category      String?  @db.VarChar(50)
+  is_active     Boolean  @default(true)
+  is_default    Boolean  @default(false)
+  usage_count   Int      @default(0)
+  created_by    String   @db.VarChar(36)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  // Relations
+  tenant  tenant @relation("sms_template_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  creator user   @relation("sms_template_creator", fields: [created_by], references: [id])
+
+  @@index([tenant_id, is_active])
+  @@index([tenant_id, category])
+  @@map("sms_template")
+}
+
 // Communication Module Enums
 enum communication_provider_type {
   email
@@ -2350,12 +2397,14 @@ enum communication_direction {
 
 enum communication_status {
   pending
+  scheduled
   sent
   delivered
   failed
   bounced
   opened
   clicked
+  cancelled
 }
 
 enum email_template_category {

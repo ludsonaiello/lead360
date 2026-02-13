@@ -12,9 +12,8 @@ import ModalContent from '@/components/ui/ModalContent';
 import ModalActions from '@/components/ui/ModalActions';
 import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Textarea } from '@/components/ui/Textarea';
 import { Badge } from '@/components/ui/Badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { ErrorModal } from '@/components/ui/ErrorModal';
 import { SuccessModal } from '@/components/ui/SuccessModal';
 import { deleteCommunicationEvent } from '@/lib/api/twilio-admin';
@@ -91,12 +90,12 @@ export function DeleteEventModal({ isOpen, onClose, event, onSuccess }: DeleteEv
             {/* Event Summary */}
             <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline">{event.channel.toUpperCase()}</Badge>
+                <Badge variant="neutral">{event.channel.toUpperCase()}</Badge>
                 <Badge
                   variant={
                     event.status === 'delivered' || event.status === 'sent'
-                      ? 'default'
-                      : 'destructive'
+                      ? 'success'
+                      : 'danger'
                   }
                 >
                   {event.status}
@@ -146,13 +145,14 @@ export function DeleteEventModal({ isOpen, onClose, event, onSuccess }: DeleteEv
             {isDelivered && (
               <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
                 <label className="flex items-start gap-2 cursor-pointer">
-                  <Checkbox
+                  <input
+                    type="checkbox"
                     checked={forceDelete}
-                    onCheckedChange={(checked) => {
-                      setForceDelete(checked as boolean);
+                    onChange={(e) => {
+                      setForceDelete(e.target.checked);
                       if (error) setError('');
                     }}
-                    className="mt-0.5"
+                    className="mt-0.5 h-4 w-4 rounded border-red-300 text-red-600 focus:ring-red-500 dark:border-red-600 dark:bg-red-900 dark:focus:ring-red-600"
                   />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-red-900 dark:text-red-200">
@@ -182,7 +182,7 @@ export function DeleteEventModal({ isOpen, onClose, event, onSuccess }: DeleteEv
         </ModalContent>
 
         <ModalActions>
-          <Button onClick={handleClose} variant="outline" disabled={deleting}>
+          <Button onClick={handleClose} variant="secondary" disabled={deleting}>
             Cancel
           </Button>
           <Button

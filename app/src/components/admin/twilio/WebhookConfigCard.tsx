@@ -106,7 +106,7 @@ export function WebhookConfigCard({
       <div className="flex flex-wrap gap-2">
         <Button
           onClick={onEdit}
-          variant="outline"
+          variant="secondary"
           size="sm"
           disabled={loading}
         >
@@ -114,7 +114,7 @@ export function WebhookConfigCard({
         </Button>
         <Button
           onClick={onRotateSecret}
-          variant="outline"
+          variant="secondary"
           size="sm"
           disabled={loading}
         >

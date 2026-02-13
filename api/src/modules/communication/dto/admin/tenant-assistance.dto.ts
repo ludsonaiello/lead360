@@ -1,10 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsString,
-  IsOptional,
-  IsBoolean,
-  IsEnum,
-} from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsEnum } from 'class-validator';
 
 /**
  * Create Tenant SMS Config DTO
@@ -43,7 +38,8 @@ export class CreateTenantSmsConfigDto {
 
   @ApiProperty({
     required: false,
-    description: 'Twilio Auth Token (required for custom provider, will be encrypted)',
+    description:
+      'Twilio Auth Token (required for custom provider, will be encrypted)',
     example: 'your_auth_token_here',
   })
   @IsOptional()
@@ -79,7 +75,8 @@ export class UpdateTenantSmsConfigDto {
 
   @ApiProperty({
     required: false,
-    description: 'Twilio Account SID (for updating custom provider credentials)',
+    description:
+      'Twilio Account SID (for updating custom provider credentials)',
     example: 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
   })
   @IsOptional()
@@ -132,7 +129,8 @@ export class CreateTenantWhatsAppConfigDto {
 
   @ApiProperty({
     required: false,
-    description: 'Twilio Auth Token (required for custom provider, will be encrypted)',
+    description:
+      'Twilio Auth Token (required for custom provider, will be encrypted)',
     example: 'your_auth_token_here',
   })
   @IsOptional()
@@ -168,7 +166,8 @@ export class UpdateTenantWhatsAppConfigDto {
 
   @ApiProperty({
     required: false,
-    description: 'Twilio Account SID (for updating custom provider credentials)',
+    description:
+      'Twilio Account SID (for updating custom provider credentials)',
     example: 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
   })
   @IsOptional()

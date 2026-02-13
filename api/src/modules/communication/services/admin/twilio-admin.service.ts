@@ -40,9 +40,7 @@ import { PrismaService } from '../../../../core/database/prisma.service';
 export class TwilioAdminService {
   private readonly logger = new Logger(TwilioAdminService.name);
 
-  constructor(
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Get all calls across all tenants (paginated)
@@ -67,7 +65,10 @@ export class TwilioAdminService {
    * });
    */
   async getAllCalls(filters: AdminCallFilters): Promise<PaginatedCallList> {
-    this.logger.debug('Fetching all calls across tenants with filters:', filters);
+    this.logger.debug(
+      'Fetching all calls across tenants with filters:',
+      filters,
+    );
 
     try {
       // Build dynamic where clause
@@ -133,11 +134,19 @@ export class TwilioAdminService {
                 email: true,
               },
             },
-            transcription: {
+            transcriptions: {
+              where: { is_current: true },
               select: {
                 id: true,
+                transcription_text: true,
+                language_detected: true,
+                confidence_score: true,
                 status: true,
                 transcription_provider: true,
+                processing_duration_seconds: true,
+                completed_at: true,
+                error_message: true,
+                created_at: true,
               },
             },
           },
@@ -187,7 +196,10 @@ export class TwilioAdminService {
    * });
    */
   async getAllSmsMessages(filters: AdminSmsFilters): Promise<PaginatedSmsList> {
-    this.logger.debug('Fetching all SMS messages across tenants with filters:', filters);
+    this.logger.debug(
+      'Fetching all SMS messages across tenants with filters:',
+      filters,
+    );
 
     try {
       // Build where clause
@@ -397,27 +409,36 @@ export class TwilioAdminService {
 
       // Calculate aggregates
       const uniqueTenantIds = new Set<string>();
-      smsConfigs.forEach(c => uniqueTenantIds.add(c.tenant_id));
-      whatsappConfigs.forEach(c => uniqueTenantIds.add(c.tenant_id));
-      ivrConfigs.forEach(c => uniqueTenantIds.add(c.tenant_id));
+      smsConfigs.forEach((c) => uniqueTenantIds.add(c.tenant_id));
+      whatsappConfigs.forEach((c) => uniqueTenantIds.add(c.tenant_id));
+      ivrConfigs.forEach((c) => uniqueTenantIds.add(c.tenant_id));
 
       const total_tenants = uniqueTenantIds.size;
-      const total_configs = smsConfigs.length + whatsappConfigs.length + ivrConfigs.length;
+      const total_configs =
+        smsConfigs.length + whatsappConfigs.length + ivrConfigs.length;
 
       // Compute is_primary for SMS configs (oldest per tenant = primary)
       const smsPrimaryMap = new Map<string, string>();
-      smsConfigs.forEach(config => {
+      smsConfigs.forEach((config) => {
         const existing = smsPrimaryMap.get(config.tenant_id);
-        if (!existing || new Date(config.created_at) < new Date(smsConfigs.find(c => c.id === existing)!.created_at)) {
+        if (
+          !existing ||
+          new Date(config.created_at) <
+            new Date(smsConfigs.find((c) => c.id === existing)!.created_at)
+        ) {
           smsPrimaryMap.set(config.tenant_id, config.id);
         }
       });
 
       // Compute is_primary for WhatsApp configs (oldest per tenant = primary)
       const whatsappPrimaryMap = new Map<string, string>();
-      whatsappConfigs.forEach(config => {
+      whatsappConfigs.forEach((config) => {
         const existing = whatsappPrimaryMap.get(config.tenant_id);
-        if (!existing || new Date(config.created_at) < new Date(whatsappConfigs.find(c => c.id === existing)!.created_at)) {
+        if (
+          !existing ||
+          new Date(config.created_at) <
+            new Date(whatsappConfigs.find((c) => c.id === existing)!.created_at)
+        ) {
           whatsappPrimaryMap.set(config.tenant_id, config.id);
         }
       });
@@ -461,7 +482,10 @@ export class TwilioAdminService {
         total_configs,
       };
     } catch (error) {
-      this.logger.error('Failed to fetch tenant configurations:', error.message);
+      this.logger.error(
+        'Failed to fetch tenant configurations:',
+        error.message,
+      );
       throw error;
     }
   }
@@ -522,10 +546,18 @@ export class TwilioAdminService {
       ] = await Promise.all([
         // Calls
         this.prisma.call_record.count({ where: { tenant_id: tenantId } }),
-        this.prisma.call_record.count({ where: { tenant_id: tenantId, direction: 'inbound' } }),
-        this.prisma.call_record.count({ where: { tenant_id: tenantId, direction: 'outbound' } }),
-        this.prisma.call_record.count({ where: { tenant_id: tenantId, status: 'completed' } }),
-        this.prisma.call_record.count({ where: { tenant_id: tenantId, status: 'failed' } }),
+        this.prisma.call_record.count({
+          where: { tenant_id: tenantId, direction: 'inbound' },
+        }),
+        this.prisma.call_record.count({
+          where: { tenant_id: tenantId, direction: 'outbound' },
+        }),
+        this.prisma.call_record.count({
+          where: { tenant_id: tenantId, status: 'completed' },
+        }),
+        this.prisma.call_record.count({
+          where: { tenant_id: tenantId, status: 'failed' },
+        }),
         this.prisma.call_record.aggregate({
           where: { tenant_id: tenantId, status: 'completed' },
           _avg: { recording_duration_seconds: true },
@@ -533,23 +565,61 @@ export class TwilioAdminService {
         }),
 
         // SMS
-        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'sms' } }),
-        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'sms', direction: 'inbound' } }),
-        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'sms', direction: 'outbound' } }),
-        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'sms', status: 'delivered' } }),
-        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'sms', status: 'failed' } }),
+        this.prisma.communication_event.count({
+          where: { tenant_id: tenantId, channel: 'sms' },
+        }),
+        this.prisma.communication_event.count({
+          where: { tenant_id: tenantId, channel: 'sms', direction: 'inbound' },
+        }),
+        this.prisma.communication_event.count({
+          where: { tenant_id: tenantId, channel: 'sms', direction: 'outbound' },
+        }),
+        this.prisma.communication_event.count({
+          where: { tenant_id: tenantId, channel: 'sms', status: 'delivered' },
+        }),
+        this.prisma.communication_event.count({
+          where: { tenant_id: tenantId, channel: 'sms', status: 'failed' },
+        }),
 
         // WhatsApp
-        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'whatsapp' } }),
-        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'whatsapp', direction: 'inbound' } }),
-        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'whatsapp', direction: 'outbound' } }),
-        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'whatsapp', status: 'delivered' } }),
-        this.prisma.communication_event.count({ where: { tenant_id: tenantId, channel: 'whatsapp', status: 'failed' } }),
+        this.prisma.communication_event.count({
+          where: { tenant_id: tenantId, channel: 'whatsapp' },
+        }),
+        this.prisma.communication_event.count({
+          where: {
+            tenant_id: tenantId,
+            channel: 'whatsapp',
+            direction: 'inbound',
+          },
+        }),
+        this.prisma.communication_event.count({
+          where: {
+            tenant_id: tenantId,
+            channel: 'whatsapp',
+            direction: 'outbound',
+          },
+        }),
+        this.prisma.communication_event.count({
+          where: {
+            tenant_id: tenantId,
+            channel: 'whatsapp',
+            status: 'delivered',
+          },
+        }),
+        this.prisma.communication_event.count({
+          where: { tenant_id: tenantId, channel: 'whatsapp', status: 'failed' },
+        }),
 
         // Transcriptions
-        this.prisma.call_transcription.count({ where: { tenant_id: tenantId } }),
-        this.prisma.call_transcription.count({ where: { tenant_id: tenantId, status: 'completed' } }),
-        this.prisma.call_transcription.count({ where: { tenant_id: tenantId, status: 'failed' } }),
+        this.prisma.call_transcription.count({
+          where: { tenant_id: tenantId },
+        }),
+        this.prisma.call_transcription.count({
+          where: { tenant_id: tenantId, status: 'completed' },
+        }),
+        this.prisma.call_transcription.count({
+          where: { tenant_id: tenantId, status: 'failed' },
+        }),
         this.prisma.call_transcription.aggregate({
           where: { tenant_id: tenantId, status: 'completed' },
           _avg: { processing_duration_seconds: true },
@@ -571,7 +641,11 @@ export class TwilioAdminService {
       const totalSmsCost = smsTotal * 0.0075; // Estimated at $0.0075 per SMS
       const totalWhatsappCost = whatsappTotal * 0.0075; // Estimated at $0.0075 per WhatsApp message
       const totalTranscriptionsCost = Number(transcriptionsCost._sum.cost || 0);
-      const totalCost = totalCallsCost + totalSmsCost + totalWhatsappCost + totalTranscriptionsCost;
+      const totalCost =
+        totalCallsCost +
+        totalSmsCost +
+        totalWhatsappCost +
+        totalTranscriptionsCost;
 
       const metrics: TenantMetrics = {
         tenant: {
@@ -586,8 +660,12 @@ export class TwilioAdminService {
           outbound: callsOutbound,
           completed: callsCompleted,
           failed: callsFailed,
-          average_duration_seconds: Math.round(callsDurationStats._avg.recording_duration_seconds || 0),
-          total_duration_minutes: Math.round((callsDurationStats._sum.recording_duration_seconds || 0) / 60),
+          average_duration_seconds: Math.round(
+            callsDurationStats._avg.recording_duration_seconds || 0,
+          ),
+          total_duration_minutes: Math.round(
+            (callsDurationStats._sum.recording_duration_seconds || 0) / 60,
+          ),
         },
         sms: {
           total: smsTotal,
@@ -607,10 +685,15 @@ export class TwilioAdminService {
           total: transcriptionsTotal,
           completed: transcriptionsCompleted,
           failed: transcriptionsFailed,
-          success_rate: transcriptionsTotal > 0
-            ? `${((transcriptionsCompleted / transcriptionsTotal) * 100).toFixed(2)}%`
-            : '0.00%',
-          average_processing_time_seconds: Number((transcriptionsProcessingTime._avg.processing_duration_seconds || 0).toFixed(1)),
+          success_rate:
+            transcriptionsTotal > 0
+              ? `${((transcriptionsCompleted / transcriptionsTotal) * 100).toFixed(2)}%`
+              : '0.00%',
+          average_processing_time_seconds: Number(
+            (
+              transcriptionsProcessingTime._avg.processing_duration_seconds || 0
+            ).toFixed(1),
+          ),
         },
         costs: {
           estimated_monthly: `$${totalCost.toFixed(2)}`,
@@ -730,7 +813,10 @@ export class TwilioAdminService {
 
       return metrics;
     } catch (error) {
-      this.logger.error('Failed to generate system-wide metrics:', error.message);
+      this.logger.error(
+        'Failed to generate system-wide metrics:',
+        error.message,
+      );
       throw error;
     }
   }
@@ -803,7 +889,10 @@ export class TwilioAdminService {
 
       return failures;
     } catch (error) {
-      this.logger.error('Failed to fetch failed transcriptions:', error.message);
+      this.logger.error(
+        'Failed to fetch failed transcriptions:',
+        error.message,
+      );
       throw error;
     }
   }
@@ -952,14 +1041,19 @@ export class TwilioAdminService {
         (a, b) => b.total_communications - a.total_communications,
       );
 
-      this.logger.debug(`Fetched top ${topTenantsData.length} tenants by volume`);
+      this.logger.debug(
+        `Fetched top ${topTenantsData.length} tenants by volume`,
+      );
 
       return {
         top_tenants: topTenantsData,
         generated_at: new Date().toISOString(),
       };
     } catch (error) {
-      this.logger.error('Failed to fetch top tenants by volume:', error.message);
+      this.logger.error(
+        'Failed to fetch top tenants by volume:',
+        error.message,
+      );
       throw error;
     }
   }

@@ -122,6 +122,12 @@ const accountTypeOptions: SelectOption[] = [
   { value: 'savings', label: 'Savings Account' },
 ];
 
+const languageOptions: SelectOption[] = [
+  { value: 'en-US', label: 'English (US)' },
+  { value: 'es-ES', label: 'Spanish (Spain)' },
+  { value: 'pt-BR', label: 'Portuguese (Brazil)' },
+];
+
 /**
  * Helper function to ensure URL has https:// prefix
  */
@@ -194,6 +200,7 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
       ein: tenant?.ein || '',
       state_tax_id: tenant?.state_tax_id || '',
       sales_tax_permit: tenant?.sales_tax_permit || '',
+      default_language: (tenant as any)?.default_language || undefined,
       services_offered: [], // Will be populated by useEffect after fetching from API
     },
   });
@@ -463,6 +470,15 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
                 error={step1Form.formState.errors.sales_tax_permit?.message}
                 helperText="Sales tax permit or resale certificate number"
                 leftIcon={<FileText className="w-5 h-5" />}
+              />
+
+              <Select
+                label="Default Language"
+                options={languageOptions}
+                value={step1Form.watch('default_language') || ''}
+                onChange={(value) => step1Form.setValue('default_language', value as any, { shouldValidate: true })}
+                error={step1Form.formState.errors.default_language?.message}
+                helperText="Default language for documents and communications"
               />
             </div>
 

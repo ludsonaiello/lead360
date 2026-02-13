@@ -120,7 +120,7 @@ export function WebhookEndpointsCard({
                 </div>
                 <Button
                   onClick={() => onTest(group.type)}
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   disabled={isLoading}
                 >

@@ -881,3 +881,5 @@ Track these throughout development:
 [ ] AJUSTAR TEMPLATES DE QUOTES BUILDER OU OUTRA ESTRATÉGIA
 [ ] Check system twillio account usage. To usage & Billing Dashboard
 [ ] fluxo ligAÇAO NAO ATENDIDA, DIRECIONA AGENTE.
+[ ] Implement SMS template functionality
+[ ] ADD scheduled SMS functionality to the lead

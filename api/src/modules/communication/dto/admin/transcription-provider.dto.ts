@@ -55,8 +55,10 @@ export class CreateTranscriptionProviderDto {
 
   @ApiProperty({
     required: false,
-    description: 'Model to use for transcription',
+    description:
+      'Model to use for transcription. Supported: whisper-1 (classic), gpt-4o-transcribe (GPT-4o with diarization)',
     example: 'whisper-1',
+    examples: ['whisper-1', 'gpt-4o-transcribe-diarize-api-ev3'],
   })
   @IsOptional()
   @IsString()
@@ -138,8 +140,10 @@ export class UpdateTranscriptionProviderDto {
 
   @ApiProperty({
     required: false,
-    description: 'Model to use for transcription',
+    description:
+      'Model to use for transcription. Supported: whisper-1 (classic), gpt-4o-transcribe (GPT-4o with diarization)',
     example: 'whisper-1',
+    examples: ['whisper-1', 'gpt-4o-transcribe-diarize-api-ev3'],
   })
   @IsOptional()
   @IsString()
@@ -213,7 +217,8 @@ export class UpdateTranscriptionProviderDto {
 export class TestTranscriptionProviderDto {
   @ApiProperty({
     required: false,
-    description: 'URL of audio file to test transcription (if not provided, uses default test file)',
+    description:
+      'URL of audio file to test transcription (if not provided, uses default test file)',
     example: 'https://storage.example.com/test-audio.mp3',
   })
   @IsOptional()

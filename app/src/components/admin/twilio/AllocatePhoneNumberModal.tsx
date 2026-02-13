@@ -135,7 +135,7 @@ export function AllocatePhoneNumberModal({
       </ModalContent>
 
       <ModalActions>
-        <Button onClick={handleClose} variant="outline" disabled={allocating}>
+        <Button onClick={handleClose} variant="secondary" disabled={allocating}>
           Cancel
         </Button>
         <Button onClick={handleAllocate} variant="primary" disabled={allocating || !tenantId}>

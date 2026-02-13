@@ -132,20 +132,18 @@ export function TranscriptionProviderCard({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2 pt-2">
+        <div className="grid grid-cols-2 gap-2 pt-2">
           <Button
             onClick={() => onTest(provider.id)}
-            variant="outline"
+            variant="secondary"
             size="sm"
-            className="flex-1"
           >
             Test
           </Button>
           <Button
             onClick={() => onEdit(provider.id)}
-            variant="outline"
+            variant="secondary"
             size="sm"
-            className="flex-1"
           >
             Edit
           </Button>
@@ -154,7 +152,7 @@ export function TranscriptionProviderCard({
               onClick={() => onMakeDefault(provider.id)}
               variant="outline"
               size="sm"
-              className="flex-1"
+              className="col-span-2"
             >
               Make Default
             </Button>
@@ -163,7 +161,9 @@ export function TranscriptionProviderCard({
             onClick={() => onDelete(provider.id)}
             variant="destructive"
             size="sm"
+            className="col-span-2"
             disabled={provider.is_system_default}
+            title={provider.is_system_default ? 'Cannot delete system default provider' : 'Delete provider'}
           >
             Delete
           </Button>

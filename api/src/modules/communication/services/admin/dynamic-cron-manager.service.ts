@@ -86,10 +86,7 @@ export class DynamicCronManagerService implements OnModuleInit {
     };
   }
 
-  private async getSetting(
-    key: string,
-    defaultValue: string,
-  ): Promise<string> {
+  private async getSetting(key: string, defaultValue: string): Promise<string> {
     try {
       const setting = await this.prisma.system_setting.findUnique({
         where: { setting_key: key },

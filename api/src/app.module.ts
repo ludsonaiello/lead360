@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { BullModule } from '@nestjs/bullmq';
+import { PrometheusModule } from '@willsoto/nestjs-prometheus';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './core/database';
 import { FileStorageModule } from './core/file-storage';
@@ -25,6 +26,11 @@ import { QuotesModule } from './modules/quotes/quotes.module';
       envFilePath: '.env',
     }),
     ScheduleModule.forRoot(), // Enable cron jobs for background tasks
+    PrometheusModule.register({
+      defaultMetrics: {
+        enabled: true,
+      },
+    }),
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

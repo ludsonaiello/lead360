@@ -22,6 +22,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { TenantSmsConfigService } from '../services/tenant-sms-config.service';
 import { CreateTenantSmsConfigDto } from '../dto/sms-config/create-tenant-sms-config.dto';
 import { UpdateTenantSmsConfigDto } from '../dto/sms-config/update-tenant-sms-config.dto';
+import { TestSmsConfigDto } from '../dto/sms-config/test-sms-config.dto';
 
 /**
  * Tenant SMS Configuration Controller
@@ -210,7 +211,7 @@ export class TenantSmsConfigController {
   @ApiOperation({
     summary: 'Test SMS configuration',
     description:
-      'Send a test SMS message to verify configuration. Message is sent to the configured phone number (self-test). Marks configuration as verified on success.',
+      'Send a test SMS message to verify configuration. Provide a destination phone number to receive the test message. Marks configuration as verified on success.',
   })
   @ApiParam({
     name: 'id',
@@ -230,13 +231,14 @@ export class TenantSmsConfigController {
           example: 'SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
         },
         from: { type: 'string', example: '+19781234567' },
-        to: { type: 'string', example: '+19781234567' },
+        to: { type: 'string', example: '+19787654321' },
       },
     },
   })
   @ApiResponse({
     status: 400,
-    description: 'SMS test failed (invalid credentials or Twilio error)',
+    description:
+      'SMS test failed (invalid credentials, phone number, or Twilio error)',
     schema: {
       type: 'object',
       properties: {
@@ -253,7 +255,15 @@ export class TenantSmsConfigController {
     status: 404,
     description: 'SMS configuration not found',
   })
-  async testConnection(@Request() req, @Param('id') configId: string) {
-    return this.smsConfigService.testConnection(req.user.tenant_id, configId);
+  async testConnection(
+    @Request() req,
+    @Param('id') configId: string,
+    @Body() dto: TestSmsConfigDto,
+  ) {
+    return this.smsConfigService.testConnection(
+      req.user.tenant_id,
+      configId,
+      dto.to_phone,
+    );
   }
 }

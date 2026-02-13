@@ -9,7 +9,10 @@ import {
 import { PrismaService } from '../../../core/database/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import twilio from 'twilio';
-import { AddWhitelistDto } from '../dto/office-bypass/add-whitelist.dto';
+import {
+  AddWhitelistDto,
+  UpdateWhitelistDto,
+} from '../dto/office-bypass/add-whitelist.dto';
 
 /**
  * OfficeBypassService
@@ -195,20 +198,20 @@ export class OfficeBypassService {
   }
 
   /**
-   * Remove phone number from whitelist (soft delete)
+   * Remove phone number from whitelist (hard delete)
    *
-   * Sets status to 'inactive' rather than physically deleting.
-   * Maintains audit trail and allows reactivation if needed.
+   * Permanently deletes the whitelist entry from the database.
+   * This action cannot be undone.
    *
    * @param tenantId - Tenant UUID
    * @param whitelistId - Whitelist entry UUID
-   * @returns Updated whitelist entry
+   * @returns Success message
    * @throws NotFoundException if entry does not exist
    * @throws InternalServerErrorException if database operation fails
    */
   async removeFromWhitelist(tenantId: string, whitelistId: string) {
     this.logger.log(
-      `Removing whitelist entry ${whitelistId} for tenant ${tenantId}`,
+      `Hard deleting whitelist entry ${whitelistId} for tenant ${tenantId}`,
     );
 
     try {
@@ -226,22 +229,27 @@ export class OfficeBypassService {
         );
       }
 
-      // Soft delete by setting status to inactive
-      return await this.prisma.office_number_whitelist.update({
+      // Hard delete - permanently remove from database
+      await this.prisma.office_number_whitelist.delete({
         where: { id: whitelistId },
-        data: { status: 'inactive' },
       });
+
+      return {
+        success: true,
+        message: 'Whitelist entry permanently deleted',
+        deleted_id: whitelistId,
+      };
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
       }
 
       this.logger.error(
-        `Failed to remove whitelist entry: ${error.message}`,
+        `Failed to delete whitelist entry: ${error.message}`,
         error.stack,
       );
       throw new InternalServerErrorException(
-        'Failed to remove whitelist entry',
+        'Failed to delete whitelist entry',
       );
     }
   }
@@ -275,16 +283,20 @@ export class OfficeBypassService {
     );
 
     try {
-      // Fetch tenant info for personalized greeting
+      // Fetch tenant info for personalized greeting and webhook URLs
       const tenant = await this.prisma.tenant.findUnique({
         where: { id: tenantId },
-        select: { company_name: true },
+        select: { company_name: true, subdomain: true },
       });
+
+      if (!tenant) {
+        throw new Error(`Tenant not found: ${tenantId}`);
+      }
 
       const twiml = new twilio.twiml.VoiceResponse();
 
       // Personalized greeting
-      const companyName = tenant?.company_name || 'Lead360';
+      const companyName = tenant.company_name || 'Lead360';
       twiml.say(
         {
           voice: 'Polly.Joanna',
@@ -296,7 +308,7 @@ export class OfficeBypassService {
       // Gather 10 digits (US phone number)
       const gather = twiml.gather({
         numDigits: 10,
-        action: `${this.apiBaseUrl}/webhooks/communication/twilio-bypass-dial`,
+        action: `https://${tenant.subdomain}.lead360.app/api/v1/twilio/bypass/dial`,
         method: 'POST',
         timeout: 10,
       });
@@ -368,6 +380,16 @@ export class OfficeBypassService {
       `Initiating bypass outbound call to ${targetNumber} for tenant ${tenantId}`,
     );
 
+    // Fetch tenant for subdomain (needed for webhook URLs)
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { subdomain: true },
+    });
+
+    if (!tenant) {
+      throw new Error(`Tenant not found: ${tenantId}`);
+    }
+
     // 1. Validate and format target number
     let formattedNumber = targetNumber;
 
@@ -396,7 +418,7 @@ export class OfficeBypassService {
         {
           method: 'POST',
         },
-        `${this.apiBaseUrl}/webhooks/communication/twilio-bypass-prompt`,
+        `https://${tenant.subdomain}.lead360.app/api/v1/twilio/bypass/prompt`,
       );
       return twiml.toString();
     }
@@ -425,8 +447,8 @@ export class OfficeBypassService {
     // Dial target number with recording
     twiml.dial(
       {
-        record: 'record-from-ringing',
-        recordingStatusCallback: `${this.apiBaseUrl}/webhooks/communication/twilio-recording-ready`,
+        record: 'record-from-ringing-dual', // Enable dual-channel stereo recording
+        recordingStatusCallback: `https://${tenant.subdomain}.lead360.app/api/v1/twilio/recording/ready`,
         timeout: 30, // Ring timeout (seconds)
         callerId: undefined, // Use Twilio number as caller ID
       },
@@ -447,24 +469,33 @@ export class OfficeBypassService {
   }
 
   /**
-   * Update whitelist entry label
+   * Update whitelist entry
    *
-   * Allows updating the human-readable label for a whitelist entry.
-   * Phone number itself is immutable (delete and re-add to change).
+   * Allows updating phone number, label, and/or status.
+   * All fields are optional - only provide the fields you want to update.
    *
    * @param tenantId - Tenant UUID
    * @param whitelistId - Whitelist entry UUID
-   * @param label - New label
+   * @param dto - Fields to update
    * @returns Updated whitelist entry
    * @throws NotFoundException if entry does not exist
+   * @throws BadRequestException if no fields to update
+   * @throws ConflictException if phone number already exists (for different entry)
    * @throws InternalServerErrorException if database operation fails
    */
-  async updateLabel(tenantId: string, whitelistId: string, label: string) {
+  async update(tenantId: string, whitelistId: string, dto: UpdateWhitelistDto) {
     this.logger.log(
-      `Updating whitelist entry label: ${whitelistId} for tenant ${tenantId}`,
+      `Updating whitelist entry: ${whitelistId} for tenant ${tenantId}`,
     );
 
     try {
+      // Check if at least one field is provided
+      if (!dto.phone_number && !dto.label && !dto.status) {
+        throw new BadRequestException(
+          'At least one field (phone_number, label, or status) must be provided',
+        );
+      }
+
       // Verify entry exists and belongs to tenant
       const whitelist = await this.prisma.office_number_whitelist.findFirst({
         where: {
@@ -479,13 +510,41 @@ export class OfficeBypassService {
         );
       }
 
-      // Update label
+      // If updating phone number, check for duplicates
+      if (dto.phone_number && dto.phone_number !== whitelist.phone_number) {
+        const duplicate = await this.prisma.office_number_whitelist.findFirst({
+          where: {
+            tenant_id: tenantId,
+            phone_number: dto.phone_number,
+            id: { not: whitelistId },
+            status: 'active',
+          },
+        });
+
+        if (duplicate) {
+          throw new ConflictException(
+            'This phone number is already whitelisted for another entry',
+          );
+        }
+      }
+
+      // Build update data
+      const updateData: any = {};
+      if (dto.phone_number) updateData.phone_number = dto.phone_number;
+      if (dto.label) updateData.label = dto.label;
+      if (dto.status) updateData.status = dto.status;
+
+      // Update whitelist entry
       return await this.prisma.office_number_whitelist.update({
         where: { id: whitelistId },
-        data: { label },
+        data: updateData,
       });
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException ||
+        error instanceof ConflictException
+      ) {
         throw error;
       }
 

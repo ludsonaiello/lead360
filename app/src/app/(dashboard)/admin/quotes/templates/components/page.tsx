@@ -61,7 +61,7 @@ export default function ComponentLibraryPage() {
         limit: 100,
       };
       if (selectedCategory !== 'all') {
-        params.type = selectedCategory;
+        params.component_type = selectedCategory as any;
       }
       const data = await listComponents(params);
       setComponents(data.data);

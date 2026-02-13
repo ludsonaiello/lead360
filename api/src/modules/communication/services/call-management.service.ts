@@ -90,6 +90,18 @@ export class CallManagementService {
     );
 
     try {
+      // CRITICAL: Look up lead by phone number BEFORE creating call record
+      // This enables automatic lead association for inbound calls
+      const leadId = await this.findLeadByPhoneNumber(tenantId, From);
+
+      if (leadId) {
+        this.logger.log(`👤 Lead found for ${From}: ${leadId}`);
+      } else {
+        this.logger.debug(
+          `👤 No lead found for ${From} - call will show as Unknown`,
+        );
+      }
+
       // 1. Check whitelist first (office bypass)
       if (
         this.officeBypassService &&
@@ -97,9 +109,10 @@ export class CallManagementService {
       ) {
         this.logger.log(`🔓 Office bypass detected for ${From}`);
 
-        // Create CallRecord with office_bypass_call type
-        await this.prisma.call_record.create({
-          data: {
+        // Create or update CallRecord with office_bypass_call type
+        await this.prisma.call_record.upsert({
+          where: { twilio_call_sid: CallSid },
+          create: {
             tenant_id: tenantId,
             twilio_call_sid: CallSid,
             direction: 'inbound',
@@ -108,6 +121,11 @@ export class CallManagementService {
             status: 'initiated',
             call_type: 'office_bypass_call',
             consent_message_played: false,
+            lead_id: leadId, // Link to lead if found
+          },
+          update: {
+            status: 'initiated',
+            lead_id: leadId, // Update lead if found
           },
         });
 
@@ -121,12 +139,19 @@ export class CallManagementService {
           const ivrConfig =
             await this.ivrConfigurationService.findByTenantId(tenantId);
 
-          if (ivrConfig.ivr_enabled) {
-            this.logger.log(`🎛️  IVR enabled, generating menu TwiML`);
+          this.logger.log(
+            `🔍 IVR Configuration found - Enabled: ${ivrConfig.ivr_enabled}`,
+          );
 
-            // Create CallRecord with ivr_routed_call type
-            await this.prisma.call_record.create({
-              data: {
+          if (ivrConfig.ivr_enabled) {
+            this.logger.log(
+              `🎛️  IVR ENABLED → Generating interactive menu for ${From}`,
+            );
+
+            // Create or update CallRecord with ivr_routed_call type
+            await this.prisma.call_record.upsert({
+              where: { twilio_call_sid: CallSid },
+              create: {
                 tenant_id: tenantId,
                 twilio_call_sid: CallSid,
                 direction: 'inbound',
@@ -135,26 +160,40 @@ export class CallManagementService {
                 status: 'initiated',
                 call_type: 'ivr_routed_call',
                 consent_message_played: true, // IVR plays consent message
+                lead_id: leadId, // Link to lead if found
+              },
+              update: {
+                status: 'initiated',
+                lead_id: leadId, // Update lead if found
               },
             });
 
+            this.logger.log(`📋 Call type: ivr_routed_call`);
             // Return IVR menu TwiML
             return this.ivrConfigurationService.generateIvrMenuTwiML(tenantId);
+          } else {
+            this.logger.log(
+              `⚠️  IVR DISABLED → Checking for default action configuration`,
+            );
           }
         } catch (error) {
           // IVR not configured or error - fall through to default
           this.logger.warn(
-            `IVR not configured or error for tenant ${tenantId}: ${error.message}`,
+            `⚠️  IVR configuration error for tenant ${tenantId}: ${error.message}`,
           );
         }
+      } else {
+        this.logger.debug(`ℹ️  No IVR service available`);
       }
 
       // 3. Default routing (no IVR, no bypass)
-      this.logger.log(`📞 Default routing for ${From}`);
+      this.logger.log(`📞 DEFAULT ROUTING triggered for ${From}`);
+      this.logger.log(`📋 Call type: customer_call`);
 
-      // Create CallRecord with customer_call type
-      await this.prisma.call_record.create({
-        data: {
+      // Create or update CallRecord with customer_call type
+      await this.prisma.call_record.upsert({
+        where: { twilio_call_sid: CallSid },
+        create: {
           tenant_id: tenantId,
           twilio_call_sid: CallSid,
           direction: 'inbound',
@@ -163,11 +202,16 @@ export class CallManagementService {
           status: 'initiated',
           call_type: 'customer_call',
           consent_message_played: false,
+          lead_id: leadId, // Link to lead if found
+        },
+        update: {
+          status: 'initiated',
+          lead_id: leadId, // Update lead if found
         },
       });
 
       // Return default routing TwiML
-      return this.generateDefaultRoutingTwiML();
+      return await this.generateDefaultRoutingTwiML(tenantId);
     } catch (error) {
       this.logger.error(
         `❌ Failed to process inbound call: ${error.message}`,
@@ -183,9 +227,95 @@ export class CallManagementService {
    * Simple voicemail prompt if no IVR configured.
    * Could be enhanced to dial a default company number.
    *
+   * @param tenantId - Tenant UUID for webhook URL generation
    * @returns TwiML XML string
    */
-  private generateDefaultRoutingTwiML(): string {
+  private async generateDefaultRoutingTwiML(tenantId: string): Promise<string> {
+    // Fetch tenant for subdomain
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+
+    if (!tenant) {
+      throw new Error(`Tenant not found: ${tenantId}`);
+    }
+
+    // Check if there's an IVR configuration with a default_action
+    // Even if IVR is disabled, use the default_action if configured
+    if (this.ivrConfigurationService) {
+      try {
+        const ivrConfig =
+          await this.ivrConfigurationService.findByTenantId(tenantId);
+
+        if (ivrConfig && ivrConfig.default_action) {
+          this.logger.log(
+            `🎯 IVR default_action found → Using for direct routing (IVR disabled)`,
+          );
+
+          // Parse default_action (it's stored as JSON)
+          const defaultAction =
+            typeof ivrConfig.default_action === 'string'
+              ? JSON.parse(ivrConfig.default_action)
+              : ivrConfig.default_action;
+
+          this.logger.log(`📞 Action Type: ${defaultAction.action}`);
+
+          // Generate TwiML based on action type
+          const twiml = new twilio.twiml.VoiceResponse();
+
+          if (defaultAction.action === 'route_to_number') {
+            // Route to configured phone number (no announcement, direct dial)
+            this.logger.log(
+              `☎️  ROUTING CALL → Dialing ${defaultAction.config.phone_number} (dual-channel recording enabled)`,
+            );
+
+            twiml.dial(
+              {
+                callerId: defaultAction.config.phone_number,
+                record: 'record-from-answer-dual', // Dual-channel stereo recording
+                recordingStatusCallback: `https://${tenant.subdomain}.lead360.app/api/v1/twilio/recording/ready`,
+              },
+              defaultAction.config.phone_number,
+            );
+
+            this.logger.log(`✅ TwiML generated for direct dial`);
+          } else if (defaultAction.action === 'voicemail') {
+            // Route to voicemail
+            this.logger.log(
+              `📧 VOICEMAIL → Recording message (max ${defaultAction.config.max_duration_seconds || 180}s)`,
+            );
+
+            twiml.say(
+              {
+                voice: 'Polly.Joanna',
+                language: 'en-US',
+              },
+              'Please leave a message after the beep.',
+            );
+
+            twiml.record({
+              maxLength: defaultAction.config.max_duration_seconds || 180,
+              playBeep: true,
+              transcribe: false,
+              recordingStatusCallback: `https://${tenant.subdomain}.lead360.app/api/v1/twilio/recording/ready`,
+            });
+
+            this.logger.log(`✅ TwiML generated for voicemail`);
+          }
+
+          return twiml.toString();
+        }
+      } catch (error) {
+        this.logger.warn(
+          `⚠️  Could not load IVR default_action: ${error.message}. Falling back to voicemail.`,
+        );
+      }
+    }
+
+    // Fallback to voicemail if no default action configured
+    this.logger.log(
+      `📧 NO DEFAULT ACTION CONFIGURED → Falling back to voicemail`,
+    );
     const twiml = new twilio.twiml.VoiceResponse();
 
     twiml.say(
@@ -208,7 +338,7 @@ export class CallManagementService {
       maxLength: 180,
       playBeep: true,
       transcribe: false,
-      recordingStatusCallback: `${this.config.get<string>('API_BASE_URL') || 'https://api.lead360.app'}/webhooks/communication/twilio-recording-ready`,
+      recordingStatusCallback: `https://${tenant.subdomain}.lead360.app/api/v1/twilio/recording/ready`,
     });
 
     twiml.say(
@@ -219,6 +349,7 @@ export class CallManagementService {
       'Thank you for your message. Goodbye.',
     );
 
+    this.logger.log(`✅ TwiML generated for fallback voicemail`);
     return twiml.toString();
   }
 
@@ -235,6 +366,14 @@ export class CallManagementService {
 
     if (!call_record) {
       this.logger.error(`❌ CallRecord not found for CallSid: ${callSid}`);
+      return;
+    }
+
+    // Check if call is already in progress (prevent duplicate handling)
+    if (call_record.status === 'in_progress' && call_record.started_at) {
+      this.logger.debug(
+        `Call ${callSid} already marked as in_progress. Skipping duplicate handleCallAnswered.`,
+      );
       return;
     }
 
@@ -269,7 +408,7 @@ export class CallManagementService {
         }
 
         await client.calls(callSid).recordings.create({
-          recordingStatusCallback: `https://${tenant.subdomain}.lead360.app/webhooks/communication/twilio-recording-ready`,
+          recordingStatusCallback: `https://${tenant.subdomain}.lead360.app/api/v1/twilio/recording/ready`,
           recordingStatusCallbackMethod: 'POST',
         });
 
@@ -293,6 +432,11 @@ export class CallManagementService {
   async handleCallEnded(callSid: string, duration: number): Promise<void> {
     const call_record = await this.prisma.call_record.findUnique({
       where: { twilio_call_sid: callSid },
+      include: {
+        tenant: {
+          select: { id: true },
+        },
+      },
     });
 
     if (!call_record) {
@@ -301,16 +445,51 @@ export class CallManagementService {
     }
 
     try {
+      // Fetch call cost from Twilio API
+      let cost: number | null = null;
+      try {
+        if (call_record.tenant_id) {
+          const config = await this.getTenantTwilioConfig(
+            call_record.tenant_id,
+          );
+          const credentials = JSON.parse(
+            this.encryption.decrypt(config.credentials),
+          );
+          const client = twilio(
+            credentials.account_sid,
+            credentials.auth_token,
+          );
+
+          // Fetch call details from Twilio to get price
+          const callDetails = await client.calls(callSid).fetch();
+
+          if (callDetails.price && callDetails.price !== null) {
+            // Twilio returns price as string (e.g., "-0.0085")
+            // Convert to positive decimal for storage
+            cost = Math.abs(parseFloat(callDetails.price));
+            this.logger.debug(`💰 Call ${callSid} cost: $${cost}`);
+          }
+        }
+      } catch (priceError) {
+        // Don't fail the entire update if price fetch fails
+        this.logger.warn(
+          `⚠️ Failed to fetch call price from Twilio: ${priceError.message}`,
+        );
+      }
+
       // Update CallRecord
       await this.prisma.call_record.update({
         where: { id: call_record.id },
         data: {
           status: 'completed',
           ended_at: new Date(),
+          ...(cost !== null && { cost }),
         },
       });
 
-      this.logger.log(`✅ Call ${callSid} completed. Duration: ${duration}s`);
+      this.logger.log(
+        `✅ Call ${callSid} completed. Duration: ${duration}s${cost !== null ? `, Cost: $${cost}` : ''}`,
+      );
     } catch (error) {
       this.logger.error(
         `❌ Failed to update call status: ${error.message}`,
@@ -383,7 +562,14 @@ export class CallManagementService {
       await fs.writeFile(fullPath, recordingBuffer);
 
       // 3. Update CallRecord with recording info
-      const publicUrl = `/public/${relativePath}/${filename}`;
+      // IMPORTANT: Store full URL (not relative path) for transcription processor
+      // Transcription processor needs to download the file via HTTP/HTTPS
+      const tenant = call_record.tenant;
+      if (!tenant) {
+        throw new Error(`Tenant not found for call ${callSid}`);
+      }
+
+      const publicUrl = `https://${tenant.subdomain}.lead360.app/uploads/public/${relativePath}/${filename}`;
 
       await this.prisma.call_record.update({
         where: { id: call_record.id },
@@ -495,8 +681,8 @@ export class CallManagementService {
       const call = await client.calls.create({
         from: config.from_phone,
         to: dto.user_phone_number,
-        url: `https://${tenant.subdomain}.lead360.app/webhooks/communication/twilio-call-connect/${call_record.id}`,
-        statusCallback: `https://${tenant.subdomain}.lead360.app/webhooks/communication/twilio-call-status`,
+        url: `https://${tenant.subdomain}.lead360.app/api/v1/twilio/call/connect/${call_record.id}`,
+        statusCallback: `https://${tenant.subdomain}.lead360.app/api/v1/twilio/call/status`,
         statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
         statusCallbackMethod: 'POST',
       });
@@ -582,13 +768,13 @@ export class CallManagementService {
 
     // Dial Lead
     const dial = twiml.dial({
-      action: `https://${call_record.tenant?.subdomain}.lead360.app/webhooks/communication/twilio-call-status`,
-      record: 'record-from-ringing',
+      action: `https://${call_record.tenant?.subdomain}.lead360.app/api/v1/twilio/call/status`,
+      record: 'record-from-ringing-dual', // Enable dual-channel stereo recording
     });
 
     dial.number(
       {
-        statusCallback: `https://${call_record.tenant?.subdomain}.lead360.app/webhooks/communication/twilio-call-status`,
+        statusCallback: `https://${call_record.tenant?.subdomain}.lead360.app/api/v1/twilio/call/status`,
         statusCallbackEvent: ['answered', 'completed'],
       },
       leadPhone,
@@ -687,6 +873,16 @@ export class CallManagementService {
               last_name: true,
             },
           },
+          transcriptions: {
+            where: { is_current: true },
+            select: {
+              transcription_text: true,
+              language_detected: true,
+              confidence_score: true,
+              transcription_provider: true,
+              status: true,
+            },
+          },
         },
       }),
       this.prisma.call_record.count({
@@ -694,17 +890,33 @@ export class CallManagementService {
       }),
     ]);
 
-    // Flatten phone numbers for easier frontend consumption
-    const formattedCalls = calls.map((call) => ({
-      ...call,
-      lead: call.lead
-        ? {
-            ...call.lead,
-            phone: call.lead.phones[0]?.phone || null,
-            phones: undefined,
-          }
-        : null,
-    }));
+    // Flatten phone numbers and format transcription for easier frontend consumption
+    const formattedCalls = calls.map((call) => {
+      const currentTranscription = call.transcriptions?.[0] || null;
+      return {
+        ...call,
+        lead: call.lead
+          ? {
+              ...call.lead,
+              phone: call.lead.phones[0]?.phone || null,
+              phones: undefined,
+            }
+          : null,
+        transcription: currentTranscription
+          ? {
+              transcription_text: currentTranscription.transcription_text,
+              language_detected: currentTranscription.language_detected,
+              confidence_score: currentTranscription.confidence_score
+                ? parseFloat(currentTranscription.confidence_score.toString())
+                : null,
+              transcription_provider:
+                currentTranscription.transcription_provider,
+              status: currentTranscription.status,
+            }
+          : null,
+        transcriptions: undefined, // Remove array from response
+      };
+    });
 
     return {
       data: formattedCalls,
@@ -732,6 +944,18 @@ export class CallManagementService {
         id: callId,
         tenant_id: tenantId,
       },
+      include: {
+        transcriptions: {
+          where: { is_current: true },
+          select: {
+            transcription_text: true,
+            language_detected: true,
+            confidence_score: true,
+            transcription_provider: true,
+            status: true,
+          },
+        },
+      },
     });
 
     if (!call) {
@@ -744,10 +968,79 @@ export class CallManagementService {
 
     // TODO: Implement signed URLs with expiration for enhanced security
     // For now, return public URL directly
+
+    // Fix legacy URLs: old recordings stored as /public/ instead of /uploads/public/
+    // New recordings already have correct format with /uploads/public/
+    let recordingUrl = call.recording_url;
+    if (
+      recordingUrl.includes('/public/') &&
+      !recordingUrl.includes('/uploads/public/')
+    ) {
+      recordingUrl = recordingUrl.replace('/public/', '/uploads/public/');
+      this.logger.debug(
+        `[LEGACY URL FIX] Transformed recording URL from ${call.recording_url} to ${recordingUrl}`,
+      );
+    }
+
+    const currentTranscription = call.transcriptions?.[0] || null;
+
     return {
-      url: call.recording_url,
+      url: recordingUrl,
       duration_seconds: call.recording_duration_seconds,
       transcription_available: call.recording_status === 'transcribed',
+      transcription: currentTranscription
+        ? {
+            transcription_text: currentTranscription.transcription_text,
+            language_detected: currentTranscription.language_detected,
+            confidence_score: currentTranscription.confidence_score
+              ? parseFloat(currentTranscription.confidence_score.toString())
+              : null,
+            transcription_provider: currentTranscription.transcription_provider,
+            status: currentTranscription.status,
+          }
+        : null,
+    };
+  }
+
+  /**
+   * Get transcription for a call
+   * Retrieves transcription text and metadata for a specific call
+   *
+   * @param tenantId - Tenant UUID (multi-tenant isolation)
+   * @param callId - CallRecord UUID
+   * @returns Transcription data
+   */
+  async getTranscription(tenantId: string, callId: string) {
+    const call = await this.prisma.call_record.findFirst({
+      where: {
+        id: callId,
+        tenant_id: tenantId,
+      },
+      include: {
+        transcriptions: {
+          where: { is_current: true },
+        },
+      },
+    });
+
+    if (!call) {
+      throw new NotFoundException('Call record not found');
+    }
+
+    const currentTranscription = call.transcriptions?.[0];
+
+    if (!currentTranscription) {
+      throw new NotFoundException('Transcription not available for this call');
+    }
+
+    return {
+      transcription_text: currentTranscription.transcription_text,
+      language_detected: currentTranscription.language_detected,
+      confidence_score: currentTranscription.confidence_score
+        ? parseFloat(currentTranscription.confidence_score.toString())
+        : null,
+      transcription_provider: currentTranscription.transcription_provider,
+      status: currentTranscription.status,
     };
   }
 
@@ -792,5 +1085,74 @@ export class CallManagementService {
     }
 
     return config;
+  }
+
+  /**
+   * Find lead by phone number (helper method)
+   *
+   * Matches phone numbers using sanitization logic:
+   * - Twilio sends: +1234567890 (E.164 format)
+   * - Database stores: 1234567890 (10 digits, no formatting)
+   *
+   * Sanitization removes all non-digits, then takes last 10 digits to handle:
+   * - E.164 format: +1234567890 → 1234567890
+   * - International: +441234567890 → 1234567890 (matches if stored as 10 digits)
+   * - Formatted: (123) 456-7890 → 1234567890
+   *
+   * @param tenantId - Tenant UUID (multi-tenant isolation)
+   * @param phoneNumber - Phone number from Twilio (any format)
+   * @returns Lead UUID if found, null otherwise
+   * @private
+   */
+  private async findLeadByPhoneNumber(
+    tenantId: string,
+    phoneNumber: string,
+  ): Promise<string | null> {
+    try {
+      // Sanitize phone: remove all non-digits
+      const sanitized = phoneNumber.replace(/\D/g, '');
+
+      // Take last 10 digits (handles +1 prefix for US numbers)
+      // Examples:
+      // +1234567890 → 1234567890 → 1234567890 (last 10)
+      // +11234567890 → 11234567890 → 1234567890 (last 10)
+      const last10Digits = sanitized.slice(-10);
+
+      this.logger.debug(
+        `[LEAD LOOKUP] Sanitized phone ${phoneNumber} → ${sanitized} → ${last10Digits}`,
+      );
+
+      // Look up lead_phone by sanitized 10-digit phone
+      const leadPhone = await this.prisma.lead_phone.findFirst({
+        where: {
+          phone: last10Digits,
+          lead: {
+            tenant_id: tenantId, // CRITICAL: Tenant isolation
+          },
+        },
+        select: {
+          lead_id: true,
+        },
+      });
+
+      if (leadPhone) {
+        this.logger.log(
+          `[LEAD LOOKUP] ✅ Lead found for ${phoneNumber}: ${leadPhone.lead_id}`,
+        );
+        return leadPhone.lead_id;
+      }
+
+      this.logger.debug(
+        `[LEAD LOOKUP] ❌ No lead found for ${phoneNumber} (sanitized: ${last10Digits})`,
+      );
+      return null;
+    } catch (error) {
+      this.logger.error(
+        `[LEAD LOOKUP] Error finding lead by phone ${phoneNumber}: ${error.message}`,
+        error.stack,
+      );
+      // Don't throw - just return null so call can proceed without lead association
+      return null;
+    }
   }
 }

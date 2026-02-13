@@ -299,7 +299,7 @@ export class TenantSmsConfigService {
    * @throws NotFoundException if configuration not found
    * @throws BadRequestException if test fails
    */
-  async testConnection(tenantId: string, configId: string) {
+  async testConnection(tenantId: string, configId: string, toPhone: string) {
     const config = await this.prisma.tenant_sms_config.findFirst({
       where: {
         id: configId,
@@ -323,15 +323,15 @@ export class TenantSmsConfigService {
     try {
       const client = twilio(credentials.account_sid, credentials.auth_token);
 
-      // Send test SMS to the from_phone number (sends to self)
+      // Send test SMS to the provided phone number
       const message = await client.messages.create({
         body: `Test message from Lead360 (${config.tenant.company_name}). Your SMS configuration is working correctly.`,
         from: credentials.from_phone,
-        to: credentials.from_phone, // Send to self for testing
+        to: toPhone,
       });
 
       this.logger.log(
-        `Test SMS sent successfully for tenant ${tenantId} - Message SID: ${message.sid}`,
+        `Test SMS sent successfully for tenant ${tenantId} to ${toPhone} - Message SID: ${message.sid}`,
       );
 
       // Mark as verified
@@ -345,7 +345,7 @@ export class TenantSmsConfigService {
         message: 'Test SMS sent successfully',
         twilio_message_sid: message.sid,
         from: credentials.from_phone,
-        to: credentials.from_phone,
+        to: toPhone,
       };
     } catch (error) {
       this.logger.error(

@@ -12,13 +12,24 @@ export class UpdateCommunicationEventStatusDto {
   @ApiProperty({
     description: 'New status for the communication event',
     example: 'delivered',
-    enum: ['pending', 'sent', 'delivered', 'failed', 'bounced', 'opened', 'clicked'],
+    enum: [
+      'pending',
+      'sent',
+      'delivered',
+      'failed',
+      'bounced',
+      'opened',
+      'clicked',
+    ],
   })
   @IsString()
-  @IsEnum(['pending', 'sent', 'delivered', 'failed', 'bounced', 'opened', 'clicked'], {
-    message:
-      'Status must be one of: pending, sent, delivered, failed, bounced, opened, clicked',
-  })
+  @IsEnum(
+    ['pending', 'sent', 'delivered', 'failed', 'bounced', 'opened', 'clicked'],
+    {
+      message:
+        'Status must be one of: pending, sent, delivered, failed, bounced, opened, clicked',
+    },
+  )
   status: string;
 
   @ApiProperty({

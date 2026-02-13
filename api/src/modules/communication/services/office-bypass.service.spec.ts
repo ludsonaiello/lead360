@@ -92,8 +92,8 @@ describe('OfficeBypassService', () => {
     }).compile();
 
     service = module.get<OfficeBypassService>(OfficeBypassService);
-    prisma = module.get(PrismaService) as jest.Mocked<PrismaService>;
-    config = module.get(ConfigService) as jest.Mocked<ConfigService>;
+    prisma = module.get(PrismaService);
+    config = module.get(ConfigService);
   });
 
   afterEach(() => {
@@ -119,10 +119,7 @@ describe('OfficeBypassService', () => {
     it('should return false if phone number is not whitelisted', async () => {
       prisma.office_number_whitelist.findFirst.mockResolvedValue(null);
 
-      const result = await service.isWhitelisted(
-        mockTenantId,
-        '+19999999999',
-      );
+      const result = await service.isWhitelisted(mockTenantId, '+19999999999');
 
       expect(result).toBe(false);
     });

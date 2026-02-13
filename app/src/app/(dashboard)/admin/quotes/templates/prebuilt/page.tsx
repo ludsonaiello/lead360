@@ -63,7 +63,7 @@ export default function PrebuiltTemplatesPage() {
         limit: 100,
       };
       if (selectedIndustry !== 'all') {
-        params.industry = selectedIndustry;
+        params.category_id = selectedIndustry;
       }
       const data = await listPrebuiltTemplates(params);
       setTemplates(data.data);
@@ -140,7 +140,7 @@ export default function PrebuiltTemplatesPage() {
 
     try {
       setCloningId(templateId);
-      await clonePrebuiltTemplate(templateId, { new_name: newName });
+      await clonePrebuiltTemplate(templateId, { name: newName });
       toast.success('Template cloned successfully!');
       router.push('/admin/quotes/templates');
     } catch (error: any) {

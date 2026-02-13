@@ -1,4 +1,22 @@
 /**
+ * ⚠️⚠️⚠️ DEPRECATED - NO LONGER USED IN PRODUCTION ⚠️⚠️⚠️
+ *
+ * This route is NO LONGER CALLED in production due to Nginx configuration changes.
+ * As of 2026-02-12, Nginx routes /api/v1/* requests directly to the backend,
+ * bypassing this Next.js proxy entirely.
+ *
+ * Reason for deprecation:
+ * - Nginx path-based routing now handles /api/v1/webhooks/communication/* → backend
+ * - This eliminates body re-serialization issues that broke Twilio signature verification
+ * - Body re-serialization on line 98 changed parameter order, invalidating HMAC signatures
+ * - See /etc/nginx/sites-available/tenants.lead360.app.conf (location /api/v1/)
+ *
+ * This file is kept for reference only. Safe to delete in future cleanup.
+ *
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * ORIGINAL DOCUMENTATION (for reference):
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ *
  * Communication Provider Webhook Proxy Route
  *
  * Proxies webhook requests from tenant subdomains to the backend API.

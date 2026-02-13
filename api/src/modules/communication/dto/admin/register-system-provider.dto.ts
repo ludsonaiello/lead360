@@ -16,7 +16,8 @@ export class RegisterSystemProviderDto {
   })
   @IsString()
   @Matches(/^AC[a-z0-9]{32}$/, {
-    message: 'account_sid must be a valid Twilio Account SID (starts with AC, followed by 32 alphanumeric characters)',
+    message:
+      'account_sid must be a valid Twilio Account SID (starts with AC, followed by 32 alphanumeric characters)',
   })
   account_sid: string;
 
@@ -47,7 +48,8 @@ export class UpdateSystemProviderDto extends RegisterSystemProviderDto {}
  */
 export class TestConnectivityDto {
   @ApiProperty({
-    description: 'Tenant ID to test connectivity for (use "system" for system-level check)',
+    description:
+      'Tenant ID to test connectivity for (use "system" for system-level check)',
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
   @IsString()

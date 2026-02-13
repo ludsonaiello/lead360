@@ -70,9 +70,7 @@ export class TwilioHealthMonitorService {
    * const health = await service.checkTwilioConnectivity('tenant-uuid');
    * // Returns: { status: 'HEALTHY', response_time_ms: 234 }
    */
-  async checkTwilioConnectivity(
-    tenantId: string,
-  ): Promise<HealthCheckResult> {
+  async checkTwilioConnectivity(tenantId: string): Promise<HealthCheckResult> {
     const startTime = Date.now();
 
     this.logger.debug(`Testing Twilio connectivity for tenant ${tenantId}`);
@@ -83,12 +81,13 @@ export class TwilioHealthMonitorService {
 
       if (tenantId === 'system') {
         // System-level check: Load system provider from communication_provider table
-        const systemProvider = await this.prisma.communication_provider.findFirst({
-          where: {
-            provider_key: 'twilio_system',
-            is_active: true,
-          },
-        });
+        const systemProvider =
+          await this.prisma.communication_provider.findFirst({
+            where: {
+              provider_key: 'twilio_system',
+              is_active: true,
+            },
+          });
 
         if (!systemProvider) {
           const responseTime = Date.now() - startTime;
@@ -142,7 +141,7 @@ export class TwilioHealthMonitorService {
         }
 
         // Decrypt tenant credentials
-        const credentials = JSON.parse(config.credentials as string);
+        const credentials = JSON.parse(config.credentials);
         account_sid = credentials.account_sid;
         auth_token = credentials.auth_token;
       }
@@ -574,7 +573,9 @@ export class TwilioHealthMonitorService {
           },
         });
 
-        this.logger.error(`High-severity alert created: ${failedChecks.join(', ')} DOWN`);
+        this.logger.error(
+          `High-severity alert created: ${failedChecks.join(', ')} DOWN`,
+        );
       }
 
       // Create alerts for degraded checks (MEDIUM severity)
@@ -590,7 +591,9 @@ export class TwilioHealthMonitorService {
           },
         });
 
-        this.logger.warn(`Medium-severity alert created: ${degradedChecks.join(', ')} DEGRADED`);
+        this.logger.warn(
+          `Medium-severity alert created: ${degradedChecks.join(', ')} DEGRADED`,
+        );
       }
     } catch (error) {
       this.logger.error('Failed to create health alerts:', error.message);
@@ -610,7 +613,9 @@ export class TwilioHealthMonitorService {
     checkType: string,
     hours: number = 24,
   ): Promise<HealthCheckHistory[]> {
-    this.logger.debug(`Fetching ${hours}h health check history for ${checkType}`);
+    this.logger.debug(
+      `Fetching ${hours}h health check history for ${checkType}`,
+    );
 
     try {
       const startDate = new Date();

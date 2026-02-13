@@ -73,7 +73,9 @@ export class TenantAssistanceService {
     dto: CreateTenantSmsConfigDto,
     adminUserId: string,
   ): Promise<TenantSmsConfigResult> {
-    this.logger.log(`Admin ${adminUserId} creating SMS config for tenant ${tenantId}`);
+    this.logger.log(
+      `Admin ${adminUserId} creating SMS config for tenant ${tenantId}`,
+    );
 
     try {
       const providerType = dto.provider_type || 'system';
@@ -99,9 +101,10 @@ export class TenantAssistanceService {
       }
 
       // Get system provider for Model B
-      const systemProvider = providerType === 'system'
-        ? await this.twilioProviderManagement.getSystemProviderStatus()
-        : null;
+      const systemProvider =
+        providerType === 'system'
+          ? await this.twilioProviderManagement.getSystemProviderStatus()
+          : null;
 
       if (providerType === 'system' && !systemProvider?.configured) {
         throw new BadRequestException(
@@ -155,7 +158,9 @@ export class TenantAssistanceService {
       });
 
       if (!provider) {
-        throw new BadRequestException('Twilio provider not registered in system');
+        throw new BadRequestException(
+          'Twilio provider not registered in system',
+        );
       }
 
       // Create SMS configuration
@@ -210,7 +215,10 @@ export class TenantAssistanceService {
         created_by_admin: adminUserId,
       };
     } catch (error) {
-      this.logger.error('Failed to create SMS config for tenant:', error.message);
+      this.logger.error(
+        'Failed to create SMS config for tenant:',
+        error.message,
+      );
       this.logger.error('Error stack:', error.stack);
 
       if (
@@ -245,7 +253,9 @@ export class TenantAssistanceService {
     dto: UpdateTenantSmsConfigDto,
     adminUserId: string,
   ): Promise<TenantSmsConfigResult> {
-    this.logger.log(`Admin ${adminUserId} updating SMS config ${configId} for tenant ${tenantId}`);
+    this.logger.log(
+      `Admin ${adminUserId} updating SMS config ${configId} for tenant ${tenantId}`,
+    );
 
     try {
       // Verify config exists and belongs to tenant
@@ -384,7 +394,9 @@ export class TenantAssistanceService {
     dto: CreateTenantWhatsAppConfigDto,
     adminUserId: string,
   ): Promise<TenantWhatsAppConfigResult> {
-    this.logger.log(`Admin ${adminUserId} creating WhatsApp config for tenant ${tenantId}`);
+    this.logger.log(
+      `Admin ${adminUserId} creating WhatsApp config for tenant ${tenantId}`,
+    );
 
     try {
       const providerType = dto.provider_type || 'system';
@@ -399,9 +411,11 @@ export class TenantAssistanceService {
       }
 
       // Check if tenant already has WhatsApp config
-      const existingConfig = await this.prisma.tenant_whatsapp_config.findFirst({
-        where: { tenant_id: tenantId },
-      });
+      const existingConfig = await this.prisma.tenant_whatsapp_config.findFirst(
+        {
+          where: { tenant_id: tenantId },
+        },
+      );
 
       if (existingConfig) {
         throw new ConflictException(
@@ -410,9 +424,10 @@ export class TenantAssistanceService {
       }
 
       // Get system provider for Model B
-      const systemProvider = providerType === 'system'
-        ? await this.twilioProviderManagement.getSystemProviderStatus()
-        : null;
+      const systemProvider =
+        providerType === 'system'
+          ? await this.twilioProviderManagement.getSystemProviderStatus()
+          : null;
 
       if (providerType === 'system' && !systemProvider?.configured) {
         throw new BadRequestException(
@@ -466,7 +481,9 @@ export class TenantAssistanceService {
       });
 
       if (!provider) {
-        throw new BadRequestException('Twilio provider not registered in system');
+        throw new BadRequestException(
+          'Twilio provider not registered in system',
+        );
       }
 
       // Create WhatsApp configuration
@@ -508,7 +525,9 @@ export class TenantAssistanceService {
         status: 'success',
       });
 
-      this.logger.log(`WhatsApp config created successfully for tenant ${tenantId}`);
+      this.logger.log(
+        `WhatsApp config created successfully for tenant ${tenantId}`,
+      );
 
       return {
         config_id: config.id,
@@ -521,7 +540,10 @@ export class TenantAssistanceService {
         created_by_admin: adminUserId,
       };
     } catch (error) {
-      this.logger.error('Failed to create WhatsApp config for tenant:', error.message);
+      this.logger.error(
+        'Failed to create WhatsApp config for tenant:',
+        error.message,
+      );
       this.logger.error('Error stack:', error.stack);
 
       if (
@@ -551,16 +573,20 @@ export class TenantAssistanceService {
     dto: UpdateTenantWhatsAppConfigDto,
     adminUserId: string,
   ): Promise<TenantWhatsAppConfigResult> {
-    this.logger.log(`Admin ${adminUserId} updating WhatsApp config ${configId}`);
+    this.logger.log(
+      `Admin ${adminUserId} updating WhatsApp config ${configId}`,
+    );
 
     try {
-      const existingConfig = await this.prisma.tenant_whatsapp_config.findFirst({
-        where: {
-          id: configId,
-          tenant_id: tenantId,
+      const existingConfig = await this.prisma.tenant_whatsapp_config.findFirst(
+        {
+          where: {
+            id: configId,
+            tenant_id: tenantId,
+          },
+          include: { tenant: true },
         },
-        include: { tenant: true },
-      });
+      );
 
       if (!existingConfig) {
         throw new NotFoundException(`WhatsApp config ${configId} not found`);
@@ -671,7 +697,10 @@ export class TenantAssistanceService {
    * @param configId - Config ID (optional, uses active config if not provided)
    * @returns Promise<TestResult>
    */
-  async testSmsConfig(tenantId: string, configId?: string): Promise<TestResult> {
+  async testSmsConfig(
+    tenantId: string,
+    configId?: string,
+  ): Promise<TestResult> {
     this.logger.log(`Testing SMS config for tenant ${tenantId}`);
 
     try {
@@ -752,7 +781,10 @@ export class TenantAssistanceService {
    * @param configId - Config ID (optional)
    * @returns Promise<TestResult>
    */
-  async testWhatsAppConfig(tenantId: string, configId?: string): Promise<TestResult> {
+  async testWhatsAppConfig(
+    tenantId: string,
+    configId?: string,
+  ): Promise<TestResult> {
     this.logger.log(`Testing WhatsApp config for tenant ${tenantId}`);
 
     try {

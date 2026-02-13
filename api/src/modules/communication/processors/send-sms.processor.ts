@@ -3,6 +3,8 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { SmsSenderService } from '../services/sms-sender.service';
+import { SmsKeywordDetectionService } from '../services/sms-keyword-detection.service';
+import { SmsMetricsService } from '../services/sms-metrics.service';
 
 /**
  * Send SMS Processor
@@ -22,6 +24,8 @@ export class SendSmsProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly smsSender: SmsSenderService,
+    private readonly smsKeywordDetection: SmsKeywordDetectionService,
+    private readonly metrics: SmsMetricsService,
   ) {
     super();
     this.logger.log('🚀 SendSmsProcessor worker initialized and ready');
@@ -48,11 +52,32 @@ export class SendSmsProcessor extends WorkerHost {
         );
       }
 
-      if (event.status !== 'pending') {
+      // Allow both 'pending' and 'scheduled' statuses
+      if (event.status !== 'pending' && event.status !== 'scheduled') {
         this.logger.warn(
           `Event ${communicationEventId} already processed (status: ${event.status})`,
         );
         return { success: false, reason: 'Already processed' };
+      }
+
+      // If scheduled, verify the scheduled time has arrived
+      if (event.scheduled_at) {
+        const now = new Date();
+        if (event.scheduled_at > now) {
+          const remainingMs = event.scheduled_at.getTime() - now.getTime();
+          this.logger.warn(
+            `SMS ${communicationEventId} not ready - scheduled for ${event.scheduled_at.toISOString()} (${remainingMs}ms remaining)`,
+          );
+          // This shouldn't normally happen since BullMQ handles delay,
+          // but if it does, we'll let the job fail and retry
+          throw new Error(
+            `SMS not ready - scheduled for ${event.scheduled_at.toISOString()}`,
+          );
+        }
+
+        this.logger.log(
+          `Processing scheduled SMS ${communicationEventId} (scheduled for ${event.scheduled_at.toISOString()})`,
+        );
       }
 
       // 2. Load tenant SMS config from database
@@ -99,7 +124,44 @@ export class SendSmsProcessor extends WorkerHost {
 
       const encryptedCredentials = config.credentials;
 
-      // 3. Send SMS via provider
+      // 3. Check if Lead has opted out of SMS (TCPA Compliance)
+      if (
+        event.related_entity_type === 'lead' &&
+        event.related_entity_id &&
+        event.tenant_id
+      ) {
+        const isOptedOut = await this.smsKeywordDetection.isOptedOut(
+          event.tenant_id,
+          event.related_entity_id,
+        );
+
+        if (isOptedOut) {
+          this.logger.warn(
+            `🚫 Blocked SMS to Lead ${event.related_entity_id} - user has opted out (TCPA compliance)`,
+          );
+
+          // Update communication_event status to blocked
+          await this.prisma.communication_event.update({
+            where: { id: communicationEventId },
+            data: {
+              status: 'failed',
+              error_message:
+                'Cannot send SMS: recipient has opted out (replied STOP)',
+            },
+          });
+
+          return {
+            success: false,
+            reason: 'Lead has opted out of SMS',
+          };
+        }
+
+        this.logger.debug(
+          `✅ Opt-out check passed for Lead ${event.related_entity_id}`,
+        );
+      }
+
+      // 4. Send SMS via provider
       const startTime = Date.now();
 
       const result = await this.smsSender.send(
@@ -116,7 +178,7 @@ export class SendSmsProcessor extends WorkerHost {
 
       const duration = Date.now() - startTime;
 
-      // 4. Update communication_event
+      // 5. Update communication_event
       await this.prisma.communication_event.update({
         where: { id: communicationEventId },
         data: {
@@ -126,6 +188,11 @@ export class SendSmsProcessor extends WorkerHost {
           sent_at: new Date(),
         },
       });
+
+      // 6. Record Prometheus metrics
+      const durationSeconds = duration / 1000;
+      this.metrics.incrementSmsSent(event.tenant_id);
+      this.metrics.recordTwilioApiDuration(event.tenant_id, durationSeconds);
 
       this.logger.log(
         `✅ SMS job ${jobId} completed - Message SID: ${result.messageSid} (${duration}ms)`,
@@ -144,6 +211,12 @@ export class SendSmsProcessor extends WorkerHost {
 
       // Update communication_event status to failed
       try {
+        // Load event to get tenant_id for metrics
+        const event = await this.prisma.communication_event.findUnique({
+          where: { id: communicationEventId },
+          select: { tenant_id: true },
+        });
+
         await this.prisma.communication_event.update({
           where: { id: communicationEventId },
           data: {
@@ -151,6 +224,14 @@ export class SendSmsProcessor extends WorkerHost {
             error_message: error.message,
           },
         });
+
+        // Record failure metric
+        if (event?.tenant_id) {
+          this.metrics.incrementSmsFailed(
+            event.tenant_id,
+            error.code || 'unknown',
+          );
+        }
       } catch (updateError) {
         this.logger.error(
           `Failed to update communication_event: ${updateError.message}`,

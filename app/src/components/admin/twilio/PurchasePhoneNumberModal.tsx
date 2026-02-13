@@ -156,7 +156,7 @@ export function PurchasePhoneNumberModal({
       </ModalContent>
 
       <ModalActions>
-        <Button onClick={handleClose} variant="outline" disabled={purchasing}>
+        <Button onClick={handleClose} variant="secondary" disabled={purchasing}>
           Cancel
         </Button>
         <Button onClick={handlePurchase} variant="primary" disabled={purchasing || !phoneNumber}>

@@ -72,7 +72,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   /**
    * Check if current route is public (no auth required)
    */
-  const isPublicRoute = pathname?.startsWith('/public') || pathname?.startsWith('/login') || pathname?.startsWith('/register') || pathname?.startsWith('/forgot-password') || pathname?.startsWith('/reset-password');
+  const isPublicRoute = pathname?.startsWith('/public') ||
+    pathname?.startsWith('/login') ||
+    pathname?.startsWith('/register') ||
+    pathname?.startsWith('/forgot-password') ||
+    pathname?.startsWith('/reset-password');
 
   console.log('[AUTH CONTEXT] Route check:', {
     pathname,

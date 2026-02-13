@@ -73,14 +73,11 @@ export class TranscriptionJobService {
         tenant_id: true,
         recording_url: true,
         recording_status: true,
-        transcription_id: true,
       },
     });
 
     if (!callRecord) {
-      throw new NotFoundException(
-        `Call record not found: ${callRecordId}`,
-      );
+      throw new NotFoundException(`Call record not found: ${callRecordId}`);
     }
 
     // Validate recording is available
@@ -95,25 +92,26 @@ export class TranscriptionJobService {
       };
     }
 
-    // Check if transcription already exists
-    if (callRecord.transcription_id) {
-      const existingTranscription =
-        await this.prisma.call_transcription.findUnique({
-          where: { id: callRecord.transcription_id },
-          select: { id: true, status: true },
-        });
+    // Check if current (active) transcription already exists
+    const existingTranscription =
+      await this.prisma.call_transcription.findFirst({
+        where: {
+          call_record_id: callRecordId,
+          is_current: true,
+        },
+        select: { id: true, status: true },
+      });
 
-      if (existingTranscription) {
-        this.logger.warn(
-          `Transcription already exists for call ${callRecordId}: ${existingTranscription.id} (${existingTranscription.status})`,
-        );
-        return {
-          success: false,
-          reason: 'already_exists',
-          transcriptionId: existingTranscription.id,
-          status: existingTranscription.status,
-        };
-      }
+    if (existingTranscription) {
+      this.logger.warn(
+        `Transcription already exists for call ${callRecordId}: ${existingTranscription.id} (${existingTranscription.status})`,
+      );
+      return {
+        success: false,
+        reason: 'already_exists',
+        transcriptionId: existingTranscription.id,
+        status: existingTranscription.status,
+      };
     }
 
     // Create transcription record in queued state
@@ -123,12 +121,11 @@ export class TranscriptionJobService {
         call_record_id: callRecord.id,
         transcription_provider: 'openai_whisper', // Will be overridden by processor based on active provider
         status: 'queued',
+        is_current: true, // New field for retry support
       },
     });
 
-    this.logger.log(
-      `Created transcription record: ${transcription.id}`,
-    );
+    this.logger.log(`Created transcription record: ${transcription.id}`);
 
     // Queue job for async processing
     await this.transcriptionQueue.add(
@@ -161,12 +158,11 @@ export class TranscriptionJobService {
       `Transcription job queued successfully for call ${callRecordId}`,
     );
 
-    // Update call record to track transcription
+    // Update call record status
     await this.prisma.call_record.update({
       where: { id: callRecordId },
       data: {
         recording_status: 'processing_transcription',
-        transcription_id: transcription.id,
       },
     });
 
@@ -342,10 +338,7 @@ export class TranscriptionJobService {
    * @param tenantId - Tenant ID for isolation
    * @returns Array of transcription records
    */
-  async listTranscriptionsForCall(
-    callRecordId: string,
-    tenantId: string,
-  ) {
+  async listTranscriptionsForCall(callRecordId: string, tenantId: string) {
     return this.prisma.call_transcription.findMany({
       where: {
         call_record_id: callRecordId,
@@ -436,20 +429,19 @@ export class TranscriptionJobService {
       },
     });
 
-    const totalProcessingTime =
-      await this.prisma.call_transcription.aggregate({
-        where: {
-          tenant_id: tenantId,
-          status: 'completed',
-        },
-        _sum: {
-          processing_duration_seconds: true,
-        },
-        _avg: {
-          processing_duration_seconds: true,
-          confidence_score: true,
-        },
-      });
+    const totalProcessingTime = await this.prisma.call_transcription.aggregate({
+      where: {
+        tenant_id: tenantId,
+        status: 'completed',
+      },
+      _sum: {
+        processing_duration_seconds: true,
+      },
+      _avg: {
+        processing_duration_seconds: true,
+        confidence_score: true,
+      },
+    });
 
     return {
       byStatus: stats.reduce(
@@ -461,53 +453,137 @@ export class TranscriptionJobService {
       ),
       processing: {
         totalSeconds: totalProcessingTime._sum.processing_duration_seconds || 0,
-        averageSeconds: totalProcessingTime._avg.processing_duration_seconds || 0,
+        averageSeconds:
+          totalProcessingTime._avg.processing_duration_seconds || 0,
         averageConfidence: totalProcessingTime._avg.confidence_score || 0,
       },
     };
   }
 
   /**
-   * Retry failed transcription
+   * Retry failed or poor quality transcription
    *
-   * Re-queues a failed transcription for processing.
+   * Creates a new transcription record and re-queues the job.
+   * Marks the previous transcription as superseded (is_current = false).
+   * Increments retry counter for tracking.
    *
-   * @param transcriptionId - Transcription ID
+   * @param transcriptionId - ID of transcription to retry
    * @param tenantId - Tenant ID for isolation
-   * @throws NotFoundException if transcription not found
+   * @param reason - Optional reason for retry (for audit purposes)
+   * @returns New transcription record details
+   * @throws NotFoundException if transcription not found or no recording URL
+   *
+   * @example
+   * ```typescript
+   * const result = await retryTranscription(
+   *   'trans-123',
+   *   'tenant-456',
+   *   'Poor quality, retrying with different settings'
+   * );
+   * console.log(result.new_transcription_id); // ID of new transcription
+   * ```
    */
-  async retryTranscription(transcriptionId: string, tenantId: string) {
-    const transcription = await this.prisma.call_transcription.findFirst({
-      where: {
-        id: transcriptionId,
-        tenant_id: tenantId,
-      },
-      include: {
-        call_record: true,
-      },
-    });
+  async retryTranscription(
+    transcriptionId: string,
+    tenantId: string,
+    reason?: string,
+  ) {
+    this.logger.log(
+      `Retrying transcription ${transcriptionId}${reason ? `: ${reason}` : ''}`,
+    );
 
-    if (!transcription) {
+    // Fetch existing transcription with call record details
+    const existingTranscription =
+      await this.prisma.call_transcription.findFirst({
+        where: {
+          id: transcriptionId,
+          tenant_id: tenantId,
+        },
+        include: {
+          call_record: {
+            select: {
+              id: true,
+              tenant_id: true,
+              recording_url: true,
+              recording_duration_seconds: true,
+            },
+          },
+        },
+      });
+
+    if (!existingTranscription) {
       throw new NotFoundException(
         `Transcription not found: ${transcriptionId}`,
       );
     }
 
-    // Update status to queued
+    // Validate recording URL is still available
+    if (!existingTranscription.call_record.recording_url) {
+      throw new NotFoundException(
+        `Recording URL not available for call ${existingTranscription.call_record_id}. Cannot retry transcription.`,
+      );
+    }
+
+    // Check if there's already a pending retry for this call
+    const existingPendingRetry = await this.prisma.call_transcription.findFirst(
+      {
+        where: {
+          call_record_id: existingTranscription.call_record_id,
+          status: {
+            in: ['queued', 'processing'],
+          },
+          is_current: true,
+        },
+      },
+    );
+
+    if (existingPendingRetry && existingPendingRetry.id !== transcriptionId) {
+      this.logger.warn(
+        `Retry already in progress for call ${existingTranscription.call_record_id}: ${existingPendingRetry.id}`,
+      );
+      return {
+        success: false,
+        reason: 'retry_in_progress',
+        message: 'A retry is already in progress for this call recording',
+        existing_retry_id: existingPendingRetry.id,
+      };
+    }
+
+    // Mark old transcription as superseded (no longer current)
     await this.prisma.call_transcription.update({
       where: { id: transcriptionId },
       data: {
-        status: 'queued',
-        error_message: null,
+        is_current: false,
       },
     });
 
-    // Re-queue job
+    this.logger.debug(
+      `Marked transcription ${transcriptionId} as superseded (is_current = false)`,
+    );
+
+    // Create new transcription record for retry
+    const newTranscription = await this.prisma.call_transcription.create({
+      data: {
+        tenant_id: existingTranscription.tenant_id,
+        call_record_id: existingTranscription.call_record_id,
+        transcription_provider: existingTranscription.transcription_provider,
+        status: 'queued',
+        is_current: true,
+        retry_count: existingTranscription.retry_count + 1,
+        previous_transcription_id: transcriptionId,
+      },
+    });
+
+    this.logger.log(
+      `Created new transcription record ${newTranscription.id} (retry #${newTranscription.retry_count})`,
+    );
+
+    // Queue job for processing
     await this.transcriptionQueue.add(
       'process-transcription',
       {
-        callRecordId: transcription.call_record_id,
-        transcriptionId: transcription.id,
+        callRecordId: existingTranscription.call_record_id,
+        transcriptionId: newTranscription.id,
       },
       {
         attempts: 3,
@@ -515,18 +591,227 @@ export class TranscriptionJobService {
           type: 'exponential',
           delay: 30000,
         },
-        priority: 5, // Higher priority for retries
+        priority: 5, // Higher priority for manual retries
+        removeOnComplete: {
+          age: 86400,
+          count: 1000,
+        },
+        removeOnFail: false,
       },
     );
 
     this.logger.log(
-      `Transcription ${transcriptionId} re-queued for retry`,
+      `Transcription retry queued successfully: ${newTranscription.id}`,
     );
+
+    // Update call record status
+    await this.prisma.call_record.update({
+      where: { id: existingTranscription.call_record_id },
+      data: {
+        recording_status: 'processing_transcription',
+      },
+    });
 
     return {
       success: true,
-      transcriptionId,
+      transcription_id: newTranscription.id,
+      previous_transcription_id: transcriptionId,
+      call_record_id: existingTranscription.call_record_id,
+      retry_count: newTranscription.retry_count,
       status: 'queued',
+      recording_url: existingTranscription.call_record.recording_url,
+      message: `Transcription retry queued successfully. Previous attempt (${transcriptionId}) superseded.`,
+    };
+  }
+
+  /**
+   * Transcribe a call (create new or retry existing transcription)
+   *
+   * More flexible than retryTranscription - works with call record ID.
+   * Creates transcription if none exists, or retries if one exists.
+   *
+   * Use cases:
+   * - Call was never transcribed (webhook failed)
+   * - Want to manually trigger transcription
+   * - Recording was delayed and missed automatic processing
+   *
+   * @param callRecordId - Call record ID to transcribe
+   * @param tenantId - Tenant ID for isolation
+   * @param reason - Optional reason (for audit purposes)
+   * @returns Transcription details (new or retried)
+   * @throws NotFoundException if call not found or no recording
+   */
+  async transcribeCall(
+    callRecordId: string,
+    tenantId: string,
+    reason?: string,
+  ) {
+    this.logger.log(
+      `Transcribing call ${callRecordId}${reason ? `: ${reason}` : ''}`,
+    );
+
+    // Find call record with recording details
+    const callRecord = await this.prisma.call_record.findFirst({
+      where: {
+        id: callRecordId,
+        tenant_id: tenantId,
+      },
+      select: {
+        id: true,
+        tenant_id: true,
+        recording_url: true,
+        recording_duration_seconds: true,
+        recording_status: true,
+      },
+    });
+
+    if (!callRecord) {
+      throw new NotFoundException(`Call record not found: ${callRecordId}`);
+    }
+
+    // Validate recording is available
+    if (!callRecord.recording_url) {
+      throw new NotFoundException(
+        `Recording not available for call ${callRecordId}. Cannot transcribe.`,
+      );
+    }
+
+    // Check if current transcription exists
+    const currentTranscription = await this.prisma.call_transcription.findFirst(
+      {
+        where: {
+          call_record_id: callRecordId,
+          is_current: true,
+        },
+      },
+    );
+
+    // If transcription exists, retry it
+    if (currentTranscription) {
+      this.logger.log(
+        `Found existing transcription ${currentTranscription.id}, retrying...`,
+      );
+
+      // Check if already processing
+      if (['queued', 'processing'].includes(currentTranscription.status)) {
+        this.logger.warn(
+          `Transcription ${currentTranscription.id} is already ${currentTranscription.status}`,
+        );
+        return {
+          success: false,
+          reason: 'already_processing',
+          message: `Transcription is already ${currentTranscription.status}`,
+          transcription_id: currentTranscription.id,
+          status: currentTranscription.status,
+        };
+      }
+
+      // Mark old as superseded
+      await this.prisma.call_transcription.update({
+        where: { id: currentTranscription.id },
+        data: { is_current: false },
+      });
+
+      // Create retry
+      const newTranscription = await this.prisma.call_transcription.create({
+        data: {
+          tenant_id: callRecord.tenant_id,
+          call_record_id: callRecord.id,
+          transcription_provider: currentTranscription.transcription_provider,
+          status: 'queued',
+          is_current: true,
+          retry_count: currentTranscription.retry_count + 1,
+          previous_transcription_id: currentTranscription.id,
+        },
+      });
+
+      this.logger.log(
+        `Created retry transcription ${newTranscription.id} (attempt #${newTranscription.retry_count + 1})`,
+      );
+
+      // Queue job
+      await this.transcriptionQueue.add(
+        'process-transcription',
+        {
+          callRecordId: callRecord.id,
+          transcriptionId: newTranscription.id,
+        },
+        {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 30000 },
+          priority: 5,
+          removeOnComplete: { age: 86400, count: 1000 },
+          removeOnFail: false,
+        },
+      );
+
+      // Update call status
+      await this.prisma.call_record.update({
+        where: { id: callRecordId },
+        data: { recording_status: 'processing_transcription' },
+      });
+
+      return {
+        success: true,
+        transcription_id: newTranscription.id,
+        previous_transcription_id: currentTranscription.id,
+        call_record_id: callRecordId,
+        retry_count: newTranscription.retry_count,
+        status: 'queued',
+        recording_url: callRecord.recording_url,
+        message: `Transcription retry queued (attempt #${newTranscription.retry_count + 1}). Previous attempt superseded.`,
+      };
+    }
+
+    // No transcription exists - create first one
+    this.logger.log(
+      `No existing transcription found, creating first transcription...`,
+    );
+
+    const transcription = await this.prisma.call_transcription.create({
+      data: {
+        tenant_id: callRecord.tenant_id,
+        call_record_id: callRecord.id,
+        transcription_provider: 'openai_whisper',
+        status: 'queued',
+        is_current: true,
+        retry_count: 0,
+      },
+    });
+
+    this.logger.log(`Created first transcription record: ${transcription.id}`);
+
+    // Queue job
+    await this.transcriptionQueue.add(
+      'process-transcription',
+      {
+        callRecordId: callRecord.id,
+        transcriptionId: transcription.id,
+      },
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 30000 },
+        priority: 5,
+        removeOnComplete: { age: 86400, count: 1000 },
+        removeOnFail: false,
+      },
+    );
+
+    // Update call status
+    await this.prisma.call_record.update({
+      where: { id: callRecordId },
+      data: { recording_status: 'processing_transcription' },
+    });
+
+    return {
+      success: true,
+      transcription_id: transcription.id,
+      previous_transcription_id: null,
+      call_record_id: callRecordId,
+      retry_count: 0,
+      status: 'queued',
+      recording_url: callRecord.recording_url,
+      message: 'First transcription queued successfully.',
     };
   }
 }

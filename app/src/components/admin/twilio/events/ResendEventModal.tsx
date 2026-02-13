@@ -65,8 +65,8 @@ export function ResendEventModal({ isOpen, onClose, event, onSuccess }: ResendEv
             {/* Event Summary */}
             <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline">{event.channel.toUpperCase()}</Badge>
-                <Badge variant={event.status === 'failed' ? 'destructive' : 'default'}>
+                <Badge variant="neutral">{event.channel.toUpperCase()}</Badge>
+                <Badge variant={event.status === 'failed' ? 'danger' : 'neutral'}>
                   {event.status}
                 </Badge>
               </div>
@@ -97,7 +97,7 @@ export function ResendEventModal({ isOpen, onClose, event, onSuccess }: ResendEv
         </ModalContent>
 
         <ModalActions>
-          <Button onClick={handleClose} variant="outline" disabled={resending}>
+          <Button onClick={handleClose} variant="secondary" disabled={resending}>
             Cancel
           </Button>
           <Button onClick={handleResend} disabled={resending} className="bg-blue-600 hover:bg-blue-700 text-white">

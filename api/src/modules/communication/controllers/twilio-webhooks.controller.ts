@@ -4,13 +4,22 @@ import {
   Body,
   Headers,
   Req,
+  Param,
+  Header,
   Logger,
   BadRequestException,
   UnauthorizedException,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiExcludeEndpoint } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiExcludeEndpoint,
+} from '@nestjs/swagger';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import type { Request } from 'express';
 import { Public } from '../../auth/decorators';
 import { CallManagementService } from '../services/call-management.service';
@@ -19,8 +28,14 @@ import { IvrConfigurationService } from '../services/ivr-configuration.service';
 import { OfficeBypassService } from '../services/office-bypass.service';
 import { WebhookVerificationService } from '../services/webhook-verification.service';
 import { TranscriptionJobService } from '../services/transcription-job.service';
+import {
+  SmsKeywordDetectionService,
+  SmsKeywordAction,
+} from '../services/sms-keyword-detection.service';
+import { SmsMetricsService } from '../services/sms-metrics.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { EncryptionService } from '../../../core/encryption/encryption.service';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Twilio Webhooks Controller (Public Endpoints)
@@ -59,6 +74,9 @@ export class TwilioWebhooksController {
     private readonly bypassService: OfficeBypassService,
     private readonly webhookVerification: WebhookVerificationService,
     private readonly transcriptionService: TranscriptionJobService,
+    private readonly smsKeywordDetection: SmsKeywordDetectionService,
+    private readonly metrics: SmsMetricsService,
+    @InjectQueue('communication-sms') private readonly smsQueue: Queue,
     private readonly prisma: PrismaService,
     private readonly encryption: EncryptionService,
   ) {}
@@ -97,6 +115,35 @@ export class TwilioWebhooksController {
       `Inbound SMS webhook received: ${body.MessageSid} from ${body.From}`,
     );
 
+    // Log all request headers for debugging signature verification
+    this.logger.debug('[HEADERS] ========== Request Headers ==========');
+    this.logger.debug(`[HEADERS] Host: ${request.get('host')}`);
+    this.logger.debug(
+      `[HEADERS] X-Forwarded-Host: ${request.get('x-forwarded-host') || '(not set)'}`,
+    );
+    this.logger.debug(
+      `[HEADERS] X-Forwarded-Proto: ${request.get('x-forwarded-proto') || '(not set)'}`,
+    );
+    this.logger.debug(
+      `[HEADERS] X-Forwarded-For: ${request.get('x-forwarded-for') || '(not set)'}`,
+    );
+    this.logger.debug(
+      `[HEADERS] X-Real-IP: ${request.get('x-real-ip') || '(not set)'}`,
+    );
+    this.logger.debug(
+      `[HEADERS] X-Tenant-Subdomain: ${request.get('x-tenant-subdomain') || '(not set)'}`,
+    );
+    this.logger.debug(`[HEADERS] X-Twilio-Signature: ${signature}`);
+    this.logger.debug(`[HEADERS] Protocol: ${request.protocol}`);
+    this.logger.debug(`[HEADERS] Original URL: ${request.originalUrl}`);
+    this.logger.debug(`[HEADERS] Path: ${request.path}`);
+    this.logger.debug(
+      `[HEADERS] Query String: ${request.url.includes('?') ? request.url.split('?')[1] : '(none)'}`,
+    );
+    this.logger.debug(
+      '[HEADERS] ===============================================',
+    );
+
     // Step 1: Extract tenant from subdomain
     const tenantId = await this.resolveTenantFromSubdomain(request);
 
@@ -108,7 +155,9 @@ export class TwilioWebhooksController {
 
     this.logger.debug(`Verifying signature for URL: ${url}`);
 
-    if (!this.webhookVerification.verifyTwilio(url, body, signature, authToken)) {
+    if (
+      !this.webhookVerification.verifyTwilio(url, body, signature, authToken)
+    ) {
       this.logger.error(
         `❌ Invalid Twilio signature for SMS webhook (tenant: ${tenantId})`,
       );
@@ -129,10 +178,92 @@ export class TwilioWebhooksController {
       // Continue processing even if lead matching fails
     }
 
-    // Step 4: Create communication event for SMS (optional - mainly for tracking)
-    // Note: For MVP, we're skipping communication_event creation for inbound SMS
-    // as the primary tracking is done via Lead matching and notes
-    // TODO: Future enhancement - create communication events for full audit trail
+    // Step 4: Detect SMS keywords (STOP/START/HELP) for TCPA compliance
+    if (leadId && body.Body) {
+      const keywordResult = this.smsKeywordDetection.detectKeyword(body.Body);
+
+      if (keywordResult.action !== SmsKeywordAction.NONE) {
+        this.logger.log(
+          `🔔 Keyword detected: ${keywordResult.keyword} (action: ${keywordResult.action}) for Lead ${leadId}`,
+        );
+
+        // Process opt-out action
+        if (keywordResult.action === SmsKeywordAction.OPT_OUT) {
+          await this.smsKeywordDetection.processOptOut(
+            tenantId,
+            leadId,
+            `User sent: ${keywordResult.keyword}`,
+          );
+        }
+        // Process opt-in action
+        else if (keywordResult.action === SmsKeywordAction.OPT_IN) {
+          await this.smsKeywordDetection.processOptIn(tenantId, leadId);
+        }
+
+        // Send auto-reply SMS (for all keywords: STOP, START, HELP)
+        if (keywordResult.autoReplyMessage) {
+          try {
+            await this.sendAutoReplySms(
+              tenantId,
+              body.From,
+              body.To,
+              keywordResult.autoReplyMessage,
+              leadId,
+            );
+            this.logger.log(
+              `✅ Auto-reply SMS queued for keyword: ${keywordResult.keyword}`,
+            );
+          } catch (error) {
+            this.logger.error(
+              `Failed to send auto-reply SMS: ${error.message}`,
+            );
+            // Don't throw - webhook should still return 200 OK
+          }
+        }
+      }
+    }
+
+    // Step 5: Create communication event for inbound SMS (for history tracking)
+    try {
+      // Get Twilio SMS provider
+      const twilioProvider = await this.prisma.communication_provider.findFirst(
+        {
+          where: { provider_key: 'twilio_sms' },
+        },
+      );
+
+      if (!twilioProvider) {
+        this.logger.error('Twilio SMS provider not found in database');
+      } else {
+        // Create communication_event for inbound SMS
+        await this.prisma.communication_event.create({
+          data: {
+            id: uuidv4(),
+            tenant_id: tenantId,
+            provider_id: twilioProvider.id,
+            channel: 'sms',
+            direction: 'inbound', // CRITICAL: Mark as inbound
+            status: 'delivered', // Inbound SMS are already delivered
+            to_phone: body.From, // Sender's phone (who we received from)
+            text_body: body.Body || '', // SMS content
+            provider_message_id: body.MessageSid, // Twilio Message SID
+            delivered_at: new Date(), // Already delivered (inbound)
+            related_entity_type: leadId ? 'lead' : null,
+            related_entity_id: leadId,
+            // Note: created_by_user_id is null for inbound (not initiated by user)
+          },
+        });
+
+        this.logger.log(
+          `✅ Communication event created for inbound SMS: ${body.MessageSid}`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to create communication_event for inbound SMS: ${error.message}`,
+      );
+      // Don't throw - webhook should still return 200 OK
+    }
 
     this.logger.log(`✅ Inbound SMS processed: ${body.MessageSid}`);
 
@@ -172,6 +303,35 @@ export class TwilioWebhooksController {
       `Inbound call webhook received: ${body.CallSid} from ${body.From}`,
     );
 
+    // Log all request headers for debugging signature verification
+    this.logger.debug('[HEADERS] ========== Request Headers ==========');
+    this.logger.debug(`[HEADERS] Host: ${request.get('host')}`);
+    this.logger.debug(
+      `[HEADERS] X-Forwarded-Host: ${request.get('x-forwarded-host') || '(not set)'}`,
+    );
+    this.logger.debug(
+      `[HEADERS] X-Forwarded-Proto: ${request.get('x-forwarded-proto') || '(not set)'}`,
+    );
+    this.logger.debug(
+      `[HEADERS] X-Forwarded-For: ${request.get('x-forwarded-for') || '(not set)'}`,
+    );
+    this.logger.debug(
+      `[HEADERS] X-Real-IP: ${request.get('x-real-ip') || '(not set)'}`,
+    );
+    this.logger.debug(
+      `[HEADERS] X-Tenant-Subdomain: ${request.get('x-tenant-subdomain') || '(not set)'}`,
+    );
+    this.logger.debug(`[HEADERS] X-Twilio-Signature: ${signature}`);
+    this.logger.debug(`[HEADERS] Protocol: ${request.protocol}`);
+    this.logger.debug(`[HEADERS] Original URL: ${request.originalUrl}`);
+    this.logger.debug(`[HEADERS] Path: ${request.path}`);
+    this.logger.debug(
+      `[HEADERS] Query String: ${request.url.includes('?') ? request.url.split('?')[1] : '(none)'}`,
+    );
+    this.logger.debug(
+      '[HEADERS] ===============================================',
+    );
+
     // Extract tenant
     const tenantId = await this.resolveTenantFromSubdomain(request);
 
@@ -179,7 +339,9 @@ export class TwilioWebhooksController {
     const authToken = await this.getTenantTwilioAuthToken(tenantId);
     const url = this.buildWebhookUrl(request);
 
-    if (!this.webhookVerification.verifyTwilio(url, body, signature, authToken)) {
+    if (
+      !this.webhookVerification.verifyTwilio(url, body, signature, authToken)
+    ) {
       this.logger.error('❌ Invalid Twilio signature for call webhook');
       throw new UnauthorizedException('Invalid Twilio signature');
     }
@@ -225,6 +387,35 @@ export class TwilioWebhooksController {
 
     this.logger.log(`Call status webhook: ${CallSid} - ${CallStatus}`);
 
+    // Log all request headers for debugging signature verification
+    this.logger.debug('[HEADERS] ========== Request Headers ==========');
+    this.logger.debug(`[HEADERS] Host: ${request.get('host')}`);
+    this.logger.debug(
+      `[HEADERS] X-Forwarded-Host: ${request.get('x-forwarded-host') || '(not set)'}`,
+    );
+    this.logger.debug(
+      `[HEADERS] X-Forwarded-Proto: ${request.get('x-forwarded-proto') || '(not set)'}`,
+    );
+    this.logger.debug(
+      `[HEADERS] X-Forwarded-For: ${request.get('x-forwarded-for') || '(not set)'}`,
+    );
+    this.logger.debug(
+      `[HEADERS] X-Real-IP: ${request.get('x-real-ip') || '(not set)'}`,
+    );
+    this.logger.debug(
+      `[HEADERS] X-Tenant-Subdomain: ${request.get('x-tenant-subdomain') || '(not set)'}`,
+    );
+    this.logger.debug(`[HEADERS] X-Twilio-Signature: ${signature}`);
+    this.logger.debug(`[HEADERS] Protocol: ${request.protocol}`);
+    this.logger.debug(`[HEADERS] Original URL: ${request.originalUrl}`);
+    this.logger.debug(`[HEADERS] Path: ${request.path}`);
+    this.logger.debug(
+      `[HEADERS] Query String: ${request.url.includes('?') ? request.url.split('?')[1] : '(none)'}`,
+    );
+    this.logger.debug(
+      '[HEADERS] ===============================================',
+    );
+
     // Extract tenant
     const tenantId = await this.resolveTenantFromSubdomain(request);
 
@@ -232,13 +423,33 @@ export class TwilioWebhooksController {
     const authToken = await this.getTenantTwilioAuthToken(tenantId);
     const url = this.buildWebhookUrl(request);
 
-    if (!this.webhookVerification.verifyTwilio(url, body, signature, authToken)) {
+    if (
+      !this.webhookVerification.verifyTwilio(url, body, signature, authToken)
+    ) {
       this.logger.error('❌ Invalid Twilio signature for status webhook');
       throw new UnauthorizedException('Invalid Twilio signature');
     }
 
+    // Check if this is a child call (created by <Dial> verb)
+    // Child calls have ParentCallSid and Direction = "outbound-dial"
+    const isChildCall =
+      body.ParentCallSid && body.Direction === 'outbound-dial';
+
+    if (isChildCall) {
+      this.logger.debug(
+        `[CHILD CALL] Ignoring status webhook for child call ${CallSid} (parent: ${body.ParentCallSid}). Child calls are created by <Dial> and don't have call_records.`,
+      );
+      return {};
+    }
+
     // Handle status update based on call state
     switch (CallStatus) {
+      case 'initiated':
+        this.logger.debug(`Call ${CallSid} initiated`);
+        // Initial status - call is being placed
+        // Call record already created with status 'initiated'
+        break;
+
       case 'ringing':
         this.logger.debug(`Call ${CallSid} is ringing`);
         // Status already set to 'initiated' when call was created
@@ -251,7 +462,10 @@ export class TwilioWebhooksController {
 
       case 'completed':
         this.logger.log(`Call ${CallSid} completed (${CallDuration}s)`);
-        await this.callService.handleCallEnded(CallSid, parseInt(CallDuration || '0', 10));
+        await this.callService.handleCallEnded(
+          CallSid,
+          parseInt(CallDuration || '0', 10),
+        );
         break;
 
       case 'failed':
@@ -304,47 +518,68 @@ export class TwilioWebhooksController {
     @Headers('x-twilio-signature') signature: string,
     @Req() request: Request,
   ) {
+    const startTime = Date.now();
     const { MessageSid, MessageStatus, ErrorCode, ErrorMessage } = body;
 
     this.logger.log(`SMS status webhook: ${MessageSid} - ${MessageStatus}`);
 
-    // Extract tenant
-    const tenantId = await this.resolveTenantFromSubdomain(request);
+    try {
+      // Extract tenant
+      const tenantId = await this.resolveTenantFromSubdomain(request);
 
-    // Verify signature
-    const authToken = await this.getTenantTwilioAuthToken(tenantId);
-    const url = this.buildWebhookUrl(request);
+      // Verify signature
+      const authToken = await this.getTenantTwilioAuthToken(tenantId);
+      const url = this.buildWebhookUrl(request);
 
-    if (!this.webhookVerification.verifyTwilio(url, body, signature, authToken)) {
-      this.logger.error('❌ Invalid Twilio signature for SMS status webhook');
-      throw new UnauthorizedException('Invalid Twilio signature');
+      if (
+        !this.webhookVerification.verifyTwilio(url, body, signature, authToken)
+      ) {
+        this.logger.error('❌ Invalid Twilio signature for SMS status webhook');
+        throw new UnauthorizedException('Invalid Twilio signature');
+      }
+
+      // Update communication event status
+      const updateData: any = {
+        status: MessageStatus,
+        updated_at: new Date(),
+      };
+
+      if (MessageStatus === 'delivered') {
+        updateData.delivered_at = new Date();
+      } else if (MessageStatus === 'sent') {
+        updateData.sent_at = new Date();
+      } else if (MessageStatus === 'failed' || MessageStatus === 'undelivered') {
+        updateData.error_message = ErrorMessage || `Error code: ${ErrorCode}`;
+      }
+
+      await this.prisma.communication_event.updateMany({
+        where: {
+          tenant_id: tenantId,
+          provider_message_id: MessageSid,
+        },
+        data: updateData,
+      });
+
+      // Record Prometheus metrics
+      if (MessageStatus === 'delivered') {
+        this.metrics.incrementSmsDelivered(tenantId);
+      } else if (MessageStatus === 'failed' || MessageStatus === 'undelivered') {
+        this.metrics.incrementSmsFailed(tenantId, ErrorCode);
+      }
+
+      const duration = (Date.now() - startTime) / 1000;
+      this.metrics.recordWebhookProcessing('twilio', duration);
+
+      this.logger.log(
+        `✅ SMS status updated: ${MessageSid} -> ${MessageStatus}`,
+      );
+
+      return {};
+    } catch (error) {
+      const duration = (Date.now() - startTime) / 1000;
+      this.metrics.recordWebhookProcessing('twilio', duration);
+      throw error;
     }
-
-    // Update communication event status
-    const updateData: any = {
-      status: MessageStatus,
-      updated_at: new Date(),
-    };
-
-    if (MessageStatus === 'delivered') {
-      updateData.delivered_at = new Date();
-    } else if (MessageStatus === 'sent') {
-      updateData.sent_at = new Date();
-    } else if (MessageStatus === 'failed' || MessageStatus === 'undelivered') {
-      updateData.error_message = ErrorMessage || `Error code: ${ErrorCode}`;
-    }
-
-    await this.prisma.communication_event.updateMany({
-      where: {
-        tenant_id: tenantId,
-        provider_message_id: MessageSid,
-      },
-      data: updateData,
-    });
-
-    this.logger.log(`✅ SMS status updated: ${MessageSid} -> ${MessageStatus}`);
-
-    return {};
   }
 
   /**
@@ -389,7 +624,9 @@ export class TwilioWebhooksController {
     const authToken = await this.getTenantTwilioAuthToken(tenantId);
     const url = this.buildWebhookUrl(request);
 
-    if (!this.webhookVerification.verifyTwilio(url, body, signature, authToken)) {
+    if (
+      !this.webhookVerification.verifyTwilio(url, body, signature, authToken)
+    ) {
       this.logger.error('❌ Invalid Twilio signature for recording webhook');
       throw new UnauthorizedException('Invalid Twilio signature');
     }
@@ -445,7 +682,9 @@ export class TwilioWebhooksController {
     const authToken = await this.getTenantTwilioAuthToken(tenantId);
     const url = this.buildWebhookUrl(request);
 
-    if (!this.webhookVerification.verifyTwilio(url, body, signature, authToken)) {
+    if (
+      !this.webhookVerification.verifyTwilio(url, body, signature, authToken)
+    ) {
       this.logger.error('❌ Invalid Twilio signature for IVR webhook');
       throw new UnauthorizedException('Invalid Twilio signature');
     }
@@ -583,12 +822,8 @@ export class TwilioWebhooksController {
       updateData.sent_at = new Date();
     } else if (MessageStatus === 'read') {
       updateData.read_at = new Date();
-    } else if (
-      MessageStatus === 'failed' ||
-      MessageStatus === 'undelivered'
-    ) {
-      updateData.error_message =
-        ErrorMessage || `Error code: ${ErrorCode}`;
+    } else if (MessageStatus === 'failed' || MessageStatus === 'undelivered') {
+      updateData.error_message = ErrorMessage || `Error code: ${ErrorCode}`;
     }
 
     // Update communication event
@@ -609,6 +844,246 @@ export class TwilioWebhooksController {
   }
 
   /**
+   * Call Bridge Webhook
+   * Returns TwiML to bridge user call to Lead
+   */
+  @Post('call/connect/:callRecordId')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Header('Content-Type', 'text/xml')
+  @ApiOperation({
+    summary: 'Twilio call bridge webhook (PUBLIC)',
+    description:
+      'Returns TwiML to bridge the user to the Lead when user answers the call',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'TwiML response returned',
+  })
+  @ApiExcludeEndpoint()
+  async handleCallConnect(
+    @Param('callRecordId') callRecordId: string,
+    @Body() payload: any,
+    @Headers('x-twilio-signature') signature: string,
+    @Req() req: Request,
+  ) {
+    this.logger.log(`Call bridge webhook for CallRecord: ${callRecordId}`);
+
+    try {
+      // Get call record to retrieve tenant_id
+      const callRecord = await this.prisma.call_record.findUnique({
+        where: { id: callRecordId },
+        select: { tenant_id: true },
+      });
+
+      if (!callRecord || !callRecord.tenant_id) {
+        this.logger.error(`CallRecord not found: ${callRecordId}`);
+        return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>We're sorry, we couldn't connect your call. Please try again later.</Say><Hangup/></Response>`;
+      }
+
+      // Verify Twilio signature
+      const authToken = await this.getTenantTwilioAuthToken(
+        callRecord.tenant_id,
+      );
+      const url = this.buildWebhookUrl(req);
+
+      if (
+        !this.webhookVerification.verifyTwilio(
+          url,
+          payload,
+          signature,
+          authToken,
+        )
+      ) {
+        this.logger.error(
+          '❌ Invalid Twilio signature for call bridge webhook',
+        );
+        throw new UnauthorizedException('Invalid Twilio signature');
+      }
+
+      // Generate TwiML to bridge call to Lead
+      const twiml = await this.callService.bridgeCallToLead(callRecordId);
+
+      return twiml;
+    } catch (error) {
+      this.logger.error(
+        `Call bridge webhook processing failed: ${error.message}`,
+      );
+
+      return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>We're sorry, we couldn't connect your call. Please try again later.</Say><Hangup/></Response>`;
+    }
+  }
+
+  /**
+   * IVR Menu Webhook
+   * Returns IVR menu TwiML
+   */
+  @Post('ivr/menu')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Header('Content-Type', 'text/xml')
+  @ApiOperation({
+    summary: 'Twilio IVR menu webhook (PUBLIC)',
+    description: 'Returns IVR menu TwiML for tenant',
+  })
+  @ApiExcludeEndpoint()
+  async handleIvrMenu(@Body() payload: any, @Req() req: Request) {
+    const { CallSid } = payload;
+
+    this.logger.log(`IVR menu webhook: ${CallSid}`);
+
+    try {
+      // Extract tenant from call record
+      const callRecord = await this.prisma.call_record.findUnique({
+        where: { twilio_call_sid: CallSid },
+        select: { tenant_id: true },
+      });
+
+      if (!callRecord || !callRecord.tenant_id) {
+        this.logger.error(`CallRecord not found for CallSid: ${CallSid}`);
+        return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>We're sorry, an error occurred.</Say><Hangup/></Response>`;
+      }
+
+      const twiml = await this.ivrService.generateIvrMenuTwiML(
+        callRecord.tenant_id,
+      );
+
+      return twiml;
+    } catch (error) {
+      this.logger.error(`IVR menu generation failed: ${error.message}`);
+      return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>We're sorry, an error occurred.</Say><Hangup/></Response>`;
+    }
+  }
+
+  /**
+   * IVR Default Action Webhook
+   * Handles IVR timeout/no input
+   */
+  @Post('ivr/default')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Header('Content-Type', 'text/xml')
+  @ApiOperation({
+    summary: 'Twilio IVR default action webhook (PUBLIC)',
+    description: 'Handles IVR timeout/no input',
+  })
+  @ApiExcludeEndpoint()
+  async handleIvrDefault(@Body() payload: any, @Req() req: Request) {
+    const { CallSid } = payload;
+
+    this.logger.log(`IVR default action webhook: ${CallSid}`);
+
+    try {
+      // Extract tenant from call record
+      const callRecord = await this.prisma.call_record.findUnique({
+        where: { twilio_call_sid: CallSid },
+        select: { tenant_id: true },
+      });
+
+      if (!callRecord || !callRecord.tenant_id) {
+        this.logger.error(`CallRecord not found for CallSid: ${CallSid}`);
+        return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>We're sorry, an error occurred.</Say><Hangup/></Response>`;
+      }
+
+      const twiml = await this.ivrService.executeDefaultAction(
+        callRecord.tenant_id,
+      );
+
+      return twiml;
+    } catch (error) {
+      this.logger.error(`IVR default action failed: ${error.message}`);
+      return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>We're sorry, an error occurred.</Say><Hangup/></Response>`;
+    }
+  }
+
+  /**
+   * Office Bypass Prompt Webhook
+   * Returns prompt TwiML for target number input
+   */
+  @Post('bypass/prompt')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Header('Content-Type', 'text/xml')
+  @ApiOperation({
+    summary: 'Twilio office bypass prompt webhook (PUBLIC)',
+    description: 'Returns prompt for target phone number',
+  })
+  @ApiExcludeEndpoint()
+  async handleBypassPrompt(@Body() payload: any, @Req() req: Request) {
+    const { CallSid, From } = payload;
+
+    this.logger.log(`Office bypass prompt webhook: ${CallSid}`);
+
+    try {
+      // Extract tenant from call record
+      const callRecord = await this.prisma.call_record.findUnique({
+        where: { twilio_call_sid: CallSid },
+        select: { tenant_id: true },
+      });
+
+      if (!callRecord || !callRecord.tenant_id) {
+        this.logger.error(`CallRecord not found for CallSid: ${CallSid}`);
+        return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>We're sorry, an error occurred.</Say><Hangup/></Response>`;
+      }
+
+      const twiml = await this.bypassService.handleBypassCall(
+        callRecord.tenant_id,
+        From,
+      );
+
+      return twiml;
+    } catch (error) {
+      this.logger.error(`Bypass prompt generation failed: ${error.message}`);
+      return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>We're sorry, an error occurred.</Say><Hangup/></Response>`;
+    }
+  }
+
+  /**
+   * Office Bypass Dial Webhook
+   * Initiates outbound call to target number
+   */
+  @Post('bypass/dial')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Header('Content-Type', 'text/xml')
+  @ApiOperation({
+    summary: 'Twilio office bypass dial webhook (PUBLIC)',
+    description: 'Dials target number entered by whitelisted caller',
+  })
+  @ApiExcludeEndpoint()
+  async handleBypassDial(@Body() payload: any, @Req() req: Request) {
+    const { CallSid, Digits } = payload;
+
+    this.logger.log(
+      `Office bypass dial webhook: ${CallSid} - Target: ${Digits}`,
+    );
+
+    try {
+      // Extract tenant from call record
+      const callRecord = await this.prisma.call_record.findUnique({
+        where: { twilio_call_sid: CallSid },
+        select: { tenant_id: true },
+      });
+
+      if (!callRecord || !callRecord.tenant_id) {
+        this.logger.error(`CallRecord not found for CallSid: ${CallSid}`);
+        return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>We're sorry, an error occurred.</Say><Hangup/></Response>`;
+      }
+
+      const twiml = await this.bypassService.initiateBypassOutboundCall(
+        callRecord.tenant_id,
+        CallSid,
+        Digits,
+      );
+
+      return twiml;
+    } catch (error) {
+      this.logger.error(`Bypass dial failed: ${error.message}`);
+      return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>We're sorry, the call could not be completed.</Say><Hangup/></Response>`;
+    }
+  }
+
+  /**
    * Helper: Resolve tenant from subdomain
    *
    * Extracts subdomain from request hostname and looks up tenant.
@@ -623,6 +1098,29 @@ export class TwilioWebhooksController {
    * @throws BadRequestException if tenant not found
    */
   private async resolveTenantFromSubdomain(request: Request): Promise<string> {
+    // PRIORITY 1: Check for X-Tenant-Subdomain header (sent by Next.js proxy)
+    const headerSubdomain = request.get('x-tenant-subdomain');
+
+    if (headerSubdomain) {
+      this.logger.debug(
+        `Resolving tenant from X-Tenant-Subdomain header: ${headerSubdomain}`,
+      );
+
+      // Lookup tenant by subdomain
+      const tenant = await this.prisma.tenant.findFirst({
+        where: { subdomain: headerSubdomain },
+      });
+
+      if (!tenant) {
+        throw new BadRequestException(
+          `Tenant not found for subdomain: ${headerSubdomain}`,
+        );
+      }
+
+      return tenant.id;
+    }
+
+    // PRIORITY 2: Fall back to parsing host header (direct Twilio calls in development)
     const host = request.get('host') || '';
 
     this.logger.debug(`Resolving tenant from host: ${host}`);
@@ -719,16 +1217,98 @@ export class TwilioWebhooksController {
    * Twilio signature verification requires the EXACT URL that was called,
    * including protocol, host, and path.
    *
+   * IMPORTANT: When requests come through Nginx proxy:
+   * - Twilio sends to: https://honeydo4you.lead360.app/api/v1/twilio/...
+   * - Nginx forwards to: https://api.lead360.app/api/v1/twilio/...
+   * - Nginx sets X-Tenant-Subdomain header (e.g., "honeydo4you")
+   * - We MUST reconstruct the original tenant URL for signature verification
+   *
    * @param request - Express request object
-   * @returns Full webhook URL
+   * @returns Full webhook URL (reconstructed from X-Tenant-Subdomain if proxied)
    */
   private buildWebhookUrl(request: Request): string {
-    const protocol = request.protocol; // http or https
-    const host = request.get('host'); // tenant123.lead360.app or localhost:3000
-    const path = request.path; // /api/twilio/sms/inbound
+    // Use X-Forwarded-Proto if available (set by Nginx proxy)
+    const protocol = request.get('x-forwarded-proto') || request.protocol;
 
-    const url = `${protocol}://${host}${path}`;
+    // Use originalUrl to include query parameters if present
+    // request.originalUrl includes both path and query string
+    const fullPath = request.originalUrl;
 
+    // Check if request came through Nginx proxy (has X-Tenant-Subdomain header)
+    const tenantSubdomain = request.get('x-tenant-subdomain');
+
+    if (tenantSubdomain) {
+      // Reconstruct original tenant URL that Twilio called
+      // Example: https://honeydo4you.lead360.app/api/v1/twilio/call/status
+      // Or: https://honeydo4you.lead360.app/api/v1/twilio/call/status?foo=bar
+      const url = `${protocol}://${tenantSubdomain}.lead360.app${fullPath}`;
+      this.logger.debug(
+        `[WEBHOOK URL] Reconstructed from X-Tenant-Subdomain: ${url}`,
+      );
+      return url;
+    }
+
+    // Fallback: Use host header as-is (direct calls, development, localhost)
+    const host = request.get('host');
+    const url = `${protocol}://${host}${fullPath}`;
+    this.logger.debug(`[WEBHOOK URL] Using Host header: ${url}`);
     return url;
+  }
+
+  /**
+   * Helper: Send auto-reply SMS (for keyword responses)
+   *
+   * Queues an outbound SMS via BullMQ for asynchronous sending.
+   * Used for TCPA compliance auto-replies (STOP, START, HELP keywords).
+   *
+   * @param tenantId - Tenant ID
+   * @param toPhone - Recipient phone number (E.164 format)
+   * @param fromPhone - Sender phone number (tenant's Twilio number)
+   * @param message - SMS message body
+   * @param leadId - Lead ID (for tracking)
+   * @private
+   */
+  private async sendAutoReplySms(
+    tenantId: string,
+    toPhone: string,
+    fromPhone: string,
+    message: string,
+    leadId: string,
+  ): Promise<void> {
+    // Get Twilio SMS provider ID
+    const twilioProvider = await this.prisma.communication_provider.findFirst({
+      where: { provider_key: 'twilio_sms' },
+    });
+
+    if (!twilioProvider) {
+      throw new BadRequestException('Twilio SMS provider not found');
+    }
+
+    // Create communication_event record for auto-reply SMS
+    const eventId = uuidv4();
+
+    await this.prisma.communication_event.create({
+      data: {
+        id: eventId,
+        tenant_id: tenantId,
+        channel: 'sms',
+        direction: 'outbound',
+        provider_id: twilioProvider.id,
+        status: 'pending',
+        to_phone: toPhone,
+        text_body: message,
+        related_entity_type: 'lead',
+        related_entity_id: leadId,
+      },
+    });
+
+    // Queue SMS for asynchronous sending via BullMQ
+    await this.smsQueue.add('send-sms', {
+      communicationEventId: eventId, // camelCase to match processor expectation
+    });
+
+    this.logger.log(
+      `Auto-reply SMS queued: ${eventId} to ${toPhone} (Lead: ${leadId})`,
+    );
   }
 }

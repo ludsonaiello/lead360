@@ -264,6 +264,15 @@ export class CreateTenantDto {
   @IsOptional()
   timezone?: string;
 
+  @ApiPropertyOptional({
+    description: 'Default language for transcriptions (ISO 639-1 code)',
+    example: 'en',
+  })
+  @IsString()
+  @IsOptional()
+  @Length(2, 10)
+  default_language?: string;
+
   // FINANCIAL & PAYMENT INFORMATION
   @ApiPropertyOptional({
     description: 'Bank name',

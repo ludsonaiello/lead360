@@ -109,25 +109,50 @@ export function EditTranscriptionProviderModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="model">Model</Label>
-              <Input
-                id="model"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                placeholder="whisper-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="language">Language</Label>
-              <Input
-                id="language"
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                placeholder="en"
-              />
-            </div>
+          <div>
+            <Label htmlFor="model">Model</Label>
+            {provider.provider_name === 'openai_whisper' ? (
+              <>
+                <Select value={model} onValueChange={setModel}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="whisper-1">whisper-1 (Classic Whisper)</SelectItem>
+                    <SelectItem value="gpt-4o-transcribe">gpt-4o-transcribe (Fast)</SelectItem>
+                    <SelectItem value="gpt-4o-transcribe-diarize">gpt-4o-transcribe-diarize (Speaker Detection)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  GPT-4o models support speaker diarization
+                </p>
+              </>
+            ) : (
+              <>
+                <Input
+                  id="model"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  placeholder="Model name (optional)"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Leave empty to use provider default
+                </p>
+              </>
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="language">Language (Optional)</Label>
+            <Input
+              id="language"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              placeholder="en"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              ISO 639-1 code (e.g., en, es, fr). Leave empty for auto-detect.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -179,7 +204,7 @@ export function EditTranscriptionProviderModal({
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button onClick={onClose} variant="outline" disabled={updating}>
+            <Button onClick={onClose} variant="secondary" disabled={updating}>
               Cancel
             </Button>
             <Button onClick={handleUpdate} disabled={updating}>

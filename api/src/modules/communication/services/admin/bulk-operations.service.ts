@@ -355,7 +355,9 @@ export class BulkOperationsService {
         jobIds.push(`webhook-retry-${event.id}`);
       }
 
-      this.logger.log(`Queued ${webhookEvents.length} webhook events for retry`);
+      this.logger.log(
+        `Queued ${webhookEvents.length} webhook events for retry`,
+      );
 
       return {
         success: true,
