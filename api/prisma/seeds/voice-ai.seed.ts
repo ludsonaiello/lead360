@@ -46,6 +46,8 @@ async function seedVoiceAi(): Promise<void> {
     capabilities: string;
     default_config: string;
     config_schema: string;
+    cost_per_unit: number;
+    cost_unit: string;
   }> = [
     {
       provider_key: 'deepgram',
@@ -77,6 +79,8 @@ async function seedVoiceAi(): Promise<void> {
           interim_results: { type: 'boolean', default: true },
         },
       }),
+      cost_per_unit: 0.005,     // $0.0043/min ÷ 60 seconds = ~$0.0000716/second (Nova-2 streaming)
+      cost_unit: 'per_second',  // Deepgram charges per second of audio
     },
     {
       provider_key: 'openai',
@@ -117,6 +121,8 @@ async function seedVoiceAi(): Promise<void> {
           },
         },
       }),
+      cost_per_unit: 0.004,    // $0.00015 per 1K tokens = ~$0.00000015/token (gpt-4o-mini avg)
+      cost_unit: 'per_token',  // OpenAI charges per token
     },
     {
       provider_key: 'cartesia',
@@ -152,6 +158,8 @@ async function seedVoiceAi(): Promise<void> {
           },
         },
       }),
+      cost_per_unit: 0.08,          // ~$0.00001 per character (Sonic English)
+      cost_unit: 'per_character',   // Cartesia charges per character synthesized
     },
   ];
 

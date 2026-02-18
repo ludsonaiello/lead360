@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { Prisma, voice_ai_provider } from '@prisma/client';
 import { PrismaService } from '../../../core/database/prisma.service';
@@ -69,11 +70,20 @@ export class VoiceAiProvidersService {
     }
   }
 
-  async softDelete(id: string): Promise<void> {
-    await this.findById(id);
-    await this.prisma.voice_ai_provider.update({
-      where: { id },
-      data: { is_active: false },
-    });
+  async delete(id: string): Promise<void> {
+    await this.findById(id); // throws 404 if not found
+    try {
+      await this.prisma.voice_ai_provider.delete({ where: { id } });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        throw new UnprocessableEntityException(
+          'Cannot delete this provider — it is referenced by existing credentials or usage records. Remove those first.',
+        );
+      }
+      throw error;
+    }
   }
 }

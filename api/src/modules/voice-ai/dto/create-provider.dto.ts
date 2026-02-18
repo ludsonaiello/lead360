@@ -6,6 +6,8 @@ import {
   IsNotEmpty,
   MaxLength,
   IsUrl,
+  IsNumber,
+  IsPositive,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -103,4 +105,23 @@ export class CreateProviderDto {
   @IsOptional()
   @IsBoolean()
   is_active?: boolean;
+
+  @ApiPropertyOptional({
+    example: 0.0000716,
+    description: 'USD cost per 1 usage unit — e.g. 0.0000716 for Deepgram (per second of audio)',
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  cost_per_unit?: number;
+
+  @ApiPropertyOptional({
+    example: 'per_second',
+    description: "Billing unit matching usage_unit on voice_usage_record: 'per_second' | 'per_token' | 'per_character'",
+    enum: ['per_second', 'per_token', 'per_character'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['per_second', 'per_token', 'per_character'])
+  cost_unit?: string;
 }

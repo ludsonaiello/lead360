@@ -88,17 +88,22 @@ export class VoiceAiProvidersController {
 
   /**
    * DELETE /api/v1/system/voice-ai/providers/:id
-   * Soft-delete an AI provider (sets is_active = false).
+   * Permanently delete an AI provider.
+   * Returns 422 if the provider is referenced by credentials or usage records.
    */
   @Delete(':id')
   @HttpCode(204)
-  @ApiOperation({ summary: 'Soft-delete an AI provider (sets is_active=false)' })
+  @ApiOperation({ summary: 'Permanently delete an AI provider' })
   @ApiParam({ name: 'id', description: 'Provider UUID' })
-  @ApiResponse({ status: 204, description: 'Provider deactivated' })
+  @ApiResponse({ status: 204, description: 'Provider deleted' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   @ApiResponse({ status: 404, description: 'Provider not found' })
-  async softDelete(@Param('id') id: string) {
-    await this.providersService.softDelete(id);
+  @ApiResponse({
+    status: 422,
+    description: 'Provider is in use — remove linked credentials/usage records first',
+  })
+  async delete(@Param('id') id: string): Promise<void> {
+    await this.providersService.delete(id);
   }
 }

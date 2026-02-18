@@ -49,6 +49,7 @@ import {
   Server,
   Mic,
   Headset,
+  Bot,
 } from 'lucide-react';
 import ProtectedMenuItem from '@/components/rbac/shared/ProtectedMenuItem';
 import { useAuth } from '@/contexts/AuthContext';
@@ -212,6 +213,19 @@ const adminNavigationGroups: (NavItem | NavGroup)[] = [
           },
         ],
       },
+    ],
+  },
+  {
+    name: 'Voice AI',
+    icon: Bot,
+    permission: 'platform_admin:view_all_tenants',
+    items: [
+      { name: 'Providers', href: '/admin/voice-ai/providers', icon: Layers, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Credentials', href: '/admin/voice-ai/credentials', icon: Key, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Configuration', href: '/admin/voice-ai/config', icon: Settings, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Tenants & Plans', href: '/admin/voice-ai/tenants', icon: Building2, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Call Logs', href: '/admin/voice-ai/logs', icon: Phone, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Usage', href: '/admin/voice-ai/usage', icon: BarChart3, permission: 'platform_admin:view_all_tenants' },
     ],
   },
   {

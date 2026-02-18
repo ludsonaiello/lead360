@@ -56,12 +56,16 @@ export interface FullVoiceAiContext {
       provider_key: string;
       api_key: string;
       config: Record<string, unknown>;
+      cost_per_unit: number | null;
+      cost_unit: string | null;
     } | null;
     llm: {
       provider_id: string;
       provider_key: string;
       api_key: string;
       config: Record<string, unknown>;
+      cost_per_unit: number | null;
+      cost_unit: string | null;
     } | null;
     tts: {
       provider_id: string;
@@ -69,6 +73,8 @@ export interface FullVoiceAiContext {
       api_key: string;
       config: Record<string, unknown>;
       voice_id: string | null;
+      cost_per_unit: number | null;
+      cost_unit: string | null;
     } | null;
   };
   services: Array<{ name: string; description: string | null }>;
@@ -337,6 +343,10 @@ export class VoiceAiContextBuilderService {
                 provider_key: sttProvider.provider_key,
                 api_key: sttApiKey,
                 config: sttConfig,
+                cost_per_unit: sttProvider.cost_per_unit != null
+                  ? Number(sttProvider.cost_per_unit)
+                  : null,
+                cost_unit: sttProvider.cost_unit ?? null,
               }
             : null,
         llm:
@@ -346,6 +356,10 @@ export class VoiceAiContextBuilderService {
                 provider_key: llmProvider.provider_key,
                 api_key: llmApiKey,
                 config: llmConfig,
+                cost_per_unit: llmProvider.cost_per_unit != null
+                  ? Number(llmProvider.cost_per_unit)
+                  : null,
+                cost_unit: llmProvider.cost_unit ?? null,
               }
             : null,
         tts:
@@ -356,6 +370,10 @@ export class VoiceAiContextBuilderService {
                 api_key: ttsApiKey,
                 config: ttsConfig,
                 voice_id: ttsVoiceId,
+                cost_per_unit: ttsProvider.cost_per_unit != null
+                  ? Number(ttsProvider.cost_per_unit)
+                  : null,
+                cost_unit: ttsProvider.cost_unit ?? null,
               }
             : null,
       },

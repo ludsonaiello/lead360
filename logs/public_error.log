@@ -296,3 +296,4 @@
 2026/02/13 13:41:10 [error] 2412033#2412033: *1085390 access forbidden by rule, client: 45.3.44.73, server: lead360.app, request: "GET /api/.git/config HTTP/1.1", host: "lead360.app"
 2026/02/13 13:41:10 [error] 2412033#2412033: *1085388 access forbidden by rule, client: 65.111.10.196, server: lead360.app, request: "GET /new/.git/config HTTP/1.1", host: "lead360.app"
 2026/02/13 13:41:10 [error] 2412033#2412033: *1085390 access forbidden by rule, client: 45.3.44.73, server: lead360.app, request: "GET /.aws/credentials HTTP/1.1", host: "lead360.app"
+2026/02/18 16:43:26 [error] 737069#737069: *278927 access forbidden by rule, client: 172.69.151.129, server: lead360.app, request: "GET /.git/config HTTP/2.0", host: "lead360.app"

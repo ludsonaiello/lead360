@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { callRecordId: string } }
+  { params }: { params: Promise<{ callRecordId: string }> }
 ) {
   try {
+    const { callRecordId } = await params;
     const host = request.headers.get('host') || '';
     const subdomain = host.split('.')[0];
     const twilioSignature = request.headers.get('x-twilio-signature');
@@ -18,7 +19,7 @@ export async function POST(
       throw new Error('NEXT_PUBLIC_API_URL not set');
     }
 
-    const backendResponse = await fetch(`${apiBaseUrl}/twilio/call/connect/${params.callRecordId}`, {
+    const backendResponse = await fetch(`${apiBaseUrl}/twilio/call/connect/${callRecordId}`, {
       method: 'POST',
       headers: {
         'Content-Type': request.headers.get('content-type') || 'application/x-www-form-urlencoded',

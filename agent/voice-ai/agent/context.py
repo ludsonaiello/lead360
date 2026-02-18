@@ -1,0 +1,154 @@
+from __future__ import annotations
+import asyncio
+import logging
+import time
+from typing import Optional, List, Any, Dict
+from pydantic import BaseModel
+import httpx
+
+from .config import get_config
+
+logger = logging.getLogger(__name__)
+
+
+class TenantInfo(BaseModel):
+    id: str
+    company_name: str
+    phone: Optional[str] = None
+    timezone: str
+    language: Optional[str] = None
+
+
+class QuotaInfo(BaseModel):
+    minutes_included: int
+    minutes_used: int
+    minutes_remaining: int
+    overage_rate: Optional[float] = None
+    quota_exceeded: bool
+
+
+class BehaviorConfig(BaseModel):
+    is_enabled: bool
+    language: str
+    greeting: str
+    custom_instructions: Optional[str] = None
+    booking_enabled: bool
+    lead_creation_enabled: bool
+    transfer_enabled: bool
+    max_call_duration_seconds: int
+
+
+class ProviderConfig(BaseModel):
+    provider_id: str        # UUID of the voice_ai_provider row — used for usage tracking in A09
+    provider_key: str       # e.g. 'deepgram', 'openai', 'cartesia'
+    api_key: str            # decrypted API key
+    config: Dict[str, Any] = {}  # provider-specific config (model, temperature, etc.)
+    cost_per_unit: Optional[float] = None
+    cost_unit: Optional[str] = None
+
+
+class TtsProviderConfig(ProviderConfig):
+    voice_id: Optional[str] = None
+
+
+class ProvidersConfig(BaseModel):
+    stt: Optional[ProviderConfig] = None
+    llm: Optional[ProviderConfig] = None
+    tts: Optional[TtsProviderConfig] = None
+
+
+class ServiceInfo(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+
+class ServiceAreaInfo(BaseModel):
+    type: str
+    value: str
+    state: Optional[str] = None
+
+
+class TransferNumber(BaseModel):
+    label: str
+    phone_number: str
+    transfer_type: str                       # primary | overflow | after_hours | emergency
+    is_default: bool
+    available_hours: Optional[str] = None    # JSON string or null (e.g. {"mon":[["09:00","17:00"]]})
+
+
+class TenantContext(BaseModel):
+    tenant: TenantInfo
+    quota: QuotaInfo
+    behavior: BehaviorConfig
+    providers: ProvidersConfig
+    services: List[ServiceInfo]
+    service_areas: List[ServiceAreaInfo]
+    transfer_numbers: List[TransferNumber]
+
+
+class ContextFetcher:
+    """Fetches and caches tenant context from Lead360 API."""
+
+    def __init__(self):
+        self._cache: dict[str, tuple[TenantContext, float]] = {}
+        self._lock = asyncio.Lock()
+
+    def _is_cached(self, tenant_id: str) -> bool:
+        if tenant_id not in self._cache:
+            return False
+        _, cached_at = self._cache[tenant_id]
+        cfg = get_config()
+        return (time.monotonic() - cached_at) < cfg.CONTEXT_CACHE_TTL
+
+    async def fetch(self, tenant_id: str) -> TenantContext:
+        """Fetch context, using cache if available."""
+        async with self._lock:
+            if self._is_cached(tenant_id):
+                logger.debug("Context cache hit for tenant=%s", tenant_id)
+                return self._cache[tenant_id][0]
+
+        logger.info("Fetching context for tenant=%s", tenant_id)
+        context = await self._fetch_from_api(tenant_id)
+
+        async with self._lock:
+            self._cache[tenant_id] = (context, time.monotonic())
+
+        return context
+
+    async def _fetch_from_api(self, tenant_id: str) -> TenantContext:
+        cfg = get_config()
+        # Path: GET /api/v1/internal/voice-ai/tenant/{tenant_id}/context
+        url = f"{cfg.LEAD360_API_BASE_URL}/api/v1/internal/voice-ai/tenant/{tenant_id}/context"
+        headers = {"X-Voice-Agent-Key": cfg.VOICE_AGENT_KEY}
+
+        async with httpx.AsyncClient(timeout=cfg.HTTP_TIMEOUT_SECONDS) as client:
+            for attempt in range(cfg.HTTP_MAX_RETRIES + 1):
+                try:
+                    response = await client.get(url, headers=headers)
+                    response.raise_for_status()
+                    return TenantContext.model_validate(response.json())
+                except httpx.TimeoutException:
+                    if attempt < cfg.HTTP_MAX_RETRIES:
+                        logger.warning(
+                            "Context fetch timed out (attempt %d/%d), retrying for tenant=%s",
+                            attempt + 1, cfg.HTTP_MAX_RETRIES + 1, tenant_id,
+                        )
+                        await asyncio.sleep(1)
+                        continue
+                    logger.error(
+                        "Context fetch timed out after %d attempts for tenant=%s",
+                        cfg.HTTP_MAX_RETRIES + 1, tenant_id,
+                    )
+                    raise
+                except httpx.HTTPStatusError as e:
+                    logger.error("Context fetch failed: status=%d, tenant=%s",
+                                 e.response.status_code, tenant_id)
+                    raise
+
+    def is_quota_exceeded_hard(self, context: TenantContext) -> bool:
+        """Returns True if quota exceeded and no overage allowed (call should be rejected)."""
+        return context.quota.quota_exceeded and context.quota.overage_rate is None
+
+
+# Singleton instance
+context_fetcher = ContextFetcher()

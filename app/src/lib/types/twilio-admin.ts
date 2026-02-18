@@ -209,6 +209,9 @@ export interface TranscriptionInfo {
   id: string;
   status: string;
   transcription_provider: string;
+  transcription_text?: string;
+  language_detected?: string;
+  confidence_score?: string;
 }
 
 export interface CallRecord {

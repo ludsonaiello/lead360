@@ -826,6 +826,8 @@ unknown unknown
     String config_schema "❓"
     String default_config "❓"
     String pricing_info "❓"
+    Decimal cost_per_unit "❓"
+    String cost_unit "❓"
     Boolean is_active 
     DateTime created_at 
     DateTime updated_at 

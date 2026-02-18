@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { PrismaModule } from '../../core/database/prisma.module';
 import { EncryptionModule } from '../../core/encryption/encryption.module';
+import { LeadsModule } from '../leads/leads.module';
 
 // Processors — Sprint B10
 import { VoiceAiQuotaResetProcessor } from './processors/voice-ai-quota-reset.processor';
@@ -47,6 +48,7 @@ import { VoiceUsageService } from './services/voice-usage.service';
 import { VoiceAiSipService } from './services/voice-ai-sip.service';
 import { VoiceAiMonitoringService } from './services/voice-ai-monitoring.service';
 import { VoiceAiWebhookService } from './services/voice-ai-webhook.service';
+import { VoiceAiToolsService } from './services/voice-ai-tools.service';
 
 /**
  * VoiceAiModule
@@ -71,6 +73,7 @@ import { VoiceAiWebhookService } from './services/voice-ai-webhook.service';
   imports: [
     PrismaModule,
     EncryptionModule,
+    LeadsModule,  // B06c: VoiceAiToolsService uses LeadsService.create() for lead creation
     // BullMQ queues for background jobs (Sprint B10)
     BullModule.registerQueue(
       { name: 'voice-ai-quota-reset' },
@@ -110,6 +113,7 @@ import { VoiceAiWebhookService } from './services/voice-ai-webhook.service';
     VoiceAiSipService,        // B08: IVR voice_ai action — SIP routing + fallback TwiML
     VoiceAiMonitoringService, // B11: cross-tenant monitoring + admin override
     VoiceAiWebhookService,    // B14: LiveKit webhook event handler
+    VoiceAiToolsService,      // B06c: LLM tool dispatch (create_lead, check_availability, book_appointment, transfer_call)
     // Sprint B10: BullMQ processors + cron scheduler
     VoiceAiQuotaResetProcessor,
     VoiceAiUsageSyncProcessor,
