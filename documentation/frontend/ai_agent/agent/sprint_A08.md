@@ -17,8 +17,8 @@ Implement the `book_appointment` function tool. The LLM calls this when the call
 ## Pre-Coding Checklist
 
 - [ ] A07 complete
-- [ ] B06 complete — `POST /voice-ai/internal/actions/appointment` endpoint exists
-- [ ] **HIT THE ENDPOINT** to see response shape
+- [ ] B06 complete — `POST /api/v1/internal/voice-ai/tenant/:tenantId/tools/book_appointment` endpoint exists
+- [ ] **HIT THE ENDPOINT**: `curl -X POST http://localhost:8000/api/v1/internal/voice-ai/tenant/TENANT_ID/tools/book_appointment -H "X-Voice-Agent-Key: KEY" -H "Content-Type: application/json" -d '{"call_log_id":"LOG_ID","service_type":"Plumbing"}' | jq .`
 
 **DO NOT USE PM2** — backend running
 
@@ -41,7 +41,7 @@ import asyncio
 from typing import Optional
 import httpx
 
-from ..config import config
+from ..config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -56,15 +56,17 @@ async def book_appointment(
 ) -> dict:
     """
     Book an appointment/service request for a caller.
+    tenant_id is in the URL path — generic tool dispatch endpoint.
     Returns { appointment_id, status } or { error }
     """
-    url = f"{config.LEAD360_API_URL}/voice-ai/internal/actions/appointment"
+    cfg = get_config()
+    # Path: POST /api/v1/internal/voice-ai/tenant/{tenant_id}/tools/book_appointment
+    url = f"{cfg.LEAD360_API_BASE_URL}/api/v1/internal/voice-ai/tenant/{tenant_id}/tools/book_appointment"
     headers = {
-        "X-Voice-Agent-Key": config.VOICE_AGENT_KEY,
+        "X-Voice-Agent-Key": cfg.VOICE_AGENT_KEY,
         "Content-Type": "application/json",
     }
     payload = {
-        "tenant_id": tenant_id,
         "call_log_id": call_log_id,
     }
     if lead_id:
@@ -76,8 +78,8 @@ async def book_appointment(
     if notes:
         payload["notes"] = notes
     
-    async with httpx.AsyncClient(timeout=config.HTTP_TIMEOUT) as client:
-        for attempt in range(config.HTTP_MAX_RETRIES + 1):
+    async with httpx.AsyncClient(timeout=cfg.HTTP_TIMEOUT_SECONDS) as client:
+        for attempt in range(cfg.HTTP_MAX_RETRIES + 1):
             try:
                 response = await client.post(url, json=payload, headers=headers)
                 response.raise_for_status()
@@ -87,7 +89,7 @@ async def book_appointment(
                 return result
             
             except httpx.TimeoutException:
-                if attempt < config.HTTP_MAX_RETRIES:
+                if attempt < cfg.HTTP_MAX_RETRIES:
                     await asyncio.sleep(1)
                     continue
                 logger.error("Timeout booking appointment for tenant=%s", tenant_id)

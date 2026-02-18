@@ -174,7 +174,7 @@ const configSchema = z.object({
   livekit_sip_trunk_url: z.string().url().optional().or(z.literal('')),
   livekit_api_key: z.string().optional(),      // empty = keep existing
   livekit_api_secret: z.string().optional(),   // empty = keep existing
-  default_language: z.enum(['en','es','pt','fr','de','it','ja','zh']),
+  default_language: z.enum(['en','es','pt','fr','de','it','ja','zh']).default('en'),
   default_languages: z.array(z.string()).min(1),
   default_greeting_template: z.string().max(500),
   default_system_prompt: z.string().max(2000),

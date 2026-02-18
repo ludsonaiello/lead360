@@ -60,20 +60,26 @@ export class VoiceAiQuotaResetProcessor {
     // Called on 1st of each month
     // Gets previous month's year/month
     const now = new Date();
-    const prevMonth = now.getMonth() === 0 ? 12 : now.getMonth();
-    const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    // Correct previous month calculation: new Date(y, m-1, 1) handles January→December rollover
+    const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonth = prevDate.getMonth() + 1;  // getMonth() is 0-indexed
+    const prevYear = prevDate.getFullYear();
 
     // Reset all tenant usage records for the month being reset
     // NOTE: We do NOT delete records — we keep them for billing history
     // Instead, we create new records for the new month (they auto-create on first call)
     // This job just logs the reset and sends any billing summary needed
     
-    const previousMonthRecords = await this.prisma.voice_usage_record.findMany({
-      where: { year: prevYear, month: prevMonth },
+    // Aggregate STT usage for the previous month (STT seconds = call duration proxy)
+    // voice_usage_record is per-call per-provider — aggregate via _sum, not monthly counter
+    const sttAgg = await this.prisma.voice_usage_record.aggregate({
+      where: { year: prevYear, month: prevMonth, provider_type: 'STT' },
+      _sum: { usage_quantity: true },
+      _count: { id: true },
     });
-    
-    // Log: X tenants used Voice AI in previous month, total Y minutes
-    console.log(`Voice AI monthly reset: ${previousMonthRecords.length} tenants, ${previousMonthRecords.reduce((sum, r) => sum + r.minutes_used, 0)} minutes used`);
+    const totalMinutes = Math.ceil(Number(sttAgg._sum.usage_quantity ?? 0) / 60);
+    // Records are immutable per-call rows — new month starts fresh automatically on first call
+    console.log(`Voice AI monthly reset: ${sttAgg._count.id} STT usage records, ~${totalMinutes} minutes used in ${prevMonth}/${prevYear}`);
   }
 }
 ```
@@ -91,49 +97,46 @@ export class VoiceAiUsageSyncProcessor {
 
   @Process()
   async process(job: Job): Promise<void> {
-    // Reconcile usage records against actual call logs
+    // Audit: verify usage records are consistent with call logs for the current month.
+    // voice_usage_record is per-call per-provider — there is no monthly aggregate to upsert.
+    // This job logs any discrepancies for ops visibility.
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth() + 1;
+    const monthStart = new Date(year, month - 1, 1);
+    const monthEnd = new Date(year, month, 1);
 
-    // Get all tenants with call logs this month
-    const callSummaries = await this.prisma.voice_call_log.groupBy({
-      by: ['tenant_id'],
+    // Count completed calls this month
+    const callCount = await this.prisma.voice_call_log.count({
       where: {
-        started_at: {
-          gte: new Date(year, month - 1, 1),
-          lt: new Date(year, month, 1),
-        },
+        started_at: { gte: monthStart, lt: monthEnd },
         status: 'completed',
-        is_overage: false,
       },
-      _sum: { duration_seconds: true },
-      _count: { id: true },
     });
 
-    // Update usage records to match actual call data
-    for (const summary of callSummaries) {
-      const actualMinutes = Math.ceil((summary._sum.duration_seconds ?? 0) / 60);
-      await this.prisma.voice_usage_record.upsert({
-        where: {
-          tenant_id_year_month: {
-            tenant_id: summary.tenant_id,
-            year,
-            month,
-          },
-        },
-        update: {
-          minutes_used: actualMinutes,
-          total_calls: summary._count.id,
-        },
-        create: {
-          tenant_id: summary.tenant_id,
-          year,
-          month,
-          minutes_used: actualMinutes,
-          total_calls: summary._count.id,
-        },
-      });
+    // Count usage records this month
+    const usageCount = await this.prisma.voice_usage_record.count({
+      where: { year, month },
+    });
+
+    // Aggregate STT seconds → convert to minutes for reporting
+    const sttAgg = await this.prisma.voice_usage_record.aggregate({
+      where: { year, month, provider_type: 'STT' },
+      _sum: { usage_quantity: true },
+    });
+    const totalMinutes = Math.ceil(Number(sttAgg._sum.usage_quantity ?? 0) / 60);
+
+    console.log(
+      `Voice AI usage sync ${month}/${year}: ` +
+      `${callCount} completed calls, ${usageCount} usage records, ~${totalMinutes} total STT minutes`
+    );
+
+    // Warn if calls exist without usage records (indicates missing billing data)
+    if (callCount > 0 && usageCount < callCount) {
+      console.warn(
+        `WARNING: ${callCount} completed calls but only ${usageCount} usage records — ` +
+        `some calls may be missing usage tracking`
+      );
     }
   }
 }
@@ -170,7 +173,7 @@ export class VoiceAiJobsScheduler {
 ## Task 5: Update Module
 
 Add to `voice-ai.module.ts`:
-- Import `ScheduleModule.forRoot()` (or check if already imported in AppModule)
+- **IMPORTANT**: Check `/api/src/app.module.ts` first — `ScheduleModule.forRoot()` must exist there. DO NOT add it to `voice-ai.module.ts` (duplicating ScheduleModule causes double-firing of cron jobs). Only add the scheduler as a provider.
 - Import `BullModule.registerQueue(...)` for both queues
 - Add processors and scheduler to providers
 

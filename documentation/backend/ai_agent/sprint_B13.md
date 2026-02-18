@@ -69,9 +69,9 @@ Test cases:
 1. **checkAndReserveMinute: minutes available** → `{ allowed: true, is_overage: false }`
 2. **checkAndReserveMinute: quota exceeded, no overage rate** → `{ allowed: false, reason: 'quota_exceeded' }`
 3. **checkAndReserveMinute: quota exceeded, overage rate set** → `{ allowed: true, is_overage: true }`
-4. **recordUsage: increments minutes_used for non-overage** 
-5. **recordUsage: increments overage_minutes_used for overage**
-6. **recordUsage: calculates estimated_overage_cost correctly**
+4. **createUsageRecords: creates one row per provider entry** (STT, LLM, TTS each get their own record)
+5. **createUsageRecords: sets correct year/month** on each record
+6. **getQuota: aggregates STT seconds from per-call records** for current month correctly
 
 ---
 

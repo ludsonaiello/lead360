@@ -43,6 +43,7 @@ export class AdminOverrideTenantVoiceDto {
   @IsOptional() @IsString() stt_provider_override_id?: string | null;
   @IsOptional() @IsString() llm_provider_override_id?: string | null;
   @IsOptional() @IsString() tts_provider_override_id?: string | null;
+  @IsOptional() @IsString() admin_notes?: string | null;  // reason for override — visible in admin panel
 }
 ```
 

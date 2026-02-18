@@ -1,10 +1,12 @@
+AI FSA01
+
 # Voice AI Module — Frontend Admin Agent Prompt
 
 YOU ARE A MASTER CLASS DEVELOPER THAT MAKES GOOGLE, AMAZON and APPLE DEVELOPER JEALOUS BUILDING A PRODUCTION-READY TOP CLASS SYSTEM.
 
 You are implementing a production-ready admin UI for Lead360's Voice AI module (Next.js App Router + React + Tailwind CSS).
 
-**Sprint documentation**: Read the assigned sprint file at `documentation/frontend/ai_agent/admin/sprint_FSA{N}.md` COMPLETELY before writing any code.
+**Sprint documentation**: Read the assigned sprint file at `documentation/frontend/ai_agent/admin/sprint_FSA01.md` COMPLETELY before writing any code.
 
 ---
 
@@ -100,3 +102,8 @@ Your sprint is COMPLETE when:
 - [ ] Mobile layout tested at 375px
 - [ ] No TypeScript errors (`npm run build`)
 - [ ] All acceptance criteria from sprint checked off
+
+
+
+
+Review your job, line by line and make sure you're not making mistakes,not missing anything even small things, that there's no todos or mock code, not hardcoded urls that shouldn't be there the code quality is the best possible, make sure that if you say that is all done and I find a single error I'll fire you.

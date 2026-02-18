@@ -2,9 +2,9 @@ YOU ARE A MASTER CLASS DEVELOPER THAT MAKES GOOGLE, AMAZON and APPLE DEVELOPER J
 
 # Sprint A03 — Context Fetcher
 
-**Module**: Voice AI Python Agent  
-**Sprint**: A03  
-**Depends on**: A01, A02, B06 (internal context endpoint must exist)
+**Module**: Voice AI Python Agent
+**Sprint**: A03
+**Depends on**: A02, B06a (internal context endpoint must exist)
 
 ---
 
@@ -17,9 +17,9 @@ Build the context fetcher that retrieves and caches the tenant configuration fro
 ## Pre-Coding Checklist
 
 - [ ] A02 complete
-- [ ] B06 complete — `GET /voice-ai/internal/context/:tenantId` endpoint exists
+- [ ] B06 complete — `GET /internal/voice-ai/tenant/:tenantId/context` endpoint exists
 - [ ] Have a valid VOICE_AGENT_KEY configured in `.env`
-- [ ] **HIT THE ENDPOINT**: `curl http://localhost:8000/api/v1/voice-ai/internal/context/TENANT_ID -H "X-Voice-Agent-Key: YOUR_KEY" | jq .`
+- [ ] **HIT THE ENDPOINT**: `curl http://localhost:8000/api/v1/internal/voice-ai/tenant/TENANT_ID/context -H "X-Voice-Agent-Key: YOUR_KEY" | jq .`
 - [ ] Study the response shape — match EVERY field in Pydantic models
 
 **DO NOT USE PM2** — backend: `cd /var/www/lead360.app/api && npm run dev`
@@ -28,7 +28,7 @@ Build the context fetcher that retrieves and caches the tenant configuration fro
 
 ## Credentials
 
-- Admin: `ludsonaiello@gmail.com` / `978@F32c`  
+- Admin: `ludsonaiello@gmail.com` / `978@F32c`
 - DB credentials: in `/var/www/lead360.app/api/.env`
 
 ---
@@ -42,11 +42,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Optional, List
+from typing import Optional, List, Any, Dict
 from pydantic import BaseModel
 import httpx
 
-from .config import config
+from .config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -79,8 +79,10 @@ class BehaviorConfig(BaseModel):
 
 
 class ProviderConfig(BaseModel):
-    provider_key: str
-    api_key: str
+    provider_id: str        # UUID of the voice_ai_provider row — used for usage tracking in A09
+    provider_key: str       # e.g. 'deepgram', 'openai', 'cartesia'
+    api_key: str            # decrypted API key
+    config: Dict[str, Any] = {}  # provider-specific config (model, temperature, etc.)
 
 
 class TtsProviderConfig(ProviderConfig):
@@ -107,7 +109,9 @@ class ServiceAreaInfo(BaseModel):
 class TransferNumber(BaseModel):
     label: str
     phone_number: str
+    transfer_type: str                       # primary | overflow | after_hours | emergency
     is_default: bool
+    available_hours: Optional[str] = None    # JSON string or null (e.g. {"mon":[["09:00","17:00"]]})
 
 
 class TenantContext(BaseModel):
@@ -129,52 +133,55 @@ Continue in `context.py`:
 ```python
 class ContextFetcher:
     """Fetches and caches tenant context from Lead360 API."""
-    
+
     def __init__(self):
         self._cache: dict[str, tuple[TenantContext, float]] = {}
         self._lock = asyncio.Lock()
-    
+
     def _is_cached(self, tenant_id: str) -> bool:
         if tenant_id not in self._cache:
             return False
         _, cached_at = self._cache[tenant_id]
-        return (time.monotonic() - cached_at) < config.CONTEXT_CACHE_TTL
-    
+        cfg = get_config()
+        return (time.monotonic() - cached_at) < cfg.CONTEXT_CACHE_TTL
+
     async def fetch(self, tenant_id: str) -> TenantContext:
         """Fetch context, using cache if available."""
         async with self._lock:
             if self._is_cached(tenant_id):
                 logger.debug("Context cache hit for tenant=%s", tenant_id)
                 return self._cache[tenant_id][0]
-        
+
         logger.info("Fetching context for tenant=%s", tenant_id)
         context = await self._fetch_from_api(tenant_id)
-        
+
         async with self._lock:
             self._cache[tenant_id] = (context, time.monotonic())
-        
+
         return context
-    
+
     async def _fetch_from_api(self, tenant_id: str) -> TenantContext:
-        url = f"{config.LEAD360_API_URL}/voice-ai/internal/context/{tenant_id}"
-        headers = {"X-Voice-Agent-Key": config.VOICE_AGENT_KEY}
-        
-        async with httpx.AsyncClient(timeout=config.HTTP_TIMEOUT) as client:
-            for attempt in range(config.HTTP_MAX_RETRIES + 1):
+        cfg = get_config()
+        # Path: GET /api/v1/internal/voice-ai/tenant/{tenant_id}/context
+        url = f"{cfg.LEAD360_API_BASE_URL}/api/v1/internal/voice-ai/tenant/{tenant_id}/context"
+        headers = {"X-Voice-Agent-Key": cfg.VOICE_AGENT_KEY}
+
+        async with httpx.AsyncClient(timeout=cfg.HTTP_TIMEOUT_SECONDS) as client:
+            for attempt in range(cfg.HTTP_MAX_RETRIES + 1):
                 try:
                     response = await client.get(url, headers=headers)
                     response.raise_for_status()
                     return TenantContext.model_validate(response.json())
                 except httpx.TimeoutException:
-                    if attempt < config.HTTP_MAX_RETRIES:
+                    if attempt < cfg.HTTP_MAX_RETRIES:
                         await asyncio.sleep(1)
                         continue
                     raise
                 except httpx.HTTPStatusError as e:
-                    logger.error("Context fetch failed: status=%d, tenant=%s", 
+                    logger.error("Context fetch failed: status=%d, tenant=%s",
                                 e.response.status_code, tenant_id)
                     raise
-    
+
     def is_quota_exceeded_hard(self, context: TenantContext) -> bool:
         """Returns True if quota exceeded and no overage allowed (call should be rejected)."""
         return context.quota.quota_exceeded and context.quota.overage_rate is None
@@ -195,34 +202,34 @@ from .context import context_fetcher
 
 async def entrypoint(ctx: JobContext):
     # ... extract call_info ...
-    
+
     # Fetch tenant context
     try:
         context = await context_fetcher.fetch(call_info.tenant_id)
     except Exception as e:
-        logger.exception("Failed to fetch context for tenant=%s: %s", 
+        logger.exception("Failed to fetch context for tenant=%s: %s",
                         call_info.tenant_id, e)
         await ctx.room.disconnect()
         return
-    
+
     # Check voice AI enabled
     if not context.behavior.is_enabled:
         logger.warning("Voice AI disabled for tenant=%s", call_info.tenant_id)
         await ctx.room.disconnect()
         return
-    
+
     # Check hard quota
     if context_fetcher.is_quota_exceeded_hard(context):
-        logger.warning("Quota exceeded for tenant=%s, no overage allowed", 
+        logger.warning("Quota exceeded for tenant=%s, no overage allowed",
                       call_info.tenant_id)
         # TODO in A06: Play "quota exceeded" TTS message before disconnecting
         await ctx.room.disconnect()
         return
-    
+
     logger.info("Context loaded for tenant=%s (%s), quota: %d/%d min",
                 call_info.tenant_id, context.tenant.company_name,
                 context.quota.minutes_used, context.quota.minutes_included)
-    
+
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
     # Agent pipeline will be built in A04-A09
 ```
@@ -232,7 +239,11 @@ async def entrypoint(ctx: JobContext):
 ## Acceptance Criteria
 
 - [ ] `TenantContext` Pydantic model matches real API response exactly
-- [ ] `context_fetcher.fetch(tenant_id)` returns context from API
+- [ ] `ProviderConfig` has `provider_id`, `provider_key`, `api_key`, and `config: dict` fields
+- [ ] `TtsProviderConfig` extends `ProviderConfig` and adds `voice_id: Optional[str] = None`
+- [ ] `TransferNumber` has `label`, `phone_number`, `transfer_type`, `is_default`, and `available_hours` fields
+- [ ] `context_fetcher.fetch(tenant_id)` calls `GET /api/v1/internal/voice-ai/tenant/{tenant_id}/context`
+- [ ] Uses `get_config().LEAD360_API_BASE_URL` (not `config.LEAD360_API_URL`)
 - [ ] Cache works: second call within 60s returns cached value without HTTP request
 - [ ] Quota check: `is_quota_exceeded_hard()` returns True when `quota_exceeded=true` and `overage_rate=null`
 - [ ] Worker uses context fetcher and disconnects if disabled or quota hard-exceeded

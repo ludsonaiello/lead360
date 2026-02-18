@@ -21,8 +21,12 @@ async function bootstrap() {
     bodyParser.json({
       verify: (req: any, res, buf, encoding) => {
         // Store raw body Buffer for webhook signature verification
-        // CRITICAL: SendGrid signature verification requires the raw Buffer, not string
-        if (req.url && req.url.includes('/webhooks/communication/')) {
+        // CRITICAL: SendGrid and LiveKit signature verification require raw Buffer, not string
+        if (
+          req.url &&
+          (req.url.includes('/webhooks/communication/') ||
+            req.url.includes('/webhooks/voice-ai/'))
+        ) {
           req.rawBody = buf; // Store as Buffer, not string!
         }
       },

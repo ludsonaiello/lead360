@@ -16,6 +16,7 @@ import {
   IVR_ACTION_TYPES,
   IvrActionType,
 } from '../dto/ivr/create-ivr-config.dto';
+import { VoiceAiSipService } from '../../voice-ai/services/voice-ai-sip.service';
 
 /**
  * IvrConfigurationService
@@ -62,6 +63,7 @@ export class IvrConfigurationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly voiceAiSipService: VoiceAiSipService,
   ) {
     this.apiBaseUrl =
       this.config.get<string>('API_BASE_URL') || 'https://api.lead360.app';
@@ -304,7 +306,11 @@ export class IvrConfigurationService {
    * @returns TwiML XML string
    * @throws NotFoundException if configuration does not exist
    */
-  async executeIvrAction(tenantId: string, digit: string): Promise<string> {
+  async executeIvrAction(
+    tenantId: string,
+    digit: string,
+    callSid?: string,
+  ): Promise<string> {
     const config = await this.findByTenantId(tenantId);
 
     // Fetch tenant for subdomain (needed for webhook URLs)
@@ -342,7 +348,12 @@ export class IvrConfigurationService {
       return twiml.toString();
     }
 
-    // Execute selected action
+    // Handle voice_ai action — async path using VoiceAiSipService
+    if (selectedOption.action === 'voice_ai') {
+      return this.executeVoiceAiAction(tenantId, callSid ?? '', selectedOption);
+    }
+
+    // Execute selected action (synchronous path for all other action types)
     this.logger.log(
       `Executing IVR action: ${selectedOption.action} for tenant ${tenantId}`,
     );
@@ -360,7 +371,10 @@ export class IvrConfigurationService {
    * @returns TwiML XML string
    * @throws NotFoundException if configuration does not exist
    */
-  async executeDefaultAction(tenantId: string): Promise<string> {
+  async executeDefaultAction(
+    tenantId: string,
+    callSid?: string,
+  ): Promise<string> {
     const config = await this.findByTenantId(tenantId);
 
     // Fetch tenant for subdomain (needed for webhook URLs)
@@ -376,13 +390,74 @@ export class IvrConfigurationService {
       `Executing default IVR action for tenant: ${tenantId} (timeout/no input)`,
     );
 
-    const twiml = new twilio.twiml.VoiceResponse();
     const defaultAction =
       config.default_action as unknown as IvrDefaultActionDto;
 
+    // Handle voice_ai action — async path using VoiceAiSipService
+    if (defaultAction.action === 'voice_ai') {
+      return this.executeVoiceAiAction(tenantId, callSid ?? '', defaultAction);
+    }
+
+    const twiml = new twilio.twiml.VoiceResponse();
     this.executeActionTwiML(twiml, defaultAction, tenant.subdomain);
 
     return twiml.toString();
+  }
+
+  /**
+   * Execute voice_ai IVR action.
+   *
+   * Checks quota/enabled status via VoiceAiSipService.canHandleCall():
+   * - If allowed: returns <Dial><Sip> TwiML routed to LiveKit SIP trunk
+   * - If not allowed: returns <Say><Dial> fallback TwiML with a message + transfer number
+   *
+   * @param tenantId - Tenant UUID
+   * @param callSid - Twilio CallSid for SIP routing correlation
+   * @param action - The IVR action config (used for fallback phone_number)
+   * @returns TwiML XML string
+   */
+  private async executeVoiceAiAction(
+    tenantId: string,
+    callSid: string,
+    action: IvrMenuOptionDto | IvrDefaultActionDto,
+  ): Promise<string> {
+    this.logger.log(
+      `Executing voice_ai IVR action for tenant ${tenantId}, callSid=${callSid}`,
+    );
+
+    const canHandle = await this.voiceAiSipService.canHandleCall(tenantId);
+
+    if (canHandle.allowed) {
+      return this.voiceAiSipService.buildSipTwiml(tenantId, callSid);
+    }
+
+    // Fallback: determine transfer number and message
+    const settings = await this.prisma.tenant_voice_ai_settings.findUnique({
+      where: { tenant_id: tenantId },
+    });
+
+    const fallbackNumber =
+      settings?.default_transfer_number || action.config.phone_number || '';
+
+    const message =
+      canHandle.reason === 'quota_exceeded'
+        ? 'Our AI assistant has reached its limit for this month. Transferring you now.'
+        : 'Our AI assistant is not available. Transferring you now.';
+
+    if (!fallbackNumber) {
+      this.logger.warn(
+        `Voice AI fallback: no transfer number configured for tenant ${tenantId} — hanging up`,
+      );
+      return [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<Response>',
+        `  <Say voice="Polly.Joanna" language="en-US">${message}</Say>`,
+        '  <Hangup/>',
+        '</Response>',
+      ].join('\n');
+    }
+
+    return this.voiceAiSipService.buildFallbackTwiml(fallbackNumber, message);
   }
 
   /**
@@ -395,6 +470,7 @@ export class IvrConfigurationService {
    * - route_to_default: Dial default company number
    * - trigger_webhook: Send HTTP webhook (not implemented in TwiML, handled async)
    * - voicemail: Record message
+   * - voice_ai: Handled upstream in executeVoiceAiAction (async) — never reaches here
    *
    * @param twiml - TwiML VoiceResponse object (mutated)
    * @param action - Action configuration
@@ -478,6 +554,22 @@ export class IvrConfigurationService {
           },
           'Thank you for your message. Goodbye.',
         );
+        break;
+
+      case 'voice_ai':
+        // voice_ai is handled asynchronously in executeVoiceAiAction() and should
+        // never reach this synchronous method. Log a warning and hang up defensively.
+        this.logger.warn(
+          'voice_ai action reached synchronous executeActionTwiML — this is a bug. Hanging up.',
+        );
+        twiml.say(
+          {
+            voice: 'Polly.Joanna',
+            language: 'en-US',
+          },
+          'Our AI assistant is temporarily unavailable. Goodbye.',
+        );
+        twiml.hangup();
         break;
 
       default:
@@ -647,6 +739,12 @@ export class IvrConfigurationService {
             `${position}: max_duration_seconds must be between 30 and 600 seconds (0.5 - 10 minutes)`,
           );
         }
+        break;
+
+      case 'voice_ai':
+        // No additional config required — routing parameters are resolved at call time
+        // from tenant_voice_ai_settings and voice_ai_global_config.
+        // Optional: phone_number may be used as fallback transfer number.
         break;
 
       default:

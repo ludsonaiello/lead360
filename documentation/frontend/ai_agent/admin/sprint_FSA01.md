@@ -16,6 +16,8 @@ Build the admin page for managing the AI provider catalog (Deepgram, OpenAI, Car
 
 ## Mandatory Pre-Coding Steps
 
+> **STOP — NUMBERING IS MISLEADING**: The admin frontend sprints are numbered by feature area (providers, credentials, config...), NOT execution order. **FSA06 must be done before FSA01–FSA05.** If you haven't completed FSA06 (API client + types at `/app/src/lib/types/voice-ai-admin.ts` and `/app/src/lib/api/voice-ai-admin.ts`), stop and do that sprint first. FSA06 is the foundation — nothing here compiles without it.
+
 1. Read `/api/documentation/voice_ai_REST_API.md` (Admin Infrastructure section)
 2. **HIT ENDPOINTS** first: `curl http://localhost:8000/api/v1/system/voice-ai/providers -H "Authorization: Bearer TOKEN" | jq .`
 3. Read reference page: `/app/src/app/(dashboard)/admin/communications/providers/page.tsx` — replicate table + modal pattern

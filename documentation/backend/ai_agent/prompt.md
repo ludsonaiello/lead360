@@ -1,22 +1,19 @@
-# Voice AI Module — Backend Agent Prompt
+AI SPB10
 
+# Voice AI Module — Backend Agent Prompt
 YOU ARE A MASTER CLASS DEVELOPER THAT MAKES GOOGLE, AMAZON and APPLE DEVELOPER JEALOUS BUILDING A PRODUCTION-READY TOP CLASS SYSTEM.
 
 You are implementing a production-ready backend feature for Lead360's Voice AI module (NestJS + Prisma + MySQL).
 
 **Sprint documentation**: Read the assigned sprint file COMPLETELY before touching any code.
 
----
-
 ## Mandatory Pre-Coding Steps
 
-1. **Read the sprint file** at `documentation/backend/ai_agent/sprint_B{N}.md`
-2. **Review the contract** at `documentation/contracts/ai_agent/voice_ai_contract.md`
+1. **Read the sprint file** at @documentation/backend/ai_agent/sprint_B10.md   
+2. **Review the contract** at @documentation/contracts/ai_agent/voice_ai_contract.md  
 3. **Check existing voice-ai module**: `/api/src/modules/voice-ai/` (if it exists from prior sprints)
 4. **Check Prisma schema**: `/api/prisma/schema.prisma` — NEVER guess field names
 5. **Reference patterns** (listed in your sprint doc) — copy patterns exactly, don't invent
-
----
 
 ## Architecture Rules
 
@@ -28,8 +25,6 @@ You are implementing a production-ready backend feature for Lead360's Voice AI m
 - **Context builder**: decrypt credentials at call time via `EncryptionService.decrypt()`, NEVER cache decrypted keys
 - All tenant-scoped queries MUST include `where: { tenant_id: tenantId }` — no exceptions
 
----
-
 ## Code Quality Rules
 
 - TypeScript strict mode: no `any`, no implicit `any`
@@ -38,8 +33,6 @@ You are implementing a production-ready backend feature for Lead360's Voice AI m
 - No `TODO` comments, no placeholder implementations
 - Follow existing naming: snake_case DB fields, camelCase TypeScript, kebab-case endpoints
 - Every new service method has corresponding unit test (sprint B13)
-
----
 
 ## Development Environment
 
@@ -57,8 +50,6 @@ cd /var/www/lead360.app/api && npm run dev
 
 **Test endpoints**: `http://localhost:8000/api/v1`
 
----
-
 ## Reference Files
 
 | What | Where |
@@ -72,8 +63,6 @@ cd /var/www/lead360.app/api && npm run dev
 | Audit logging | `/api/src/modules/audit/audit-logger.service.ts` |
 | Prisma schema | `/api/prisma/schema.prisma` |
 
----
-
 ## Definition of Done
 
 Your sprint is COMPLETE when:
@@ -84,3 +73,6 @@ Your sprint is COMPLETE when:
 - [ ] Module registered in `app.module.ts`
 - [ ] No TypeScript compilation errors (`npm run build`)
 - [ ] All acceptance criteria from sprint checked off
+
+
+Review your job, line by line and make sure you're not making mistakes,not missing anything even small things, that there's no todos or mock code, not hardcoded urls that shouldn't be there the code quality is the best possible, make sure that if you say that is all done and I find a single error I'll fire you.

@@ -86,7 +86,7 @@ TwiML <Dial><Sip> to LiveKit SIP trunk
          ↓
 Python agent joins LiveKit room
          ↓
-Agent calls GET /voice-ai/internal/context/abc
+Agent calls GET /api/v1/internal/voice-ai/tenant/abc/context
          ↓
 Agent greets caller with tenant greeting
          ↓
@@ -94,7 +94,7 @@ Conversation: STT → LLM → TTS loop
          ↓
 Actions: create_lead | book_appointment | transfer_call
          ↓
-Call ends → agent calls POST /voice-ai/internal/calls/end
+Call ends → agent calls POST /api/v1/internal/voice-ai/calls/{callSid}/complete
          ↓
 Usage recorded → call log finalized
 ```
@@ -217,20 +217,24 @@ Usage recorded → call log finalized
 
 ### voice_usage_record
 
+Per-call, per-provider granular billing records. Each call creates 1–3 rows (one per provider: STT, LLM, TTS).
+
 | Column | Type | Notes |
 |--------|------|-------|
 | id | String (UUID) | PK |
 | tenant_id | String | FK → tenant |
-| year | Int | e.g. 2026 |
+| call_log_id | String | FK → voice_call_log |
+| provider_id | String | FK → voice_ai_provider |
+| provider_type | String | STT \| LLM \| TTS |
+| usage_quantity | Decimal | seconds / tokens / characters |
+| usage_unit | String | 'seconds' \| 'tokens' \| 'characters' |
+| estimated_cost | Decimal? | USD cost estimate |
+| year | Int | e.g. 2026 (for efficient aggregation) |
 | month | Int | 1-12 |
-| minutes_used | Int | Default 0 |
-| overage_minutes_used | Int | Default 0 |
-| estimated_overage_cost | Decimal? | Decimal(10,4) |
-| total_calls | Int | Default 0 |
+| billed_at | DateTime | |
 | created_at | DateTime | |
-| updated_at | DateTime | |
 
-**UNIQUE**: `[tenant_id, year, month]` — enables atomic upsert.
+**No unique constraint** — each call creates new rows, never upserts. Quota is derived by aggregating STT seconds for current month.
 
 ### subscription_plan (extensions)
 
@@ -243,69 +247,127 @@ Add to existing model:
 
 ## API Specification
 
+> ⚠️ **Source of Truth**: Endpoint paths in this section reflect the sprint implementations (B02a–B14, FTA01–FTA06, FSA01–FSA07). These paths take precedence over any earlier draft. Do not use paths from older versions of this contract.
+
 ### Authentication
 
 | Endpoint Group | Auth Method | Requirement |
 |---|---|---|
-| Admin Infrastructure | JWT | `is_platform_admin: true` |
-| Admin Monitoring | JWT | `is_platform_admin: true` |
-| Tenant Behavior | JWT | Authenticated tenant user |
+| Admin — System | JWT | `is_platform_admin: true` |
+| Tenant | JWT | Authenticated tenant user (any role) |
 | Internal (Python agent) | `X-Voice-Agent-Key` header | Hash matches `agent_api_key_hash` in global config |
+| Webhooks | HMAC signature | LiveKit signature verification |
 
-### Admin Infrastructure Endpoints
+### Admin — Providers (`/system/voice-ai/providers`)
 
-**Providers**
-- `GET /api/v1/voice-ai/admin/providers` — list all providers
-- `POST /api/v1/voice-ai/admin/providers` — create provider
-- `PATCH /api/v1/voice-ai/admin/providers/:id` — update provider
-- `DELETE /api/v1/voice-ai/admin/providers/:id` — soft delete
+> Sprint: B02a | Frontend: FSA01
 
-**Credentials**
-- `GET /api/v1/voice-ai/admin/credentials` — list credentials (masked keys)
-- `PUT /api/v1/voice-ai/admin/credentials/:providerId` — upsert credential
-- `DELETE /api/v1/voice-ai/admin/credentials/:providerId` — delete
+- `GET    /api/v1/system/voice-ai/providers` — list all AI providers
+- `POST   /api/v1/system/voice-ai/providers` — create provider
+- `PATCH  /api/v1/system/voice-ai/providers/:id` — update provider
+- `DELETE /api/v1/system/voice-ai/providers/:id` — soft delete provider
 
-**Global Config**
-- `GET /api/v1/voice-ai/admin/global-config` — get singleton
-- `PATCH /api/v1/voice-ai/admin/global-config` — update defaults
-- `POST /api/v1/voice-ai/admin/global-config/regenerate-key` — regenerate agent API key (returns plain key ONCE)
+### Admin — Credentials (`/system/voice-ai/credentials`)
 
-**Subscription Plans**
-- `GET /api/v1/voice-ai/admin/plans` — list plans with voice AI fields
-- `PATCH /api/v1/voice-ai/admin/plans/:planId/voice` — update voice AI plan config
+> Sprint: B02b | Frontend: FSA02
 
-### Admin Monitoring Endpoints
+- `GET    /api/v1/system/voice-ai/credentials` — list credentials (masked keys only, never plain)
+- `PUT    /api/v1/system/voice-ai/credentials/:providerId` — upsert credential (one per provider)
+- `DELETE /api/v1/system/voice-ai/credentials/:providerId` — remove credential
 
-- `GET /api/v1/voice-ai/admin/tenants?page&limit&search` — all tenants with voice AI summary
-- `PATCH /api/v1/voice-ai/admin/tenants/:tenantId/override` — admin override settings
-- `GET /api/v1/voice-ai/admin/call-logs?tenantId&from&to&outcome&page&limit` — cross-tenant call logs
-- `GET /api/v1/voice-ai/admin/usage-report?year&month` — aggregate usage report
+### Admin — Global Config (`/system/voice-ai/config`)
 
-### Tenant Behavior Endpoints
+> Sprint: B03 | Frontend: FSA03
 
-- `GET /api/v1/voice-ai/settings` — get tenant voice AI settings
-- `PUT /api/v1/voice-ai/settings` — upsert settings (behavior fields only)
-- `GET /api/v1/voice-ai/transfer-numbers` — list transfer numbers
-- `POST /api/v1/voice-ai/transfer-numbers` — create transfer number
-- `PATCH /api/v1/voice-ai/transfer-numbers/:id` — update
-- `DELETE /api/v1/voice-ai/transfer-numbers/:id` — delete
-- `GET /api/v1/voice-ai/call-logs?from&to&outcome&page&limit` — tenant's call history
-- `GET /api/v1/voice-ai/call-logs/:id` — single call detail
-- `GET /api/v1/voice-ai/usage?year&month` — usage summary (default: current month)
+- `GET    /api/v1/system/voice-ai/config` — get singleton global config
+- `PATCH  /api/v1/system/voice-ai/config` — update global defaults
+- `POST   /api/v1/system/voice-ai/config/regenerate-key` — regenerate agent API key (returns plain key ONCE, never stored)
 
-### Internal Agent Endpoints
+### Admin — Subscription Plans (`/system/voice-ai/plans`)
 
-- `GET /api/v1/voice-ai/internal/context/:tenantId` — full merged context
-- `POST /api/v1/voice-ai/internal/calls/start` — start call log
-- `POST /api/v1/voice-ai/internal/calls/end` — finalize call log
-- `POST /api/v1/voice-ai/internal/actions/lead` — create/find lead
-- `POST /api/v1/voice-ai/internal/actions/appointment` — book appointment
+> Sprint: B03 | Frontend: FSA04
+
+- `GET    /api/v1/system/voice-ai/plans` — list plans with voice AI fields
+- `PATCH  /api/v1/system/voice-ai/plans/:planId/voice` — update voice AI config for a plan
+
+### Admin — Tenant Monitoring (`/system/voice-ai/tenants`)
+
+> Sprint: B11 | Frontend: FSA04
+
+- `GET    /api/v1/system/voice-ai/tenants?page&limit&search` — all tenants with voice AI summary
+- `PATCH  /api/v1/system/voice-ai/tenants/:tenantId/override` — admin override for specific tenant
+
+### Admin — Call Logs & Usage Report
+
+> Sprint: B07 | Frontend: FSA05
+
+- `GET    /api/v1/system/voice-ai/call-logs?tenantId&from&to&outcome&page&limit` — cross-tenant call logs
+- `GET    /api/v1/system/voice-ai/usage-report?year&month` — aggregate usage report across all tenants
+
+### Tenant — Settings (`/voice-ai/settings`)
+
+> Sprint: B04 | Frontend: FTA01
+
+- `GET    /api/v1/voice-ai/settings` — get tenant's voice AI settings
+- `PUT    /api/v1/voice-ai/settings` — upsert settings (behavior fields only, no provider overrides)
+
+### Tenant — Transfer Numbers (`/voice-ai/transfer-numbers`)
+
+> Sprint: B05 | Frontend: FTA02
+
+⚠️ **Route order matters**: `/reorder` is a static route and MUST be hit before `/:id` in the controller.
+
+- `GET    /api/v1/voice-ai/transfer-numbers` — list transfer numbers (ordered by `display_order` ASC)
+- `POST   /api/v1/voice-ai/transfer-numbers` — create transfer number (max 10 per tenant)
+- `POST   /api/v1/voice-ai/transfer-numbers/reorder` — bulk-update `display_order` for drag-and-drop UI
+- `PATCH  /api/v1/voice-ai/transfer-numbers/:id` — update a transfer number
+- `DELETE /api/v1/voice-ai/transfer-numbers/:id` — delete a transfer number
+
+### Tenant — Call Logs (`/voice-ai/call-logs`)
+
+> Sprint: B07 | Frontend: FTA03
+
+- `GET    /api/v1/voice-ai/call-logs?from&to&outcome&page&limit` — tenant's paginated call history
+- `GET    /api/v1/voice-ai/call-logs/:id` — single call log detail with full transcript
+
+### Tenant — Usage (`/voice-ai/usage`)
+
+> Sprint: B07 | Frontend: FTA04
+
+- `GET    /api/v1/voice-ai/usage?year&month` — monthly usage summary (defaults to current month)
+
+### Internal Agent Endpoints (`/internal/voice-ai/...`)
+
+> Sprint: B06a, B06b, B06c | Python Agent: A03, A07, A08
+
+Auth: `X-Voice-Agent-Key` header (NOT JWT). All routes use `@Public()` to bypass global JWT guard.
+
+**Access & Context:**
+- `GET    /api/v1/internal/voice-ai/tenant/:tenantId/access` — pre-flight quota/enabled check before routing call
+- `GET    /api/v1/internal/voice-ai/tenant/:tenantId/context` — full merged context (FullVoiceAiContext) with decrypted keys
+
+**Call Lifecycle:**
+- `POST   /api/v1/internal/voice-ai/calls/start` — create call log at call start, returns `{ call_log_id }`
+- `POST   /api/v1/internal/voice-ai/calls/:callSid/complete` — finalize call log + create usage records
+
+**Tool Dispatch (separate routes, not generic `:tool`):**
+- `POST   /api/v1/internal/voice-ai/tenant/:tenantId/tools/create_lead` — create lead from call
+- `POST   /api/v1/internal/voice-ai/tenant/:tenantId/tools/book_appointment` — book appointment
+- `POST   /api/v1/internal/voice-ai/tenant/:tenantId/tools/transfer_call` — initiate call transfer
+
+### Webhooks
+
+> Sprint: B14
+
+Auth: LiveKit HMAC signature verification (no JWT, no agent key).
+
+- `POST   /api/webhooks/voice-ai/livekit` — LiveKit event webhook handler
 
 ---
 
 ## FullVoiceAiContext — JSON Shape
 
-This is the object returned by `GET /api/v1/voice-ai/internal/context/:tenantId`.
+This is the object returned by `GET /api/v1/internal/voice-ai/tenant/:tenantId/context`.
 
 ```json
 {
@@ -335,16 +397,22 @@ This is the object returned by `GET /api/v1/voice-ai/internal/context/:tenantId`
   },
   "providers": {
     "stt": {
+      "provider_id": "uuid-of-deepgram-provider-row",
       "provider_key": "deepgram",
-      "api_key": "DECRYPTED_KEY_HERE"
+      "api_key": "DECRYPTED_KEY_HERE",
+      "config": { "model": "nova-2", "punctuate": true }
     },
     "llm": {
+      "provider_id": "uuid-of-openai-provider-row",
       "provider_key": "openai",
-      "api_key": "DECRYPTED_KEY_HERE"
+      "api_key": "DECRYPTED_KEY_HERE",
+      "config": { "model": "gpt-4o-mini", "temperature": 0.7, "max_tokens": 500 }
     },
     "tts": {
+      "provider_id": "uuid-of-cartesia-provider-row",
       "provider_key": "cartesia",
       "api_key": "DECRYPTED_KEY_HERE",
+      "config": { "model": "sonic-english", "speed": 1.0 },
       "voice_id": "voice-uuid"
     }
   },
@@ -357,8 +425,8 @@ This is the object returned by `GET /api/v1/voice-ai/internal/context/:tenantId`
     { "type": "city", "value": "Coral Gables", "state": "FL" }
   ],
   "transfer_numbers": [
-    { "label": "Sales", "phone_number": "+15559876543", "is_default": false },
-    { "label": "Emergency", "phone_number": "+15550001111", "is_default": true }
+    { "label": "Sales", "phone_number": "+15559876543", "transfer_type": "primary", "is_default": false, "available_hours": null },
+    { "label": "Emergency", "phone_number": "+15550001111", "transfer_type": "emergency", "is_default": true, "available_hours": null }
   ]
 }
 ```

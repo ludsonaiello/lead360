@@ -47,6 +47,7 @@ export interface VoiceAiProvider {
   provider_type: 'STT' | 'LLM' | 'TTS';
   display_name: string;
   description: string | null;
+  config_schema: Record<string, any>;  // JSON schema for provider config fields — used in FSA03 to render dynamic config form
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -65,6 +66,7 @@ export interface VoiceAiCredential {
   provider_id: string;
   masked_api_key: string;
   is_configured: boolean;
+  updated_by: string | null;
   updated_at: string;
 }
 
@@ -75,14 +77,21 @@ export interface VoiceAiGlobalConfig {
   default_llm_provider_id: string | null;
   default_tts_provider_id: string | null;
   default_voice_id: string | null;
+  default_stt_config: Record<string, any> | null;   // provider-specific config (e.g. { model: 'nova-2' })
+  default_llm_config: Record<string, any> | null;   // provider-specific config (e.g. { model: 'gpt-4o-mini', temperature: 0.7 })
+  default_tts_config: Record<string, any> | null;   // provider-specific config (e.g. { model: 'sonic-english', speed: 1.0 })
   default_language: string;
+  default_languages: string[];                       // list of supported BCP-47 codes
   default_greeting_template: string;
   default_system_prompt: string;
   default_max_call_duration_seconds: number;
+  default_transfer_behavior: 'end_call' | 'voicemail' | 'hold';
+  default_tools_enabled: { booking: boolean; lead_creation: boolean; call_transfer: boolean };
   livekit_sip_trunk_url: string | null;
   livekit_configured: boolean;  // true if livekit keys are set (masked)
   agent_api_key_preview: string | null;  // last 4 chars
   max_concurrent_calls: number;
+  updated_by: string | null;
   updated_at: string;
 }
 
@@ -99,6 +108,12 @@ export interface UpdateGlobalConfigRequest {
   livekit_api_key?: string;
   livekit_api_secret?: string;
   max_concurrent_calls?: number;
+  default_stt_config?: Record<string, any>;
+  default_llm_config?: Record<string, any>;
+  default_tts_config?: Record<string, any>;
+  default_languages?: string[];
+  default_transfer_behavior?: 'end_call' | 'voicemail' | 'hold';
+  default_tools_enabled?: { booking: boolean; lead_creation: boolean; call_transfer: boolean };
 }
 
 // Plans
@@ -131,6 +146,7 @@ export interface AdminOverrideRequest {
   stt_provider_override_id?: string | null;
   llm_provider_override_id?: string | null;
   tts_provider_override_id?: string | null;
+  admin_notes?: string | null;
 }
 
 // Call Logs
@@ -145,8 +161,13 @@ export interface VoiceCallLog {
   is_overage: boolean;
   duration_seconds: number | null;
   transcript_summary: string | null;
+  full_transcript: string | null;       // full text (may be large — load lazily in detail view)
+  actions_taken: string | null;         // JSON array of action names, e.g. '["create_lead","book_appointment"]'
   outcome: string | null;
   lead_id: string | null;
+  stt_provider_id: string | null;
+  llm_provider_id: string | null;
+  tts_provider_id: string | null;
   started_at: string;
   ended_at: string | null;
   created_at: string;
@@ -244,7 +265,7 @@ export async function getTenantsVoiceAiOverview(params?: { page?: number; limit?
 export async function overrideTenantVoiceSettings(tenantId: string, data: AdminOverrideRequest): Promise<void> { ... }
 
 /** GET /system/voice-ai/call-logs - Cross-tenant call logs */
-export async function getAdminCallLogs(params?: { tenantId?: string; from?: string; to?: string; outcome?: string; page?: number; limit?: number }): Promise<PaginatedResponse<VoiceCallLog>> { ... }
+export async function getAdminCallLogs(params?: { tenantId?: string; from?: string; to?: string; outcome?: string; search?: string; page?: number; limit?: number }): Promise<PaginatedResponse<VoiceCallLog>> { ... }
 
 /** GET /system/voice-ai/usage-report - Aggregate usage report */
 export async function getAdminUsageReport(year?: number, month?: number): Promise<AdminUsageReport> { ... }

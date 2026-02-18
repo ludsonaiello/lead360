@@ -27,6 +27,7 @@ export const IVR_ACTION_TYPES = [
   'route_to_default',
   'trigger_webhook',
   'voicemail',
+  'voice_ai',
 ] as const;
 
 export type IvrActionType = (typeof IVR_ACTION_TYPES)[number];

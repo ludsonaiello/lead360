@@ -15,7 +15,7 @@ You are implementing a production-ready Python Voice AI agent for Lead360 using 
 3. **Read the Internal API docs** in `/api/documentation/voice_ai_REST_API.md` (Internal Agent section)
 4. **HIT THE ACTUAL ENDPOINTS** to verify response shapes:
    ```bash
-   curl -s http://localhost:8000/api/v1/voice-ai/internal/context/TENANT_ID \
+   curl -s http://localhost:8000/api/v1/internal/voice-ai/tenant/TENANT_ID/context \
      -H "X-Voice-Agent-Key: YOUR_KEY" | jq .
    ```
 5. **Check previous sprints**: `/agent/voice-ai/` for already-built foundation before writing
@@ -29,7 +29,7 @@ You are implementing a production-ready Python Voice AI agent for Lead360 using 
 - `X-Voice-Agent-Key` header on EVERY internal API call — no exceptions
 - **Context cache**: max 60 seconds TTL — never cache longer
 - **Quota check**: ALWAYS check `context.quota.quota_exceeded` before accepting call. If `quota_exceeded=true` AND `overage_rate=null` → play message and hang up gracefully
-- **Call lifecycle**: ALWAYS call `/internal/calls/start` at room join and `/internal/calls/end` in teardown — even if other errors occur
+- **Call lifecycle**: ALWAYS call `/internal/voice-ai/calls/start` at room join and `/internal/voice-ai/calls/{callSid}/complete` in teardown — even if other errors occur
 - HTTP calls: use `httpx` with `timeout=10.0` and max 2 retries
 
 ---
@@ -39,7 +39,7 @@ You are implementing a production-ready Python Voice AI agent for Lead360 using 
 - ALL errors must be logged with `call_sid` for traceability
 - Agent must NEVER crash mid-call due to API failures
 - LLM tool failures: inform caller politely and continue conversation
-- `/internal/calls/end` failure: log error, do NOT re-raise (non-blocking)
+- `on_call_complete()` failure: log error, do NOT re-raise (non-blocking)
 
 ---
 
@@ -54,7 +54,7 @@ cd /agent/voice-ai && python -m agent.main
 - `LIVEKIT_URL`
 - `LIVEKIT_API_KEY`
 - `LIVEKIT_API_SECRET`
-- `LEAD360_API_URL=http://localhost:8000/api/v1`
+- `LEAD360_API_BASE_URL=http://localhost:8000`
 - `VOICE_AGENT_KEY`
 
 **Backend must be running**: `http://localhost:8000`

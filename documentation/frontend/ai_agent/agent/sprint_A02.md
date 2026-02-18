@@ -4,7 +4,7 @@ YOU ARE A MASTER CLASS DEVELOPER THAT MAKES GOOGLE, AMAZON and APPLE DEVELOPER J
 
 **Module**: Voice AI Python Agent  
 **Sprint**: A02  
-**Depends on**: A01
+**Depends on**: A01a, A01b
 
 ---
 
@@ -111,7 +111,7 @@ import logging
 from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli, llm
 from livekit.agents.voice_assistant import VoiceAssistant
 
-from .config import config
+from .config import get_config
 from .sip_handler import extract_call_info
 
 logger = logging.getLogger(__name__)
@@ -119,7 +119,7 @@ logger = logging.getLogger(__name__)
 async def entrypoint(ctx: JobContext):
     """Main entrypoint for each call."""
     logger.info("New job received: room=%s", ctx.room.name)
-    
+
     # Extract call information from job metadata
     metadata = {}
     if ctx.job.metadata:
@@ -128,17 +128,17 @@ async def entrypoint(ctx: JobContext):
             metadata = json.loads(ctx.job.metadata)
         except json.JSONDecodeError:
             metadata = {"raw": ctx.job.metadata}
-    
+
     call_info = extract_call_info(metadata)
-    
+
     if not call_info:
         logger.error("Cannot determine tenant for call, hanging up")
         await ctx.room.disconnect()
         return
-    
-    logger.info("Processing call for tenant=%s, callSid=%s", 
+
+    logger.info("Processing call for tenant=%s, callSid=%s",
                 call_info.tenant_id, call_info.call_sid)
-    
+
     # Context loading, STT/LLM/TTS setup will be added in subsequent sprints (A03-A09)
     # For now, just log and disconnect
     logger.info("Call handler placeholder — implement in A03+")
@@ -149,12 +149,13 @@ async def entrypoint(ctx: JobContext):
 
 def run():
     """Start the LiveKit worker."""
+    cfg = get_config()
     cli.run_app(
         WorkerOptions(
             entrypoint_fnc=entrypoint,
-            api_key=config.LIVEKIT_API_KEY,
-            api_secret=config.LIVEKIT_API_SECRET,
-            ws_url=config.LIVEKIT_URL,
+            api_key=cfg.LIVEKIT_API_KEY,
+            api_secret=cfg.LIVEKIT_API_SECRET,
+            ws_url=cfg.LIVEKIT_URL,
         )
     )
 ```

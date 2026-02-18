@@ -4,7 +4,7 @@ YOU ARE A MASTER CLASS DEVELOPER THAT MAKES GOOGLE, AMAZON and APPLE DEVELOPER J
 
 **Module**: Voice AI
 **Sprint**: B07
-**Depends on**: B01, B06
+**Depends on**: B01, B06a, B06b
 
 ---
 
@@ -319,6 +319,7 @@ await this.prisma.$transaction(async (tx) => {
       full_transcript: dto.full_transcript,
       actions_taken: JSON.stringify(dto.actions_taken ?? []),
       lead_id: dto.lead_id,
+      is_overage: dto.is_overage ?? false,
       ended_at: new Date(),
     },
   });

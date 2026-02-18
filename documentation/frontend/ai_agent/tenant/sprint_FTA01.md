@@ -16,6 +16,8 @@ Build the tenant Voice AI settings page where business owners can enable/disable
 
 ## Mandatory Pre-Coding Steps
 
+> **STOP — NUMBERING IS MISLEADING**: The tenant frontend sprints are numbered by feature area (settings, transfer numbers, call logs...), NOT execution order. **FTA05 must be done before FTA01–FTA04.** If you haven't completed FTA05 (API client + types at `/app/src/lib/types/voice-ai-tenant.ts` and `/app/src/lib/api/voice-ai-tenant.ts`), stop and do that sprint first. FTA05 is the foundation — nothing here compiles without it.
+
 1. Read API docs: `GET /voice-ai/settings` and `PUT /voice-ai/settings`
 2. **HIT ENDPOINT**: `curl http://localhost:8000/api/v1/voice-ai/settings -H "Authorization: Bearer TENANT_TOKEN" | jq .`
 3. Read reference: `/app/src/app/(dashboard)/settings/business/page.tsx` — settings form pattern
@@ -81,7 +83,12 @@ Show when plan does not include Voice AI:
 - Placeholder: "e.g., Always ask if this is an emergency. We serve the Miami area."
 - Helper text: "These instructions are added to the agent's system prompt."
 
-**Section 5: Advanced**
+**Section 5: Features**
+- Allow Appointment Booking: `<ToggleSwitch>` (`booking_enabled`) — lets agent schedule appointments
+- Allow Lead Creation: `<ToggleSwitch>` (`lead_creation_enabled`) — lets agent create leads from calls
+- Allow Call Transfer: `<ToggleSwitch>` (`transfer_enabled`) — lets agent transfer calls to configured numbers
+
+**Section 6: Advanced**
 - Max Call Duration: `<Select>` — 5 min, 10 min (default), 15 min, 30 min
 - Fallback Phone Number: `<MaskedInput>` with +1 (000) 000-0000 mask (E.164)
 - Helper text: "If Voice AI is unavailable, calls will be transferred here."
@@ -94,11 +101,15 @@ Show when plan does not include Voice AI:
 
 ```typescript
 const schema = z.object({
+  is_enabled: z.boolean().optional(),
   custom_greeting: z.string().max(500).optional().nullable(),
   custom_instructions: z.string().max(2000).optional().nullable(),
   enabled_languages: z.array(z.string()).min(1, 'Select at least one language'),
   max_call_duration_seconds: z.number().int().optional().nullable(),
   default_transfer_number: z.string().regex(/^\+[1-9]\d{1,14}$/).optional().nullable(),
+  booking_enabled: z.boolean().optional(),
+  lead_creation_enabled: z.boolean().optional(),
+  transfer_enabled: z.boolean().optional(),
 });
 ```
 
@@ -106,7 +117,14 @@ const schema = z.object({
 
 ## API Integration
 
-- On mount: `getTenantVoiceSettings()`
+- On mount: `getTenantVoiceSettings()` — load settings for the form
+- On mount: `getTenantUsage()` — populate `VoiceAiUsageMeter` with current quota/usage data
+  ```typescript
+  const [usage, setUsage] = useState<TenantUsageSummary | null>(null);
+  // In useEffect alongside getTenantVoiceSettings():
+  getTenantUsage().then(setUsage).catch(console.error);
+  // Pass to meter: <VoiceAiUsageMeter usage={usage} />
+  ```
 - On save: `updateTenantVoiceSettings(formData)`
 - Show success toast on save
 

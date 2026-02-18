@@ -18,6 +18,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { LeadsModule } from './modules/leads/leads.module';
 import { CommunicationModule } from './modules/communication/communication.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
+import { VoiceAiModule } from './modules/voice-ai/voice-ai.module';
 
 @Module({
   imports: [
@@ -82,6 +83,7 @@ import { QuotesModule } from './modules/quotes/quotes.module';
     LeadsModule, // Leads/Customer management with CRM functionality
     CommunicationModule, // Multi-provider communication (Email, SMS, WhatsApp)
     QuotesModule, // Quote management with vendors, bundles, templates, and settings
+    VoiceAiModule, // Voice AI module — AI provider registry + agent infrastructure
   ],
   controllers: [HealthController],
   providers: [

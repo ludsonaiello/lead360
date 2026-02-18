@@ -39,12 +39,12 @@ In `/app/src/components/dashboard/DashboardSidebar.tsx`, add to `adminNavigation
   name: 'Voice AI',
   icon: Mic,  // from lucide-react
   items: [
-    { name: 'Tenants & Plans', href: '/admin/voice-ai/tenants', icon: Users },
-    { name: 'Call Logs', href: '/admin/voice-ai/logs', icon: PhoneCall },
-    { name: 'Usage', href: '/admin/voice-ai/usage', icon: BarChart2 },
     { name: 'Providers', href: '/admin/voice-ai/providers', icon: Cpu },
     { name: 'Credentials', href: '/admin/voice-ai/credentials', icon: Key },
     { name: 'Configuration', href: '/admin/voice-ai/config', icon: Settings },
+    { name: 'Tenants & Plans', href: '/admin/voice-ai/tenants', icon: Users },
+    { name: 'Call Logs', href: '/admin/voice-ai/logs', icon: PhoneCall },
+    { name: 'Usage', href: '/admin/voice-ai/usage', icon: BarChart2 },
   ],
 },
 ```

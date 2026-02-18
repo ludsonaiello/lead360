@@ -72,14 +72,23 @@ export interface VoiceTransferNumber {
   tenant_id: string;
   label: string;
   phone_number: string;
+  transfer_type: string;            // primary | overflow | after_hours | emergency
+  description: string | null;
   is_default: boolean;
+  available_hours: string | null;   // JSON string or null (e.g. {"mon":[["09:00","17:00"]]})
+  display_order: number;
   created_at: string;
+  updated_at: string;
 }
 
 export interface CreateTransferNumberRequest {
   label: string;
   phone_number: string;
+  transfer_type?: string;           // defaults to 'primary' if omitted
+  description?: string | null;
   is_default?: boolean;
+  available_hours?: string | null;
+  display_order?: number;
 }
 
 export interface TenantCallLog {
@@ -107,9 +116,11 @@ export interface TenantUsageSummary {
   minutes_remaining: number;
   overage_rate: number | null;
   quota_exceeded: boolean;
-  overage_minutes_used: number;
-  estimated_overage_cost: number;
   total_calls: number;
+  total_stt_seconds: number;
+  total_llm_tokens: number;
+  total_tts_characters: number;
+  estimated_cost: number;
 }
 
 export interface PaginationMeta {
@@ -153,8 +164,11 @@ export async function updateTransferNumber(id: string, data: Partial<CreateTrans
 /** DELETE /voice-ai/transfer-numbers/:id - Delete transfer number */
 export async function deleteTransferNumber(id: string): Promise<void> { ... }
 
+/** POST /voice-ai/transfer-numbers/reorder - Update display order of multiple numbers */
+export async function reorderTransferNumbers(data: Array<{ id: string; display_order: number }>): Promise<void> { ... }
+
 /** GET /voice-ai/call-logs - List call logs */
-export async function getTenantCallLogs(params?: { from?: string; to?: string; outcome?: string; page?: number; limit?: number }): Promise<PaginatedResponse<TenantCallLog>> { ... }
+export async function getTenantCallLogs(params?: { from?: string; to?: string; outcome?: string; search?: string; page?: number; limit?: number }): Promise<PaginatedResponse<TenantCallLog>> { ... }
 
 /** GET /voice-ai/call-logs/:id - Get call detail */
 export async function getTenantCallLog(id: string): Promise<TenantCallLog> { ... }

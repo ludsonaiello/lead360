@@ -17,7 +17,7 @@ Handle inbound webhook events from LiveKit (room created, participant joined/lef
 ## Pre-Coding Checklist
 
 - [ ] B06, B07 are complete — call log service and internal API exist
-- [ ] Read LiveKit webhook documentation: https://docs.livekit.io/home/server/webhooks/
+- [ ] Read LiveKit webhook documentation: /var/www/lead360.app/documentation/backend/ai_agent/livekit_webhook.md or https://docs.livekit.io/home/server/webhooks/
 - [ ] Read `/api/src/modules/communication/controllers/ivr.controller.ts` — webhook controller pattern
 - [ ] Read `voice_ai_global_config` model — `livekit_api_key` and `livekit_api_secret` fields
 - [ ] Understand that LiveKit signs webhooks with HMAC-SHA256 using the API secret
@@ -29,7 +29,7 @@ Handle inbound webhook events from LiveKit (room created, participant joined/lef
 ## Development Credentials
 
 - Admin: `ludsonaiello@gmail.com` / `978@F32c`
-- Tenant: `contato@honeydo4you.com` / `978@F32c`
+- Tenant: `contact@honeydo4you.com` / `978@F32c`
 - DB credentials: read from `/var/www/lead360.app/api/.env` — never hardcode
 
 ---

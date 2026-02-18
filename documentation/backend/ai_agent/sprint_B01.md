@@ -185,7 +185,7 @@ model tenant_voice_transfer_number {
   description     String?   @db.VarChar(255)         // human-readable note
   is_default      Boolean   @default(false)
   display_order   Int       @default(0)              // for reordering
-  available_hours String?   @db.Text                 // JSON: {"mon":["09:00","17:00"],"tue":...} null=always
+  available_hours String?   @db.Text                 // JSON: {"mon":[["09:00","17:00"]],"tue":...} nested array supports multiple windows per day; null=always available
   created_at      DateTime  @default(now())
   updated_at      DateTime  @updatedAt
 

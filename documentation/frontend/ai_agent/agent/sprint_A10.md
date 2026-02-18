@@ -45,10 +45,14 @@ MOCK_CONTEXT_RESPONSE = {
     "tenant": {"id": "t1", "company_name": "Acme Plumbing", "phone": "+15551234567", "timezone": "America/New_York", "language": "en"},
     "quota": {"minutes_included": 500, "minutes_used": 100, "minutes_remaining": 400, "overage_rate": None, "quota_exceeded": False},
     "behavior": {"is_enabled": True, "language": "en", "greeting": "Hello from Acme!", "custom_instructions": None, "booking_enabled": True, "lead_creation_enabled": True, "transfer_enabled": True, "max_call_duration_seconds": 600},
-    "providers": {"stt": {"provider_key": "deepgram", "api_key": "dg-key"}, "llm": {"provider_key": "openai", "api_key": "sk-key"}, "tts": {"provider_key": "cartesia", "api_key": "ca-key", "voice_id": "voice-1"}},
+    "providers": {
+        "stt": {"provider_id": "prov-stt-1", "provider_key": "deepgram", "api_key": "dg-key", "config": {"model": "nova-2"}},
+        "llm": {"provider_id": "prov-llm-1", "provider_key": "openai", "api_key": "sk-key", "config": {"model": "gpt-4o-mini"}},
+        "tts": {"provider_id": "prov-tts-1", "provider_key": "cartesia", "api_key": "ca-key", "config": {}, "voice_id": "voice-1"},
+    },
     "services": [{"name": "Plumbing", "description": "All plumbing services"}],
     "service_areas": [{"type": "city", "value": "Miami", "state": "FL"}],
-    "transfer_numbers": [{"label": "Main", "phone_number": "+15559999999", "is_default": True}],
+    "transfer_numbers": [{"label": "Main", "phone_number": "+15559999999", "transfer_type": "primary", "is_default": True, "available_hours": None}],
 }
 
 
@@ -213,7 +217,7 @@ services:
       - LIVEKIT_URL=${LIVEKIT_URL}
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
-      - LEAD360_API_URL=http://host.docker.internal:8000/api/v1
+      - LEAD360_API_BASE_URL=http://host.docker.internal:8000
       - VOICE_AGENT_KEY=${VOICE_AGENT_KEY}
     network_mode: bridge
     extra_hosts:

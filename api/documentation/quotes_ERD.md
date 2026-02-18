@@ -338,6 +338,9 @@ unknown unknown
     Boolean is_default 
     DateTime created_at 
     DateTime updated_at 
+    Boolean voice_ai_enabled 
+    Int voice_ai_minutes_included 
+    Decimal voice_ai_overage_rate "❓"
     }
   
 
@@ -808,6 +811,136 @@ unknown unknown
     Decimal cost_per_minute "❓"
     DateTime created_at 
     DateTime updated_at 
+    }
+  
+
+  "voice_ai_provider" {
+    String id "🗝️"
+    String provider_key 
+    String provider_type 
+    String display_name 
+    String description "❓"
+    String logo_url "❓"
+    String documentation_url "❓"
+    String capabilities "❓"
+    String config_schema "❓"
+    String default_config "❓"
+    String pricing_info "❓"
+    Boolean is_active 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "voice_ai_credentials" {
+    String id "🗝️"
+    String encrypted_api_key 
+    String masked_api_key 
+    DateTime created_at 
+    DateTime updated_at 
+    String updated_by "❓"
+    }
+  
+
+  "voice_ai_global_config" {
+    String id "🗝️"
+    String default_stt_config "❓"
+    String default_llm_config "❓"
+    String default_tts_config "❓"
+    String default_voice_id "❓"
+    String default_language 
+    String default_languages 
+    String default_greeting_template 
+    String default_system_prompt 
+    Int default_max_call_duration_seconds 
+    String default_transfer_behavior 
+    String default_tools_enabled 
+    String livekit_sip_trunk_url "❓"
+    String livekit_api_key "❓"
+    String livekit_api_secret "❓"
+    String agent_api_key_hash "❓"
+    String agent_api_key_preview "❓"
+    Int max_concurrent_calls 
+    DateTime updated_at 
+    String updated_by "❓"
+    }
+  
+
+  "tenant_voice_ai_settings" {
+    String id "🗝️"
+    Boolean is_enabled 
+    String default_language 
+    String enabled_languages 
+    String custom_greeting "❓"
+    String custom_instructions "❓"
+    String after_hours_behavior "❓"
+    Boolean booking_enabled "❓"
+    Boolean lead_creation_enabled "❓"
+    Boolean transfer_enabled "❓"
+    String default_transfer_number "❓"
+    Int max_call_duration_seconds "❓"
+    Int monthly_minutes_override "❓"
+    String admin_notes "❓"
+    String stt_provider_override_id "❓"
+    String llm_provider_override_id "❓"
+    String tts_provider_override_id "❓"
+    String stt_config_override "❓"
+    String llm_config_override "❓"
+    String tts_config_override "❓"
+    String voice_id_override "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    String updated_by "❓"
+    }
+  
+
+  "tenant_voice_transfer_number" {
+    String id "🗝️"
+    String label 
+    String phone_number 
+    String transfer_type 
+    String description "❓"
+    Boolean is_default 
+    Int display_order 
+    String available_hours "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "voice_call_log" {
+    String id "🗝️"
+    String call_sid 
+    String from_number 
+    String to_number 
+    String direction 
+    String status 
+    String outcome "❓"
+    Boolean is_overage 
+    Int duration_seconds "❓"
+    String transcript_summary "❓"
+    String full_transcript "❓"
+    String actions_taken "❓"
+    String lead_id "❓"
+    String stt_provider_id "❓"
+    String llm_provider_id "❓"
+    String tts_provider_id "❓"
+    DateTime started_at 
+    DateTime ended_at "❓"
+    DateTime created_at 
+    }
+  
+
+  "voice_usage_record" {
+    String id "🗝️"
+    String provider_type 
+    Decimal usage_quantity 
+    String usage_unit 
+    Decimal estimated_cost "❓"
+    Int year 
+    Int month 
+    DateTime billed_at 
+    DateTime created_at 
     }
   
 
@@ -1603,6 +1736,16 @@ unknown unknown
     "call_transcription" }o--|o "tenant" : "tenant"
     "call_transcription" }o--|| call_record : "call_record"
     "transcription_provider_configuration" }o--|o "tenant" : "tenant"
+    "voice_ai_credentials" |o--|| voice_ai_provider : "provider"
+    "voice_ai_global_config" }o--|o voice_ai_provider : "stt_provider"
+    "voice_ai_global_config" }o--|o voice_ai_provider : "llm_provider"
+    "voice_ai_global_config" }o--|o voice_ai_provider : "tts_provider"
+    "tenant_voice_ai_settings" |o--|| "tenant" : "tenant"
+    "tenant_voice_transfer_number" }o--|| "tenant" : "tenant"
+    "voice_call_log" }o--|| "tenant" : "tenant"
+    "voice_usage_record" }o--|| "tenant" : "tenant"
+    "voice_usage_record" }o--|| voice_call_log : "call_log"
+    "voice_usage_record" }o--|| voice_ai_provider : "provider"
     "job_log" }o--|| "job" : "job"
     "email_queue" |o--|| "job" : "job"
     "lead" }o--|| "tenant" : "tenant"

@@ -11,6 +11,7 @@ import { PrismaModule } from '../../core/database/prisma.module';
 import { EncryptionModule } from '../../core/encryption/encryption.module';
 import { FilesModule } from '../files/files.module';
 import { AuditModule } from '../audit/audit.module';
+import { VoiceAiModule } from '../voice-ai/voice-ai.module';
 
 // Services
 import { JsonSchemaValidatorService } from './services/json-schema-validator.service';
@@ -156,6 +157,7 @@ import { WebhookRetryProcessor } from './processors/webhook-retry.processor';
     EncryptionModule,
     FilesModule,
     AuditModule,
+    VoiceAiModule,  // B08: exposes VoiceAiSipService for IVR voice_ai action routing
 
     // Rate limiting configuration
     ThrottlerModule.forRoot([

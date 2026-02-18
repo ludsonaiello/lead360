@@ -39,15 +39,21 @@ Build the `VoiceAiUsageMeter` component that shows the tenant's current minute u
 
 ## Task 1: VoiceAiUsageMeter Component
 
+**Note**: FTA01 was built with a placeholder `<div>` where this component goes. After completing this task, replace that placeholder in FTA01's settings page with `<VoiceAiUsageMeter usage={usage} />`.
+
 Create `/app/src/components/voice-ai/VoiceAiUsageMeter.tsx`:
 
 ```tsx
 interface Props {
-  usage: TenantUsageSummary;
+  usage: TenantUsageSummary | null;  // null while loading — component renders skeleton
 }
 
 export function VoiceAiUsageMeter({ usage }: Props) {
-  const percentage = (usage.minutes_used / usage.minutes_included) * 100;
+  if (!usage) return <div className="animate-pulse h-20 bg-gray-100 rounded" />;  // loading skeleton
+
+  const percentage = usage.minutes_included > 0
+    ? Math.min(100, (usage.minutes_used / usage.minutes_included) * 100)
+    : 0;  // guard against division by zero when minutes_included = 0
   const isWarning = percentage >= 80;
   const isExceeded = usage.quota_exceeded;
   

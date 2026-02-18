@@ -689,8 +689,8 @@ export class TwilioWebhooksController {
       throw new UnauthorizedException('Invalid Twilio signature');
     }
 
-    // Execute IVR action based on digit pressed
-    const twiml = await this.ivrService.executeIvrAction(tenantId, Digits);
+    // Execute IVR action based on digit pressed (pass CallSid for voice_ai SIP routing)
+    const twiml = await this.ivrService.executeIvrAction(tenantId, Digits, CallSid);
 
     this.logger.log(`✅ IVR action executed for call ${CallSid}`);
 

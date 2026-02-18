@@ -91,6 +91,9 @@ export class VoiceAiContextBuilderService {
     private readonly credentialsService: VoiceAiCredentialsService,
     private readonly globalConfigService: VoiceAiGlobalConfigService,
     private readonly encryption: EncryptionService,
+    // NOTE: Do NOT inject VoiceUsageService in B04 — it does not exist yet (created in B07).
+    // Implement quota calculation inline here using prisma.voice_usage_record.aggregate().
+    // B07 will refactor this to delegate to VoiceUsageService after that service exists.
   ) {}
 
   async buildContext(tenantId: string): Promise<FullVoiceAiContext>
@@ -102,14 +105,19 @@ export class VoiceAiContextBuilderService {
 1. Load `tenant` with `subscription_plan` (check voice_ai_enabled)
 2. Load `tenant_voice_ai_settings` (may be null — use defaults if so)
 3. Load `voice_ai_global_config`
-4. Load `voice_usage_record` for current year/month (may be null)
+4. Inline quota calculation (no VoiceUsageService yet — B07 will refactor this):
+   - Aggregate STT `usage_quantity` from `voice_usage_record` for current `year`/`month` and this `tenant_id`
+   - `const sttSeconds = Number(sttAgg._sum.usage_quantity ?? 0)` // Prisma returns Decimal — convert before Math.ceil
+   - `minutes_used = Math.ceil(sttSeconds / 60)`
+   - `minutes_remaining = Math.max(0, minutes_included - minutes_used)`
+   - `overage_rate = plan.voice_ai_overage_rate ?? null`
+   - `quota_exceeded = minutes_used >= minutes_included && overage_rate === null` // only blocks when no overage pricing configured
 5. Resolve active providers: tenant override IDs → if null, fall back to global config IDs
 6. Load `voice_ai_credentials` for each resolved provider, DECRYPT the api_key
 7. Load `tenant_service` + `service` records for this tenant (services list)
 8. Load `tenant_service_area` records for this tenant
 9. Load `tenant_voice_transfer_number` records
-10. Calculate quota: `{ minutes_included, minutes_used, minutes_remaining, overage_rate, quota_exceeded }`
-11. Build and return the `FullVoiceAiContext` object
+10. Build and return the `FullVoiceAiContext` object
 
 **FullVoiceAiContext interface**:
 
@@ -140,22 +148,28 @@ export interface FullVoiceAiContext {
     max_call_duration_seconds: number;
   };
   providers: {
-    stt: { provider_key: string; api_key: string } | null;
-    llm: { provider_key: string; api_key: string } | null;
-    tts: { provider_key: string; api_key: string; voice_id: string | null } | null;
+    // provider_id: UUID of voice_ai_provider row — used by Python agent for usage tracking (A09)
+    // config: provider-specific settings from global/tenant config (model, temperature, etc.)
+    stt: { provider_id: string; provider_key: string; api_key: string; config: Record<string, unknown> } | null;
+    llm: { provider_id: string; provider_key: string; api_key: string; config: Record<string, unknown> } | null;
+    tts: { provider_id: string; provider_key: string; api_key: string; config: Record<string, unknown>; voice_id: string | null } | null;
   };
   services: Array<{ name: string; description: string | null }>;
   service_areas: Array<{ type: string; value: string; state: string | null }>;
-  transfer_numbers: Array<{ label: string; phone_number: string; is_default: boolean }>;
+  transfer_numbers: Array<{ label: string; phone_number: string; transfer_type: string; is_default: boolean; available_hours: string | null }>;
 }
 ```
 
 **Greeting resolution**: `context.behavior.greeting` = tenant's `custom_greeting` OR global `default_greeting_template` with `{business_name}` replaced by `tenant.company_name`.
 
-**Minutes calculation**:
-- `minutes_included` = `tenant_voice_ai_settings.monthly_minutes_override` ?? `subscription_plan.voice_ai_minutes_included`
-- `minutes_used` = `voice_usage_record.minutes_used` (or 0 if no record)
-- `quota_exceeded` = `minutes_used >= minutes_included`
+**Minutes calculation** (inline — VoiceUsageService from B07 doesn't exist yet):
+- Aggregate STT seconds: `const sttAgg = await prisma.voice_usage_record.aggregate({ where: { tenant_id: tenantId, year, month, provider_type: 'STT' }, _sum: { usage_quantity: true } })`
+- `const sttSeconds = Number(sttAgg._sum.usage_quantity ?? 0);`  // Prisma returns Decimal — must convert to number before Math.ceil
+- `minutes_used = Math.ceil(sttSeconds / 60)`
+- `minutes_remaining = Math.max(0, minutes_included - minutes_used)`
+- `overage_rate = plan.voice_ai_overage_rate ?? null`
+- `quota_exceeded = minutes_used >= minutes_included && overage_rate === null`  // only blocks when no overage configured — tenants with overage_rate can call beyond quota at cost
+- NOTE: B07 creates `VoiceUsageService.getQuota()` which will be used by B09. B04 implements this inline because B07 doesn't exist yet.
 
 ---
 

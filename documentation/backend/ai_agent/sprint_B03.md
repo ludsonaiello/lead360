@@ -4,7 +4,7 @@ YOU ARE A MASTER CLASS DEVELOPER THAT MAKES GOOGLE, AMAZON and APPLE DEVELOPER J
 
 **Module**: Voice AI  
 **Sprint**: B03  
-**Depends on**: B01, B02  
+**Depends on**: B01, B02a, B02b  
 **Estimated scope**: ~2 hours
 
 ---
@@ -96,7 +96,9 @@ export class VoiceAiGlobalConfigService {
 
   async regenerateAgentKey(): Promise<{ plain_key: string; preview: string }>
   // Generates crypto.randomUUID() as plain key
-  // Stores SHA-256 hash in agent_api_key_hash
+  // Stores SHA-256 hash as HEX string (64 chars) in agent_api_key_hash:
+  //   crypto.createHash('sha256').update(plainKey).digest('hex')
+  //   IMPORTANT: B06a VoiceAgentKeyGuard uses timing-safe hex comparison — must store as hex
   // Stores last 4 chars in agent_api_key_preview
   // Returns { plain_key, preview } — plain_key shown ONCE, never stored
 }

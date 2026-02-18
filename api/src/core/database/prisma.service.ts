@@ -95,6 +95,11 @@ export class PrismaService
       'OfficeNumberWhitelist',
       'CallTranscription', // Nullable tenant_id for system-level
       'TranscriptionProviderConfiguration', // Nullable tenant_id for system-level providers
+      // Voice AI Module Models
+      'TenantVoiceAiSettings',
+      'TenantVoiceTransferNumber',
+      'VoiceCallLog',
+      'VoiceUsageRecord',
     ];
 
     // Models exempt from tenant_id check (admin/system tables)

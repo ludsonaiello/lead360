@@ -17,8 +17,8 @@ Implement the `create_lead` function tool that the LLM calls when it has collect
 ## Pre-Coding Checklist
 
 - [ ] A05 complete
-- [ ] B06 complete — `POST /voice-ai/internal/actions/lead` endpoint works
-- [ ] **HIT THE ENDPOINT**: `curl -X POST http://localhost:8000/api/v1/voice-ai/internal/actions/lead -H "X-Voice-Agent-Key: KEY" -H "Content-Type: application/json" -d '{"tenant_id":"ID","call_log_id":"LOG_ID","phone_number":"+15551234567"}' | jq .`
+- [ ] B06 complete — `POST /api/v1/internal/voice-ai/tenant/:tenantId/tools/create_lead` endpoint works
+- [ ] **HIT THE ENDPOINT**: `curl -X POST http://localhost:8000/api/v1/internal/voice-ai/tenant/TENANT_ID/tools/create_lead -H "X-Voice-Agent-Key: KEY" -H "Content-Type: application/json" -d '{"call_log_id":"LOG_ID","phone_number":"+15551234567"}' | jq .`
 
 **DO NOT USE PM2** — backend: `cd /var/www/lead360.app/api && npm run dev`
 
@@ -40,7 +40,7 @@ import logging
 from typing import Optional
 import httpx
 
-from ..config import config
+from ..config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -57,14 +57,16 @@ async def create_lead_from_call(
     """
     Create or find a lead in Lead360 CRM from call information.
     Returns { lead_id, created } where created=False if lead already existed.
+    tenant_id is in the URL path (not body) — part of the generic tool dispatch endpoint.
     """
-    url = f"{config.LEAD360_API_URL}/voice-ai/internal/actions/lead"
+    cfg = get_config()
+    # Path: POST /api/v1/internal/voice-ai/tenant/{tenant_id}/tools/create_lead
+    url = f"{cfg.LEAD360_API_BASE_URL}/api/v1/internal/voice-ai/tenant/{tenant_id}/tools/create_lead"
     headers = {
-        "X-Voice-Agent-Key": config.VOICE_AGENT_KEY,
+        "X-Voice-Agent-Key": cfg.VOICE_AGENT_KEY,
         "Content-Type": "application/json",
     }
     payload = {
-        "tenant_id": tenant_id,
         "call_log_id": call_log_id,
         "phone_number": phone_number,
     }
@@ -77,8 +79,8 @@ async def create_lead_from_call(
     if service_type:
         payload["service_type"] = service_type
     
-    async with httpx.AsyncClient(timeout=config.HTTP_TIMEOUT) as client:
-        for attempt in range(config.HTTP_MAX_RETRIES + 1):
+    async with httpx.AsyncClient(timeout=cfg.HTTP_TIMEOUT_SECONDS) as client:
+        for attempt in range(cfg.HTTP_MAX_RETRIES + 1):
             try:
                 response = await client.post(url, json=payload, headers=headers)
                 
@@ -97,7 +99,7 @@ async def create_lead_from_call(
                 return result
             
             except httpx.TimeoutException:
-                if attempt < config.HTTP_MAX_RETRIES:
+                if attempt < cfg.HTTP_MAX_RETRIES:
                     import asyncio
                     await asyncio.sleep(1)
                     continue
