@@ -122,6 +122,7 @@ export class VoiceAgentService implements OnModuleInit, OnModuleDestroy {
       callLogService: this.callLogService,
       usageService: this.usageService,
       buildTools: () => this.buildTools(),
+      livekitConfig: config,
     });
 
     // Path to the entrypoint file

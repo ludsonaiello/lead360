@@ -26,6 +26,7 @@ export let agentServiceRegistry: {
   callLogService: any;
   usageService: any;
   buildTools: () => AgentTool[];
+  livekitConfig: { url: string; apiKey: string; apiSecret: string };
 } | null = null;
 
 export function setAgentServiceRegistry(registry: typeof agentServiceRegistry): void {
@@ -72,7 +73,12 @@ export default async function voiceAgentEntrypoint(ctx: JobContext): Promise<voi
     const tools = agentServiceRegistry.buildTools();
 
     // Create session
-    const session = new VoiceAgentSession(context, tools, ctx.room);
+    const session = new VoiceAgentSession(
+      context,
+      tools,
+      ctx.room as any, // Type cast needed due to TypeScript module resolution quirks
+      agentServiceRegistry.livekitConfig,
+    );
 
     // Add shutdown callback to complete call log
     ctx.addShutdownCallback(async () => {

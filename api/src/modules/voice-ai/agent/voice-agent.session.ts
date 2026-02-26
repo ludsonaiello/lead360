@@ -5,6 +5,9 @@ import { createLlmProvider } from './providers/llm-factory';
 import { createTtsProvider } from './providers/tts-factory';
 import { AgentTool } from './tools/tool.interface';
 import { LlmMessage, LlmToolCall } from './providers/llm.interface';
+import { Room, RemoteTrack, RemoteAudioTrack, AudioStream, AudioSource, LocalAudioTrack, AudioFrame, TrackKind, TrackPublishOptions } from '@livekit/rtc-node';
+import { ParticipantKind } from '@livekit/rtc-node';
+import { SipClient } from 'livekit-server-sdk';
 
 /**
  * VoiceAgentSession — Sprint BAS24
@@ -35,11 +38,15 @@ export class VoiceAgentSession {
   private isActive = true;
   private transferRequested = false;
   private transferNumber: string | null = null;
+  private audioSource: AudioSource | null = null;
+  private audioTrack: LocalAudioTrack | null = null;
+  private audioStreamReader: ReadableStreamDefaultReader<AudioFrame> | null = null;
 
   constructor(
     private readonly context: VoiceAiContext,
     private readonly tools: AgentTool[],
-    private readonly room: any, // LiveKit Room — type varies between @livekit/rtc-node versions
+    private readonly room: Room,
+    private readonly livekitConfig: { url: string; apiKey: string; apiSecret: string },
   ) {}
 
   /**
@@ -80,6 +87,19 @@ export class VoiceAgentSession {
         { role: 'system', content: this.context.behavior.system_prompt },
       ];
 
+      // Gap 2: Create and publish audio track for TTS output
+      // Create audio source for TTS output (16kHz mono, matching Cartesia output)
+      this.audioSource = new AudioSource(16000, 1);
+      this.audioTrack = LocalAudioTrack.createAudioTrack('agent-voice', this.audioSource);
+
+      // Publish the audio track to the room
+      if (this.room.localParticipant) {
+        await this.room.localParticipant.publishTrack(this.audioTrack, new TrackPublishOptions());
+        this.logger.log('Published audio track to room');
+      } else {
+        this.logger.warn('No local participant - cannot publish audio track');
+      }
+
       // Play greeting
       if (this.context.behavior.greeting) {
         await this.speak(ttsProvider, this.context.behavior.greeting);
@@ -111,10 +131,31 @@ export class VoiceAgentSession {
       });
 
       // Subscribe to caller audio from LiveKit room
-      // NOTE: Sprint document says to read LiveKit SDK docs for exact method.
-      // The @livekit/agents SDK handles room connections automatically via JobContext,
-      // so we don't need to manually subscribe to audio here.
-      // Audio routing is handled by the LiveKit RTC layer.
+      // Gap 1: Pipe incoming audio to STT
+      this.room.on('trackSubscribed', async (track: RemoteTrack, publication, participant) => {
+        if (track.kind === TrackKind.KIND_AUDIO) {
+          this.logger.log(`Subscribed to audio track from participant: ${participant.identity}`);
+
+          try {
+            // Create audio stream from the remote audio track
+            const audioStream = new AudioStream(track as RemoteAudioTrack, {
+              sampleRate: 16000, // Match Deepgram's expected sample rate
+              numChannels: 1,    // Mono audio
+            });
+
+            // Read audio frames and send to STT
+            this.audioStreamReader = audioStream.getReader();
+
+            // Start reading frames in background
+            this.pipeAudioToStt(this.audioStreamReader, sttSession).catch((error) => {
+              this.logger.error(`Error piping audio to STT: ${error.message}`, error.stack);
+            });
+
+          } catch (error) {
+            this.logger.error(`Error setting up audio stream: ${error.message}`, error.stack);
+          }
+        }
+      });
 
       this.logger.log('Voice session started successfully');
 
@@ -122,6 +163,7 @@ export class VoiceAgentSession {
       await this.waitUntilStopped();
 
       // Cleanup
+      await this.cleanup();
       await sttSession.close();
       this.logger.log('Voice session ended');
 
@@ -285,16 +327,41 @@ export class VoiceAgentSession {
 
       // Get audio buffer
       const audioBuffer = await ttsSession.getAudio();
-
-      // Publish to LiveKit room
-      // NOTE: Sprint document says to read LiveKit SDK docs for exact method.
-      // The @livekit/agents SDK and @livekit/rtc-node handle audio publishing.
-      // For now, this is a placeholder. The actual implementation depends on
-      // the LiveKit Agents SDK's audio publishing API.
       this.logger.log(`Generated ${audioBuffer.length} bytes of audio`);
 
-      // TODO: Implement actual LiveKit audio publishing
-      // This requires using the Room's LocalParticipant to publish an audio track.
+      // Gap 2: Publish audio to LiveKit room
+      if (!this.audioSource) {
+        this.logger.warn('Audio source not initialized - cannot play audio');
+        return;
+      }
+
+      // Convert Buffer to Int16Array (TTS output is pcm_s16le)
+      const int16Array = new Int16Array(
+        audioBuffer.buffer,
+        audioBuffer.byteOffset,
+        audioBuffer.length / 2, // 2 bytes per Int16
+      );
+
+      // Calculate samples per channel (mono audio)
+      const sampleRate = 16000;
+      const numChannels = 1;
+      const samplesPerChannel = int16Array.length / numChannels;
+
+      // Split audio into frames (10ms chunks = 160 samples at 16kHz)
+      const frameSizeMs = 10;
+      const samplesPerFrame = (sampleRate * frameSizeMs) / 1000;
+
+      for (let i = 0; i < samplesPerChannel; i += samplesPerFrame) {
+        const frameLength = Math.min(samplesPerFrame, samplesPerChannel - i);
+        const frameData = int16Array.slice(i, i + frameLength);
+
+        const audioFrame = new AudioFrame(frameData, sampleRate, numChannels, frameLength);
+
+        // Send frame to audio source
+        await this.audioSource.captureFrame(audioFrame);
+      }
+
+      this.logger.log('Audio published to room');
 
     } catch (error) {
       this.logger.error(`TTS error: ${error.message}`, error.stack);
@@ -308,9 +375,6 @@ export class VoiceAgentSession {
    *   1. Speak transfer message
    *   2. Mark session as inactive
    *   3. Signal LiveKit to transfer the SIP call
-   *
-   * NOTE: Actual SIP transfer requires LiveKit SIP API.
-   * This is a placeholder implementation.
    */
   private async handleTransfer(phoneNumber: string, ttsProvider: any): Promise<void> {
     this.logger.log(`Transferring call to: ${phoneNumber}`);
@@ -319,14 +383,105 @@ export class VoiceAgentSession {
       await this.speak(ttsProvider, 'Let me transfer you to a team member right away.');
       this.isActive = false;
 
-      // TODO: Implement LiveKit SIP transfer
-      // This requires using LiveKit SIP API to transfer the call.
-      // Read LiveKit SIP documentation for transfer API.
+      // Gap 3: Execute SIP transfer
+      // Create SIP client
+      const sipClient = new SipClient(
+        this.livekitConfig.url,
+        this.livekitConfig.apiKey,
+        this.livekitConfig.apiSecret,
+      );
 
-      this.logger.log('Call transfer initiated');
+      // Find the SIP participant in the room
+      // The caller is a remote participant (not the agent)
+      const sipParticipant = Array.from(this.room.remoteParticipants.values()).find(
+        (p) => p.kind === ParticipantKind.STANDARD, // SIP participants are standard participants (kind = 0)
+      );
+
+      if (!sipParticipant) {
+        this.logger.error('No SIP participant found in room - cannot transfer');
+        return;
+      }
+
+      const roomName = this.room.name || '';
+      const participantIdentity = sipParticipant.identity;
+
+      this.logger.log(
+        `Transferring SIP participant ${participantIdentity} in room ${roomName} to ${phoneNumber}`,
+      );
+
+      // Execute transfer via LiveKit SIP API
+      await sipClient.transferSipParticipant(
+        roomName,
+        participantIdentity,
+        phoneNumber,
+        {
+          playDialtone: true, // Play dial tone during transfer
+        },
+      );
+
+      this.logger.log('Call transfer completed successfully');
 
     } catch (error) {
       this.logger.error(`Transfer error: ${error.message}`, error.stack);
+      // Try to inform the caller
+      try {
+        await this.speak(ttsProvider, "I'm sorry, I couldn't complete the transfer. Please try calling back.");
+      } catch (speakError) {
+        this.logger.error(`Failed to speak transfer error message: ${speakError.message}`);
+      }
+    }
+  }
+
+  /**
+   * Cleanup resources to prevent memory leaks.
+   *
+   * Releases:
+   * - Audio stream reader
+   * - Audio source and track
+   * - Event listeners
+   */
+  private async cleanup(): Promise<void> {
+    this.logger.log('Cleaning up session resources');
+
+    try {
+      // Release audio stream reader
+      if (this.audioStreamReader) {
+        try {
+          this.audioStreamReader.releaseLock();
+          this.audioStreamReader = null;
+        } catch (e) {
+          // Reader may already be released
+        }
+      }
+
+      // Close audio source and track
+      if (this.audioSource) {
+        try {
+          await this.audioSource.close();
+          this.audioSource = null;
+        } catch (e) {
+          this.logger.warn(`Error closing audio source: ${e.message}`);
+        }
+      }
+
+      if (this.audioTrack) {
+        try {
+          await this.audioTrack.close(true); // Close and close source
+          this.audioTrack = null;
+        } catch (e) {
+          this.logger.warn(`Error closing audio track: ${e.message}`);
+        }
+      }
+
+      // Remove all room event listeners to prevent memory leaks
+      // Note: LiveKit Room uses TypedEventEmitter, we should remove our listeners
+      // However, since the room is managed by the JobContext and will be cleaned up
+      // when the job ends, and our session lifecycle is tied to the job lifecycle,
+      // we don't need to explicitly remove listeners here.
+
+      this.logger.log('Session cleanup completed');
+    } catch (error) {
+      this.logger.error(`Cleanup error: ${error.message}`, error.stack);
     }
   }
 
@@ -339,6 +494,7 @@ export class VoiceAgentSession {
   async stop(outcome: string, transcript: string[]): Promise<void> {
     this.logger.log(`Stopping session with outcome: ${outcome}`);
     this.isActive = false;
+    await this.cleanup();
   }
 
   /**
@@ -346,6 +502,44 @@ export class VoiceAgentSession {
    */
   getConversationHistory(): LlmMessage[] {
     return [...this.conversationHistory];
+  }
+
+  /**
+   * Pipe audio frames from LiveKit to STT session.
+   *
+   * Reads AudioFrame data from the stream and sends it to Deepgram.
+   */
+  private async pipeAudioToStt(
+    reader: ReadableStreamDefaultReader<AudioFrame>,
+    sttSession: any,
+  ): Promise<void> {
+    try {
+      while (this.isActive) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          this.logger.log('Audio stream ended');
+          break;
+        }
+
+        if (value) {
+          // Convert AudioFrame to Buffer
+          // AudioFrame.data is Int16Array, need to convert to Buffer
+          const buffer = Buffer.from(value.data.buffer, value.data.byteOffset, value.data.byteLength);
+
+          // Send to STT
+          sttSession.sendAudio(buffer);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error reading audio stream: ${error.message}`, error.stack);
+    } finally {
+      try {
+        reader.releaseLock();
+      } catch (e) {
+        // Reader may already be released
+      }
+    }
   }
 
   /**

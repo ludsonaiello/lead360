@@ -10905,3 +10905,4 @@
 104.23.223.86 - - [26/Feb/2026:11:07:42 +0000] "GET /wp-admin/setup-config.php HTTP/2.0" 404 93 "-" "https://lead360.app/wp-admin/setup-config.php"
 104.23.221.216 - - [26/Feb/2026:11:09:46 +0000] "GET /wp-admin/setup-config.php HTTP/2.0" 404 93 "-" "http://lead360.app/wp-admin/setup-config.php"
 104.23.223.87 - - [26/Feb/2026:11:10:52 +0000] "GET /wordpress/wp-admin/setup-config.php HTTP/2.0" 404 93 "-" "https://lead360.app/wordpress/wp-admin/setup-config.php"
+66.249.70.8 - - [26/Feb/2026:16:59:43 +0000] "GET /robots.txt HTTP/1.1" 404 104 "-" "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
