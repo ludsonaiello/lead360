@@ -116,9 +116,12 @@ export class VoiceAiInternalService {
     return this.callLogService.startCall({
       tenantId: dto.tenant_id,
       callSid: dto.call_sid,
+      roomName: dto.room_name,
       fromNumber: dto.from_number,
       toNumber: dto.to_number,
       direction: dto.direction ?? 'inbound',
+      languageUsed: dto.language_used,
+      intent: dto.intent,
       sttProviderId: dto.stt_provider_id,
       llmProviderId: dto.llm_provider_id,
       ttsProviderId: dto.tts_provider_id,
@@ -140,12 +143,15 @@ export class VoiceAiInternalService {
   async completeCall(callSid: string, dto: CompleteCallDto): Promise<void> {
     await this.callLogService.completeCall({
       callSid,
+      status: dto.status,
       durationSeconds: dto.duration_seconds,
       outcome: dto.outcome,
       transcriptSummary: dto.transcript_summary,
       fullTranscript: dto.full_transcript,
       actionsTaken: dto.actions_taken,
       leadId: dto.lead_id,
+      transferredTo: dto.transferred_to,
+      errorMessage: dto.error_message,
       isOverage: dto.is_overage ?? false,
       usageRecords: dto.usage_records as UsageRecordData[] | undefined,
     });

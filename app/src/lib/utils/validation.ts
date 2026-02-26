@@ -333,8 +333,13 @@ export const businessLegalSchema = z.object({
   ein: einSchema,
   state_tax_id: z.string().max(50).optional().or(z.literal('')),
   sales_tax_permit: z.string().max(50).optional().or(z.literal('')),
+  business_description: z.string()
+    .max(5000, 'Business description must be less than 5000 characters')
+    .optional()
+    .or(z.literal('')),
   default_language: z.enum(['en-US', 'es-ES', 'pt-BR']).optional(),
   services_offered: z.array(z.string().uuid()).min(1, 'At least one service is required').max(50, 'Maximum 50 services allowed'),
+  industries: z.array(z.string().uuid()).optional(),
 });
 
 export type BusinessLegalFormData = z.infer<typeof businessLegalSchema>;

@@ -33,6 +33,7 @@ import { SystemSettingsController } from './controllers/system-settings.controll
 import { AlertsController } from './controllers/alerts.controller';
 import { ExportsController } from './controllers/exports.controller';
 import { IndustryController } from './controllers/industry.controller';
+import { ServiceController } from './controllers/service.controller';
 
 // Guards
 import { PlatformAdminGuard } from './guards/platform-admin.guard';
@@ -80,6 +81,7 @@ import { ExportProcessorProcessor } from './processors/export-processor.processo
     AlertsController,
     ExportsController,
     IndustryController,
+    ServiceController,
   ],
   providers: [
     // Services

@@ -27,7 +27,7 @@ export class CreateTransferNumberDto {
     example: '+15551234567',
   })
   @IsString()
-  @Matches(/^\+[1-9]\d{1,14}$/, {
+  @Matches(/^\+[1-9]\d{7,14}$/, {
     message: 'Phone must be in E.164 format (+15551234567)',
   })
   phone_number: string;

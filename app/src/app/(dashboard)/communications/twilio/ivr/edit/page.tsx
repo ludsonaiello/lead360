@@ -1,11 +1,11 @@
 /**
- * IVR Configuration Create/Edit Page (Sprint 7)
+ * IVR Configuration Create/Edit Page (Sprint IVR-4)
  * Complex form for configuring Interactive Voice Response menus
  *
  * Features:
  * - Upsert pattern (single endpoint for create/update)
- * - Menu option builder with drag-and-drop reordering
- * - Form validation with Zod
+ * - Multi-level menu builder with recursive MenuTreeBuilder
+ * - Form validation with Zod (recursive schema)
  * - Dirty state tracking with navigation warnings
  * - RBAC enforcement (Owner, Admin only)
  * - Mobile responsive
@@ -16,41 +16,19 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useForm, FormProvider, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'react-hot-toast';
 import {
-  PhoneCall,
-  Voicemail,
-  Link as LinkIcon,
-  ArrowRight,
   Save,
   X,
-  Plus,
-  GripVertical,
-  Trash2,
   AlertCircle,
   Clock,
   RotateCcw,
   MessageSquare,
+  Info,
 } from 'lucide-react';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
 import { Button } from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
@@ -59,117 +37,96 @@ import { ErrorModal } from '@/components/ui/ErrorModal';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
+import { MenuTreeBuilder } from '@/components/ivr/MenuTreeBuilder';
 
 import { getIVRConfiguration, upsertIVRConfiguration } from '@/lib/api/ivr';
-import type { IVRActionType } from '@/lib/types/ivr';
+import { validateIVRMenuTree } from '@/lib/utils/ivr-validation';
+import { IVR_CONSTANTS, type IVRFormData } from '@/lib/types/ivr';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAccessToken } from '@/lib/utils/token';
 
-// Validation schema
-const ivrSchema = z.object({
-  ivr_enabled: z.boolean(),
-  greeting_message: z
-    .string()
-    .min(5, 'Greeting message must be at least 5 characters')
-    .max(500, 'Greeting message must not exceed 500 characters'),
-  menu_options: z
-    .array(
-      z.object({
-        digit: z.string().regex(/^[0-9]$/, 'Must be a single digit (0-9)'),
-        action: z.enum(['route_to_number', 'route_to_default', 'trigger_webhook', 'voicemail']),
-        label: z.string().min(1, 'Label is required').max(100, 'Label must not exceed 100 characters'),
-        config: z.object({
-          phone_number: z.string().optional(),
-          webhook_url: z.string().optional(),
-          max_duration_seconds: z.number().optional(),
-        }),
-      })
-    )
-    .min(1, 'At least one menu option is required')
-    .max(10, 'Maximum 10 menu options allowed')
-    .refine(
-      (options) => {
-        const digits = options.map((opt) => opt.digit);
-        return digits.length === new Set(digits).size;
-      },
-      { message: 'Each digit must be unique' }
-    ),
-  default_action: z.object({
-    action: z.enum(['route_to_number', 'route_to_default', 'trigger_webhook', 'voicemail']),
+// Recursive menu option schema for multi-level IVR
+// NOTE: This schema is lenient for form-time validation (allows empty strings, etc.)
+// Strict validation happens on submit via validateIVRMenuTree
+const ivrMenuOptionSchema: z.ZodType<any> = z.lazy(() =>
+  z.object({
+    id: z.string().uuid(),
+    digit: z.string(), // Lenient - allows empty during editing
+    action: z.enum([
+      'route_to_number',
+      'route_to_default',
+      'trigger_webhook',
+      'voicemail',
+      'voice_ai',
+      'submenu',
+      'return_to_parent',
+      'return_to_root',
+    ]),
+    label: z.string(), // Lenient - allows empty during editing
     config: z.object({
       phone_number: z.string().optional(),
-      webhook_url: z.string().optional(),
-      max_duration_seconds: z.number().optional(),
+      // Handle empty strings for URL - empty string is valid for optional fields
+      webhook_url: z.preprocess(
+        (val) => (val === '' || val === null || val === undefined) ? undefined : val,
+        z.string().url().optional()
+      ),
+      max_duration_seconds: z.preprocess(
+        (val) => (val === '' || val === null || val === undefined) ? undefined : val,
+        z.number().min(60).max(300).optional()
+      ),
+    }),
+    submenu: z
+      .object({
+        greeting_message: z.string(), // Lenient - allows empty during editing
+        options: z.array(ivrMenuOptionSchema).min(1).max(10),
+        timeout_seconds: z.preprocess(
+          (val) => (val === '' || val === null || val === undefined) ? undefined : val,
+          z.number().min(5).max(60).optional()
+        ),
+      })
+      .optional(),
+  })
+  .refine(
+    (data) => {
+      // If action is submenu, must have submenu config
+      if (data.action === 'submenu') {
+        return !!data.submenu && data.submenu.options.length > 0;
+      }
+      // If action is NOT submenu, must NOT have submenu config
+      return !data.submenu;
+    },
+    { message: 'Submenu config must match action type' }
+  )
+);
+
+const ivrFormSchema = z.object({
+  ivr_enabled: z.boolean(),
+  greeting_message: z.string(), // Lenient - strict validation on submit
+  menu_options: z.array(ivrMenuOptionSchema).min(1).max(10),
+  default_action: z.object({
+    action: z.enum([
+      'route_to_number',
+      'route_to_default',
+      'trigger_webhook',
+      'voicemail',
+      'voice_ai',
+    ]),
+    config: z.object({
+      phone_number: z.string().optional(),
+      webhook_url: z.preprocess(
+        (val) => (val === '' || val === null || val === undefined) ? undefined : val,
+        z.string().url().optional()
+      ),
+      max_duration_seconds: z.preprocess(
+        (val) => (val === '' || val === null || val === undefined) ? undefined : val,
+        z.number().optional()
+      ),
     }),
   }),
-  timeout_seconds: z.number().min(5, 'Minimum 5 seconds').max(60, 'Maximum 60 seconds'),
-  max_retries: z.number().min(1, 'Minimum 1 retry').max(5, 'Maximum 5 retries'),
+  timeout_seconds: z.number().min(5).max(60),
+  max_retries: z.number().min(1).max(5),
+  max_depth: z.number().min(1).max(5).optional(),
 });
-
-// Refined schema with conditional validation
-const refinedIvrSchema = ivrSchema
-  .refine(
-    (data) => {
-      // Validate menu options configs
-      return data.menu_options.every((option) => {
-        if (option.action === 'route_to_number') {
-          return (
-            option.config.phone_number &&
-            /^\+[1-9]\d{1,14}$/.test(option.config.phone_number)
-          );
-        }
-        if (option.action === 'trigger_webhook') {
-          return (
-            option.config.webhook_url &&
-            /^https:\/\/.+/.test(option.config.webhook_url)
-          );
-        }
-        if (option.action === 'voicemail') {
-          return (
-            option.config.max_duration_seconds &&
-            option.config.max_duration_seconds >= 60 &&
-            option.config.max_duration_seconds <= 300
-          );
-        }
-        return true;
-      });
-    },
-    {
-      message: 'Menu option configuration is invalid',
-      path: ['menu_options'],
-    }
-  )
-  .refine(
-    (data) => {
-      // Validate default action config
-      if (data.default_action.action === 'route_to_number') {
-        return (
-          data.default_action.config.phone_number &&
-          /^\+[1-9]\d{1,14}$/.test(data.default_action.config.phone_number)
-        );
-      }
-      if (data.default_action.action === 'trigger_webhook') {
-        return (
-          data.default_action.config.webhook_url &&
-          /^https:\/\/.+/.test(data.default_action.config.webhook_url)
-        );
-      }
-      if (data.default_action.action === 'voicemail') {
-        return (
-          data.default_action.config.max_duration_seconds &&
-          data.default_action.config.max_duration_seconds >= 60 &&
-          data.default_action.config.max_duration_seconds <= 300
-        );
-      }
-      return true;
-    },
-    {
-      message: 'Default action configuration is invalid',
-      path: ['default_action'],
-    }
-  );
-
-type IVRFormData = z.infer<typeof ivrSchema>;
 
 export default function IVREditPage() {
   const { user } = useAuth();
@@ -186,21 +143,15 @@ export default function IVREditPage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
 
-  // Form
-  const {
-    control,
-    register,
-    handleSubmit,
-    watch,
-    formState: { errors, dirtyFields },
-    reset,
-  } = useForm<IVRFormData>({
-    resolver: zodResolver(refinedIvrSchema),
+  // Form with FormProvider for MenuTreeBuilder
+  const methods = useForm<IVRFormData>({
+    resolver: zodResolver(ivrFormSchema),
     defaultValues: {
       ivr_enabled: true,
       greeting_message: '',
       menu_options: [
         {
+          id: crypto.randomUUID(),
           digit: '1',
           action: 'route_to_number',
           label: '',
@@ -215,26 +166,41 @@ export default function IVREditPage() {
       },
       timeout_seconds: 10,
       max_retries: 3,
+      max_depth: 4,
     },
   });
 
-  const { fields, append, remove, move } = useFieldArray({
+  const {
     control,
-    name: 'menu_options',
-  });
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors, dirtyFields },
+    reset,
+  } = methods;
 
   // Watch form values
   const greetingMessage = watch('greeting_message');
-  const menuOptions = watch('menu_options');
   const defaultActionType = watch('default_action.action');
+  const maxDepth = watch('max_depth');
+  const menuOptions = watch('menu_options');
 
-  // Drag and drop sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
+  // DEBUG: Log form errors whenever they change
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      console.log('🔴 FORM VALIDATION ERRORS DETECTED:', {
+        errorKeys: Object.keys(errors),
+        errors: errors,
+        menuOptionsError: errors.menu_options,
+        menuOptionsErrorMessage: errors.menu_options?.message,
+        menuOptionsErrorType: errors.menu_options?.type,
+        currentMenuOptions: menuOptions,
+        currentMenuOptionsCount: menuOptions?.length || 0,
+      });
+    } else {
+      console.log('✅ NO FORM ERRORS');
+    }
+  }, [errors, menuOptions]);
 
   // Load existing config on mount
   useEffect(() => {
@@ -259,8 +225,26 @@ export default function IVREditPage() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isDirty]);
 
+  // Helper: Recursively add UUIDs to menu options if missing
+  const ensureMenuOptionsHaveIds = (options: any[]): any[] => {
+    return options.map(option => {
+      const optionWithId = {
+        ...option,
+        id: option.id || crypto.randomUUID(), // Add UUID if missing
+      };
+
+      // Recursively process submenu options
+      if (optionWithId.submenu?.options) {
+        optionWithId.submenu.options = ensureMenuOptionsHaveIds(optionWithId.submenu.options);
+      }
+
+      return optionWithId;
+    });
+  };
+
   const loadConfig = async () => {
     try {
+      console.log('📥 LOADING CONFIG...');
       setLoading(true);
       setError(null);
       const token = getAccessToken();
@@ -268,28 +252,42 @@ export default function IVREditPage() {
         throw new Error('Not authenticated');
       }
       const data = await getIVRConfiguration(token);
+      console.log('📥 API Response:', data);
+
       if (data) {
-        // Edit mode - populate form
+        // Ensure all menu options have UUIDs (backend might not provide them)
+        const menuOptionsWithIds = ensureMenuOptionsHaveIds(data.menu_options);
+
+        console.log('✏️ EDIT MODE - Populating form with:', {
+          ivr_enabled: data.ivr_enabled,
+          greeting_message: data.greeting_message,
+          menu_options_count: menuOptionsWithIds?.length || 0,
+          menu_options: menuOptionsWithIds,
+          default_action: data.default_action,
+          timeout_seconds: data.timeout_seconds,
+          max_retries: data.max_retries,
+          max_depth: data.max_depth || 4,
+        });
+
         setIsEdit(true);
         reset({
           ivr_enabled: data.ivr_enabled,
           greeting_message: data.greeting_message,
-          menu_options: data.menu_options.map((opt) => ({
-            digit: opt.digit,
-            action: opt.action,
-            label: opt.label,
-            config: opt.config,
-          })),
+          menu_options: menuOptionsWithIds, // Now with guaranteed UUIDs
           default_action: data.default_action,
           timeout_seconds: data.timeout_seconds,
           max_retries: data.max_retries,
+          max_depth: data.max_depth || 4,
         });
+
+        console.log('✅ Form reset complete');
       } else {
         // Create mode - keep defaults
+        console.log('➕ CREATE MODE - Using default values');
         setIsEdit(false);
       }
     } catch (error: any) {
-      console.error('Error loading IVR config:', error);
+      console.error('❌ ERROR loading IVR config:', error);
       setError(error.message || 'Failed to load IVR configuration');
     } finally {
       setLoading(false);
@@ -298,18 +296,60 @@ export default function IVREditPage() {
 
   const onSubmit = async (data: IVRFormData) => {
     try {
+      console.log('📤 SUBMIT HANDLER CALLED');
+      console.log('📋 Form Data:', {
+        ivr_enabled: data.ivr_enabled,
+        greeting_message: data.greeting_message,
+        menu_options_count: data.menu_options?.length || 0,
+        menu_options: data.menu_options,
+        default_action: data.default_action,
+        timeout_seconds: data.timeout_seconds,
+        max_retries: data.max_retries,
+        max_depth: data.max_depth,
+      });
+
       setSaving(true);
       const token = getAccessToken();
       if (!token) {
         throw new Error('Not authenticated');
       }
 
+      // Add client-side validation
+      console.log('🔍 Running validateIVRMenuTree with:', {
+        menu_options: data.menu_options,
+        max_depth: data.max_depth || 4,
+      });
+
+      const { isValid, errors: validationErrors } = validateIVRMenuTree(
+        data.menu_options,
+        data.max_depth || 4
+      );
+
+      console.log('🔍 Validation Result:', {
+        isValid,
+        validationErrors,
+        errorCount: validationErrors.length,
+      });
+
+      if (!isValid) {
+        console.error('❌ VALIDATION FAILED:', validationErrors);
+        toast.error(`Validation Error: ${validationErrors.join(', ')}`);
+        return;
+      }
+
+      console.log('✅ Validation passed, calling API...');
       await upsertIVRConfiguration(token, data);
+      console.log('✅ API call successful');
       toast.success('IVR configuration saved successfully');
       setIsDirty(false);
       router.push('/communications/twilio/ivr');
     } catch (error: any) {
-      console.error('Error saving IVR config:', error);
+      console.error('❌ ERROR in onSubmit:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        error: error,
+      });
       toast.error(error.message || 'Failed to save IVR configuration');
     } finally {
       setSaving(false);
@@ -329,57 +369,6 @@ export default function IVREditPage() {
     router.push('/communications/twilio/ivr');
   };
 
-  const handleAddMenuOption = () => {
-    if (fields.length >= 10) {
-      toast.error('Maximum 10 menu options allowed');
-      return;
-    }
-
-    // Find next available digit
-    const usedDigits = new Set(menuOptions.map((opt) => opt.digit));
-    const availableDigit = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].find(
-      (digit) => !usedDigits.has(digit)
-    );
-
-    if (!availableDigit) {
-      toast.error('All digits (0-9) are already in use');
-      return;
-    }
-
-    append({
-      digit: availableDigit,
-      action: 'route_to_number',
-      label: '',
-      config: {},
-    });
-  };
-
-  const handleRemoveMenuOption = (index: number) => {
-    if (fields.length <= 1) {
-      toast.error('At least one menu option is required');
-      return;
-    }
-    remove(index);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const oldIndex = fields.findIndex((field) => field.id === active.id);
-      const newIndex = fields.findIndex((field) => field.id === over.id);
-      move(oldIndex, newIndex);
-    }
-  };
-
-  // Get available digits for a specific option
-  const getAvailableDigits = (currentDigit: string) => {
-    const usedDigits = new Set(
-      menuOptions.filter((opt) => opt.digit !== currentDigit).map((opt) => opt.digit)
-    );
-    return ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].filter(
-      (digit) => !usedDigits.has(digit)
-    );
-  };
 
   // Estimate speaking time (150 words per minute)
   const estimateSpeakingTime = (message: string): string => {
@@ -479,7 +468,8 @@ export default function IVREditPage() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <FormProvider {...methods}>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Breadcrumbs */}
       <Breadcrumb
         items={[
@@ -523,28 +513,41 @@ export default function IVREditPage() {
       </div>
 
       {/* Error Summary */}
-      {Object.keys(errors).length > 0 && (
-        <Card>
-          <div className="p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500">
-            <div className="flex items-start">
-              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 mr-2" />
-              <div className="flex-1">
-                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
-                  Please fix the following errors:
-                </h3>
-                <ul className="mt-2 text-sm text-red-700 dark:text-red-300 list-disc list-inside space-y-1">
-                  {errors.ivr_enabled && <li>{errors.ivr_enabled.message}</li>}
-                  {errors.greeting_message && <li>{errors.greeting_message.message}</li>}
-                  {errors.menu_options && <li>{errors.menu_options.message}</li>}
-                  {errors.default_action && <li>{errors.default_action.message}</li>}
-                  {errors.timeout_seconds && <li>{errors.timeout_seconds.message}</li>}
-                  {errors.max_retries && <li>{errors.max_retries.message}</li>}
-                </ul>
+      {Object.keys(errors).length > 0 && (() => {
+        console.log('🚨 RENDERING ERROR SUMMARY SECTION');
+        console.log('Error details being displayed:', {
+          errorCount: Object.keys(errors).length,
+          errorKeys: Object.keys(errors),
+          ivr_enabled: errors.ivr_enabled?.message,
+          greeting_message: errors.greeting_message?.message,
+          menu_options: errors.menu_options?.message,
+          default_action: errors.default_action?.message,
+          timeout_seconds: errors.timeout_seconds?.message,
+          max_retries: errors.max_retries?.message,
+        });
+        return (
+          <Card>
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500">
+              <div className="flex items-start">
+                <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 mr-2" />
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                    Please fix the following errors:
+                  </h3>
+                  <ul className="mt-2 text-sm text-red-700 dark:text-red-300 list-disc list-inside space-y-1">
+                    {errors.ivr_enabled && <li>{errors.ivr_enabled.message}</li>}
+                    {errors.greeting_message && <li>{errors.greeting_message.message}</li>}
+                    {errors.menu_options && <li>{errors.menu_options.message || '(empty error message)'}</li>}
+                    {errors.default_action && <li>{errors.default_action.message}</li>}
+                    {errors.timeout_seconds && <li>{errors.timeout_seconds.message}</li>}
+                    {errors.max_retries && <li>{errors.max_retries.message}</li>}
+                  </ul>
+                </div>
               </div>
             </div>
-          </div>
-        </Card>
-      )}
+          </Card>
+        );
+      })()}
 
       {/* Section 1: IVR Status */}
       <Card>
@@ -645,59 +648,60 @@ export default function IVREditPage() {
         </div>
       </Card>
 
-      {/* Section 3: Menu Options Builder */}
+      {/* Section 3: Menu Options Builder - Multi-Level Support */}
       <Card>
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-              Menu Options
-            </h2>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleAddMenuOption}
-              disabled={fields.length >= 10}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Menu Option
-            </Button>
-          </div>
-
-          {errors.menu_options && (
-            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded">
-              <p className="text-sm text-red-600 dark:text-red-400">
-                {errors.menu_options.message}
+            <div>
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+                Menu Options
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Configure your IVR menu structure. You can create up to {maxDepth || 4} levels of nested submenus.
               </p>
             </div>
-          )}
+          </div>
 
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={fields.map((field) => field.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-4">
-                {fields.map((field, index) => (
-                  <MenuOptionItem
-                    key={field.id}
-                    id={field.id}
-                    index={index}
-                    control={control}
-                    register={register}
-                    errors={errors}
-                    onRemove={() => handleRemoveMenuOption(index)}
-                    availableDigits={getAvailableDigits(menuOptions[index].digit)}
-                    currentDigit={menuOptions[index].digit}
-                    currentAction={menuOptions[index].action}
-                  />
-                ))}
+          {errors.menu_options && (() => {
+            console.log('🚨 RENDERING MENU VALIDATION ERROR SECTION');
+            console.log('Menu options error details:', {
+              message: errors.menu_options.message,
+              type: errors.menu_options.type,
+              hasMessage: !!errors.menu_options.message,
+              messageLength: errors.menu_options.message?.length || 0,
+              includesBullets: errors.menu_options.message?.includes('•'),
+              fullError: errors.menu_options,
+            });
+            return (
+              <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded">
+                <div className="flex items-start">
+                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 mr-2 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-red-800 dark:text-red-200 mb-2">
+                      Menu Validation Error
+                    </p>
+                    {errors.menu_options.message?.includes('•') ? (
+                      <ul className="text-sm text-red-600 dark:text-red-400 space-y-1 list-disc list-inside">
+                        {errors.menu_options.message.split(' • ').map((error, index) => (
+                          <li key={index}>{error}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-red-600 dark:text-red-400">
+                        {errors.menu_options.message || '(No error message provided)'}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
-            </SortableContext>
-          </DndContext>
+            );
+          })()}
+
+          <MenuTreeBuilder
+            parentPath="menu_options"
+            level={1}
+            maxDepth={maxDepth || 4}
+          />
         </div>
       </Card>
 
@@ -819,7 +823,7 @@ export default function IVREditPage() {
             Advanced Settings
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Timeout */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
@@ -865,6 +869,30 @@ export default function IVREditPage() {
                 Number of retry attempts for invalid input (1-5)
               </p>
             </div>
+
+            {/* Max Depth */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                <Info className="h-4 w-4 mr-2 text-indigo-600 dark:text-indigo-400" />
+                Maximum Menu Depth
+              </label>
+              <input
+                type="number"
+                {...register('max_depth', { valueAsNumber: true })}
+                min={1}
+                max={5}
+                defaultValue={4}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              />
+              {errors.max_depth && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                  {errors.max_depth.message}
+                </p>
+              )}
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Controls how many levels of nested submenus are allowed (1-5)
+              </p>
+            </div>
           </div>
         </div>
       </Card>
@@ -902,208 +930,6 @@ export default function IVREditPage() {
         onClose={() => setShowCancelModal(false)}
       />
     </form>
-  );
-}
-
-/**
- * Sortable Menu Option Item
- */
-interface MenuOptionItemProps {
-  id: string;
-  index: number;
-  control: any;
-  register: any;
-  errors: any;
-  onRemove: () => void;
-  availableDigits: string[];
-  currentDigit: string;
-  currentAction: IVRActionType;
-}
-
-function MenuOptionItem({
-  id,
-  index,
-  control,
-  register,
-  errors,
-  onRemove,
-  availableDigits,
-  currentDigit,
-  currentAction,
-}: MenuOptionItemProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id,
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  const getActionIcon = (action: IVRActionType) => {
-    switch (action) {
-      case 'route_to_number':
-        return <PhoneCall className="h-5 w-5" />;
-      case 'voicemail':
-        return <Voicemail className="h-5 w-5" />;
-      case 'trigger_webhook':
-        return <LinkIcon className="h-5 w-5" />;
-      case 'route_to_default':
-        return <ArrowRight className="h-5 w-5" />;
-    }
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700"
-    >
-      <div className="flex items-start gap-3">
-        {/* Drag Handle */}
-        <button
-          type="button"
-          className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 mt-2"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="h-5 w-5" />
-        </button>
-
-        <div className="flex-1 space-y-4">
-          {/* Digit and Action Type Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Digit Selector */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Digit
-              </label>
-              <select
-                {...register(`menu_options.${index}.digit`)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              >
-                <option value={currentDigit}>{currentDigit}</option>
-                {availableDigits.map((digit) => (
-                  <option key={digit} value={digit}>
-                    {digit}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Action Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Action Type
-              </label>
-              <select
-                {...register(`menu_options.${index}.action`)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              >
-                <option value="route_to_number">Route to Phone Number</option>
-                <option value="voicemail">Voicemail</option>
-                <option value="trigger_webhook">Trigger Webhook</option>
-                <option value="route_to_default">Route to Default</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Label */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Label
-            </label>
-            <input
-              type="text"
-              {...register(`menu_options.${index}.label`)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              placeholder="e.g., Sales Department"
-            />
-            {errors.menu_options?.[index]?.label && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                {errors.menu_options[index].label.message}
-              </p>
-            )}
-          </div>
-
-          {/* Action-specific Config */}
-          {currentAction === 'route_to_number' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Phone Number
-              </label>
-              <Controller
-                name={`menu_options.${index}.config.phone_number`}
-                control={control}
-                render={({ field }) => (
-                  <PhoneInput
-                    {...field}
-                    error={errors.menu_options?.[index]?.config?.phone_number?.message}
-                    helperText="US phone number format"
-                  />
-                )}
-              />
-            </div>
-          )}
-
-          {currentAction === 'trigger_webhook' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Webhook URL (HTTPS only)
-              </label>
-              <input
-                type="url"
-                {...register(`menu_options.${index}.config.webhook_url`)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                placeholder="https://api.example.com/webhook"
-              />
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Must use HTTPS protocol
-              </p>
-            </div>
-          )}
-
-          {currentAction === 'voicemail' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Max Duration (seconds)
-              </label>
-              <input
-                type="number"
-                {...register(`menu_options.${index}.config.max_duration_seconds`, {
-                  valueAsNumber: true,
-                })}
-                min={60}
-                max={300}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                placeholder="180"
-              />
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Between 60 and 300 seconds
-              </p>
-            </div>
-          )}
-
-          {currentAction === 'route_to_default' && (
-            <div className="p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-                No additional configuration needed for default routing
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Remove Button */}
-        <button
-          type="button"
-          onClick={onRemove}
-          className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 mt-2"
-          title="Remove option"
-        >
-          <Trash2 className="h-5 w-5" />
-        </button>
-      </div>
-    </div>
+    </FormProvider>
   );
 }

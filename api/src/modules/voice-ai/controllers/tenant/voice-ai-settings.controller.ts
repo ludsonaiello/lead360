@@ -13,6 +13,8 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../auth/guards/roles.guard';
+import { Roles } from '../../../auth/decorators/roles.decorator';
 import { VoiceAiSettingsService } from '../../services/voice-ai-settings.service';
 import { UpsertTenantVoiceSettingsDto } from '../../dto/upsert-tenant-voice-settings.dto';
 
@@ -23,13 +25,13 @@ import { UpsertTenantVoiceSettingsDto } from '../../dto/upsert-tenant-voice-sett
  * Only behavior fields are writable here — infrastructure overrides are admin-only (B11).
  *
  * Route prefix: /api/v1/voice-ai/settings
- * Auth: JwtAuthGuard only — any authenticated tenant user (no specific role required)
+ * Auth: JwtAuthGuard + RolesGuard — role-based access control enforced on endpoints
  * Tenant ID: extracted from JWT (req.user.tenant_id) — NEVER from the request body
  */
 @ApiTags('Voice AI - Tenant Settings')
 @ApiBearerAuth()
 @Controller('voice-ai/settings')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class VoiceAiSettingsController {
   constructor(private readonly settingsService: VoiceAiSettingsService) {}
 
@@ -41,6 +43,7 @@ export class VoiceAiSettingsController {
    * treat null as "all defaults apply" and render the form with default values.
    */
   @Get()
+  @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({
     summary: 'Get tenant Voice AI settings',
     description:
@@ -52,6 +55,10 @@ export class VoiceAiSettingsController {
     description: 'Current settings returned (may be null if not yet configured)',
   })
   @ApiResponse({ status: 401, description: 'Unauthorized — valid JWT required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden — requires Owner, Admin, or Manager role',
+  })
   getTenantSettings(@Request() req: { user: { tenant_id: string } }) {
     return this.settingsService.getTenantSettings(req.user.tenant_id);
   }
@@ -66,6 +73,7 @@ export class VoiceAiSettingsController {
    * and is_enabled: true is being set.
    */
   @Put()
+  @Roles('Owner', 'Admin')
   @ApiOperation({
     summary: 'Create or update tenant Voice AI settings',
     description:
@@ -82,7 +90,7 @@ export class VoiceAiSettingsController {
   @ApiResponse({
     status: 403,
     description:
-      'Forbidden — subscription plan does not include Voice AI (when is_enabled: true is sent)',
+      'Forbidden — requires Owner or Admin role, or subscription plan does not include Voice AI (when is_enabled: true is sent)',
   })
   upsertTenantSettings(
     @Request() req: { user: { tenant_id: string } },

@@ -19,6 +19,7 @@ import { LeadsModule } from './modules/leads/leads.module';
 import { CommunicationModule } from './modules/communication/communication.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { VoiceAiModule } from './modules/voice-ai/voice-ai.module';
+import { PuppeteerProcessManagerModule } from './core/puppeteer/puppeteer-process-manager.module';
 
 @Module({
   imports: [
@@ -50,7 +51,7 @@ import { VoiceAiModule } from './modules/voice-ai/voice-ai.module';
             return delay;
           },
           // Connection options for stability
-          maxRetriesPerRequest: 3,
+          maxRetriesPerRequest: null, // Required by BullMQ for proper queue handling
           enableReadyCheck: true,
           enableOfflineQueue: true,
           // Reconnect on error
@@ -71,6 +72,7 @@ import { VoiceAiModule } from './modules/voice-ai/voice-ai.module';
       inject: [ConfigService],
     }),
     SharedModule, // Shared services (template variables, etc.) - available globally
+    PuppeteerProcessManagerModule, // Puppeteer browser management with orphan cleanup
     PrismaModule,
     FileStorageModule, // File upload and storage service
     AuthModule,

@@ -3,6 +3,7 @@ import {
   IsEmail,
   IsOptional,
   Length,
+  MaxLength,
   Matches,
   IsEnum,
   IsInt,
@@ -272,6 +273,15 @@ export class CreateTenantDto {
   @IsOptional()
   @Length(2, 10)
   default_language?: string;
+
+  @ApiPropertyOptional({
+    description: 'Business description / "About Us" text for AI agent context and marketing',
+    example: 'Family-owned plumbing company serving Miami for 20+ years. We specialize in residential and commercial plumbing repairs, installations, and 24/7 emergency services.',
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(5000)
+  business_description?: string;
 
   // FINANCIAL & PAYMENT INFORMATION
   @ApiPropertyOptional({

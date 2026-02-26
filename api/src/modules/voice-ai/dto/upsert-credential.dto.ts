@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, MinLength } from 'class-validator';
+import { IsString, MinLength, IsOptional } from 'class-validator';
 
 /**
  * UpsertCredentialDto
@@ -17,4 +17,14 @@ export class UpsertCredentialDto {
   @IsString()
   @MinLength(10)
   api_key: string;
+
+  @ApiProperty({
+    description:
+      'Additional provider-specific configuration (JSON string). Can include region, model preferences, or other settings.',
+    example: '{"region": "us-west-1", "model": "whisper-1"}',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  additional_config?: string;
 }

@@ -2230,6 +2230,17 @@ Get the services currently assigned to the tenant.
 
 Assign services to the tenant (replaces all existing assignments).
 
+**⚠️ CRITICAL**: This endpoint **REPLACES ALL** existing assignments. It is not additive.
+
+**REPLACE ALL Behavior Example**:
+- Current assignment: `["Roofing", "Plumbing", "Electrical"]`
+- You POST: `{ "service_ids": ["HVAC"] }`
+- Result: Only `["HVAC"]` is assigned (Roofing, Plumbing, Electrical are removed)
+
+**To add a service**, you must include ALL existing service IDs plus the new one.
+**To remove a service**, send the array without that service ID.
+**To unassign all services**, send an empty array: `{ "service_ids": [] }`
+
 **Endpoint**: `POST /api/v1/tenants/current/assign-services`
 
 **Authorization**: Required (Owner, Admin only)
@@ -2278,6 +2289,214 @@ Assign services to the tenant (replaces all existing assignments).
     "error": "Bad Request"
   }
   ```
+
+---
+
+## Industries (Tenant Self-Management)
+
+Industries categorize the type of business a tenant operates (e.g., "Construction", "Home Services", "Property Management"). Tenants can self-assign industries from the platform-wide master list to help the Voice AI agent understand their business context.
+
+**Key Concepts**:
+- **Industries vs Services**:
+  - **Industries** = Business category (Construction, Home Services, HVAC)
+  - **Services** = What you offer (Roofing, Plumbing, Electrical)
+- **Platform-Wide Master List**: Industries are managed by platform admins
+- **Tenant Self-Assignment**: Tenants select which industries apply to their business
+- **Used by Voice AI**: Industries provide context to the AI agent about business type
+- **REPLACE ALL Behavior**: Assignment replaces all existing assignments (atomic operation)
+
+---
+
+### Get Available Industries
+
+Get all active industries that can be assigned to tenants.
+
+**Endpoint**: `GET /api/v1/tenants/current/industries`
+
+**Authorization**: Required (All roles)
+
+**Query Parameters**:
+- `active_only` (boolean, optional, default: `true`) - Only return active industries
+
+**Response** (200 OK):
+```json
+[
+  {
+    "id": "07c34b73-f00c-11f0-b3f4-50e8d4ae7953",
+    "name": "Roofing",
+    "description": "Residential and commercial roofing services",
+    "is_active": true,
+    "created_at": "2026-01-12T23:11:31.000Z",
+    "updated_at": "2026-01-12T23:11:31.000Z"
+  },
+  {
+    "id": "07c3688c-f00c-11f0-b3f4-50e8d4ae7953",
+    "name": "General Contracting",
+    "description": "General construction and contracting services",
+    "is_active": true,
+    "created_at": "2026-01-12T23:11:31.000Z",
+    "updated_at": "2026-01-12T23:11:31.000Z"
+  },
+  {
+    "id": "07c35a2e-f00c-11f0-b3f4-50e8d4ae7953",
+    "name": "HVAC",
+    "description": "Heating, ventilation, and air conditioning services",
+    "is_active": true,
+    "created_at": "2026-01-12T23:11:31.000Z",
+    "updated_at": "2026-01-12T23:11:31.000Z"
+  }
+]
+```
+
+**Error Responses**:
+- `401 Unauthorized` - No valid token
+
+**Example Request**:
+```bash
+curl http://localhost:8000/api/v1/tenants/current/industries?active_only=true \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+---
+
+### Get Assigned Industries
+
+Get the industries currently assigned to the tenant.
+
+**Endpoint**: `GET /api/v1/tenants/current/assigned-industries`
+
+**Authorization**: Required (All roles)
+
+**Response** (200 OK):
+```json
+[
+  {
+    "id": "07c34b73-f00c-11f0-b3f4-50e8d4ae7953",
+    "name": "Roofing",
+    "description": "Residential and commercial roofing services",
+    "is_active": true,
+    "created_at": "2026-01-12T23:11:31.000Z",
+    "updated_at": "2026-01-12T23:11:31.000Z"
+  },
+  {
+    "id": "07c35a2e-f00c-11f0-b3f4-50e8d4ae7953",
+    "name": "HVAC",
+    "description": "Heating, ventilation, and air conditioning services",
+    "is_active": true,
+    "created_at": "2026-01-12T23:11:31.000Z",
+    "updated_at": "2026-01-12T23:11:31.000Z"
+  }
+]
+```
+
+**Empty Response** (No industries assigned):
+```json
+[]
+```
+
+**Error Responses**:
+- `401 Unauthorized` - No valid token
+- `403 Forbidden` - Platform Admins must use admin endpoints or impersonation
+
+**Example Request**:
+```bash
+curl http://localhost:8000/api/v1/tenants/current/assigned-industries \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+---
+
+### Assign Industries to Tenant
+
+Assign industries to the tenant (replaces all existing assignments).
+
+**⚠️ CRITICAL**: This endpoint **REPLACES ALL** existing assignments. It is not additive.
+
+**REPLACE ALL Behavior Example**:
+- Current assignment: `["Roofing", "General Contracting"]`
+- You POST: `{ "industry_ids": ["HVAC"] }`
+- Result: Only `["HVAC"]` is assigned (Roofing, General Contracting are removed)
+
+**To add an industry**, you must include ALL existing industry IDs plus the new one.
+**To remove an industry**, send the array without that industry ID.
+**To unassign all industries**, send an empty array: `{ "industry_ids": [] }`
+
+**Atomic Transaction**: The assignment is performed in a database transaction - either all assignments succeed or all fail (no partial updates).
+
+**Endpoint**: `POST /api/v1/tenants/current/assign-industries`
+
+**Authorization**: Required (Owner, Admin only)
+
+**Request Body**:
+```json
+{
+  "industry_ids": ["uuid-1", "uuid-2", "uuid-3"]
+}
+```
+
+**Field Validations**:
+- `industry_ids`: Array of industry UUIDs (0-100 items)
+- All industry IDs must exist and be active
+
+**Response** (200 OK):
+Returns the updated list of assigned industries:
+```json
+[
+  {
+    "id": "07c34b73-f00c-11f0-b3f4-50e8d4ae7953",
+    "name": "Roofing",
+    "description": "Residential and commercial roofing services",
+    "is_active": true,
+    "created_at": "2026-01-12T23:11:31.000Z",
+    "updated_at": "2026-01-12T23:11:31.000Z"
+  },
+  {
+    "id": "07c3688c-f00c-11f0-b3f4-50e8d4ae7953",
+    "name": "General Contracting",
+    "description": "General construction and contracting services",
+    "is_active": true,
+    "created_at": "2026-01-12T23:11:31.000Z",
+    "updated_at": "2026-01-12T23:11:31.000Z"
+  }
+]
+```
+
+**Error Responses**:
+- `400 Bad Request` - Invalid industry IDs or validation error
+- `401 Unauthorized` - No valid token
+- `403 Forbidden` - User lacks Owner/Admin role OR Platform Admin trying to access tenant endpoint
+
+**Validation Error Example**:
+```json
+{
+  "statusCode": 400,
+  "message": "Some industry IDs are invalid or inactive: uuid-999",
+  "error": "Bad Request"
+}
+```
+
+**Example Request** (Assign 2 industries):
+```bash
+curl -X POST http://localhost:8000/api/v1/tenants/current/assign-industries \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "industry_ids": [
+      "07c34b73-f00c-11f0-b3f4-50e8d4ae7953",
+      "07c3688c-f00c-11f0-b3f4-50e8d4ae7953"
+    ]
+  }'
+```
+
+**Example Request** (Unassign all):
+```bash
+curl -X POST http://localhost:8000/api/v1/tenants/current/assign-industries \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "industry_ids": []
+  }'
+```
 
 ---
 

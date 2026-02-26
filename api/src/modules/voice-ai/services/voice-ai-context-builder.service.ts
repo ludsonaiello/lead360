@@ -7,80 +7,13 @@ import { PrismaService } from '../../../core/database/prisma.service';
 import { VoiceAiCredentialsService } from './voice-ai-credentials.service';
 import { VoiceAiGlobalConfigService } from './voice-ai-global-config.service';
 import { VoiceTransferNumbersService } from './voice-transfer-numbers.service';
+import { VoiceAiContext } from '../interfaces/voice-ai-context.interface';
 
 /**
- * Full merged context returned to the Python voice agent.
- *
- * Contains all data the agent needs for a single tenant:
- * - Tenant identity (company name, phone, timezone)
- * - Monthly usage quota
- * - Behavior configuration (greeting, features, duration limit)
- * - Decrypted provider credentials (STT, LLM, TTS)
- * - Services the business offers
- * - Geographic service areas
- * - Transfer numbers (ordered by display_order ASC)
- *
- * SECURITY: api_key fields contain DECRYPTED credentials.
- *   This object must NEVER be cached or logged.
- *   It is used exclusively for the internal agent endpoint (Sprint B06a).
+ * Type alias for backward compatibility.
+ * Use VoiceAiContext from the interface file for new code.
  */
-export interface FullVoiceAiContext {
-  tenant: {
-    id: string;
-    company_name: string;
-    phone: string | null;
-    timezone: string;
-    language: string | null;
-  };
-  quota: {
-    minutes_included: number;
-    minutes_used: number;
-    minutes_remaining: number;
-    overage_rate: number | null;
-    quota_exceeded: boolean;
-  };
-  behavior: {
-    is_enabled: boolean;
-    language: string;
-    greeting: string;
-    custom_instructions: string | null;
-    booking_enabled: boolean;
-    lead_creation_enabled: boolean;
-    transfer_enabled: boolean;
-    max_call_duration_seconds: number;
-  };
-  providers: {
-    /** provider_id: UUID of voice_ai_provider row — used by Python agent for usage tracking */
-    stt: {
-      provider_id: string;
-      provider_key: string;
-      api_key: string;
-      config: Record<string, unknown>;
-    } | null;
-    llm: {
-      provider_id: string;
-      provider_key: string;
-      api_key: string;
-      config: Record<string, unknown>;
-    } | null;
-    tts: {
-      provider_id: string;
-      provider_key: string;
-      api_key: string;
-      config: Record<string, unknown>;
-      voice_id: string | null;
-    } | null;
-  };
-  services: Array<{ name: string; description: string | null }>;
-  service_areas: Array<{ type: string; value: string; state: string | null }>;
-  transfer_numbers: Array<{
-    label: string;
-    phone_number: string;
-    transfer_type: string;
-    is_default: boolean;
-    available_hours: string | null;
-  }>;
-}
+export type FullVoiceAiContext = VoiceAiContext;
 
 /**
  * VoiceAiContextBuilderService
@@ -123,13 +56,18 @@ export class VoiceAiContextBuilderService {
    *   3. Resolve provider IDs (tenant override → global default)
    *   4. Load provider rows + decrypt credentials (parallel)
    *   5. Load services, service_areas, transfer_numbers (parallel)
-   *   6. Assemble and return FullVoiceAiContext
+   *   6. Merge system_prompt (global default + tenant custom_instructions)
+   *   7. Assemble and return FullVoiceAiContext
    *
    * @param tenantId  UUID of the tenant — sourced from the call routing params, NOT from JWT
+   * @param callSid   Optional Twilio CallSid for call identification tracking
    * @throws NotFoundException if tenant does not exist
    * @throws BadRequestException if global config has not been initialized
    */
-  async buildContext(tenantId: string): Promise<FullVoiceAiContext> {
+  async buildContext(
+    tenantId: string,
+    callSid?: string,
+  ): Promise<FullVoiceAiContext> {
     // Step 1: Load tenant, tenant settings, and global config concurrently
     const [tenant, tenantSettings, globalConfig] = await Promise.all([
       this.prisma.tenant.findUnique({
@@ -140,6 +78,7 @@ export class VoiceAiContextBuilderService {
           primary_contact_phone: true,
           timezone: true,
           default_language: true,
+          business_description: true,
           subscription_plan: {
             select: {
               voice_ai_enabled: true,
@@ -267,8 +206,8 @@ export class VoiceAiContextBuilderService {
     const ttsVoiceId =
       tenantSettings?.voice_id_override ?? globalConfig.default_voice_id ?? null;
 
-    // Step 5: Load services, service areas, and transfer numbers concurrently
-    const [tenantServices, serviceAreas, transferNumbers] = await Promise.all([
+    // Step 5: Load services, service areas, business hours, industries, and transfer numbers concurrently
+    const [tenantServices, serviceAreas, businessHoursRaw, industries, transferNumbers] = await Promise.all([
       this.prisma.tenant_service.findMany({
         where: { tenant_id: tenantId },
         include: {
@@ -279,8 +218,20 @@ export class VoiceAiContextBuilderService {
         where: { tenant_id: tenantId },
         select: { type: true, value: true, state: true },
       }),
+      this.prisma.tenant_business_hours.findUnique({
+        where: { tenant_id: tenantId },
+      }),
+      this.prisma.tenant_industry.findMany({
+        where: { tenant_id: tenantId },
+        include: {
+          industry: { select: { name: true, description: true } },
+        },
+      }),
       this.transferNumbersService.findAll(tenantId),
     ]);
+
+    // Transform wide-format business hours into array format for agent context
+    const businessHours = this.transformBusinessHours(businessHoursRaw);
 
     // Step 6: Resolve behavior fields — tenant settings → global defaults
     const enabledLanguages = this.parseJsonArray(
@@ -300,14 +251,23 @@ export class VoiceAiContextBuilderService {
           tenant.company_name,
         );
 
+    // System prompt: merge global default + tenant custom_instructions
+    // Start with global default_system_prompt, then append custom_instructions if present
+    let systemPrompt = globalConfig.default_system_prompt;
+    if (tenantSettings?.custom_instructions) {
+      systemPrompt += `\n\nAdditional Instructions:\n${tenantSettings.custom_instructions}`;
+    }
+
     // Step 7: Assemble FullVoiceAiContext
     return {
+      call_sid: callSid ?? null,
       tenant: {
         id: tenant.id,
         company_name: tenant.company_name,
         phone: tenant.primary_contact_phone ?? null,
         timezone: tenant.timezone,
         language: tenant.default_language ?? null,
+        business_description: tenant.business_description ?? null,
       },
       quota: {
         minutes_included: minutesIncluded,
@@ -319,7 +279,9 @@ export class VoiceAiContextBuilderService {
       behavior: {
         is_enabled: tenantSettings?.is_enabled ?? false,
         language,
+        enabled_languages: enabledLanguages,
         greeting,
+        system_prompt: systemPrompt,
         custom_instructions: tenantSettings?.custom_instructions ?? null,
         // Boolean fields: tenant-level setting ?? safe default = true
         booking_enabled: tenantSettings?.booking_enabled ?? true,
@@ -368,7 +330,13 @@ export class VoiceAiContextBuilderService {
         value: sa.value,
         state: sa.state ?? null,
       })),
+      business_hours: businessHours,
+      industries: industries.map((ti) => ({
+        name: ti.industry.name,
+        description: ti.industry.description ?? null,
+      })),
       transfer_numbers: transferNumbers.map((tn) => ({
+        id: tn.id,
         label: tn.label,
         phone_number: tn.phone_number,
         transfer_type: tn.transfer_type,
@@ -403,15 +371,63 @@ export class VoiceAiContextBuilderService {
 
   /**
    * Safely parse a JSON string that should be a string array.
-   * Returns an empty array on null, undefined, or malformed JSON.
+   * Returns ['en'] as default on null, undefined, or malformed JSON
+   * to match VoiceAiSettingsService.parseEnabledLanguages() behavior.
    */
   private parseJsonArray(jsonString: string | null | undefined): string[] {
-    if (!jsonString) return [];
+    if (!jsonString) return ['en'];
     try {
       const parsed: unknown = JSON.parse(jsonString);
-      return Array.isArray(parsed) ? (parsed as string[]) : [];
+      return Array.isArray(parsed) ? (parsed as string[]) : ['en'];
     } catch {
-      return [];
+      return ['en'];
     }
+  }
+
+  /**
+   * Transform wide-format business hours (one row with columns per day)
+   * into array format for agent context (one object per day).
+   * Handles the tenant_business_hours table structure with columns like:
+   * monday_closed, monday_open1, monday_close1, monday_open2, monday_close2, etc.
+   */
+  private transformBusinessHours(
+    hoursRaw: any | null,
+  ): Array<{ day: string; is_closed: boolean; shifts: Array<{ open: string; close: string }> }> {
+    if (!hoursRaw) return [];
+
+    const days = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+
+    return days.map((day) => {
+      const dayLower = day.toLowerCase();
+      const isClosed = hoursRaw[`${dayLower}_closed`] ?? false;
+      const open1 = hoursRaw[`${dayLower}_open1`];
+      const close1 = hoursRaw[`${dayLower}_close1`];
+      const open2 = hoursRaw[`${dayLower}_open2`];
+      const close2 = hoursRaw[`${dayLower}_close2`];
+
+      const shifts: Array<{ open: string; close: string }> = [];
+
+      if (open1 && close1) {
+        shifts.push({ open: open1, close: close1 });
+      }
+
+      if (open2 && close2) {
+        shifts.push({ open: open2, close: close2 });
+      }
+
+      return {
+        day,
+        is_closed: isClosed,
+        shifts,
+      };
+    });
   }
 }

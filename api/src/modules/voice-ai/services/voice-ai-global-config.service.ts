@@ -4,38 +4,10 @@ import { voice_ai_global_config } from '@prisma/client';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { EncryptionService } from '../../../core/encryption/encryption.service';
 import { UpdateGlobalConfigDto } from '../dto/update-global-config.dto';
-
-/**
- * Shape returned by getConfig().
- * LiveKit keys and agent_api_key_hash are NEVER included.
- * Only the preview and a boolean presence flag for LiveKit keys.
- */
-export interface SafeGlobalConfig {
-  id: string;
-  default_stt_provider_id: string | null;
-  default_llm_provider_id: string | null;
-  default_tts_provider_id: string | null;
-  default_stt_config: string | null;
-  default_llm_config: string | null;
-  default_tts_config: string | null;
-  default_voice_id: string | null;
-  default_language: string;
-  default_languages: string;
-  default_greeting_template: string;
-  default_system_prompt: string;
-  default_max_call_duration_seconds: number;
-  default_transfer_behavior: string;
-  default_tools_enabled: string;
-  livekit_sip_trunk_url: string | null;
-  /** true when livekit_api_key is stored, false otherwise — key itself is never returned */
-  livekit_api_key_set: boolean;
-  /** true when livekit_api_secret is stored, false otherwise */
-  livekit_api_secret_set: boolean;
-  agent_api_key_preview: string | null;
-  max_concurrent_calls: number;
-  updated_at: Date;
-  updated_by: string | null;
-}
+import {
+  GlobalConfigResponseDto,
+  SafeProviderInfo,
+} from '../dto/global-config-response.dto';
 
 /**
  * VoiceAiGlobalConfigService
@@ -60,18 +32,24 @@ export class VoiceAiGlobalConfigService {
 
   /**
    * Retrieve the global config singleton.
+   * Creates the row with defaults if it doesn't exist (upsert pattern).
+   * Returns response WITH relation details (provider display_name).
    * LiveKit API keys and the agent key hash are masked from the response.
    */
-  async getConfig(): Promise<SafeGlobalConfig> {
-    const config = await this.prisma.voice_ai_global_config.findUnique({
+  async getConfig(): Promise<GlobalConfigResponseDto> {
+    // Upsert to ensure the singleton row exists
+    const config = await this.prisma.voice_ai_global_config.upsert({
       where: { id: this.SINGLETON_ID },
+      create: {
+        id: this.SINGLETON_ID,
+      },
+      update: {},
+      include: {
+        stt_provider: true,
+        llm_provider: true,
+        tts_provider: true,
+      },
     });
-
-    if (!config) {
-      throw new BadRequestException(
-        'Global config has not been initialized. Run the database seed.',
-      );
-    }
 
     return this.toSafeConfig(config);
   }
@@ -86,12 +64,14 @@ export class VoiceAiGlobalConfigService {
   async updateConfig(
     userId: string,
     dto: UpdateGlobalConfigDto,
-  ): Promise<SafeGlobalConfig> {
+  ): Promise<GlobalConfigResponseDto> {
     this.validateJsonFields(dto);
 
     // Build the update payload, encrypting LiveKit keys if provided
     const updateData: Partial<Record<string, unknown>> = {};
 
+    if (dto.agent_enabled !== undefined)
+      updateData.agent_enabled = dto.agent_enabled;
     if (dto.default_stt_provider_id !== undefined)
       updateData.default_stt_provider_id = dto.default_stt_provider_id;
     if (dto.default_llm_provider_id !== undefined)
@@ -121,19 +101,26 @@ export class VoiceAiGlobalConfigService {
       updateData.default_llm_config = dto.default_llm_config;
     if (dto.default_tts_config !== undefined)
       updateData.default_tts_config = dto.default_tts_config;
+    if (dto.livekit_url !== undefined)
+      updateData.livekit_url = dto.livekit_url;
     if (dto.livekit_sip_trunk_url !== undefined)
       updateData.livekit_sip_trunk_url = dto.livekit_sip_trunk_url;
     if (dto.max_concurrent_calls !== undefined)
       updateData.max_concurrent_calls = dto.max_concurrent_calls;
 
     // Encrypt LiveKit keys — never store plaintext
+    // Handle three cases: undefined (don't update), null (clear), string (encrypt)
     if (dto.livekit_api_key !== undefined) {
-      updateData.livekit_api_key = this.encryption.encrypt(dto.livekit_api_key);
+      updateData.livekit_api_key =
+        dto.livekit_api_key !== null
+          ? this.encryption.encrypt(dto.livekit_api_key)
+          : null;
     }
     if (dto.livekit_api_secret !== undefined) {
-      updateData.livekit_api_secret = this.encryption.encrypt(
-        dto.livekit_api_secret,
-      );
+      updateData.livekit_api_secret =
+        dto.livekit_api_secret !== null
+          ? this.encryption.encrypt(dto.livekit_api_secret)
+          : null;
     }
 
     updateData.updated_by = userId;
@@ -145,6 +132,11 @@ export class VoiceAiGlobalConfigService {
         ...updateData,
       },
       update: updateData,
+      include: {
+        stt_provider: true,
+        llm_provider: true,
+        tts_provider: true,
+      },
     });
 
     return this.toSafeConfig(config);
@@ -200,6 +192,49 @@ export class VoiceAiGlobalConfigService {
     });
   }
 
+  /**
+   * Get LiveKit connection details (decrypted) for agent worker (BAS19).
+   * INTERNAL USE ONLY - never expose via controller.
+   *
+   * Returns decrypted LiveKit URL, API key, and API secret.
+   * Throws BadRequestException if LiveKit credentials are not configured.
+   */
+  async getLiveKitConfig(): Promise<{
+    url: string;
+    apiKey: string;
+    apiSecret: string;
+  }> {
+    const config = await this.getRawConfig();
+
+    if (!config) {
+      throw new BadRequestException(
+        'Global config has not been initialized. Run the database seed.',
+      );
+    }
+
+    if (!config.livekit_url) {
+      throw new BadRequestException(
+        'LiveKit URL is not configured in global config.',
+      );
+    }
+
+    if (!config.livekit_api_key || !config.livekit_api_secret) {
+      throw new BadRequestException(
+        'LiveKit API credentials are not configured in global config.',
+      );
+    }
+
+    // Decrypt the LiveKit credentials
+    const apiKey = this.encryption.decrypt(config.livekit_api_key);
+    const apiSecret = this.encryption.decrypt(config.livekit_api_secret);
+
+    return {
+      url: config.livekit_url,
+      apiKey,
+      apiSecret,
+    };
+  }
+
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
@@ -209,32 +244,58 @@ export class VoiceAiGlobalConfigService {
    * - livekit_api_key → replaced with boolean livekit_api_key_set
    * - livekit_api_secret → replaced with boolean livekit_api_secret_set
    * - agent_api_key_hash → omitted entirely; preview remains
+   * - Includes resolved provider objects (display_name, provider_key)
    */
-  private toSafeConfig(config: voice_ai_global_config): SafeGlobalConfig {
-    return {
-      id: config.id,
-      default_stt_provider_id: config.default_stt_provider_id,
-      default_llm_provider_id: config.default_llm_provider_id,
-      default_tts_provider_id: config.default_tts_provider_id,
-      default_stt_config: config.default_stt_config,
-      default_llm_config: config.default_llm_config,
-      default_tts_config: config.default_tts_config,
-      default_voice_id: config.default_voice_id,
-      default_language: config.default_language,
-      default_languages: config.default_languages,
-      default_greeting_template: config.default_greeting_template,
-      default_system_prompt: config.default_system_prompt,
-      default_max_call_duration_seconds: config.default_max_call_duration_seconds,
-      default_transfer_behavior: config.default_transfer_behavior,
-      default_tools_enabled: config.default_tools_enabled,
-      livekit_sip_trunk_url: config.livekit_sip_trunk_url,
-      livekit_api_key_set: config.livekit_api_key !== null,
-      livekit_api_secret_set: config.livekit_api_secret !== null,
-      agent_api_key_preview: config.agent_api_key_preview,
-      max_concurrent_calls: config.max_concurrent_calls,
-      updated_at: config.updated_at,
-      updated_by: config.updated_by,
-    };
+  private toSafeConfig(config: any): GlobalConfigResponseDto {
+    const dto = new GlobalConfigResponseDto();
+
+    dto.id = config.id;
+    dto.agent_enabled = config.agent_enabled;
+    dto.default_stt_config = config.default_stt_config;
+    dto.default_llm_config = config.default_llm_config;
+    dto.default_tts_config = config.default_tts_config;
+    dto.default_voice_id = config.default_voice_id;
+    dto.default_language = config.default_language;
+    dto.default_languages = config.default_languages;
+    dto.default_greeting_template = config.default_greeting_template;
+    dto.default_system_prompt = config.default_system_prompt;
+    dto.default_max_call_duration_seconds =
+      config.default_max_call_duration_seconds;
+    dto.default_transfer_behavior = config.default_transfer_behavior;
+    dto.default_tools_enabled = config.default_tools_enabled;
+    dto.livekit_url = config.livekit_url;
+    dto.livekit_sip_trunk_url = config.livekit_sip_trunk_url;
+    dto.livekit_api_key_set = config.livekit_api_key !== null;
+    dto.livekit_api_secret_set = config.livekit_api_secret !== null;
+    dto.agent_api_key_preview = config.agent_api_key_preview;
+    dto.max_concurrent_calls = config.max_concurrent_calls;
+    dto.updated_at = config.updated_at;
+    dto.updated_by = config.updated_by;
+
+    // Map provider relations to safe info objects
+    dto.default_stt_provider = config.stt_provider
+      ? this.toSafeProvider(config.stt_provider)
+      : null;
+    dto.default_llm_provider = config.llm_provider
+      ? this.toSafeProvider(config.llm_provider)
+      : null;
+    dto.default_tts_provider = config.tts_provider
+      ? this.toSafeProvider(config.tts_provider)
+      : null;
+
+    return dto;
+  }
+
+  /**
+   * Map voice_ai_provider to safe provider info.
+   */
+  private toSafeProvider(provider: any): SafeProviderInfo {
+    const info = new SafeProviderInfo();
+    info.id = provider.id;
+    info.provider_key = provider.provider_key;
+    info.provider_type = provider.provider_type;
+    info.display_name = provider.display_name;
+    return info;
   }
 
   /**

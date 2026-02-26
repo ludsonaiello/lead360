@@ -12,6 +12,11 @@ export class StartCallDto {
   @IsNotEmpty()
   call_sid: string;
 
+  @ApiPropertyOptional({ description: 'LiveKit room name', example: 'room-uuid-1234' })
+  @IsOptional()
+  @IsString()
+  room_name?: string;
+
   @ApiProperty({ description: "Caller's E.164 phone number", example: '+15551234567' })
   @IsString()
   @Matches(/^\+[1-9]\d{1,14}$/, { message: 'from_number must be E.164 format' })
@@ -26,6 +31,16 @@ export class StartCallDto {
   @IsOptional()
   @IsString()
   direction?: string;
+
+  @ApiPropertyOptional({ description: 'Language used for the call (ISO 639-1)', example: 'en' })
+  @IsOptional()
+  @IsString()
+  language_used?: string;
+
+  @ApiPropertyOptional({ description: 'Intent selected from IVR menu', example: 'sales' })
+  @IsOptional()
+  @IsString()
+  intent?: string;
 
   @ApiPropertyOptional({ description: 'STT provider UUID used for this call (from context)' })
   @IsOptional()

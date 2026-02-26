@@ -1,7 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { RoomServiceClient } from 'livekit-server-sdk';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { VoiceAgentService } from '../agent/voice-agent.service';
+import { VoiceAiGlobalConfigService } from './voice-ai-global-config.service';
 import { AdminOverrideTenantVoiceDto } from '../dto/admin-override-tenant-voice.dto';
+import { AgentStatusDto } from '../dto/agent-status.dto';
+import { ActiveRoomDto } from '../dto/active-room.dto';
 
 // ─── Response Interfaces ────────────────────────────────────────────────────
 
@@ -37,7 +42,13 @@ export interface PaginationMeta {
  */
 @Injectable()
 export class VoiceAiMonitoringService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(VoiceAiMonitoringService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly voiceAgentService: VoiceAgentService,
+    private readonly globalConfigService: VoiceAiGlobalConfigService,
+  ) {}
 
   // ─── Tenant Voice AI Overview ─────────────────────────────────────────────
 
@@ -181,6 +192,72 @@ export class VoiceAiMonitoringService {
   // ─── Admin Override ───────────────────────────────────────────────────────
 
   /**
+   * getTenantOverride
+   *
+   * Retrieves current admin override settings for a specific tenant.
+   * Returns null for all fields if no overrides exist.
+   * Used by frontend to pre-populate the override form.
+   *
+   * @param tenantId - Target tenant UUID
+   * @returns Override settings or null for each field if not set
+   */
+  async getTenantOverride(tenantId: string): Promise<{
+    force_enabled: boolean | null;
+    monthly_minutes_override: number | null;
+    stt_provider_override_id: string | null;
+    llm_provider_override_id: string | null;
+    tts_provider_override_id: string | null;
+    admin_notes: string | null;
+  }> {
+    // Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException(`Tenant with id "${tenantId}" not found`);
+    }
+
+    // Fetch tenant_voice_ai_settings
+    const settings = await this.prisma.tenant_voice_ai_settings.findUnique({
+      where: { tenant_id: tenantId },
+      select: {
+        is_enabled: true,
+        monthly_minutes_override: true,
+        stt_provider_override_id: true,
+        llm_provider_override_id: true,
+        tts_provider_override_id: true,
+        admin_notes: true,
+      },
+    });
+
+    // If no settings row exists, return all nulls
+    if (!settings) {
+      return {
+        force_enabled: null,
+        monthly_minutes_override: null,
+        stt_provider_override_id: null,
+        llm_provider_override_id: null,
+        tts_provider_override_id: null,
+        admin_notes: null,
+      };
+    }
+
+    // Return override values
+    // Note: force_enabled is NOT stored directly - we return is_enabled
+    // Frontend interprets: if is_enabled exists and admin_override=true, it's forced
+    return {
+      force_enabled: settings.is_enabled, // Best approximation - frontend decides if forced
+      monthly_minutes_override: settings.monthly_minutes_override,
+      stt_provider_override_id: settings.stt_provider_override_id,
+      llm_provider_override_id: settings.llm_provider_override_id,
+      tts_provider_override_id: settings.tts_provider_override_id,
+      admin_notes: settings.admin_notes,
+    };
+  }
+
+  /**
    * overrideTenantVoiceSettings
    *
    * Upserts tenant_voice_ai_settings with the provided infrastructure override fields.
@@ -254,5 +331,178 @@ export class VoiceAiMonitoringService {
       update: updateData,
       create: createData,
     });
+  }
+
+  // ─── Agent Status ─────────────────────────────────────────────────────────
+
+  /**
+   * getAgentStatus
+   *
+   * Returns the health status and metrics of the Voice AI agent worker.
+   * Used by platform admin to monitor agent health and call volume.
+   *
+   * Metrics:
+   *   - is_running: VoiceAgentService.isRunning()
+   *   - agent_enabled: From voice_ai_global_config
+   *   - livekit_connected: Same as is_running (if worker is running, it's connected)
+   *   - active_calls: Count of voice_call_log WHERE status='in_progress'
+   *   - today_calls: Count of voice_call_log WHERE started_at >= today
+   *   - this_month_calls: Count of voice_call_log WHERE started_at >= this month
+   *
+   * @returns Agent status metrics
+   */
+  async getAgentStatus(): Promise<AgentStatusDto> {
+    // Get global config to check if agent is enabled
+    const config = await this.globalConfigService.getConfig();
+
+    // Get worker running status
+    const isRunning = this.voiceAgentService.isRunning();
+
+    // Get call counts — run in parallel for efficiency
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [activeCalls, todayCalls, thisMonthCalls] = await Promise.all([
+      // Active calls (status = 'in_progress')
+      this.prisma.voice_call_log.count({
+        where: { status: 'in_progress' },
+      }),
+
+      // Today's calls
+      this.prisma.voice_call_log.count({
+        where: { started_at: { gte: todayStart } },
+      }),
+
+      // This month's calls
+      this.prisma.voice_call_log.count({
+        where: { started_at: { gte: monthStart } },
+      }),
+    ]);
+
+    return {
+      is_running: isRunning,
+      agent_enabled: config.agent_enabled,
+      livekit_connected: isRunning, // If worker is running, it's connected
+      active_calls: activeCalls,
+      today_calls: todayCalls,
+      this_month_calls: thisMonthCalls,
+    };
+  }
+
+  // ─── Active Rooms ─────────────────────────────────────────────────────────
+
+  /**
+   * getActiveRooms
+   *
+   * Returns a list of all active calls (voice_call_log WHERE status='in_progress').
+   * Joins with tenant to get company_name for display.
+   * Calculates duration_seconds as (now - started_at).
+   *
+   * @returns List of active call rooms
+   */
+  async getActiveRooms(): Promise<ActiveRoomDto[]> {
+    const activeCalls = await this.prisma.voice_call_log.findMany({
+      where: { status: 'in_progress' },
+      select: {
+        id: true,
+        tenant_id: true,
+        call_sid: true,
+        room_name: true,
+        from_number: true,
+        to_number: true,
+        direction: true,
+        started_at: true,
+        tenant: {
+          select: {
+            company_name: true,
+          },
+        },
+      },
+      orderBy: { started_at: 'desc' },
+    });
+
+    const now = new Date();
+
+    return activeCalls.map((call) => ({
+      id: call.id,
+      tenant_id: call.tenant_id,
+      company_name: call.tenant.company_name,
+      call_sid: call.call_sid,
+      room_name: call.room_name,
+      from_number: call.from_number,
+      to_number: call.to_number,
+      direction: call.direction,
+      duration_seconds: Math.floor((now.getTime() - call.started_at.getTime()) / 1000),
+      started_at: call.started_at,
+    }));
+  }
+
+  // ─── Force End Room ───────────────────────────────────────────────────────
+
+  /**
+   * forceEndRoom
+   *
+   * Force-terminates a specific call by room name.
+   * Admin-only operation for emergency call termination.
+   *
+   * Steps:
+   *   1. Find voice_call_log by room_name — throw NotFoundException if not found
+   *   2. Update status to 'failed', ended_at = now, error_message = 'Force terminated by admin'
+   *   3. Attempt to delete LiveKit room via RoomServiceClient.deleteRoom(roomName)
+   *      - Do not throw if LiveKit deletion fails (log the error)
+   *      - The call log update is what matters (admin forced termination)
+   *
+   * @param roomName LiveKit room name to terminate
+   * @throws NotFoundException if room_name not found in voice_call_log
+   */
+  async forceEndRoom(roomName: string): Promise<void> {
+    // Step 1: Find the call log by room_name
+    const callLog = await this.prisma.voice_call_log.findFirst({
+      where: { room_name: roomName },
+      select: { id: true, status: true },
+    });
+
+    if (!callLog) {
+      throw new NotFoundException(`Call with room_name "${roomName}" not found`);
+    }
+
+    // Step 2: Update status to 'failed' and mark as force-terminated
+    await this.prisma.voice_call_log.update({
+      where: { id: callLog.id },
+      data: {
+        status: 'failed',
+        ended_at: new Date(),
+        error_message: 'Force terminated by admin',
+      },
+    });
+
+    this.logger.log(`Call ${roomName} marked as force-terminated in database`);
+
+    // Step 3: Attempt to delete LiveKit room (best effort — do not throw if fails)
+    try {
+      const livekitConfig = await this.globalConfigService.getLiveKitConfig();
+
+      if (!livekitConfig.url || !livekitConfig.apiKey || !livekitConfig.apiSecret) {
+        this.logger.warn('LiveKit credentials not configured — cannot delete room remotely');
+        return;
+      }
+
+      const roomService = new RoomServiceClient(
+        livekitConfig.url,
+        livekitConfig.apiKey,
+        livekitConfig.apiSecret,
+      );
+
+      await roomService.deleteRoom(roomName);
+      this.logger.log(`LiveKit room ${roomName} deleted successfully`);
+
+    } catch (error) {
+      // Log the error but do not throw — call log update already succeeded
+      this.logger.error(
+        `Failed to delete LiveKit room ${roomName}: ${error.message}`,
+        error.stack,
+      );
+    }
   }
 }

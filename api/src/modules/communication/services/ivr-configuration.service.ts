@@ -6,6 +6,7 @@ import {
   ConflictException,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import twilio from 'twilio';
@@ -94,8 +95,8 @@ export class IvrConfigurationService {
     );
 
     try {
-      // 1. Validate menu options
-      this.validateMenuOptions(dto.menu_options);
+      // 1. Validate menu options (pass max_depth for multi-level validation)
+      this.validateMenuOptions(dto.menu_options, dto.max_depth || 4);
 
       // 2. Validate default action
       this.validateAction(dto.default_action);
@@ -113,6 +114,7 @@ export class IvrConfigurationService {
         default_action: dto.default_action as any,
         timeout_seconds: dto.timeout_seconds,
         max_retries: dto.max_retries,
+        max_depth: dto.max_depth || 4, // NEW: Add max_depth field
         status: 'active',
       };
 
@@ -166,7 +168,14 @@ export class IvrConfigurationService {
       );
     }
 
-    return config;
+    // Ensure all menu options have UUIDs (for backward compatibility with legacy configs)
+    const menuOptions = config.menu_options as any[];
+    const menuOptionsWithIds = this.ensureMenuOptionsHaveIds(menuOptions);
+
+    return {
+      ...config,
+      menu_options: menuOptionsWithIds,
+    };
   }
 
   /**
@@ -202,25 +211,27 @@ export class IvrConfigurationService {
   }
 
   /**
-   * Generate IVR menu TwiML
+   * Generate IVR menu TwiML with support for multi-level navigation
    *
-   * Creates TwiML response for initial IVR menu presentation.
+   * Creates TwiML response for IVR menu at any level in the tree.
+   * Uses path notation to navigate to the correct menu level.
    *
    * TwiML Structure:
-   * 1. <Say> - Consent message
-   * 2. <Say> - Greeting message
+   * 1. <Say> - Consent message (only at root level)
+   * 2. <Say> - Greeting message (for current level)
    * 3. <Gather> - Present menu options and collect input
    *    - numDigits: 1 (single digit)
-   *    - timeout: Configured timeout
-   *    - action: Webhook for handling input
+   *    - timeout: Submenu timeout or config default
+   *    - action: Webhook for handling input (includes path)
    * 4. <Redirect> - If no input, execute default action
    *
    * @param tenantId - Tenant UUID
+   * @param path - Navigation path (e.g., "1.2" for submenu)
    * @returns TwiML XML string
    * @throws NotFoundException if configuration does not exist
    * @throws BadRequestException if IVR is not enabled
    */
-  async generateIvrMenuTwiML(tenantId: string): Promise<string> {
+  async generateIvrMenuTwiML(tenantId: string, path?: string): Promise<string> {
     const config = await this.findByTenantId(tenantId);
 
     if (!config.ivr_enabled) {
@@ -233,58 +244,57 @@ export class IvrConfigurationService {
     });
 
     if (!tenant) {
-      throw new Error(`Tenant not found: ${tenantId}`);
+      throw new NotFoundException(`Tenant not found: ${tenantId}`);
     }
 
-    this.logger.log(`Generating IVR menu TwiML for tenant: ${tenantId}`);
+    this.logger.log(
+      `Generating IVR menu TwiML for tenant: ${tenantId}, path: ${path || 'root'}`,
+    );
+
+    // Navigate to correct menu level based on path
+    const currentMenu = this.navigateToMenuLevel(
+      config.menu_options as unknown as IvrMenuOptionDto[],
+      config.greeting_message,
+      path,
+    );
 
     const twiml = new twilio.twiml.VoiceResponse();
 
-    // 1. Consent message (REQUIRED for recording compliance)
+    // 1. Consent message (only on root level)
+    if (!path || path === '') {
+      twiml.say(
+        { voice: 'Polly.Joanna', language: 'en-US' },
+        'This call will be recorded for quality and training purposes.',
+      );
+    }
+
+    // 2. Greeting message for current level
     twiml.say(
-      {
-        voice: 'Polly.Joanna',
-        language: 'en-US',
-      },
-      'This call will be recorded for quality and training purposes.',
+      { voice: 'Polly.Joanna', language: 'en-US' },
+      currentMenu.greeting,
     );
 
-    // 2. Greeting message
-    twiml.say(
-      {
-        voice: 'Polly.Joanna',
-        language: 'en-US',
-      },
-      config.greeting_message,
-    );
-
-    // 3. Build menu options text
-    const menuOptions = config.menu_options as unknown as IvrMenuOptionDto[];
-    const menuText = menuOptions
+    // 3. Build menu options text (e.g., "Press 1 for Sales. Press 2 for Support.")
+    const menuText = currentMenu.options
       .map((opt) => `Press ${opt.digit} for ${opt.label}.`)
       .join(' ');
 
-    // 4. Gather digit input
+    // 4. Determine timeout (submenu override or config default)
+    const timeoutSeconds = currentMenu.timeout || config.timeout_seconds;
+
+    // 5. Gather DTMF digit input
     const gather = twiml.gather({
       numDigits: 1,
-      timeout: config.timeout_seconds,
-      action: `https://${tenant.subdomain}.lead360.app/api/v1/twilio/ivr/input`,
+      timeout: timeoutSeconds,
+      action: `https://${tenant.subdomain}.lead360.app/api/v1/twilio/ivr/input${path ? `?path=${path}` : ''}`,
       method: 'POST',
     });
 
-    gather.say(
-      {
-        voice: 'Polly.Joanna',
-        language: 'en-US',
-      },
-      menuText,
-    );
+    gather.say({ voice: 'Polly.Joanna', language: 'en-US' }, menuText);
 
-    // 5. If no input, redirect to default action handler
+    // 6. Default action on timeout/no input
     twiml.redirect(
-      {
-        method: 'POST',
-      },
+      { method: 'POST' },
       `https://${tenant.subdomain}.lead360.app/api/v1/twilio/ivr/default`,
     );
 
@@ -292,17 +302,22 @@ export class IvrConfigurationService {
   }
 
   /**
-   * Execute IVR action based on digit pressed
+   * Execute IVR action based on digit input with multi-level navigation support
    *
-   * Called when user presses a digit in the IVR menu.
+   * Called when user presses a digit in the IVR menu at any level.
+   * Handles submenu navigation by building path and redirecting to deeper levels.
    *
    * Flow:
-   * 1. Find menu option matching digit
-   * 2. If invalid, say error and redirect to menu
-   * 3. If valid, execute action
+   * 1. Navigate to current menu level using path
+   * 2. Find menu option matching digit at current level
+   * 3. If invalid, say error and redirect to current menu
+   * 4. If submenu action, build new path and redirect deeper
+   * 5. If terminal action, execute action (dial, voicemail, etc.)
    *
    * @param tenantId - Tenant UUID
    * @param digit - Digit pressed by user (0-9)
+   * @param callSid - Twilio call SID
+   * @param path - Current menu path (optional)
    * @returns TwiML XML string
    * @throws NotFoundException if configuration does not exist
    */
@@ -310,6 +325,7 @@ export class IvrConfigurationService {
     tenantId: string,
     digit: string,
     callSid?: string,
+    path?: string,
   ): Promise<string> {
     const config = await this.findByTenantId(tenantId);
 
@@ -319,41 +335,97 @@ export class IvrConfigurationService {
     });
 
     if (!tenant) {
-      throw new Error(`Tenant not found: ${tenantId}`);
+      throw new NotFoundException(`Tenant not found: ${tenantId}`);
     }
 
-    const menuOptions = config.menu_options as unknown as IvrMenuOptionDto[];
-    const selectedOption = menuOptions.find((opt) => opt.digit === digit);
+    this.logger.log(
+      `Executing IVR action for tenant: ${tenantId}, digit: ${digit}, path: ${path || 'root'}`,
+    );
+
+    // Navigate to current menu level
+    const currentMenu = this.navigateToMenuLevel(
+      config.menu_options as unknown as IvrMenuOptionDto[],
+      config.greeting_message,
+      path,
+    );
+
+    // Find selected option at current level
+    const selectedOption = currentMenu.options.find((opt) => opt.digit === digit);
 
     const twiml = new twilio.twiml.VoiceResponse();
 
     if (!selectedOption) {
-      // Invalid input - replay menu
+      // Invalid digit at this level
       this.logger.warn(
-        `Invalid IVR digit pressed: ${digit} for tenant ${tenantId}`,
+        `Invalid IVR digit: ${digit} at path: ${path || 'root'} for tenant: ${tenantId}`,
       );
       twiml.say(
-        {
-          voice: 'Polly.Joanna',
-          language: 'en-US',
-        },
+        { voice: 'Polly.Joanna', language: 'en-US' },
         'Invalid option. Please try again.',
       );
+      // Redirect back to current menu level
       twiml.redirect(
-        {
-          method: 'POST',
-        },
+        { method: 'POST' },
+        `https://${tenant.subdomain}.lead360.app/api/v1/twilio/ivr/menu${path ? `?path=${path}` : ''}`,
+      );
+      return twiml.toString();
+    }
+
+    // Handle navigation actions
+    if (selectedOption.action === 'return_to_parent') {
+      // Navigate back one level by removing last digit from path
+      if (!path || path === '') {
+        // Already at root, redirect to root menu
+        this.logger.log(`Already at root, redirecting to main menu`);
+        twiml.redirect(
+          { method: 'POST' },
+          `https://${tenant.subdomain}.lead360.app/api/v1/twilio/ivr/menu`,
+        );
+      } else {
+        // Remove last segment from path (e.g., "1.2.3" -> "1.2")
+        const pathSegments = path.split('.');
+        pathSegments.pop(); // Remove last segment
+        const parentPath = pathSegments.join('.');
+
+        this.logger.log(`Navigating to parent menu: ${parentPath || 'root'}`);
+
+        const menuUrl = parentPath
+          ? `https://${tenant.subdomain}.lead360.app/api/v1/twilio/ivr/menu?path=${parentPath}`
+          : `https://${tenant.subdomain}.lead360.app/api/v1/twilio/ivr/menu`;
+
+        twiml.redirect({ method: 'POST' }, menuUrl);
+      }
+      return twiml.toString();
+    }
+
+    if (selectedOption.action === 'return_to_root') {
+      // Navigate to root menu (no path)
+      this.logger.log(`Returning to main menu from path: ${path || 'root'}`);
+      twiml.redirect(
+        { method: 'POST' },
         `https://${tenant.subdomain}.lead360.app/api/v1/twilio/ivr/menu`,
       );
       return twiml.toString();
     }
 
-    // Handle voice_ai action — async path using VoiceAiSipService
+    // Handle submenu action (navigate deeper)
+    if (selectedOption.action === 'submenu') {
+      const newPath = path ? `${path}.${digit}` : digit;
+      this.logger.log(`Navigating to submenu: ${newPath}`);
+
+      twiml.redirect(
+        { method: 'POST' },
+        `https://${tenant.subdomain}.lead360.app/api/v1/twilio/ivr/menu?path=${newPath}`,
+      );
+      return twiml.toString();
+    }
+
+    // Handle voice_ai action (special routing)
     if (selectedOption.action === 'voice_ai') {
       return this.executeVoiceAiAction(tenantId, callSid ?? '', selectedOption);
     }
 
-    // Execute selected action (synchronous path for all other action types)
+    // Execute terminal action (route_to_number, voicemail, webhook, etc.)
     this.logger.log(
       `Executing IVR action: ${selectedOption.action} for tenant ${tenantId}`,
     );
@@ -587,6 +659,243 @@ export class IvrConfigurationService {
   }
 
   /**
+   * Recursively ensure all menu options have UUIDs
+   *
+   * Legacy configurations may not have option IDs. This method adds them
+   * if missing to maintain consistency with the IvrMenuOptionDto schema.
+   *
+   * IMPORTANT: If UUID already exists, it is returned unchanged.
+   * Only generates new UUIDs when the id field is missing.
+   *
+   * @param options - Array of menu options (possibly without IDs)
+   * @returns Array of menu options with guaranteed IDs
+   */
+  private ensureMenuOptionsHaveIds(options: any[]): any[] {
+    return options.map((option) => {
+      const optionWithId = {
+        ...option,
+        id: option.id || randomUUID(), // Keep existing ID or generate new one
+      };
+
+      // Recursively process submenu options if present
+      if (optionWithId.submenu?.options) {
+        optionWithId.submenu.options = this.ensureMenuOptionsHaveIds(
+          optionWithId.submenu.options,
+        );
+      }
+
+      return optionWithId;
+    });
+  }
+
+  /**
+   * Navigate to specific menu level using path notation
+   *
+   * Traverses the menu tree following the path notation (e.g., "1.2.1").
+   * Each digit in the path represents a menu choice at that level.
+   *
+   * @param rootOptions - Root level menu options
+   * @param rootGreeting - Root level greeting message
+   * @param path - Navigation path (e.g., "1.2.1" means: digit 1 → digit 2 → digit 1)
+   * @returns Current menu level with greeting, options, and timeout
+   * @throws NotFoundException if path is invalid
+   * @throws BadRequestException if path points to non-submenu option
+   *
+   * @example
+   * // Navigate to root
+   * navigateToMenuLevel(options, "Welcome", null)
+   * // Returns: { greeting: "Welcome", options: [...], timeout: undefined }
+   *
+   * @example
+   * // Navigate to submenu after pressing 1
+   * navigateToMenuLevel(options, "Welcome", "1")
+   * // Returns: { greeting: "Sales Dept...", options: [...], timeout: 10 }
+   *
+   * @example
+   * // Navigate to sub-submenu after pressing 1, then 2
+   * navigateToMenuLevel(options, "Welcome", "1.2")
+   * // Returns: { greeting: "New Customers...", options: [...] }
+   */
+  private navigateToMenuLevel(
+    rootOptions: IvrMenuOptionDto[],
+    rootGreeting: string,
+    path?: string,
+  ): {
+    greeting: string;
+    options: IvrMenuOptionDto[];
+    timeout?: number;
+  } {
+    // Base case: no path = root level
+    if (!path || path === '') {
+      return {
+        greeting: rootGreeting,
+        options: rootOptions,
+        timeout: undefined, // Use default from config
+      };
+    }
+
+    // Split path into digits (e.g., "1.2.3" → ["1", "2", "3"])
+    const digits = path.split('.');
+    let currentOptions = rootOptions;
+    let currentGreeting = rootGreeting;
+    let currentTimeout: number | undefined;
+
+    // Traverse tree by following digit path
+    for (let i = 0; i < digits.length; i++) {
+      const digit = digits[i];
+
+      // Find option matching this digit at current level
+      const option = currentOptions.find((opt) => opt.digit === digit);
+
+      if (!option) {
+        throw new NotFoundException(
+          `Invalid menu path: digit "${digit}" not found at level ${i + 1} (path: "${path}")`,
+        );
+      }
+
+      // Verify this option is a submenu
+      if (option.action !== 'submenu' || !option.submenu) {
+        throw new BadRequestException(
+          `Invalid menu path: option at digit "${digit}" (${option.label}) is not a submenu. Cannot navigate deeper. Path: "${path}"`,
+        );
+      }
+
+      // Move to submenu
+      currentOptions = option.submenu.options;
+      currentGreeting = option.submenu.greeting_message;
+      currentTimeout = option.submenu.timeout_seconds;
+    }
+
+    return {
+      greeting: currentGreeting,
+      options: currentOptions,
+      timeout: currentTimeout,
+    };
+  }
+
+  /**
+   * Recursively validate menu tree structure
+   *
+   * Performs deep validation of multi-level IVR menu tree:
+   * - Checks depth limit is not exceeded
+   * - Detects circular references (duplicate option IDs)
+   * - Validates unique IDs across entire tree
+   * - Counts total nodes to prevent abuse
+   * - Validates submenu configuration consistency
+   *
+   * @param menuOptions - Array of menu options to validate
+   * @param maxDepth - Maximum allowed depth (from config, default 4)
+   * @param currentDepth - Current depth level (starts at 1)
+   * @param visitedIds - Set of visited option IDs (for circular detection)
+   * @returns Object with totalNodes count
+   * @throws BadRequestException if validation fails
+   */
+  private validateMenuTree(
+    menuOptions: IvrMenuOptionDto[],
+    maxDepth: number,
+    currentDepth: number = 1,
+    visitedIds: Set<string> = new Set(),
+  ): { totalNodes: number } {
+    // 1. Check depth limit
+    if (currentDepth > maxDepth) {
+      throw new BadRequestException(
+        `Menu depth exceeds maximum of ${maxDepth} levels. Current depth: ${currentDepth}. Please reduce nesting.`,
+      );
+    }
+
+    let totalNodes = 0;
+
+    // 2. Loop through each option
+    for (const option of menuOptions) {
+      // Check for circular reference (duplicate ID)
+      if (visitedIds.has(option.id)) {
+        throw new BadRequestException(
+          `Circular reference detected: Option ID '${option.id}' appears multiple times in the menu tree.`,
+        );
+      }
+
+      // Add to visited set
+      visitedIds.add(option.id);
+
+      // Increment node counter
+      totalNodes++;
+
+      // Validate submenu configuration
+      if (option.action === 'submenu') {
+        // Submenu action MUST have submenu config
+        if (!option.submenu || !option.submenu.options || option.submenu.options.length === 0) {
+          throw new BadRequestException(
+            `Option '${option.label}' (digit ${option.digit}) is set to 'submenu' action but has no submenu configuration or empty options array.`,
+          );
+        }
+
+        // Recursively validate submenu tree
+        const submenuResult = this.validateMenuTree(
+          option.submenu.options,
+          maxDepth,
+          currentDepth + 1,
+          visitedIds,
+        );
+
+        // Add submenu nodes to total count
+        totalNodes += submenuResult.totalNodes;
+      } else if (option.submenu) {
+        // Non-submenu action MUST NOT have submenu config
+        throw new BadRequestException(
+          `Option '${option.label}' has submenu configuration but action is not 'submenu'. Either change action to 'submenu' or remove submenu config.`,
+        );
+      }
+    }
+
+    return { totalNodes };
+  }
+
+  /**
+   * Validate total node count doesn't exceed limit
+   *
+   * Prevents abuse by limiting total number of menu options across entire tree.
+   * Default limit is 100 nodes, which is sufficient for any reasonable IVR menu.
+   *
+   * @param totalNodes - Total nodes in tree
+   * @param maxNodes - Maximum allowed nodes (default 100)
+   * @throws BadRequestException if exceeds limit
+   */
+  private validateTotalNodeCount(totalNodes: number, maxNodes: number = 100): void {
+    if (totalNodes > maxNodes) {
+      throw new BadRequestException(
+        `Total menu options (${totalNodes}) exceeds maximum of ${maxNodes} across entire tree. Please simplify your menu structure.`,
+      );
+    }
+  }
+
+  /**
+   * Recursively validate digit uniqueness at each submenu level
+   *
+   * Ensures that within each level of the menu, all digits are unique.
+   * This is critical for proper DTMF routing.
+   *
+   * @param options - Menu options at this level
+   * @throws BadRequestException if duplicate digits found at any level
+   */
+  private validateSubmenuDigitsUnique(options: IvrMenuOptionDto[]): void {
+    const digits = options.map((opt) => opt.digit);
+    const uniqueDigits = new Set(digits);
+
+    if (digits.length !== uniqueDigits.size) {
+      throw new BadRequestException(
+        'Menu options must have unique digits within each submenu level',
+      );
+    }
+
+    // Recurse into submenus
+    for (const option of options) {
+      if (option.action === 'submenu' && option.submenu) {
+        this.validateSubmenuDigitsUnique(option.submenu.options);
+      }
+    }
+  }
+
+  /**
    * Validate menu options
    *
    * Comprehensive validation of IVR menu options:
@@ -597,11 +906,16 @@ export class IvrConfigurationService {
    * - Actions must be valid types
    * - Phone numbers must be E.164 format
    * - Webhook URLs must be HTTPS
+   * - Multi-level validation: depth, circular refs, total nodes
    *
    * @param menuOptions - Array of menu options
+   * @param maxDepth - Maximum allowed depth (default 4)
    * @throws BadRequestException if validation fails
    */
-  private validateMenuOptions(menuOptions: IvrMenuOptionDto[]) {
+  private validateMenuOptions(
+    menuOptions: IvrMenuOptionDto[],
+    maxDepth: number = 4,
+  ) {
     if (!Array.isArray(menuOptions)) {
       throw new BadRequestException('menu_options must be an array');
     }
@@ -612,7 +926,7 @@ export class IvrConfigurationService {
       );
     }
 
-    // Check for duplicate digits
+    // Check for duplicate digits at root level
     const digits = menuOptions.map((opt) => opt.digit);
     const uniqueDigits = new Set(digits);
 
@@ -624,6 +938,18 @@ export class IvrConfigurationService {
         `Duplicate digits found: ${[...new Set(duplicates)].join(', ')}. Each digit must be unique.`,
       );
     }
+
+    // NEW: Recursive tree validation (depth, circular refs, total nodes)
+    const visitedIds = new Set<string>();
+    const { totalNodes } = this.validateMenuTree(
+      menuOptions,
+      maxDepth,
+      1, // Start at depth 1
+      visitedIds,
+    );
+
+    // NEW: Validate total node count
+    this.validateTotalNodeCount(totalNodes);
 
     // Validate each option
     for (let i = 0; i < menuOptions.length; i++) {
@@ -656,6 +982,9 @@ export class IvrConfigurationService {
       // Validate action-specific config
       this.validateActionConfig(position, option);
     }
+
+    // NEW: Recursively validate digit uniqueness at each submenu level
+    this.validateSubmenuDigitsUnique(menuOptions);
   }
 
   /**
@@ -745,6 +1074,18 @@ export class IvrConfigurationService {
         // No additional config required — routing parameters are resolved at call time
         // from tenant_voice_ai_settings and voice_ai_global_config.
         // Optional: phone_number may be used as fallback transfer number.
+        break;
+
+      case 'submenu':
+        // Submenu validation is handled in validateMenuTree()
+        // No additional config validation required here
+        // The submenu property itself is validated in the recursive tree validation
+        break;
+
+      case 'return_to_parent':
+      case 'return_to_root':
+        // Navigation actions don't require any config validation
+        // They use the current path to determine where to navigate
         break;
 
       default:

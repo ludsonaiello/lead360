@@ -2354,6 +2354,578 @@ The following background jobs run automatically:
    - Generates CSV/PDF files
    - Updates job status
 
+---
+
+## Industries Management (Platform Admin)
+
+Industries are platform-wide master lists that categorize business types (Construction, Home Services, Property Management, etc.). Platform administrators manage the master list of available industries. Tenants can then self-assign industries from this list to categorize their business.
+
+**Key Concepts**:
+- **Many-to-Many Relationship**: One industry can be assigned to multiple tenants. One tenant can have multiple industries.
+- **Used by Voice AI**: Industries provide context to the AI agent about the business type
+- **Platform-Wide**: Managed centrally by platform admins, selected by individual tenants
+
+### 1. List All Industries
+
+Retrieve all industries with optional filtering by active status.
+
+**Endpoint**: `GET /admin/industries`
+
+**Headers**:
+- `Authorization`: Bearer {token} *(required)*
+- User must have `is_platform_admin = true`
+
+**Query Parameters**:
+- `active_only` (boolean, optional, default: `false`) - Only return active industries
+- `search` (string, optional) - Search by name or description
+- `page` (number, optional, default: `1`) - Page number for pagination
+- `limit` (number, optional, default: `20`) - Items per page
+
+**Response** (`200 OK`):
+```json
+[
+  {
+    "id": "07c34b73-f00c-11f0-b3f4-50e8d4ae7953",
+    "name": "Roofing",
+    "description": "Residential and commercial roofing services",
+    "is_active": true,
+    "created_at": "2026-01-12T23:11:31.000Z",
+    "updated_at": "2026-01-12T23:11:31.000Z"
+  },
+  {
+    "id": "07c3688c-f00c-11f0-b3f4-50e8d4ae7953",
+    "name": "General Contracting",
+    "description": "General construction and contracting services",
+    "is_active": true,
+    "created_at": "2026-01-12T23:11:31.000Z",
+    "updated_at": "2026-01-12T23:11:31.000Z"
+  }
+]
+```
+
+**Error Responses**:
+- `401 Unauthorized` - No valid token provided
+- `403 Forbidden` - User is not a platform admin
+
+**Example Request**:
+```bash
+curl http://localhost:8000/admin/industries?active_only=true \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+---
+
+### 2. Get Single Industry
+
+Retrieve a specific industry by ID.
+
+**Endpoint**: `GET /admin/industries/:id`
+
+**Headers**:
+- `Authorization`: Bearer {token} *(required)*
+- User must have `is_platform_admin = true`
+
+**Path Parameters**:
+- `id` (UUID, required) - Industry ID
+
+**Response** (`200 OK`):
+```json
+{
+  "id": "07c34b73-f00c-11f0-b3f4-50e8d4ae7953",
+  "name": "Roofing",
+  "description": "Residential and commercial roofing services",
+  "is_active": true,
+  "created_at": "2026-01-12T23:11:31.000Z",
+  "updated_at": "2026-01-12T23:11:31.000Z"
+}
+```
+
+**Error Responses**:
+- `401 Unauthorized` - No valid token provided
+- `403 Forbidden` - User is not a platform admin
+- `404 Not Found` - Industry does not exist
+
+**Example Request**:
+```bash
+curl http://localhost:8000/admin/industries/07c34b73-f00c-11f0-b3f4-50e8d4ae7953 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+---
+
+### 3. Create Industry
+
+Create a new industry in the platform-wide master list.
+
+**Endpoint**: `POST /admin/industries`
+
+**Headers**:
+- `Authorization`: Bearer {token} *(required)*
+- `Content-Type`: application/json
+- User must have `is_platform_admin = true`
+
+**Request Body**:
+```typescript
+{
+  name: string;              // Required, 1-100 characters
+  description?: string;      // Optional, 1-500 characters
+  is_active?: boolean;       // Optional, default: true
+}
+```
+
+**Request Example**:
+```json
+{
+  "name": "HVAC",
+  "description": "Heating, ventilation, and air conditioning services",
+  "is_active": true
+}
+```
+
+**Response** (`201 Created`):
+```json
+{
+  "id": "07c35a2e-f00c-11f0-b3f4-50e8d4ae7953",
+  "name": "HVAC",
+  "description": "Heating, ventilation, and air conditioning services",
+  "is_active": true,
+  "created_at": "2026-02-26T00:00:00.000Z",
+  "updated_at": "2026-02-26T00:00:00.000Z"
+}
+```
+
+**Error Responses**:
+- `400 Bad Request` - Validation error (invalid fields)
+- `401 Unauthorized` - No valid token provided
+- `403 Forbidden` - User is not a platform admin
+- `409 Conflict` - Industry with same name already exists
+
+**Conflict Error Example**:
+```json
+{
+  "statusCode": 409,
+  "message": "Industry with name \"HVAC\" already exists",
+  "error": "Conflict"
+}
+```
+
+**Example Request**:
+```bash
+curl -X POST http://localhost:8000/admin/industries \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "HVAC",
+    "description": "Heating, ventilation, and air conditioning services",
+    "is_active": true
+  }'
+```
+
+---
+
+### 4. Update Industry
+
+Update an existing industry.
+
+**Endpoint**: `PATCH /admin/industries/:id`
+
+**Headers**:
+- `Authorization`: Bearer {token} *(required)*
+- `Content-Type`: application/json
+- User must have `is_platform_admin = true`
+
+**Path Parameters**:
+- `id` (UUID, required) - Industry ID
+
+**Request Body** (all fields optional):
+```typescript
+{
+  name?: string;         // 1-100 characters
+  description?: string;  // 1-500 characters
+  is_active?: boolean;
+}
+```
+
+**Request Example**:
+```json
+{
+  "description": "Commercial and residential HVAC installation and repair",
+  "is_active": false
+}
+```
+
+**Response** (`200 OK`):
+```json
+{
+  "id": "07c35a2e-f00c-11f0-b3f4-50e8d4ae7953",
+  "name": "HVAC",
+  "description": "Commercial and residential HVAC installation and repair",
+  "is_active": false,
+  "created_at": "2026-02-26T00:00:00.000Z",
+  "updated_at": "2026-02-26T00:05:00.000Z"
+}
+```
+
+**Error Responses**:
+- `400 Bad Request` - Validation error
+- `401 Unauthorized` - No valid token provided
+- `403 Forbidden` - User is not a platform admin
+- `404 Not Found` - Industry does not exist
+- `409 Conflict` - Industry with same name already exists
+
+**Example Request**:
+```bash
+curl -X PATCH http://localhost:8000/admin/industries/07c35a2e-f00c-11f0-b3f4-50e8d4ae7953 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "is_active": false
+  }'
+```
+
+---
+
+### 5. Delete Industry
+
+Delete an industry. **Cannot delete** if industry is assigned to any tenants.
+
+**Endpoint**: `DELETE /admin/industries/:id`
+
+**Headers**:
+- `Authorization`: Bearer {token} *(required)*
+- User must have `is_platform_admin = true`
+
+**Path Parameters**:
+- `id` (UUID, required) - Industry ID
+
+**Response** (`200 OK`):
+```json
+{
+  "message": "Industry deleted successfully"
+}
+```
+
+**Error Responses**:
+- `401 Unauthorized` - No valid token provided
+- `403 Forbidden` - User is not a platform admin
+- `404 Not Found` - Industry does not exist
+- `409 Conflict` - Industry is in use by tenants
+
+**Conflict Error Example** (Industry in use):
+```json
+{
+  "statusCode": 409,
+  "message": "Cannot delete industry \"HVAC\" - 5 tenant(s) are using it",
+  "error": "Conflict"
+}
+```
+
+**Example Request**:
+```bash
+curl -X DELETE http://localhost:8000/admin/industries/07c35a2e-f00c-11f0-b3f4-50e8d4ae7953 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+---
+
+## Services Management (Platform Admin)
+
+Services are platform-wide master lists that define what businesses offer to customers (Roofing, Plumbing, HVAC, Pool Cleaning, etc.). Platform administrators manage the master list of available services. Tenants can then self-assign services from this list.
+
+**Key Concepts**:
+- **Services vs Industries**:
+  - **Services** = What you offer (Roofing, Plumbing, Electrical)
+  - **Industries** = Business category (Construction, Home Services)
+- **Slug Field**: URL-friendly identifier (lowercase, hyphens only)
+- **Auto-Generated Slugs**: If not provided, slug is auto-generated from name
+- **Many-to-Many Relationship**: One service can be assigned to multiple tenants
+
+### 1. List All Services
+
+Retrieve all services with optional filtering by active status.
+
+**Endpoint**: `GET /admin/services`
+
+**Headers**:
+- `Authorization`: Bearer {token} *(required)*
+- User must have `is_platform_admin = true`
+
+**Query Parameters**:
+- `active_only` (boolean, optional, default: `false`) - Only return active services
+
+**Response** (`200 OK`):
+```json
+[
+  {
+    "id": "2bc0107a9e4d76bc9b778c8aa567cf5a",
+    "name": "Roofing",
+    "slug": "roofing",
+    "description": "Residential and commercial roofing services",
+    "is_active": true,
+    "created_at": "2026-02-25T16:47:51.299Z",
+    "updated_at": "2026-02-25T16:47:58.864Z"
+  },
+  {
+    "id": "03c3980b-ca63-4128-bcec-0dc0845af680",
+    "name": "Plumbing",
+    "slug": "plumbing",
+    "description": "Plumbing installation and repair",
+    "is_active": true,
+    "created_at": "2024-05-01T00:00:00.000Z",
+    "updated_at": "2024-05-01T00:00:00.000Z"
+  }
+]
+```
+
+**Error Responses**:
+- `401 Unauthorized` - No valid token provided
+- `403 Forbidden` - User is not a platform admin
+
+**Example Request**:
+```bash
+curl http://localhost:8000/admin/services?active_only=true \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+---
+
+### 2. Get Single Service
+
+Retrieve a specific service by ID.
+
+**Endpoint**: `GET /admin/services/:id`
+
+**Headers**:
+- `Authorization`: Bearer {token} *(required)*
+- User must have `is_platform_admin = true`
+
+**Path Parameters**:
+- `id` (hex string, required) - Service ID
+
+**Response** (`200 OK`):
+```json
+{
+  "id": "2bc0107a9e4d76bc9b778c8aa567cf5a",
+  "name": "Roofing",
+  "slug": "roofing",
+  "description": "Residential and commercial roofing services",
+  "is_active": true,
+  "created_at": "2026-02-25T16:47:51.299Z",
+  "updated_at": "2026-02-25T16:47:58.864Z"
+}
+```
+
+**Error Responses**:
+- `401 Unauthorized` - No valid token provided
+- `403 Forbidden` - User is not a platform admin
+- `404 Not Found` - Service does not exist
+
+**Example Request**:
+```bash
+curl http://localhost:8000/admin/services/2bc0107a9e4d76bc9b778c8aa567cf5a \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+---
+
+### 3. Create Service
+
+Create a new service in the platform-wide master list.
+
+**Endpoint**: `POST /admin/services`
+
+**Headers**:
+- `Authorization`: Bearer {token} *(required)*
+- `Content-Type`: application/json
+- User must have `is_platform_admin = true`
+
+**Request Body**:
+```typescript
+{
+  name: string;              // Required, 1-100 characters
+  slug?: string;             // Optional, lowercase/hyphens only, auto-generated if not provided
+  description?: string;      // Optional, 1-500 characters
+  is_active?: boolean;       // Optional, default: true
+}
+```
+
+**Slug Validation**:
+- Must match pattern: `/^[a-z0-9-]+$/`
+- Valid examples: `"roof-repair"`, `"hvac-installation"`, `"pool-cleaning-service"`
+- Invalid examples: `"Roof Repair"` (uppercase), `"hvac_install"` (underscore), `"pool service!"` (special chars)
+- If not provided, auto-generated from name:
+  - `"Roof Repair"` → `"roof-repair"`
+  - `"HVAC Installation & Maintenance"` → `"hvac-installation-maintenance"`
+
+**Request Example**:
+```json
+{
+  "name": "Pool Cleaning",
+  "slug": "pool-cleaning",
+  "description": "Professional pool maintenance and cleaning services",
+  "is_active": true
+}
+```
+
+**Response** (`201 Created`):
+```json
+{
+  "id": "9aaec8bc06752063b00ff3e8d8e9fbca",
+  "name": "Pool Cleaning",
+  "slug": "pool-cleaning",
+  "description": "Professional pool maintenance and cleaning services",
+  "is_active": true,
+  "created_at": "2026-02-26T00:00:00.000Z",
+  "updated_at": "2026-02-26T00:00:00.000Z"
+}
+```
+
+**Error Responses**:
+- `400 Bad Request` - Validation error (invalid fields or slug format)
+- `401 Unauthorized` - No valid token provided
+- `403 Forbidden` - User is not a platform admin
+- `409 Conflict` - Service with same name or slug already exists
+
+**Validation Error Example**:
+```json
+{
+  "statusCode": 400,
+  "message": "Slug must contain only lowercase letters, numbers, and hyphens",
+  "error": "Bad Request"
+}
+```
+
+**Conflict Error Example**:
+```json
+{
+  "statusCode": 409,
+  "message": "Service with slug \"pool-cleaning\" already exists",
+  "error": "Conflict"
+}
+```
+
+**Example Request**:
+```bash
+curl -X POST http://localhost:8000/admin/services \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Pool Cleaning",
+    "slug": "pool-cleaning",
+    "description": "Professional pool maintenance and cleaning services",
+    "is_active": true
+  }'
+```
+
+---
+
+### 4. Update Service
+
+Update an existing service.
+
+**Endpoint**: `PATCH /admin/services/:id`
+
+**Headers**:
+- `Authorization`: Bearer {token} *(required)*
+- `Content-Type`: application/json
+- User must have `is_platform_admin = true`
+
+**Path Parameters**:
+- `id` (hex string, required) - Service ID
+
+**Request Body** (all fields optional):
+```typescript
+{
+  name?: string;         // 1-100 characters
+  slug?: string;         // lowercase/hyphens only
+  description?: string;  // 1-500 characters
+  is_active?: boolean;
+}
+```
+
+**Request Example**:
+```json
+{
+  "description": "Professional pool maintenance, cleaning, and repair services",
+  "is_active": false
+}
+```
+
+**Response** (`200 OK`):
+```json
+{
+  "id": "9aaec8bc06752063b00ff3e8d8e9fbca",
+  "name": "Pool Cleaning",
+  "slug": "pool-cleaning",
+  "description": "Professional pool maintenance, cleaning, and repair services",
+  "is_active": false,
+  "created_at": "2026-02-26T00:00:00.000Z",
+  "updated_at": "2026-02-26T00:05:00.000Z"
+}
+```
+
+**Error Responses**:
+- `400 Bad Request` - Validation error
+- `401 Unauthorized` - No valid token provided
+- `403 Forbidden` - User is not a platform admin
+- `404 Not Found` - Service does not exist
+- `409 Conflict` - Service with same name or slug already exists
+
+**Example Request**:
+```bash
+curl -X PATCH http://localhost:8000/admin/services/9aaec8bc06752063b00ff3e8d8e9fbca \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "is_active": false
+  }'
+```
+
+---
+
+### 5. Delete Service
+
+Delete a service. **Cannot delete** if service is assigned to any tenants.
+
+**Endpoint**: `DELETE /admin/services/:id`
+
+**Headers**:
+- `Authorization`: Bearer {token} *(required)*
+- User must have `is_platform_admin = true`
+
+**Path Parameters**:
+- `id` (hex string, required) - Service ID
+
+**Response** (`200 OK`):
+```json
+{
+  "message": "Service deleted successfully"
+}
+```
+
+**Error Responses**:
+- `401 Unauthorized` - No valid token provided
+- `403 Forbidden` - User is not a platform admin
+- `404 Not Found` - Service does not exist
+- `409 Conflict` - Service is in use by tenants
+
+**Conflict Error Example** (Service in use):
+```json
+{
+  "statusCode": 409,
+  "message": "Cannot delete service \"Pool Cleaning\". It is assigned to 5 tenant(s)",
+  "error": "Conflict"
+}
+```
+
+**Example Request**:
+```bash
+curl -X DELETE http://localhost:8000/admin/services/9aaec8bc06752063b00ff3e8d8e9fbca \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+---
+
 ### Middleware
 
 The following middleware is applied globally:

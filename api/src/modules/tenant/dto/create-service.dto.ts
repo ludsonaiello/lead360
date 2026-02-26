@@ -1,4 +1,10 @@
-import { IsString, IsOptional, Length, Matches } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  Length,
+  Matches,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateServiceDto {
@@ -30,4 +36,13 @@ export class CreateServiceDto {
   })
   @Length(1, 100)
   slug?: string;
+
+  @ApiPropertyOptional({
+    description: 'Whether the service is active',
+    example: true,
+    default: true,
+  })
+  @IsBoolean()
+  @IsOptional()
+  is_active?: boolean;
 }

@@ -2,10 +2,12 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { PrismaModule } from '../../core/database/prisma.module';
 import { EncryptionModule } from '../../core/encryption/encryption.module';
+import { LeadsModule } from '../leads/leads.module';
 
 // Processors — Sprint B10
 import { VoiceAiQuotaResetProcessor } from './processors/voice-ai-quota-reset.processor';
 import { VoiceAiUsageSyncProcessor } from './processors/voice-ai-usage-sync.processor';
+import { VoiceAiStuckCallCleanupProcessor } from './processors/voice-ai-stuck-call-cleanup.processor';
 
 // Schedulers — Sprint B10
 import { VoiceAiJobsScheduler } from './schedulers/voice-ai-jobs.scheduler';
@@ -47,6 +49,7 @@ import { VoiceUsageService } from './services/voice-usage.service';
 import { VoiceAiSipService } from './services/voice-ai-sip.service';
 import { VoiceAiMonitoringService } from './services/voice-ai-monitoring.service';
 import { VoiceAiWebhookService } from './services/voice-ai-webhook.service';
+import { VoiceAgentService } from './agent/voice-agent.service';
 
 /**
  * VoiceAiModule
@@ -66,15 +69,19 @@ import { VoiceAiWebhookService } from './services/voice-ai-webhook.service';
  * Sprint B10:  BullMQ background jobs — monthly quota reset + daily usage sync ✅
  * Sprint B11:  Admin tenant override ✅
  * Sprint B14:  LiveKit webhook handler (room_started / room_finished safety net) ✅
+ * Sprint BAS19: Agent worker setup (LiveKit NestJS OnModuleInit) ✅
+ * Sprint BAS24: Agent pipeline (STT→LLM→TTS full flow) ✅
  */
 @Module({
   imports: [
     PrismaModule,
     EncryptionModule,
-    // BullMQ queues for background jobs (Sprint B10)
+    LeadsModule, // Sprint BAS24: Required for LeadsService and LeadPhonesService (agent tools)
+    // BullMQ queues for background jobs (Sprint B10 + stuck call cleanup)
     BullModule.registerQueue(
       { name: 'voice-ai-quota-reset' },
       { name: 'voice-ai-usage-sync' },
+      { name: 'voice-ai-stuck-call-cleanup' },
     ),
   ],
   controllers: [
@@ -110,9 +117,11 @@ import { VoiceAiWebhookService } from './services/voice-ai-webhook.service';
     VoiceAiSipService,        // B08: IVR voice_ai action — SIP routing + fallback TwiML
     VoiceAiMonitoringService, // B11: cross-tenant monitoring + admin override
     VoiceAiWebhookService,    // B14: LiveKit webhook event handler
-    // Sprint B10: BullMQ processors + cron scheduler
+    VoiceAgentService,        // BAS19: LiveKit agent worker (OnModuleInit)
+    // Sprint B10: BullMQ processors + cron scheduler + stuck call cleanup
     VoiceAiQuotaResetProcessor,
     VoiceAiUsageSyncProcessor,
+    VoiceAiStuckCallCleanupProcessor,
     VoiceAiJobsScheduler,
   ],
   exports: [

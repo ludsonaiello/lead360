@@ -1,363 +1,88 @@
 # Voice AI Module — REST API Documentation
 
-**Version**: 1.0
-**Last Updated**: February 2026
+**Module**: Voice AI
+**API Version**: v1
 **Base URL**: `https://api.lead360.app/api/v1`
+**Last Updated**: 2026-02-24
+**Sprint**: BAS27 (+ Tenant Override Pre-population Fix)
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Authentication](#authentication)
-3. [Common Response Formats](#common-response-formats)
-4. [Error Codes](#error-codes)
-5. [Admin Infrastructure Endpoints](#admin-infrastructure-endpoints)
-   - [Providers](#providers)
-   - [Credentials](#credentials)
-   - [Global Config](#global-config)
-   - [Subscription Plans](#subscription-plans)
-6. [Admin Monitoring Endpoints](#admin-monitoring-endpoints)
-   - [GET /system/voice-ai/tenants](#get-apiv1systemvoice-aitenantsmanual)
-   - [PATCH /system/voice-ai/tenants/:tenantId/override](#patch-apiv1systemvoice-aitenantstenantidoverride)
-   - [GET /system/voice-ai/call-logs](#get-apiv1systemvoice-aicall-logs)
-   - [GET /system/voice-ai/usage-report](#get-apiv1systemvoice-aiusage-report)
-7. [Tenant Endpoints](#tenant-endpoints)
-   - [GET /voice-ai/settings](#get-apiv1voice-aisettings)
-   - [PUT /voice-ai/settings](#put-apiv1voice-aisettings)
-   - [GET /voice-ai/transfer-numbers](#get-apiv1voice-aitransfer-numbers)
-   - [POST /voice-ai/transfer-numbers](#post-apiv1voice-aitransfer-numbers)
-   - [POST /voice-ai/transfer-numbers/reorder](#post-apiv1voice-aitransfer-numbersreorder)
-   - [PATCH /voice-ai/transfer-numbers/:id](#patch-apiv1voice-aitransfer-numbersid)
-   - [DELETE /voice-ai/transfer-numbers/:id](#delete-apiv1voice-aitransfer-numbersid)
-   - [GET /voice-ai/call-logs](#get-apiv1voice-aicall-logs)
-   - [GET /voice-ai/call-logs/:id](#get-apiv1voice-aicall-logsid)
-   - [GET /voice-ai/usage](#get-apiv1voice-aiusage)
-8. [Internal Agent Endpoints](#internal-agent-endpoints)
-   - [API-026: GET /internal/voice-ai/tenant/:tenantId/access](#api-026-get-apiv1internalvoice-aitenanttenant-idaccess)
-   - [API-022: GET /internal/voice-ai/tenant/:tenantId/context](#api-022-get-apiv1internalvoice-aitenanttenant-idcontext)
-   - [API-024: POST /internal/voice-ai/calls/start](#api-024-post-apiv1internalvoice-aicallsstart)
-   - [API-030: POST /internal/voice-ai/calls/:callSid/complete](#api-030-post-apiv1internalvoice-aicallscallsidcomplete)
-   - [API-027: POST /internal/voice-ai/tenant/:tenantId/tools/:tool](#api-027-post-apiv1internalvoice-aitenanttenant-idtoolstool)
-9. [FullVoiceAiContext Schema Reference](#fullvoiceaicontext-schema-reference)
-10. [Extended Error Reference](#extended-error-reference)
-
----
-
-## Overview
-
-The Voice AI module adds AI-powered phone agents to Lead360 that answer calls for tenant businesses 24/7. The agent talks naturally, books appointments, collects lead information, and transfers calls using tenant-configured behavior layered on top of platform-managed infrastructure.
-
-**Managed service model**: Lead360 controls all AI provider keys, costs, and infrastructure. Tenants control only their greeting, languages, and transfer numbers.
-
-### Key Features
-
-- **Provider Registry**: Supports Deepgram (STT), OpenAI (LLM), Cartesia (TTS) with JSON Schema-driven configuration
-- **Encrypted Credentials**: AES-256-GCM encrypted API keys — never exposed in responses after storage
-- **Global Config Singleton**: One platform-wide configuration row (`id = "default"`) drives all default behavior
-- **Subscription Plan Integration**: Voice AI enabled/disabled and minute quotas are per-plan fields
-- **Agent API Key**: Single shared secret for Python agent authentication — regeneratable without downtime
-
-### Architecture: Two-Layer Configuration Model
-
-```
-LAYER 1 — INFRASTRUCTURE (Platform Admin Only)
-├── Which STT provider (Deepgram)
-├── Which LLM provider (OpenAI)
-├── Which TTS provider (Cartesia)
-├── API keys (AES-256-GCM encrypted)
-├── LiveKit SIP trunk URL + credentials
-├── Agent authentication key (SHA-256 hashed)
-└── Minutes limits per subscription plan tier
-
-LAYER 2 — BEHAVIOR (Tenant Admin)
-├── Enable/disable toggle
-├── Languages
-├── Greeting message
-├── Agent instructions (system prompt additions)
-├── Transfer numbers (up to 10)
-├── Lead creation enabled
-├── Appointment booking enabled
-└── Max call duration
-```
-
-### Call Flow
-
-```
-Customer calls tenant's Twilio number
-         ↓
-Existing IVR menu (Press 1, Press 2, Press 3 for AI Assistant)
-         ↓ (presses 3)
-IVR checks: voice_ai_enabled + quota > 0
-         ↓ (pass)
-TwiML <Dial><Sip> to LiveKit SIP trunk
-  ?tenantId=abc&callSid=xyz
-         ↓
-Python agent joins LiveKit room
-         ↓
-Agent calls GET /internal/voice-ai/tenant/:tenantId/context
-         ↓
-STT → LLM → TTS conversation loop
-         ↓
-Actions: create_lead | book_appointment | transfer_call
-         ↓
-Call ends → agent calls POST /internal/voice-ai/calls/:callSid/complete
-         ↓
-Usage recorded → call log finalized
-```
+1. [Authentication](#authentication)
+2. [Admin Endpoints](#admin-endpoints)
+   - [Provider Management](#provider-management)
+   - [Credentials Management](#credentials-management)
+   - [Global Configuration](#global-configuration)
+   - [Plan Configuration](#plan-configuration)
+   - [Monitoring](#monitoring)
+   - [Call Logs & Usage Reports](#call-logs--usage-reports-admin)
+3. [Tenant Endpoints](#tenant-endpoints)
+   - [Settings](#tenant-settings)
+   - [Transfer Numbers](#transfer-numbers)
+   - [Call Logs & Usage](#call-logs--usage-tenant)
 
 ---
 
 ## Authentication
 
-### Base URLs
+All Voice AI endpoints require a JWT Bearer token.
 
-| Environment | URL |
-|-------------|-----|
-| Production | `https://api.lead360.app/api/v1` |
-| Development | `http://localhost:8000/api/v1` |
+### Admin Endpoints
 
-### Auth Methods by Endpoint Group
+- **Endpoint prefix**: `/api/v1/system/voice-ai/*`
+- **Requires**: Platform admin account (`is_platform_admin: true`)
+- **Header**: `Authorization: Bearer <admin_jwt_token>`
 
-| Endpoint Group | Auth Method | Header | Requirement |
-|----------------|-------------|--------|-------------|
-| Admin Infrastructure | JWT Bearer | `Authorization: Bearer {token}` | `is_platform_admin: true` |
-| Admin Monitoring | JWT Bearer | `Authorization: Bearer {token}` | `is_platform_admin: true` |
-| Tenant | JWT Bearer | `Authorization: Bearer {token}` | Any authenticated tenant user |
-| Internal (Python Agent) | API Key | `X-Voice-Agent-Key: {key}` | Key matches `agent_api_key_hash` |
-| Webhooks (LiveKit) | HMAC Signature | `X-LiveKit-Signature: {sig}` | Valid LiveKit signature |
+### Tenant Endpoints
 
-All admin endpoints require `is_platform_admin: true` on the user account. Tenant user tokens (users with a `tenant_id`) will receive `401 Unauthorized` on all `/system/voice-ai/` routes.
+- **Endpoint prefix**: `/api/v1/voice-ai/*`
+- **Requires**: Authenticated tenant user
+- **Role Requirements**: Most endpoints require `Owner`, `Admin`, or `Manager` role
+- **Header**: `Authorization: Bearer <tenant_jwt_token>`
 
-### Obtaining a JWT Token
+### Getting a Token
 
-```bash
-curl -X POST https://api.lead360.app/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@yourdomain.com","password":"your_admin_password"}'
+```http
+POST /api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "password"
+}
 ```
 
-Response:
+**Response 200:**
 ```json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "Bearer",
-  "expires_in": 86400,
-  "user": {
-    "id": "bc5b3363-ebe5-46fb-adac-53f8ed75a28d",
-    "email": "admin@yourdomain.com",
-    "first_name": "Admin",
-    "last_name": "User",
-    "tenant_id": null,
-    "roles": [],
-    "is_platform_admin": true,
-    "email_verified": true,
-    "last_login_at": "2026-02-17T19:26:38.853Z",
-    "created_at": "2026-01-05T18:49:39.118Z"
-  }
+  "refresh_token": "...",
+  "user": { ... }
 }
 ```
 
 ---
 
-## Common Response Formats
+## Admin Endpoints
 
-### Success (200 OK)
+### Provider Management
 
-```json
-{
-  "id": "uuid",
-  "...": "resource fields"
-}
-```
+#### GET /api/v1/system/voice-ai/providers
 
-### Created (201 Created)
+**Auth**: Bearer token (Platform Admin only)
+**Returns**: Array of AI provider objects
 
-```json
-{
-  "id": "new-uuid",
-  "...": "resource fields",
-  "created_at": "2026-02-17T22:15:40.318Z"
-}
-```
+**Query Parameters**:
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| provider_type | string | No | Filter by 'STT', 'LLM', or 'TTS' |
+| is_active | boolean | No | Filter active/inactive providers |
 
-### No Content (204 No Content)
-
-Empty response body. Used for successful DELETE operations.
-
-### Error Response Shape
-
-```json
-{
-  "statusCode": 404,
-  "errorCode": "RESOURCE_NOT_FOUND",
-  "message": "Provider with ID \"uuid\" not found",
-  "error": "Not Found",
-  "timestamp": "2026-02-17T22:17:34.081Z",
-  "path": "/api/v1/system/voice-ai/credentials/uuid",
-  "requestId": "req_488ac000f3124103"
-}
-```
-
----
-
-## Error Codes
-
-| Status Code | Meaning | When It Occurs |
-|-------------|---------|----------------|
-| `400` | Bad Request | Validation failure, missing required fields, invalid enum value |
-| `401` | Unauthorized | Missing or invalid JWT token, or token belongs to non-admin user |
-| `404` | Not Found | Requested resource does not exist |
-| `409` | Conflict | Duplicate `provider_key` on create |
-| `500` | Internal Server Error | Unexpected server error |
-
----
-
-## Admin Infrastructure Endpoints
-
-> **Auth required for all endpoints in this section**: JWT Bearer token with `is_platform_admin: true`.
-
----
-
-## Providers
-
-Provider records define the AI service vendors available on the platform. Lead360 ships with three seeded providers: `deepgram` (STT), `openai` (LLM), `cartesia` (TTS).
-
-### Provider Object Shape
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | `string (UUID)` | Unique identifier |
-| `provider_key` | `string` | Unique machine key, e.g. `deepgram`, `openai`, `cartesia` |
-| `provider_type` | `"STT" \| "LLM" \| "TTS"` | Service category |
-| `display_name` | `string` | Human-readable name shown in the admin UI |
-| `description` | `string \| null` | Optional description |
-| `logo_url` | `string \| null` | URL to provider logo for display |
-| `documentation_url` | `string \| null` | URL to provider's official docs |
-| `capabilities` | `string \| null` | JSON array string, e.g. `["streaming","multilingual"]` |
-| `config_schema` | `string \| null` | JSON Schema string that drives the dynamic configuration form in FSA03 |
-| `default_config` | `string \| null` | JSON object string with default values matching `config_schema` |
-| `pricing_info` | `string \| null` | JSON object string with pricing details |
-| `is_active` | `boolean` | `false` = soft-deleted (hidden from agent context) |
-| `created_at` | `string (ISO 8601)` | Creation timestamp |
-| `updated_at` | `string (ISO 8601)` | Last update timestamp |
-
-#### `config_schema` Field
-
-The `config_schema` field stores a [JSON Schema](https://json-schema.org/) definition as a string. It drives the **dynamic configuration form** in the frontend admin panel (FSA03). Each provider's schema defines which fields are configurable, their types, allowed values, and defaults.
-
-**Example — Deepgram STT config_schema:**
-```json
-{
-  "type": "object",
-  "properties": {
-    "model": {
-      "type": "string",
-      "enum": ["nova-2", "nova-2-general", "nova-2-phonecall"],
-      "default": "nova-2"
-    },
-    "punctuate": {
-      "type": "boolean",
-      "default": true
-    },
-    "interim_results": {
-      "type": "boolean",
-      "default": true
-    }
-  }
-}
-```
-
-**Example — OpenAI LLM config_schema:**
-```json
-{
-  "type": "object",
-  "properties": {
-    "model": {
-      "type": "string",
-      "enum": ["gpt-4o-mini", "gpt-4o"],
-      "default": "gpt-4o-mini"
-    },
-    "temperature": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 2,
-      "default": 0.7
-    },
-    "max_tokens": {
-      "type": "integer",
-      "minimum": 100,
-      "maximum": 4096,
-      "default": 500
-    }
-  }
-}
-```
-
-**Example — Cartesia TTS config_schema:**
-```json
-{
-  "type": "object",
-  "properties": {
-    "model": {
-      "type": "string",
-      "enum": ["sonic-english", "sonic-multilingual"],
-      "default": "sonic-english"
-    },
-    "speed": {
-      "type": "number",
-      "minimum": 0.5,
-      "maximum": 2,
-      "default": 1
-    }
-  }
-}
-```
-
----
-
-### `GET /api/v1/system/voice-ai/providers`
-
-List all AI providers registered on the platform.
-
-**Auth**: JWT Bearer, `is_platform_admin: true`
-
-**Request Body**: None
-
-**Query Parameters**: None
-
-**Response**: `200 OK` — Array of provider objects (including inactive/soft-deleted)
-
-**Curl Example**:
-```bash
-TOKEN=$(curl -s -X POST https://api.lead360.app/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@yourdomain.com","password":"your_admin_password"}' | jq -r '.access_token')
-
-curl https://api.lead360.app/api/v1/system/voice-ai/providers \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Example Response**:
+**Response 200**:
 ```json
 [
-  {
-    "id": "2490153d-160e-49a1-a0db-ddc12bcbec9f",
-    "provider_key": "openai",
-    "provider_type": "LLM",
-    "display_name": "OpenAI",
-    "description": "GPT-4o-mini optimized for low-latency voice conversations",
-    "logo_url": "https://openai.com/favicon.ico",
-    "documentation_url": "https://platform.openai.com/docs",
-    "capabilities": "[\"function_calling\",\"streaming\",\"multilingual\"]",
-    "config_schema": "{\"type\":\"object\",\"properties\":{\"model\":{\"type\":\"string\",\"enum\":[\"gpt-4o-mini\",\"gpt-4o\"],\"default\":\"gpt-4o-mini\"},\"temperature\":{\"type\":\"number\",\"minimum\":0,\"maximum\":2,\"default\":0.7},\"max_tokens\":{\"type\":\"integer\",\"minimum\":100,\"maximum\":4096,\"default\":500}}}",
-    "default_config": "{\"model\":\"gpt-4o-mini\",\"temperature\":0.7,\"max_tokens\":500}",
-    "pricing_info": null,
-    "is_active": true,
-    "created_at": "2026-02-17T18:15:19.700Z",
-    "updated_at": "2026-02-17T18:29:33.329Z"
-  },
   {
     "id": "a8a5b151-c7c6-435a-930d-249e41868997",
     "provider_key": "deepgram",
@@ -372,662 +97,542 @@ curl https://api.lead360.app/api/v1/system/voice-ai/providers \
     "pricing_info": null,
     "is_active": true,
     "created_at": "2026-02-17T18:15:19.690Z",
-    "updated_at": "2026-02-17T18:29:33.324Z"
-  },
-  {
-    "id": "ae9093bd-2f28-4b97-a240-f91bfe43f0c6",
-    "provider_key": "cartesia",
-    "provider_type": "TTS",
-    "display_name": "Cartesia",
-    "description": "Ultra-low latency neural text-to-speech with natural voices",
-    "logo_url": "https://cartesia.ai/favicon.ico",
-    "documentation_url": "https://docs.cartesia.ai",
-    "capabilities": "[\"streaming\",\"voice_cloning\",\"multilingual\",\"emotion\"]",
-    "config_schema": "{\"type\":\"object\",\"properties\":{\"model\":{\"type\":\"string\",\"enum\":[\"sonic-english\",\"sonic-multilingual\"],\"default\":\"sonic-english\"},\"speed\":{\"type\":\"number\",\"minimum\":0.5,\"maximum\":2,\"default\":1}}}",
-    "default_config": "{\"model\":\"sonic-english\",\"speed\":1,\"emotion\":[]}",
-    "pricing_info": null,
-    "is_active": true,
-    "created_at": "2026-02-17T18:15:19.704Z",
-    "updated_at": "2026-02-17T18:29:33.334Z"
+    "updated_at": "2026-02-18T03:24:52.704Z"
   }
 ]
 ```
 
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid JWT token |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
 
 ---
 
-### `POST /api/v1/system/voice-ai/providers`
+#### GET /api/v1/system/voice-ai/providers/:id
 
-Create a new AI provider in the registry.
+**Auth**: Bearer token (Platform Admin only)
+**Returns**: Single provider object
 
-**Auth**: JWT Bearer, `is_platform_admin: true`
+**Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | Provider ID |
 
-**Request Body**:
-
-| Field | Type | Required | Validation | Description |
-|-------|------|----------|------------|-------------|
-| `provider_key` | `string` | Yes | max 50 chars, unique | Machine key, e.g. `elevenlabs`. Used as identifier in code. |
-| `provider_type` | `"STT" \| "LLM" \| "TTS"` | Yes | enum | Service category: Speech-to-Text, Large Language Model, Text-to-Speech |
-| `display_name` | `string` | Yes | max 100 chars | Human-readable name shown in admin UI |
-| `description` | `string` | No | — | Optional description of what the provider does |
-| `logo_url` | `string` | No | valid URL | URL to the provider logo for display |
-| `documentation_url` | `string` | No | valid URL | URL to provider's official documentation |
-| `capabilities` | `string` | No | JSON array string | Array of capability strings, e.g. `["streaming","multilingual"]` |
-| `config_schema` | `string` | No | JSON Schema string | JSON Schema definition that drives the dynamic config form in FSA03 |
-| `default_config` | `string` | No | JSON object string | Default values matching the `config_schema` properties |
-| `pricing_info` | `string` | No | JSON object string | Pricing metadata for admin reference |
-| `is_active` | `boolean` | No | — | Default: `true`. Set to `false` to create disabled |
-
-**Request Body Example**:
+**Response 200**:
 ```json
 {
-  "provider_key": "elevenlabs",
-  "provider_type": "TTS",
-  "display_name": "ElevenLabs",
-  "description": "High-quality neural text-to-speech with voice cloning",
-  "logo_url": "https://elevenlabs.io/favicon.ico",
-  "documentation_url": "https://docs.elevenlabs.io",
-  "capabilities": "[\"voice_cloning\",\"multilingual\",\"streaming\"]",
-  "config_schema": "{\"type\":\"object\",\"properties\":{\"model_id\":{\"type\":\"string\",\"default\":\"eleven_turbo_v2\"},\"stability\":{\"type\":\"number\",\"minimum\":0,\"maximum\":1,\"default\":0.5}}}",
-  "default_config": "{\"model_id\":\"eleven_turbo_v2\",\"stability\":0.5}",
+  "id": "a8a5b151-c7c6-435a-930d-249e41868997",
+  "provider_key": "deepgram",
+  "provider_type": "STT",
+  "display_name": "Deepgram",
+  "description": "State-of-the-art speech recognition with Nova-2 model",
+  "logo_url": "https://deepgram.com/favicon.ico",
+  "documentation_url": "https://developers.deepgram.com",
+  "capabilities": "[\"streaming\",\"multilingual\",\"punctuation\",\"diarization\"]",
+  "config_schema": "{\"type\":\"object\",\"properties\":{\"model\":{\"type\":\"string\",\"enum\":[\"nova-2\",\"nova-2-general\",\"nova-2-phonecall\"],\"default\":\"nova-2\"},\"punctuate\":{\"type\":\"boolean\",\"default\":true},\"interim_results\":{\"type\":\"boolean\",\"default\":true}}}",
+  "default_config": "{\"model\":\"nova-2\",\"punctuate\":true,\"interim_results\":true}",
+  "pricing_info": null,
+  "is_active": true,
+  "created_at": "2026-02-17T18:15:19.690Z",
+  "updated_at": "2026-02-18T03:24:52.704Z"
+}
+```
+
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
+**Response 404**: `{ "statusCode": 404, "message": "Provider not found" }`
+
+---
+
+#### POST /api/v1/system/voice-ai/providers
+
+**Auth**: Bearer token (Platform Admin only)
+**Creates**: New AI provider in the registry
+
+**Request Body Fields**:
+| Field | Type | Required | Constraints | Default | Description |
+|-------|------|----------|-------------|---------|-------------|
+| provider_key | string | ✅ Yes | max 50 chars, unique | - | Provider unique identifier (e.g., 'deepgram') |
+| provider_type | string | ✅ Yes | enum: STT, LLM, TTS | - | Type of AI provider |
+| display_name | string | ✅ Yes | max 100 chars | - | Human-readable name |
+| description | string | ❌ No | - | null | Optional description |
+| logo_url | string | ❌ No | valid URL | null | Provider logo URL |
+| documentation_url | string | ❌ No | valid URL | null | Documentation link |
+| capabilities | string | ❌ No | JSON array as string | null | Provider capabilities (e.g., `'["streaming","multilingual"]'`) **Note: JSON string, not array** |
+| config_schema | string | ❌ No | JSON object as string | null | JSON Schema for config UI |
+| default_config | string | ❌ No | JSON object as string | null | Default configuration values |
+| pricing_info | string | ❌ No | JSON object as string | null | Pricing information |
+| is_active | boolean | ❌ No | - | true | Whether provider is active |
+
+**Minimal Request Example (required fields only)**:
+```json
+{
+  "provider_key": "deepgram",
+  "provider_type": "STT",
+  "display_name": "Deepgram"
+}
+```
+
+**Complete Request Example**:
+```json
+{
+  "provider_key": "deepgram",
+  "provider_type": "STT",
+  "display_name": "Deepgram",
+  "description": "State-of-the-art speech recognition",
+  "logo_url": "https://deepgram.com/favicon.ico",
+  "documentation_url": "https://developers.deepgram.com",
+  "capabilities": "[\"streaming\",\"multilingual\",\"punctuation\"]",
+  "config_schema": "{\"type\":\"object\",\"properties\":{\"model\":{\"type\":\"string\",\"enum\":[\"nova-2\"]}}}",
+  "default_config": "{\"model\":\"nova-2\",\"punctuate\":true}",
+  "pricing_info": "{\"per_minute\":0.0043}",
   "is_active": true
 }
 ```
 
-**Response**: `201 Created` — The created provider object
-
-**Curl Example**:
-```bash
-curl -X POST https://api.lead360.app/api/v1/system/voice-ai/providers \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "provider_key": "elevenlabs",
-    "provider_type": "TTS",
-    "display_name": "ElevenLabs",
-    "description": "High-quality neural text-to-speech with voice cloning",
-    "is_active": false
-  }'
-```
-
-**Example Response**:
+**Response 201**:
 ```json
 {
-  "id": "814806d5-b45d-4788-838a-c5cc67d7fe10",
-  "provider_key": "elevenlabs",
-  "provider_type": "TTS",
-  "display_name": "ElevenLabs",
-  "description": "High-quality neural text-to-speech with voice cloning",
-  "logo_url": null,
-  "documentation_url": null,
-  "capabilities": null,
-  "config_schema": null,
-  "default_config": null,
-  "pricing_info": null,
-  "is_active": false,
-  "created_at": "2026-02-17T22:15:40.318Z",
-  "updated_at": "2026-02-17T22:15:40.318Z"
+  "id": "a8a5b151-c7c6-435a-930d-249e41868997",
+  "provider_key": "deepgram",
+  "provider_type": "STT",
+  "display_name": "Deepgram",
+  "description": "State-of-the-art speech recognition",
+  "logo_url": "https://deepgram.com/favicon.ico",
+  "documentation_url": "https://developers.deepgram.com",
+  "capabilities": "[\"streaming\",\"multilingual\",\"punctuation\"]",
+  "config_schema": "{\"type\":\"object\",\"properties\":{\"model\":{\"type\":\"string\",\"enum\":[\"nova-2\"]}}}",
+  "default_config": "{\"model\":\"nova-2\",\"punctuate\":true}",
+  "pricing_info": "{\"per_minute\":0.0043}",
+  "is_active": true,
+  "created_at": "2026-02-22T12:00:00.000Z",
+  "updated_at": "2026-02-22T12:00:00.000Z"
 }
 ```
 
-**Error Responses**:
+**Validation Error Response 400**:
+```json
+{
+  "statusCode": 400,
+  "message": [
+    "provider_key should not be empty",
+    "provider_key must be shorter than or equal to 50 characters",
+    "provider_type must be one of the following values: STT, LLM, TTS",
+    "logo_url must be a URL address"
+  ],
+  "error": "Bad Request"
+}
+```
 
-| Status | Message | Cause |
-|--------|---------|-------|
-| `400` | `provider_key must be shorter than or equal to 50 characters, provider_key should not be empty, ...` | Missing required fields or validation failure |
-| `401` | `Unauthorized` | Missing or invalid JWT token |
-| `409` | `Provider key 'deepgram' already exists` | A provider with this `provider_key` already exists |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
+**Response 409**: `{ "statusCode": 409, "message": "Provider key already exists - must be unique" }`
 
 ---
 
-### `PATCH /api/v1/system/voice-ai/providers/:id`
+#### PATCH /api/v1/system/voice-ai/providers/:id
 
-Update an existing provider's fields. All fields are optional — only provided fields are updated.
-
-**Auth**: JWT Bearer, `is_platform_admin: true`
+**Auth**: Bearer token (Platform Admin only)
+**Updates**: Existing provider (partial update - only provided fields are modified)
 
 **Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | Provider ID |
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `id` | `string (UUID)` | Yes | Provider UUID |
+**Request Body Fields (all optional)**:
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| provider_key | string | max 50 chars, unique | Provider unique identifier |
+| provider_type | string | enum: STT, LLM, TTS | Type of AI provider |
+| display_name | string | max 100 chars | Human-readable name |
+| description | string | - | Provider description (can be null) |
+| logo_url | string | valid URL | Provider logo URL (can be null) |
+| documentation_url | string | valid URL | Documentation link (can be null) |
+| capabilities | string | JSON array as string | Provider capabilities **Note: JSON string, not array** |
+| config_schema | string | JSON object as string | JSON Schema for config UI |
+| default_config | string | JSON object as string | Default configuration values |
+| pricing_info | string | JSON object as string | Pricing information |
+| is_active | boolean | - | Whether provider is active |
 
-**Request Body**: Same fields as `POST`, all optional (partial update):
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `provider_key` | `string` | No | max 50 chars |
-| `provider_type` | `"STT" \| "LLM" \| "TTS"` | No | Service category |
-| `display_name` | `string` | No | max 100 chars |
-| `description` | `string` | No | — |
-| `logo_url` | `string` | No | valid URL |
-| `documentation_url` | `string` | No | valid URL |
-| `capabilities` | `string` | No | JSON array string |
-| `config_schema` | `string` | No | JSON Schema string |
-| `default_config` | `string` | No | JSON object string |
-| `pricing_info` | `string` | No | JSON object string |
-| `is_active` | `boolean` | No | Toggle active status |
-
-**Request Body Example**:
+**Minimal Request Example**:
 ```json
 {
-  "display_name": "ElevenLabs TTS",
   "is_active": false
 }
 ```
 
-**Response**: `200 OK` — The updated provider object
-
-**Curl Example**:
-```bash
-curl -X PATCH https://api.lead360.app/api/v1/system/voice-ai/providers/814806d5-b45d-4788-838a-c5cc67d7fe10 \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"display_name": "ElevenLabs TTS", "is_active": false}'
-```
-
-**Example Response**:
+**Complete Request Example**:
 ```json
 {
-  "id": "814806d5-b45d-4788-838a-c5cc67d7fe10",
-  "provider_key": "elevenlabs",
-  "provider_type": "TTS",
-  "display_name": "ElevenLabs TTS",
-  "description": "High-quality neural text-to-speech with voice cloning",
-  "logo_url": null,
-  "documentation_url": null,
-  "capabilities": null,
-  "config_schema": null,
-  "default_config": null,
-  "pricing_info": null,
-  "is_active": false,
-  "created_at": "2026-02-17T22:15:40.318Z",
-  "updated_at": "2026-02-17T22:15:40.354Z"
+  "display_name": "Deepgram Nova 2",
+  "description": "Updated description - Advanced STT with Nova-2 model",
+  "capabilities": "[\"streaming\",\"multilingual\",\"punctuation\",\"diarization\"]",
+  "is_active": true
 }
 ```
 
-**Error Responses**:
+**Response 200**: Returns updated provider object (same structure as GET /:id)
 
-| Status | Message | Cause |
-|--------|---------|-------|
-| `400` | Validation message | Invalid field values |
-| `401` | `Unauthorized` | Missing or invalid JWT token |
-| `404` | `Provider {id} not found` | Provider UUID does not exist |
+**Validation Error Response 400**:
+```json
+{
+  "statusCode": 400,
+  "message": [
+    "display_name must be shorter than or equal to 100 characters",
+    "logo_url must be a URL address"
+  ],
+  "error": "Bad Request"
+}
+```
+
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
+**Response 404**: `{ "statusCode": 404, "message": "Provider not found" }`
+**Response 409**: `{ "statusCode": 409, "message": "Provider key already exists (if changing provider_key)" }`
 
 ---
 
-### `DELETE /api/v1/system/voice-ai/providers/:id`
+#### DELETE /api/v1/system/voice-ai/providers/:id
 
-Soft-delete a provider by setting `is_active = false`. The provider record is retained in the database but will not be available to the agent context builder.
-
-**Auth**: JWT Bearer, `is_platform_admin: true`
+**Auth**: Bearer token (Platform Admin only)
+**Deletes**: Provider permanently (hard delete)
+**WARNING**: Cascade deletes all related credentials and usage records
 
 **Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | Provider ID |
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `id` | `string (UUID)` | Yes | Provider UUID to soft-delete |
+**Response 204**: No content (success)
 
-**Request Body**: None
-
-**Response**: `204 No Content` — Empty body on success
-
-**Curl Example**:
-```bash
-curl -X DELETE https://api.lead360.app/api/v1/system/voice-ai/providers/814806d5-b45d-4788-838a-c5cc67d7fe10 \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid JWT token |
-| `404` | `Provider {id} not found` | Provider UUID does not exist |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
+**Response 404**: `{ "statusCode": 404, "message": "Provider not found" }`
 
 ---
 
-## Credentials
+### Credentials Management
 
-Credentials store the encrypted API keys for each AI provider. Each provider has at most one credential row (UNIQUE on `provider_id`). API keys are encrypted with AES-256-GCM before storage and are **never returned in plaintext** after being saved — only the last 4 characters are shown.
+#### GET /api/v1/system/voice-ai/credentials
 
-### Credential Object Shape (masked — returned by API)
+**Auth**: Bearer token (Platform Admin only)
+**Returns**: Array of provider credentials (masked keys only)
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | `string (UUID)` | Credential record UUID |
-| `provider_id` | `string (UUID)` | FK to `voice_ai_provider.id` |
-| `provider_key` | `string` | Provider key for display (e.g. `deepgram`) |
-| `masked_key` | `string` | Last 4 chars visible, e.g. `****7890` |
-| `updated_by` | `string (UUID)` | Admin user ID who last saved the credential |
-| `updated_at` | `string (ISO 8601)` | When the credential was last saved |
-
-> **Security Note**: The plaintext API key is **never** stored or returned. Only the `masked_key` (last 4 characters) is visible after saving. The encrypted value is only decrypted at agent call-time by `EncryptionService.decrypt()` and is never cached.
-
----
-
-### `GET /api/v1/system/voice-ai/credentials`
-
-List all stored credentials (masked keys only). Returns one entry per provider that has credentials configured.
-
-**Auth**: JWT Bearer, `is_platform_admin: true`
-
-**Request Body**: None
-
-**Query Parameters**: None
-
-**Response**: `200 OK` — Array of masked credential objects
-
-**Curl Example**:
-```bash
-curl https://api.lead360.app/api/v1/system/voice-ai/credentials \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Example Response**:
+**Response 200**:
 ```json
 [
   {
-    "id": "4d4b70a5-a041-41bf-af30-c37d39a928af",
+    "id": "760910f6-7017-4c06-92a1-c692b5676b55",
     "provider_id": "a8a5b151-c7c6-435a-930d-249e41868997",
-    "provider_key": "deepgram",
-    "masked_key": "****7890",
-    "updated_by": "bc5b3363-ebe5-46fb-adac-53f8ed75a28d",
-    "updated_at": "2026-02-17T22:16:21.994Z"
+    "masked_api_key": "dg_t...2345",
+    "additional_config": null,
+    "created_at": "2026-02-18T03:50:34.372Z",
+    "updated_at": "2026-02-22T00:32:23.167Z",
+    "updated_by": "bc5b3363-ebe5-46fb-adac-53f8ed75a28d"
+  },
+  {
+    "id": "e27c7bad-c798-48f8-b23c-4aa9eb1a3ec0",
+    "provider_id": "ae9093bd-2f28-4b97-a240-f91bfe43f0c6",
+    "masked_api_key": "****Kg7X",
+    "additional_config": null,
+    "created_at": "2026-02-18T03:51:59.954Z",
+    "updated_at": "2026-02-18T03:51:59.954Z",
+    "updated_by": "bc5b3363-ebe5-46fb-adac-53f8ed75a28d"
   }
 ]
 ```
 
-Empty array `[]` when no credentials have been configured.
-
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid JWT token |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
 
 ---
 
-### `PUT /api/v1/system/voice-ai/credentials/:providerId`
+#### PUT /api/v1/system/voice-ai/credentials/:providerId
 
-Create or replace the API key credential for a specific provider. This is an **upsert** operation — if credentials already exist for this provider, they are replaced. The key is encrypted with AES-256-GCM before storage.
-
-**Auth**: JWT Bearer, `is_platform_admin: true`
+**Auth**: Bearer token (Platform Admin only)
+**Upserts**: Credential for a provider (create or replace)
+**Security**: API key is encrypted (AES-256-GCM) before storage; plain key never returned
 
 **Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| providerId | UUID | Provider ID |
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `providerId` | `string (UUID)` | Yes | UUID of the provider to set credentials for |
+**Request Body Fields**:
+| Field | Type | Required | Constraints | Default | Description |
+|-------|------|----------|-------------|---------|-------------|
+| api_key | string | ✅ Yes | min 10 chars | - | Plain-text API key (will be encrypted before storage, never returned) |
+| additional_config | string | ❌ No | JSON object as string | null | Provider-specific configuration **Note: JSON string, not object** |
 
-**Request Body**:
-
-| Field | Type | Required | Validation | Description |
-|-------|------|----------|------------|-------------|
-| `api_key` | `string` | Yes | min 10 chars | The plaintext API key to encrypt and store. Never logged or returned. |
-
-**Request Body Example**:
+**Minimal Request Example (required fields only)**:
 ```json
 {
-  "api_key": "dg_prod_1234567890abcdef..."
+  "api_key": "dg_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 }
 ```
 
-**Response**: `200 OK` — Masked credential object (plaintext key is NOT returned)
-
-**Curl Example**:
-```bash
-curl -X PUT https://api.lead360.app/api/v1/system/voice-ai/credentials/a8a5b151-c7c6-435a-930d-249e41868997 \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"api_key": "dg_prod_1234567890abcdef"}'
-```
-
-**Example Response**:
+**Complete Request Example**:
 ```json
 {
-  "id": "4d4b70a5-a041-41bf-af30-c37d39a928af",
+  "api_key": "dg_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "additional_config": "{\"region\":\"us-west-1\",\"model\":\"whisper-1\"}"
+}
+```
+
+**Response 200**:
+```json
+{
+  "id": "760910f6-7017-4c06-92a1-c692b5676b55",
   "provider_id": "a8a5b151-c7c6-435a-930d-249e41868997",
-  "provider_key": "deepgram",
-  "masked_key": "****cdef",
-  "updated_by": "bc5b3363-ebe5-46fb-adac-53f8ed75a28d",
-  "updated_at": "2026-02-17T22:16:21.994Z"
-}
-```
-
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `400` | `api_key must be longer than or equal to 10 characters` | Key is too short |
-| `401` | `Unauthorized` | Missing or invalid JWT token |
-| `404` | `Provider with ID "{id}" not found` | No provider with that UUID |
-
----
-
-### `DELETE /api/v1/system/voice-ai/credentials/:providerId`
-
-Remove the stored credential for a provider. After deletion, the provider will not have a working API key until a new credential is added via `PUT`.
-
-**Auth**: JWT Bearer, `is_platform_admin: true`
-
-**Path Parameters**:
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `providerId` | `string (UUID)` | Yes | UUID of the provider whose credential should be removed |
-
-**Request Body**: None
-
-**Response**: `204 No Content` — Empty body on success
-
-**Curl Example**:
-```bash
-curl -X DELETE https://api.lead360.app/api/v1/system/voice-ai/credentials/a8a5b151-c7c6-435a-930d-249e41868997 \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid JWT token |
-| `404` | `No credential found for provider ID "{id}"` | No credential exists for that provider |
-
----
-
-## Global Config
-
-The global config is a **singleton** — exactly one row exists in the database with `id = "default"`. It stores platform-wide defaults for all AI providers, LiveKit infrastructure settings, and the agent API key (hashed). Every call by the Python agent that fetches tenant context uses these defaults as the base configuration layer.
-
-### Global Config Object Shape (masked — returned by API)
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | `string` | Always `"default"` |
-| `default_stt_provider_id` | `string (UUID) \| null` | FK to `voice_ai_provider.id` for default STT |
-| `default_llm_provider_id` | `string (UUID) \| null` | FK to `voice_ai_provider.id` for default LLM |
-| `default_tts_provider_id` | `string (UUID) \| null` | FK to `voice_ai_provider.id` for default TTS |
-| `default_stt_config` | `string \| null` | JSON object string overriding provider defaults for STT |
-| `default_llm_config` | `string \| null` | JSON object string overriding provider defaults for LLM |
-| `default_tts_config` | `string \| null` | JSON object string overriding provider defaults for TTS |
-| `default_voice_id` | `string \| null` | Cartesia voice ID used by default for TTS |
-| `default_language` | `string` | BCP-47 language code for the default language, e.g. `"en"` |
-| `default_languages` | `string` | JSON array string of enabled languages, e.g. `"[\"en\",\"es\"]"` |
-| `default_greeting_template` | `string` | Default greeting. Supports `{business_name}` placeholder. |
-| `default_system_prompt` | `string` | Base system prompt prepended to all agent conversations |
-| `default_max_call_duration_seconds` | `integer` | Maximum call duration in seconds (default: 600 = 10 min) |
-| `default_transfer_behavior` | `string` | What happens after transfer: `end_call \| voicemail \| hold` |
-| `default_tools_enabled` | `string` | JSON object string: `{"booking":true,"lead_creation":true,"call_transfer":true}` |
-| `livekit_sip_trunk_url` | `string \| null` | LiveKit SIP trunk URL, e.g. `sip.livekit.cloud` |
-| `livekit_api_key_set` | `boolean` | `true` if LiveKit API key has been saved (key itself never returned) |
-| `livekit_api_secret_set` | `boolean` | `true` if LiveKit API secret has been saved (secret never returned) |
-| `agent_api_key_preview` | `string \| null` | Last 4 chars of the agent API key, e.g. `"...59d4"`. `null` if key has never been generated. |
-| `max_concurrent_calls` | `integer` | Platform-wide max concurrent AI calls (default: 100) |
-| `updated_at` | `string (ISO 8601)` | When the config was last updated |
-| `updated_by` | `string (UUID) \| null` | Admin user ID who last updated the config |
-
-> **Security Note**: `livekit_api_key`, `livekit_api_secret`, and the full agent API key are **never returned** in the response. The booleans `livekit_api_key_set` and `livekit_api_secret_set` indicate whether these values have been stored. Only `agent_api_key_preview` (last 4 chars) is shown.
-
----
-
-### `GET /api/v1/system/voice-ai/config`
-
-Retrieve the platform-wide global Voice AI configuration (singleton row).
-
-**Auth**: JWT Bearer, `is_platform_admin: true`
-
-**Request Body**: None
-
-**Query Parameters**: None
-
-**Response**: `200 OK` — Global config object (all sensitive values masked)
-
-**Curl Example**:
-```bash
-curl https://api.lead360.app/api/v1/system/voice-ai/config \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Example Response**:
-```json
-{
-  "id": "default",
-  "default_stt_provider_id": null,
-  "default_llm_provider_id": null,
-  "default_tts_provider_id": null,
-  "default_stt_config": null,
-  "default_llm_config": null,
-  "default_tts_config": null,
-  "default_voice_id": null,
-  "default_language": "en",
-  "default_languages": "[\"en\"]",
-  "default_greeting_template": "Hello, thank you for calling {business_name}! How can I help you today?",
-  "default_system_prompt": "You are a helpful phone assistant. Be concise, friendly, and professional.",
-  "default_max_call_duration_seconds": 600,
-  "default_transfer_behavior": "end_call",
-  "default_tools_enabled": "{\"booking\":true,\"lead_creation\":true,\"call_transfer\":true}",
-  "livekit_sip_trunk_url": null,
-  "livekit_api_key_set": false,
-  "livekit_api_secret_set": false,
-  "agent_api_key_preview": "...59d4",
-  "max_concurrent_calls": 100,
-  "updated_at": "2026-02-17T22:16:44.832Z",
+  "masked_api_key": "dg_t...2345",
+  "additional_config": "{\"region\":\"us-west-1\",\"model\":\"whisper-1\"}",
+  "created_at": "2026-02-22T12:00:00.000Z",
+  "updated_at": "2026-02-22T12:00:00.000Z",
   "updated_by": "bc5b3363-ebe5-46fb-adac-53f8ed75a28d"
 }
 ```
 
-**Error Responses**:
+**Validation Error Response 400**:
+```json
+{
+  "statusCode": 400,
+  "message": [
+    "api_key must be longer than or equal to 10 characters",
+    "api_key should not be empty"
+  ],
+  "error": "Bad Request"
+}
+```
 
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid JWT token |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
+**Response 404**: `{ "statusCode": 404, "message": "Provider not found" }`
 
 ---
 
-### `PATCH /api/v1/system/voice-ai/config`
+#### DELETE /api/v1/system/voice-ai/credentials/:providerId
 
-Update one or more fields of the global Voice AI configuration. All fields are optional — only provided fields are updated. The singleton row is always updated (never created via this endpoint).
+**Auth**: Bearer token (Platform Admin only)
+**Deletes**: Credential for a provider
 
-**Auth**: JWT Bearer, `is_platform_admin: true`
+**Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| providerId | UUID | Provider ID |
 
-**Request Body** (all fields optional):
+**Response 204**: No content (success)
 
-| Field | Type | Validation | Description |
-|-------|------|------------|-------------|
-| `default_stt_provider_id` | `string (UUID) \| null` | — | Set default STT provider. `null` clears the selection. |
-| `default_llm_provider_id` | `string (UUID) \| null` | — | Set default LLM provider. `null` clears the selection. |
-| `default_tts_provider_id` | `string (UUID) \| null` | — | Set default TTS provider. `null` clears the selection. |
-| `default_voice_id` | `string \| null` | — | Cartesia voice UUID for default TTS voice |
-| `default_language` | `string` | max 10 chars, BCP-47 | Default language code, e.g. `"en"`, `"es"` |
-| `default_languages` | `string` | JSON array string | Enabled languages as JSON array, e.g. `"[\"en\",\"es\"]"` |
-| `default_greeting_template` | `string` | max 500 chars | Greeting template. Use `{business_name}` as placeholder. |
-| `default_system_prompt` | `string` | max 2000 chars | Base system prompt for all agents |
-| `default_max_call_duration_seconds` | `integer` | 60–3600 | Max call duration in seconds |
-| `default_transfer_behavior` | `string` | `end_call \| voicemail \| hold` | Behavior when transferring a call |
-| `default_tools_enabled` | `string` | JSON object string | Enable/disable agent tools: `{"booking":true,"lead_creation":true,"call_transfer":true}` |
-| `default_stt_config` | `string` | JSON object string | Override STT provider default config |
-| `default_llm_config` | `string` | JSON object string | Override LLM provider default config |
-| `default_tts_config` | `string` | JSON object string | Override TTS provider default config |
-| `livekit_sip_trunk_url` | `string` | — | LiveKit SIP trunk URL, e.g. `sip.livekit.cloud` |
-| `livekit_api_key` | `string` | — | LiveKit API key — encrypted at rest, **never returned** |
-| `livekit_api_secret` | `string` | — | LiveKit API secret — encrypted at rest, **never returned** |
-| `max_concurrent_calls` | `integer` | ≥ 1 | Platform-wide maximum concurrent Voice AI calls |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
+**Response 404**: `{ "statusCode": 404, "message": "Credential not found" }`
 
-**Request Body Example**:
+---
+
+#### POST /api/v1/system/voice-ai/credentials/:providerId/test
+
+**Auth**: Bearer token (Platform Admin only)
+**Tests**: Stored API key by making a lightweight call to provider's API
+
+**Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| providerId | UUID | Provider ID |
+
+**Response 200**:
 ```json
 {
+  "success": true,
+  "message": "Connection successful"
+}
+```
+
+OR
+
+```json
+{
+  "success": false,
+  "message": "Authentication failed: Invalid API key"
+}
+```
+
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
+**Response 404**: `{ "statusCode": 404, "message": "Provider or credential not found" }`
+
+---
+
+### Global Configuration
+
+#### GET /api/v1/system/voice-ai/config
+
+**Auth**: Bearer token (Platform Admin only)
+**Returns**: Global Voice AI configuration singleton
+**Security**: Sensitive fields (LiveKit keys, hash) are masked
+
+**Response 200**:
+```json
+{
+  "id": "default",
+  "agent_enabled": false,
+  "default_stt_provider": {
+    "id": "a8a5b151-c7c6-435a-930d-249e41868997",
+    "provider_key": "deepgram",
+    "provider_type": "STT",
+    "display_name": "Deepgram"
+  },
+  "default_llm_provider": {
+    "id": "2490153d-160e-49a1-a0db-ddc12bcbec9f",
+    "provider_key": "openai",
+    "provider_type": "LLM",
+    "display_name": "OpenAI"
+  },
+  "default_tts_provider": {
+    "id": "ae9093bd-2f28-4b97-a240-f91bfe43f0c6",
+    "provider_key": "cartesia",
+    "provider_type": "TTS",
+    "display_name": "Cartesia"
+  },
+  "default_stt_config": "{\"model\":\"nova-2-phonecall\",\"punctuate\":true,\"interim_results\":true}",
+  "default_llm_config": "{\"model\":\"gpt-4o-mini\",\"temperature\":0,\"max_tokens\":500}",
+  "default_tts_config": "{\"model\":\"sonic-multilingual\",\"speed\":1}",
+  "default_voice_id": "agent_UB73EHZHv65uQTn44Hddho",
+  "default_language": "en",
+  "default_languages": "[\"en\",\"pt\",\"es\"]",
+  "default_greeting_template": "Hello, this is the default greeting. thank you for calling {business_name}! How can I help you today?",
+  "default_system_prompt": "You are a helpful phone assistant. Be concise, friendly, and professional. and this is the default system prompt",
+  "default_max_call_duration_seconds": 300,
+  "default_transfer_behavior": "end_call",
+  "default_tools_enabled": "{\"lead_creation\":true,\"booking\":true,\"call_transfer\":true}",
+  "livekit_url": "wss://lead360-8owqtn2p.livekit.cloud",
+  "livekit_sip_trunk_url": null,
+  "livekit_api_key_set": true,
+  "livekit_api_secret_set": true,
+  "agent_api_key_preview": "...e86a",
+  "max_concurrent_calls": 10,
+  "updated_at": "2026-02-22T03:22:10.911Z",
+  "updated_by": "bc5b3363-ebe5-46fb-adac-53f8ed75a28d"
+}
+```
+
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
+
+---
+
+#### PATCH /api/v1/system/voice-ai/config
+
+**Auth**: Bearer token (Platform Admin only)
+**Updates**: Global configuration (partial update - only provided fields are modified)
+**Security**: LiveKit keys are encrypted before storage if provided
+
+**Request Body Fields (all optional)**:
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| agent_enabled | boolean | - | Enable or disable the voice AI agent globally |
+| default_stt_provider_id | string | valid UUID | UUID of the default STT provider |
+| default_llm_provider_id | string | valid UUID | UUID of the default LLM provider |
+| default_tts_provider_id | string | valid UUID | UUID of the default TTS provider |
+| default_voice_id | string | - | Cartesia voice ID or provider-specific voice identifier |
+| default_language | string | length: 2-10 chars | BCP-47 language code (e.g., 'en') |
+| default_languages | string | JSON array as string | JSON array of enabled language codes (e.g., `'["en","es","pt"]'`) **Note: JSON string, not array** |
+| default_greeting_template | string | max 500 chars | Default greeting template; use `{business_name}` as placeholder |
+| default_system_prompt | string | max 2000 chars | Base system prompt injected into every agent conversation |
+| default_max_call_duration_seconds | number | min: 60, max: 3600 | Max call duration in seconds (60-3600) |
+| default_transfer_behavior | string | - | Behavior when call ends: 'end_call', 'voicemail', or 'hold' |
+| default_tools_enabled | string | JSON object as string | JSON object of tool toggles (e.g., `'{"booking":true,"lead_creation":true}'`) **Note: JSON string, not object** |
+| default_stt_config | string | JSON object as string | JSON object with STT provider-specific config |
+| default_llm_config | string | JSON object as string | JSON object with LLM provider-specific config |
+| default_tts_config | string | JSON object as string | JSON object with TTS provider-specific config |
+| livekit_url | string | valid URL (http/https/ws/wss) | LiveKit server URL (e.g., `wss://your-project.livekit.cloud`) |
+| livekit_sip_trunk_url | string | - | LiveKit SIP trunk URL (e.g., `sip.livekit.cloud`) |
+| livekit_api_key | string | - | LiveKit API key — stored encrypted, never returned |
+| livekit_api_secret | string | - | LiveKit API secret — stored encrypted, never returned |
+| max_concurrent_calls | number | min: 1, max: 100 | Max concurrent calls across the entire platform (1-100) |
+
+**Minimal Request Example**:
+```json
+{
+  "agent_enabled": true
+}
+```
+
+**Complete Request Example**:
+```json
+{
+  "agent_enabled": true,
   "default_stt_provider_id": "a8a5b151-c7c6-435a-930d-249e41868997",
   "default_llm_provider_id": "2490153d-160e-49a1-a0db-ddc12bcbec9f",
   "default_tts_provider_id": "ae9093bd-2f28-4b97-a240-f91bfe43f0c6",
+  "default_voice_id": "agent_UB73EHZHv65uQTn44Hddho",
   "default_language": "en",
-  "default_greeting_template": "Hello, thank you for calling {business_name}! How can I assist you?",
-  "default_max_call_duration_seconds": 600,
-  "max_concurrent_calls": 100,
-  "livekit_sip_trunk_url": "sip.livekit.cloud"
-}
-```
-
-**Response**: `200 OK` — The updated global config object (all sensitive values masked)
-
-**Curl Example**:
-```bash
-curl -X PATCH https://api.lead360.app/api/v1/system/voice-ai/config \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"default_language":"en","max_concurrent_calls":100}'
-```
-
-**Example Response**:
-```json
-{
-  "id": "default",
-  "default_stt_provider_id": null,
-  "default_llm_provider_id": null,
-  "default_tts_provider_id": null,
-  "default_stt_config": null,
-  "default_llm_config": null,
-  "default_tts_config": null,
-  "default_voice_id": null,
-  "default_language": "en",
-  "default_languages": "[\"en\"]",
+  "default_languages": "[\"en\",\"es\",\"pt\"]",
   "default_greeting_template": "Hello, thank you for calling {business_name}! How can I help you today?",
   "default_system_prompt": "You are a helpful phone assistant. Be concise, friendly, and professional.",
-  "default_max_call_duration_seconds": 600,
+  "default_max_call_duration_seconds": 300,
   "default_transfer_behavior": "end_call",
   "default_tools_enabled": "{\"booking\":true,\"lead_creation\":true,\"call_transfer\":true}",
-  "livekit_sip_trunk_url": null,
-  "livekit_api_key_set": false,
-  "livekit_api_secret_set": false,
-  "agent_api_key_preview": "...59d4",
-  "max_concurrent_calls": 100,
-  "updated_at": "2026-02-17T22:36:21.147Z",
-  "updated_by": "bc5b3363-ebe5-46fb-adac-53f8ed75a28d"
+  "default_stt_config": "{\"model\":\"nova-2-phonecall\",\"punctuate\":true}",
+  "default_llm_config": "{\"model\":\"gpt-4o-mini\",\"temperature\":0}",
+  "default_tts_config": "{\"model\":\"sonic-multilingual\",\"speed\":1}",
+  "livekit_url": "wss://lead360-8owqtn2p.livekit.cloud",
+  "livekit_sip_trunk_url": "sip.livekit.cloud",
+  "livekit_api_key": "APIxxxxxxxxxxxxxxx",
+  "livekit_api_secret": "xxxxxxxxxxxxxxxxxxxxxxxx",
+  "max_concurrent_calls": 20
 }
 ```
 
-**Error Responses**:
+**Response 200**: Returns updated config (same structure as GET)
 
-| Status | Message | Cause |
-|--------|---------|-------|
-| `400` | Validation message | Invalid field type or value out of range |
-| `401` | `Unauthorized` | Missing or invalid JWT token |
+**Validation Error Response 400**:
+```json
+{
+  "statusCode": 400,
+  "message": [
+    "default_language must be longer than or equal to 2 characters",
+    "default_greeting_template must be shorter than or equal to 500 characters",
+    "default_max_call_duration_seconds must not be less than 60",
+    "default_max_call_duration_seconds must not be greater than 3600",
+    "max_concurrent_calls must not be greater than 100",
+    "livekit_url must be a URL address"
+  ],
+  "error": "Bad Request"
+}
+```
+
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
 
 ---
 
-### `POST /api/v1/system/voice-ai/config/regenerate-key`
+#### POST /api/v1/system/voice-ai/config/regenerate-key
 
-Generate a new agent API key for authenticating Python agent requests. The plaintext key is returned **exactly once** in this response and is **never stored** — only its SHA-256 hash is saved in the database. After this call, only the last 4 characters are visible via `GET /config`.
+**Auth**: Bearer token (Platform Admin only)
+**Generates**: New agent API key
+**WARNING**: The plain key is returned ONCE and never stored. Save it immediately.
 
-> **Critical**: Copy and securely store the `plain_key` immediately. It cannot be retrieved after this response. If lost, regenerate again.
-
-**Auth**: JWT Bearer, `is_platform_admin: true`
-
-**Request Body**: None
-
-**Response**: `200 OK`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `plain_key` | `string` | The full plaintext API key. Returned **once only**. Copy immediately. |
-| `preview` | `string` | Last 4 chars for UI display, e.g. `"...59d4"` |
-| `warning` | `string` | Always `"Save this key now. It will not be shown again."` |
-
-**Curl Example**:
-```bash
-curl -X POST https://api.lead360.app/api/v1/system/voice-ai/config/regenerate-key \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Example Response**:
+**Response 200**:
 ```json
 {
-  "plain_key": "5019605b-1585-4604-8548-ab29b33e59d4",
-  "preview": "...59d4",
+  "plain_key": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "preview": "...xxxx",
   "warning": "Save this key now. It will not be shown again."
 }
 ```
 
-**How the Python Agent Uses This Key**:
-
-After regenerating, configure the Python agent with the new key and use it as:
-```http
-GET /api/v1/internal/voice-ai/tenant/{tenantId}/context
-X-Voice-Agent-Key: 5019605b-1585-4604-8548-ab29b33e59d4
-```
-
-The server computes `SHA-256(plain_key)` and compares it to `agent_api_key_hash` in the global config row.
-
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid JWT token |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
 
 ---
 
-## Subscription Plans
+### Plan Configuration
 
-The Voice AI module extends the existing `subscription_plan` table with three fields: `voice_ai_enabled`, `voice_ai_minutes_included`, and `voice_ai_overage_rate`. These fields control whether tenants on a given plan can use Voice AI and how many minutes they receive per month.
+#### GET /api/v1/system/voice-ai/plans
 
-### Plan Object Shape (Voice AI fields)
+**Auth**: Bearer token (Platform Admin only)
+**Returns**: All subscription plans with Voice AI configuration
 
-The `GET /plans` response returns the full plan record. The Voice AI-relevant fields are:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | `string (UUID)` | Plan UUID |
-| `name` | `string` | Plan display name |
-| `description` | `string \| null` | Plan description |
-| `monthly_price` | `string (Decimal)` | Monthly price as decimal string |
-| `annual_price` | `string (Decimal) \| null` | Annual price as decimal string |
-| `is_active` | `boolean` | Whether plan is selectable by new tenants |
-| `voice_ai_enabled` | `boolean` | Whether Voice AI feature is included in this plan |
-| `voice_ai_minutes_included` | `integer` | Minutes of Voice AI included per month. `0` = none. |
-| `voice_ai_overage_rate` | `string (Decimal) \| null` | Cost per minute (USD) beyond the included quota. `null` = calls blocked when quota exceeded (no overage allowed). |
-
-### Minutes Quota Logic
-
-```
-Minutes used this month = SUM of voice_usage_record.usage_quantity
-                         WHERE provider_type = 'STT'
-                           AND tenant_id = tenant
-                           AND year = current_year
-                           AND month = current_month
-
-Quota exceeded = minutes_used >= voice_ai_minutes_included
-                 (taking into account monthly_minutes_override on tenant settings)
-
-If quota_exceeded AND voice_ai_overage_rate IS NULL → call rejected
-If quota_exceeded AND voice_ai_overage_rate IS NOT NULL → call allowed, billed at overage rate
-```
-
----
-
-### `GET /api/v1/system/voice-ai/plans`
-
-List all subscription plans with their Voice AI configuration fields.
-
-**Auth**: JWT Bearer, `is_platform_admin: true`
-
-**Request Body**: None
-
-**Query Parameters**: None
-
-**Response**: `200 OK` — Array of subscription plan objects including Voice AI fields
-
-**Curl Example**:
-```bash
-curl https://api.lead360.app/api/v1/system/voice-ai/plans \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Example Response**:
+**Response 200**:
 ```json
 [
   {
@@ -1037,8 +642,8 @@ curl https://api.lead360.app/api/v1/system/voice-ai/plans \
     "monthly_price": "180",
     "annual_price": "1400",
     "is_active": true,
-    "voice_ai_enabled": false,
-    "voice_ai_minutes_included": 0,
+    "voice_ai_enabled": true,
+    "voice_ai_minutes_included": 100,
     "voice_ai_overage_rate": null
   },
   {
@@ -1048,205 +653,197 @@ curl https://api.lead360.app/api/v1/system/voice-ai/plans \
     "monthly_price": "700",
     "annual_price": "7000",
     "is_active": true,
-    "voice_ai_enabled": false,
-    "voice_ai_minutes_included": 0,
-    "voice_ai_overage_rate": null
-  },
-  {
-    "id": "71e3c818-5e7e-4793-86b3-eaaa403cf6a5",
-    "name": "Professional Plan",
-    "description": "Completeo",
-    "monthly_price": "500",
-    "annual_price": "4999",
-    "is_active": true,
-    "voice_ai_enabled": false,
-    "voice_ai_minutes_included": 0,
+    "voice_ai_enabled": true,
+    "voice_ai_minutes_included": 60,
     "voice_ai_overage_rate": null
   }
 ]
 ```
 
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid JWT token |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
 
 ---
 
-### `PATCH /api/v1/system/voice-ai/plans/:planId/voice`
+#### PATCH /api/v1/system/voice-ai/plans/:planId/voice
 
-Update the Voice AI configuration fields on a specific subscription plan. Only the three Voice AI fields can be updated via this endpoint. All fields are optional.
-
-**Auth**: JWT Bearer, `is_platform_admin: true`
+**Auth**: Bearer token (Platform Admin only)
+**Updates**: Voice AI settings for a specific subscription plan (partial update)
 
 **Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| planId | UUID | Subscription plan ID |
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `planId` | `string (UUID)` | Yes | Subscription plan UUID |
+**Request Body Fields (all optional)**:
+| Field | Type | Constraints | Nullable | Description |
+|-------|------|-------------|----------|-------------|
+| voice_ai_enabled | boolean | - | No | Enable or disable Voice AI feature for this subscription tier |
+| voice_ai_minutes_included | number | min: 0, integer | No | Monthly minutes of Voice AI included in the plan (0 = none) |
+| voice_ai_overage_rate | number | min: 0 | Yes | Cost per minute over the included limit in USD. **null = block calls when quota exceeded; positive number = allow overage at that rate** |
 
-**Request Body** (all fields optional):
+**Nullable Semantics**:
+- `voice_ai_overage_rate`: **null** blocks calls when quota is exceeded. Positive number allows overage billing at that rate. Omitting the field leaves the current value unchanged.
 
-| Field | Type | Validation | Description |
-|-------|------|------------|-------------|
-| `voice_ai_enabled` | `boolean` | — | Enable or disable Voice AI for this plan. When `false`, tenants on this plan cannot enable Voice AI. |
-| `voice_ai_minutes_included` | `integer` | ≥ 0 | Number of Voice AI minutes included per month. `0` disables usage even if `voice_ai_enabled` is `true`. |
-| `voice_ai_overage_rate` | `number \| null` | ≥ 0 | Per-minute cost (USD) for minutes beyond the included quota. `null` blocks calls when quota is exceeded. |
-
-**Request Body Example** — Enable with 500 minutes and $0.05/min overage:
+**Minimal Request Example**:
 ```json
 {
-  "voice_ai_enabled": true,
-  "voice_ai_minutes_included": 500,
-  "voice_ai_overage_rate": 0.05
+  "voice_ai_enabled": true
 }
 ```
 
-**Request Body Example** — Enable with 100 minutes, no overage (block when exceeded):
+**Complete Request Example**:
 ```json
 {
   "voice_ai_enabled": true,
-  "voice_ai_minutes_included": 100,
+  "voice_ai_minutes_included": 200,
+  "voice_ai_overage_rate": 0.10
+}
+```
+
+**Example: Disable Overage (Block Calls When Quota Exceeded)**:
+```json
+{
   "voice_ai_overage_rate": null
 }
 ```
 
-**Response**: `200 OK` — The full updated subscription plan object
+**Response 200**: Returns updated plan object (same structure as GET)
 
-**Curl Example**:
-```bash
-curl -X PATCH https://api.lead360.app/api/v1/system/voice-ai/plans/4a9f36ba-ab93-4f3a-975a-be009f5aa5c6/voice \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"voice_ai_enabled": true, "voice_ai_minutes_included": 500, "voice_ai_overage_rate": 0.05}'
-```
-
-**Example Response**:
+**Validation Error Response 400**:
 ```json
 {
-  "id": "4a9f36ba-ab93-4f3a-975a-be009f5aa5c6",
-  "name": "Básico",
-  "description": "Básico",
-  "monthly_price": "180",
-  "annual_price": "1400",
-  "max_users": 5,
-  "max_storage_gb": "1",
-  "offers_trial": true,
-  "trial_days": 5,
-  "feature_flags": "{\"dashboard\":true,\"timeclock\":true,\"payments\":true,\"reports\":true,\"settings\":true,\"files\":true}",
-  "is_active": true,
-  "is_default": false,
-  "created_at": "2026-01-15T22:57:54.080Z",
-  "updated_at": "2026-02-17T22:17:11.827Z",
-  "voice_ai_enabled": true,
-  "voice_ai_minutes_included": 500,
-  "voice_ai_overage_rate": "0.05"
+  "statusCode": 400,
+  "message": [
+    "voice_ai_minutes_included must not be less than 0",
+    "voice_ai_overage_rate must not be less than 0"
+  ],
+  "error": "Bad Request"
 }
 ```
 
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `400` | Validation message | Invalid field values, e.g. negative minutes |
-| `401` | `Unauthorized` | Missing or invalid JWT token |
-| `404` | `Subscription plan "{planId}" not found` | Plan UUID does not exist |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
+**Response 404**: `{ "statusCode": 404, "message": "Plan not found" }`
 
 ---
 
-## Quick Reference
+### Monitoring
 
-### All 12 Admin Infrastructure Endpoints
+#### GET /api/v1/system/voice-ai/agent/status
 
-| Method | Path | Description | Response |
-|--------|------|-------------|----------|
-| `GET` | `/api/v1/system/voice-ai/providers` | List all providers | `200` Array |
-| `POST` | `/api/v1/system/voice-ai/providers` | Create provider | `201` Object |
-| `PATCH` | `/api/v1/system/voice-ai/providers/:id` | Update provider | `200` Object |
-| `DELETE` | `/api/v1/system/voice-ai/providers/:id` | Soft-delete provider | `204` Empty |
-| `GET` | `/api/v1/system/voice-ai/credentials` | List masked credentials | `200` Array |
-| `PUT` | `/api/v1/system/voice-ai/credentials/:providerId` | Upsert encrypted credential | `200` Object |
-| `DELETE` | `/api/v1/system/voice-ai/credentials/:providerId` | Remove credential | `204` Empty |
-| `GET` | `/api/v1/system/voice-ai/config` | Get global config (masked) | `200` Object |
-| `PATCH` | `/api/v1/system/voice-ai/config` | Update global config | `200` Object |
-| `POST` | `/api/v1/system/voice-ai/config/regenerate-key` | Regenerate agent API key | `200` Object |
-| `GET` | `/api/v1/system/voice-ai/plans` | List plans with voice flags | `200` Array |
-| `PATCH` | `/api/v1/system/voice-ai/plans/:planId/voice` | Update plan voice config | `200` Object |
+**Auth**: Bearer token (Platform Admin only)
+**Returns**: Voice AI agent health status and metrics
 
-### Seeded Provider IDs (Development)
-
-| Provider | Type | UUID |
-|----------|------|------|
-| `deepgram` | STT | `a8a5b151-c7c6-435a-930d-249e41868997` |
-| `openai` | LLM | `2490153d-160e-49a1-a0db-ddc12bcbec9f` |
-| `cartesia` | TTS | `ae9093bd-2f28-4b97-a240-f91bfe43f0c6` |
-
-> **Note**: These UUIDs are valid for the development environment. Production IDs will differ.
-
----
-
-## Admin Monitoring Endpoints
-
-> **Auth required for all endpoints in this section**: JWT Bearer token with `is_platform_admin: true`.
->
-> **Sprint**: B11 | **Frontend**: FSA04, FSA05
-
-These endpoints give platform admins full visibility into every tenant's Voice AI usage, call history, and allow force-overriding per-tenant settings without touching the subscription plan.
-
----
-
-## Tenant Voice AI Overview
-
-### Tenant Overview Object Shape
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `tenant_id` | `string (UUID)` | Tenant UUID |
-| `company_name` | `string` | Tenant's business name |
-| `plan_name` | `string \| null` | Name of the subscription plan the tenant is on. `null` if tenant has no plan. |
-| `voice_ai_included_in_plan` | `boolean` | Whether the tenant's plan includes Voice AI |
-| `is_enabled` | `boolean` | Whether Voice AI is currently enabled for this tenant |
-| `minutes_included` | `integer` | Monthly minutes quota (from plan or admin override) |
-| `minutes_used` | `integer` | STT minutes consumed this calendar month |
-| `has_admin_override` | `boolean` | `true` if any admin override field is set on this tenant |
-
----
-
-### `GET /api/v1/system/voice-ai/tenants`
-
-List all tenants with their Voice AI summary. Supports full-text search and pagination.
-
-**Auth**: JWT Bearer, `is_platform_admin: true`
-
-**Request Body**: None
-
-**Query Parameters**:
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `page` | `integer` | `1` | Page number (1-based) |
-| `limit` | `integer` | `20` | Results per page (max 100) |
-| `search` | `string` | — | Optional. Filters by `company_name` (case-insensitive partial match) |
-
-**Response**: `200 OK` — Paginated list of tenant Voice AI overview objects
-
-**Curl Example**:
-```bash
-TOKEN=$(curl -s -X POST https://api.lead360.app/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@yourdomain.com","password":"your_password"}' | jq -r '.access_token')
-
-# List all tenants
-curl "https://api.lead360.app/api/v1/system/voice-ai/tenants" \
-  -H "Authorization: Bearer $TOKEN"
-
-# Search with pagination
-curl "https://api.lead360.app/api/v1/system/voice-ai/tenants?page=1&limit=10&search=honey" \
-  -H "Authorization: Bearer $TOKEN"
+**Response 200**:
+```json
+{
+  "is_running": false,
+  "agent_enabled": false,
+  "livekit_connected": false,
+  "active_calls": 1,
+  "today_calls": 0,
+  "this_month_calls": 2
+}
 ```
 
-**Example Response**:
+**Field Descriptions**:
+- `is_running`: Whether the LiveKit worker is running
+- `agent_enabled`: Whether agent is enabled in global config
+- `livekit_connected`: Whether agent is connected to LiveKit
+- `active_calls`: Number of calls currently in progress
+- `today_calls`: Total calls today
+- `this_month_calls`: Total calls this month
+
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
+
+---
+
+#### GET /api/v1/system/voice-ai/rooms
+
+**Auth**: Bearer token (Platform Admin only)
+**Returns**: List of all active Voice AI calls (status='in_progress')
+
+**Response 200**:
+```json
+[
+  {
+    "id": "f373dfde-7bc0-416f-b346-5f0b76a4582f",
+    "tenant_id": "13c2dea4-64e0-0499-f6e4-5df14d5a6ce2",
+    "company_name": "Mr Patch Asphalt",
+    "call_sid": "test-a08-review-1771392027",
+    "room_name": null,
+    "from_number": "+15551234567",
+    "to_number": "+19789988778",
+    "direction": "inbound",
+    "duration_seconds": 351162,
+    "started_at": "2026-02-18T05:20:27.305Z"
+  }
+]
+```
+
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
+
+---
+
+#### POST /api/v1/system/voice-ai/rooms/:roomName/end
+
+**Auth**: Bearer token (Platform Admin only)
+**Force-terminates**: A specific call by room name
+**Emergency operation**: Updates call log to 'failed' status and attempts to disconnect LiveKit room
+
+**Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| roomName | string | LiveKit room name |
+
+**Response 204**: No content (success)
+
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
+**Response 404**: `{ "statusCode": 404, "message": "Room not found" }`
+
+---
+
+#### GET /api/v1/system/voice-ai/agent/logs
+
+**Auth**: Bearer token (Platform Admin only)
+**Returns**: Server-Sent Events (SSE) stream of agent log entries
+**Format**: EventSource stream
+
+**Response 200**: SSE stream
+Each event contains:
+```json
+{
+  "timestamp": "2026-02-22T12:00:00.000Z",
+  "level": "info",
+  "message": "Agent heartbeat",
+  "data": { ... }
+}
+```
+
+**Note**: This is a placeholder implementation that emits heartbeat events every 5 seconds. Full implementation would integrate with actual log buffer.
+
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
+
+---
+
+#### GET /api/v1/system/voice-ai/tenants
+
+**Auth**: Bearer token (Platform Admin only)
+**Returns**: Paginated list of all tenants with Voice AI summary
+
+**Query Parameters**:
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| page | integer | No | 1 | Page number (1-based) |
+| limit | integer | No | 20 | Records per page (max: 100) |
+| search | string | No | - | Filter by company name (partial match) |
+
+**Response 200**:
 ```json
 {
   "data": [
@@ -1256,19 +853,19 @@ curl "https://api.lead360.app/api/v1/system/voice-ai/tenants?page=1&limit=10&sea
       "plan_name": "Plano do Meio",
       "voice_ai_included_in_plan": true,
       "is_enabled": true,
-      "minutes_included": 500,
-      "minutes_used": 47,
+      "minutes_included": 60,
+      "minutes_used": 0,
       "has_admin_override": true
     },
     {
       "tenant_id": "8b89e71a-0916-326e-150d-7a09a7d30c63",
       "company_name": "MDX Roofing",
       "plan_name": "Básico",
-      "voice_ai_included_in_plan": false,
-      "is_enabled": false,
-      "minutes_included": 0,
+      "voice_ai_included_in_plan": true,
+      "is_enabled": true,
+      "minutes_included": 300,
       "minutes_used": 0,
-      "has_admin_override": false
+      "has_admin_override": true
     }
   ],
   "meta": {
@@ -1280,54 +877,109 @@ curl "https://api.lead360.app/api/v1/system/voice-ai/tenants?page=1&limit=10&sea
 }
 ```
 
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid JWT token |
-| `403` | `Forbidden` | Authenticated user is not a platform admin |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
 
 ---
 
-### `PATCH /api/v1/system/voice-ai/tenants/:tenantId/override`
+#### GET /api/v1/system/voice-ai/tenants/:tenantId/override
 
-Apply admin-level overrides to a specific tenant's Voice AI settings. This operates independently of the tenant's own settings and the subscription plan. Used to grant temporary access, test configurations, or apply special per-tenant provider routing.
-
-**Null values remove overrides** — sending `null` for any field reverts it to the plan/global default.
-
-**Auth**: JWT Bearer, `is_platform_admin: true`
+**Auth**: Bearer token (Platform Admin only)
+**Returns**: Current admin override settings for a specific tenant
+**Purpose**: Pre-populate the override form with existing values
 
 **Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| tenantId | UUID | Target tenant ID |
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `tenantId` | `string (UUID)` | Yes | UUID of the tenant to override |
-
-**Request Body** (all fields optional):
-
-| Field | Type | Validation | Description |
-|-------|------|------------|-------------|
-| `force_enabled` | `boolean \| null` | — | `true` = force enable regardless of plan. `false` = force disable. `null` = remove override (tenant controls their own toggle again). |
-| `monthly_minutes_override` | `integer \| null` | ≥ 0 | Override the monthly minute quota for this tenant. `null` removes override and reverts to plan default. |
-| `stt_provider_override_id` | `string (UUID) \| null` | Valid provider UUID | Override which STT provider this tenant uses. `null` removes override. |
-| `llm_provider_override_id` | `string (UUID) \| null` | Valid provider UUID | Override which LLM provider this tenant uses. `null` removes override. |
-| `tts_provider_override_id` | `string (UUID) \| null` | Valid provider UUID | Override which TTS provider this tenant uses. `null` removes override. |
-| `admin_notes` | `string \| null` | — | Internal admin note explaining the reason for the override. `null` clears the note. |
-
-**Request Body Examples**:
-
-Apply override — grant 1,000 minutes and route to specific providers:
+**Response 200**:
 ```json
 {
   "force_enabled": true,
   "monthly_minutes_override": 1000,
   "stt_provider_override_id": "a8a5b151-c7c6-435a-930d-249e41868997",
-  "llm_provider_override_id": "2490153d-160e-49a1-a0db-ddc12bcbec9f",
-  "admin_notes": "Enterprise trial — approved by CEO on 2026-02-17"
+  "llm_provider_override_id": null,
+  "tts_provider_override_id": null,
+  "admin_notes": "VIP customer - extra quota approved by CEO"
 }
 ```
 
-Remove all overrides (revert tenant to plan defaults):
+**Response Fields**:
+| Field | Type | Nullable | Description |
+|-------|------|----------|-------------|
+| force_enabled | boolean | Yes | Current is_enabled value if overridden. **null** means no admin force (tenant controls) |
+| monthly_minutes_override | number | Yes | Current monthly minute quota override. **null** means using plan default |
+| stt_provider_override_id | string | Yes | Current STT provider override UUID. **null** means using global default |
+| llm_provider_override_id | string | Yes | Current LLM provider override UUID. **null** means using global default |
+| tts_provider_override_id | string | Yes | Current TTS provider override UUID. **null** means using global default |
+| admin_notes | string | Yes | Current admin notes. **null** means no notes set |
+
+**Response 404** (Tenant Not Found):
+```json
+{
+  "statusCode": 404,
+  "message": "Tenant with id \"invalid-uuid\" not found",
+  "error": "Not Found"
+}
+```
+
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
+
+**Usage Notes**:
+- Returns all fields as **null** if no overrides exist for the tenant
+- Used by frontend to pre-populate the override form when editing
+- Does NOT return sensitive tenant data (only override configuration)
+
+---
+
+#### PATCH /api/v1/system/voice-ai/tenants/:tenantId/override
+
+**Auth**: Bearer token (Platform Admin only)
+**Applies**: Admin infrastructure overrides to a tenant's Voice AI settings
+**Upserts**: tenant_voice_ai_settings row (creates if doesn't exist)
+
+**Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| tenantId | UUID | Target tenant ID |
+
+**Request Body Fields (all optional)**:
+| Field | Type | Constraints | Nullable | Description |
+|-------|------|-------------|----------|-------------|
+| force_enabled | boolean | - | Yes | Force-enable or force-disable Voice AI. **true/false** overrides tenant toggle; **null** removes admin force (tenant controls again) |
+| monthly_minutes_override | number | min: 0, integer | Yes | Override monthly minute quota. **null** removes override and reverts to plan default |
+| stt_provider_override_id | string | valid UUID | Yes | Override STT provider. Must be valid voice_ai_provider UUID. **null** removes override |
+| llm_provider_override_id | string | valid UUID | Yes | Override LLM provider. Must be valid voice_ai_provider UUID. **null** removes override |
+| tts_provider_override_id | string | valid UUID | Yes | Override TTS provider. Must be valid voice_ai_provider UUID. **null** removes override |
+| admin_notes | string | - | Yes | Internal admin note explaining override reason. Visible in admin panel only. **null** clears the note |
+
+**Nullable Semantics**:
+- **null** values remove overrides and revert to defaults (plan or global config)
+- **Omitting** a field leaves the current value unchanged (PATCH semantics)
+- **Setting** a value applies the override
+
+**Minimal Request Example**:
+```json
+{
+  "force_enabled": true
+}
+```
+
+**Complete Request Example**:
+```json
+{
+  "force_enabled": true,
+  "monthly_minutes_override": 500,
+  "stt_provider_override_id": "a8a5b151-c7c6-435a-930d-249e41868997",
+  "llm_provider_override_id": "2490153d-160e-49a1-a0db-ddc12bcbec9f",
+  "tts_provider_override_id": "ae9093bd-2f28-4b97-a240-f91bfe43f0c6",
+  "admin_notes": "Special override for enterprise customer Q1 2026"
+}
+```
+
+**Example: Remove All Overrides (Revert to Defaults)**:
 ```json
 {
   "force_enabled": null,
@@ -1339,119 +991,71 @@ Remove all overrides (revert tenant to plan defaults):
 }
 ```
 
-**Response**: `204 No Content` — Empty body on success. The tenant's settings row is upserted atomically.
+**Response 204**: No content (success)
 
-**Curl Example**:
-```bash
-curl -X PATCH https://api.lead360.app/api/v1/system/voice-ai/tenants/14a34ab2-6f6f-4e41-9bea-c444a304557e/override \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "force_enabled": true,
-    "monthly_minutes_override": 200,
-    "admin_notes": "Test override for dev"
-  }'
+**Validation Error Response 400**:
+```json
+{
+  "statusCode": 400,
+  "message": [
+    "monthly_minutes_override must not be less than 0"
+  ],
+  "error": "Bad Request"
+}
 ```
 
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `400` | Validation message | Invalid field values (e.g. negative minutes, non-UUID provider ID) |
-| `401` | `Unauthorized` | Missing or invalid JWT token |
-| `403` | `Forbidden` | Authenticated user is not a platform admin |
-| `404` | `Tenant with id "{tenantId}" not found` | Tenant UUID does not exist |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
+**Response 404**: `{ "statusCode": 404, "message": "Tenant not found" }`
 
 ---
 
-## Admin Call Logs
+### Call Logs & Usage Reports (Admin)
 
-### `GET /api/v1/system/voice-ai/call-logs`
+#### GET /api/v1/system/voice-ai/call-logs
 
-Cross-tenant paginated call log. Returns call records from all tenants. Supports filtering by tenant, date range, and outcome.
-
-**Auth**: JWT Bearer, `is_platform_admin: true`
-
-**Request Body**: None
+**Auth**: Bearer token (Platform Admin only)
+**Returns**: Paginated call logs across ALL tenants (cross-tenant visibility)
 
 **Query Parameters**:
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| tenantId | UUID | No | - | Filter by specific tenant |
+| from | ISO 8601 date | No | - | Start date (inclusive) |
+| to | ISO 8601 date | No | - | End date (inclusive) |
+| outcome | string | No | - | Filter by outcome: 'lead_created', 'transferred', 'abandoned' |
+| page | integer | No | 1 | Page number (1-based) |
+| limit | integer | No | 20 | Records per page (max: 100) |
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `tenantId` | `string (UUID)` | — | Optional. Filter logs to a specific tenant only |
-| `from` | `string (ISO 8601)` | — | Optional. Filter calls starting on or after this datetime. Example: `2026-01-01` |
-| `to` | `string (ISO 8601)` | — | Optional. Filter calls starting on or before this datetime. Example: `2026-02-28` |
-| `outcome` | `string` | — | Optional. Filter by call outcome: `completed`, `transferred`, `voicemail`, `abandoned`, `error` |
-| `page` | `integer` | `1` | Page number (1-based) |
-| `limit` | `integer` | `20` | Results per page (max 100) |
-
-**Response**: `200 OK` — Paginated list of call log objects
-
-**Call Log Object Shape**:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | `string (UUID)` | Call log UUID |
-| `tenant_id` | `string (UUID)` | FK to the tenant whose AI agent handled this call |
-| `call_sid` | `string` | Twilio CallSid — globally unique call identifier |
-| `from_number` | `string` | Caller's phone number (E.164) |
-| `to_number` | `string` | Tenant's Twilio number (E.164) |
-| `direction` | `"inbound" \| "outbound"` | Call direction (always `inbound` for AI-answered calls) |
-| `status` | `"in_progress" \| "completed"` | Call status |
-| `outcome` | `"completed" \| "transferred" \| "voicemail" \| "abandoned" \| "error" \| null` | How the call ended. `null` if call is still in progress |
-| `is_overage` | `boolean` | `true` if this call consumed overage minutes beyond the plan quota |
-| `duration_seconds` | `integer \| null` | Call duration in seconds. `null` if call is still in progress |
-| `transcript_summary` | `string \| null` | AI-generated summary of the conversation |
-| `full_transcript` | `string \| null` | Full STT output of the conversation |
-| `actions_taken` | `string[] \| null` | Actions the agent took, e.g. `["lead_created", "appointment_booked"]` |
-| `lead_id` | `string (UUID) \| null` | FK to the Lead record created or matched during this call |
-| `stt_provider_id` | `string (UUID) \| null` | FK to the STT provider used |
-| `llm_provider_id` | `string (UUID) \| null` | FK to the LLM provider used |
-| `tts_provider_id` | `string (UUID) \| null` | FK to the TTS provider used |
-| `started_at` | `string (ISO 8601)` | When the call started |
-| `ended_at` | `string (ISO 8601) \| null` | When the call ended. `null` if in progress |
-| `created_at` | `string (ISO 8601)` | Record creation timestamp |
-
-**Curl Example**:
-```bash
-# All call logs (cross-tenant)
-curl "https://api.lead360.app/api/v1/system/voice-ai/call-logs" \
-  -H "Authorization: Bearer $TOKEN"
-
-# Filter by tenant and date range
-curl "https://api.lead360.app/api/v1/system/voice-ai/call-logs?tenantId=14a34ab2-6f6f-4e41-9bea-c444a304557e&from=2026-01-01&to=2026-02-28&outcome=transferred&page=1&limit=10" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Example Response**:
+**Response 200**:
 ```json
 {
   "data": [
     {
-      "id": "a91c2f04-1234-5678-abcd-ef0123456789",
-      "tenant_id": "14a34ab2-6f6f-4e41-9bea-c444a304557e",
-      "call_sid": "CA1234567890abcdef1234567890abcdef",
-      "from_number": "+13055559876",
-      "to_number": "+13055551000",
+      "id": "02f5b572-0402-48c1-aaca-43f3ce802bd2",
+      "tenant_id": "13c2dea4-64e0-0499-f6e4-5df14d5a6ce2",
+      "call_sid": "test-sid-A09-review",
+      "from_number": "+15551234567",
+      "to_number": "+15559999999",
       "direction": "inbound",
       "status": "completed",
-      "outcome": "transferred",
+      "outcome": "completed",
       "is_overage": false,
-      "duration_seconds": 127,
-      "transcript_summary": "Caller asked about plumbing emergency service. Agent took details and transferred to on-call technician.",
-      "full_transcript": "Agent: Hello, thank you for calling...",
-      "actions_taken": ["lead_created"],
-      "lead_id": "bb7c3a12-0001-4321-8765-abcdef012345",
-      "stt_provider_id": "a8a5b151-c7c6-435a-930d-249e41868997",
-      "llm_provider_id": "2490153d-160e-49a1-a0db-ddc12bcbec9f",
-      "tts_provider_id": "ae9093bd-2f28-4b97-a240-f91bfe43f0c6",
-      "started_at": "2026-02-15T14:32:01.000Z",
-      "ended_at": "2026-02-15T14:34:08.000Z",
-      "created_at": "2026-02-15T14:32:01.000Z"
+      "duration_seconds": 90,
+      "transcript_summary": null,
+      "full_transcript": null,
+      "actions_taken": null,
+      "lead_id": null,
+      "stt_provider_id": null,
+      "llm_provider_id": null,
+      "tts_provider_id": null,
+      "started_at": "2026-02-18T05:29:03.015Z",
+      "ended_at": "2026-02-18T05:29:16.398Z",
+      "created_at": "2026-02-18T05:29:03.015Z"
     }
   ],
   "meta": {
-    "total": 1,
+    "total": 2,
     "page": 1,
     "limit": 20,
     "total_pages": 1
@@ -1459,191 +1063,60 @@ curl "https://api.lead360.app/api/v1/system/voice-ai/call-logs?tenantId=14a34ab2
 }
 ```
 
-**Example Response (empty — no calls yet)**:
-```json
-{
-  "data": [],
-  "meta": {
-    "total": 0,
-    "page": 1,
-    "limit": 20,
-    "total_pages": 0
-  }
-}
-```
-
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid JWT token |
-| `403` | `Forbidden` | Authenticated user is not a platform admin |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
 
 ---
 
-## Admin Usage Report
+#### GET /api/v1/system/voice-ai/usage-report
 
-### `GET /api/v1/system/voice-ai/usage-report`
-
-Platform-wide aggregate usage report for a given year and month. Summarizes all tenants' Voice AI consumption, grouped by tenant, sorted by cost descending.
-
-**Auth**: JWT Bearer, `is_platform_admin: true`
-
-**Request Body**: None
+**Auth**: Bearer token (Platform Admin only)
+**Returns**: Platform-wide usage aggregate for specified year+month
+**Includes**: Total calls, STT seconds, estimated cost, and per-tenant breakdown
 
 **Query Parameters**:
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| year | integer | No | Current year | Year (e.g., 2026) |
+| month | integer | No | Current month | Month (1-12) |
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `year` | `integer` | Current year | Year to report on, e.g. `2026` |
-| `month` | `integer` | Current month | Month to report on (1–12), e.g. `2` for February |
-
-**Response**: `200 OK`
-
-**Response Shape**:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `year` | `integer` | Year of the report |
-| `month` | `integer` | Month of the report (1–12) |
-| `total_calls` | `integer` | Total Voice AI calls across all tenants for this month |
-| `total_stt_seconds` | `number` | Total STT (speech-to-text) seconds processed across all tenants |
-| `total_estimated_cost` | `number` | Total estimated USD cost across all tenants and providers |
-| `by_tenant` | `TenantUsageSummary[]` | Per-tenant breakdown, sorted by `estimated_cost` descending |
-
-**`TenantUsageSummary` fields**:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `tenant_id` | `string (UUID)` | Tenant UUID |
-| `tenant_name` | `string` | Tenant's business name |
-| `total_calls` | `integer` | Number of calls this tenant had this month |
-| `total_stt_seconds` | `number` | STT seconds used by this tenant |
-| `estimated_cost` | `number` | Estimated USD cost for this tenant |
-
-**Curl Example**:
-```bash
-curl "https://api.lead360.app/api/v1/system/voice-ai/usage-report?year=2026&month=2" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Example Response**:
+**Response 200**:
 ```json
 {
   "year": 2026,
   "month": 2,
-  "total_calls": 0,
-  "total_stt_seconds": 0,
-  "total_estimated_cost": 0,
-  "by_tenant": []
-}
-```
-
-**Example Response with data**:
-```json
-{
-  "year": 2026,
-  "month": 2,
-  "total_calls": 183,
-  "total_stt_seconds": 14720,
-  "total_estimated_cost": 12.34,
+  "total_calls": 2,
+  "total_stt_seconds": 90,
+  "total_estimated_cost": 72.806444,
   "by_tenant": [
     {
-      "tenant_id": "14a34ab2-6f6f-4e41-9bea-c444a304557e",
-      "tenant_name": "Honeydo4You Contractor",
-      "total_calls": 112,
-      "total_stt_seconds": 9480,
-      "estimated_cost": 8.21
-    },
-    {
-      "tenant_id": "8b89e71a-0916-326e-150d-7a09a7d30c63",
-      "tenant_name": "MDX Roofing",
-      "total_calls": 71,
-      "total_stt_seconds": 5240,
-      "estimated_cost": 4.13
+      "tenant_id": "13c2dea4-64e0-0499-f6e4-5df14d5a6ce2",
+      "tenant_name": "Mr Patch Asphalt",
+      "total_calls": 2,
+      "total_stt_seconds": 90,
+      "estimated_cost": 72.806444
     }
   ]
 }
 ```
 
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid JWT token |
-| `403` | `Forbidden` | Authenticated user is not a platform admin |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
+**Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
 
 ---
 
 ## Tenant Endpoints
 
-> **Auth required for all endpoints in this section**: JWT Bearer token for any authenticated tenant user.
->
-> **Sprint**: B04, B05, B07 | **Frontend**: FTA01–FTA04
->
-> `tenant_id` is derived from the JWT — it is NEVER accepted from the request body or query parameters. Tenant users can only access their own data.
+### Tenant Settings
 
----
+#### GET /api/v1/voice-ai/settings
 
-## Tenant Voice AI Settings
+**Auth**: Bearer token (Tenant user)
+**Roles**: Owner, Admin, Manager
+**Returns**: Current Voice AI behavior settings for the authenticated tenant
+**Note**: Returns `null` if settings have never been configured (global defaults apply)
 
-Settings control the behavioral layer of the agent — greeting, language, instructions, and feature toggles. Infrastructure-level fields (provider IDs, minute quotas) are read-only for tenants and can only be set by admins via the override endpoint.
-
-### Settings Object Shape (full response)
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | `string (UUID)` | Settings record UUID |
-| `tenant_id` | `string (UUID)` | Tenant UUID |
-| `is_enabled` | `boolean` | Whether Voice AI agent is active for this tenant |
-| `default_language` | `string` | Default BCP-47 language code, e.g. `"en"` |
-| `enabled_languages` | `string` | JSON array string of enabled language codes, e.g. `"[\"en\",\"es\"]"` |
-| `custom_greeting` | `string \| null` | Tenant's custom greeting. `null` = use global template |
-| `custom_instructions` | `string \| null` | Extra instructions appended to the agent system prompt. `null` = none |
-| `after_hours_behavior` | `string \| null` | Reserved — not currently used |
-| `booking_enabled` | `boolean \| null` | Whether appointment booking is enabled. `null` = use global default |
-| `lead_creation_enabled` | `boolean \| null` | Whether lead creation from calls is enabled. `null` = use global default |
-| `transfer_enabled` | `boolean \| null` | Whether call transfer to human operator is enabled. `null` = use global default |
-| `default_transfer_number` | `string \| null` | E.164 fallback transfer number. `null` = no fallback |
-| `max_call_duration_seconds` | `integer \| null` | Max call duration override in seconds. `null` = use global default (600) |
-| `monthly_minutes_override` | `integer \| null` | **Admin-set only** — custom minute quota. `null` = use plan quota |
-| `admin_notes` | `string \| null` | **Admin-set only** — internal admin notes |
-| `stt_provider_override_id` | `string (UUID) \| null` | **Admin-set only** — custom STT provider |
-| `llm_provider_override_id` | `string (UUID) \| null` | **Admin-set only** — custom LLM provider |
-| `tts_provider_override_id` | `string (UUID) \| null` | **Admin-set only** — custom TTS provider |
-| `stt_config_override` | `string \| null` | **Admin-set only** — custom STT config JSON |
-| `llm_config_override` | `string \| null` | **Admin-set only** — custom LLM config JSON |
-| `tts_config_override` | `string \| null` | **Admin-set only** — custom TTS config JSON |
-| `voice_id_override` | `string \| null` | **Admin-set only** — custom Cartesia voice UUID |
-| `created_at` | `string (ISO 8601)` | Settings record creation timestamp |
-| `updated_at` | `string (ISO 8601)` | Last update timestamp |
-| `updated_by` | `string (UUID) \| null` | User ID who last updated (admin-only updates set this) |
-
----
-
-### `GET /api/v1/voice-ai/settings`
-
-Get the authenticated tenant's Voice AI behavior settings.
-
-**Auth**: JWT Bearer, any authenticated tenant user
-
-**Request Body**: None
-
-**Query Parameters**: None
-
-**Response**: `200 OK` — Full settings object, or `null` if the tenant has never saved settings (no `PUT` has been made and no admin override has been applied). Frontend should treat `null` as "all global defaults apply."
-
-**Curl Example**:
-```bash
-TOKEN=$(curl -s -X POST https://api.lead360.app/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"tenant@yourdomain.com","password":"your_password"}' | jq -r '.access_token')
-
-curl https://api.lead360.app/api/v1/voice-ai/settings \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Example Response**:
+**Response 200**:
 ```json
 {
   "id": "1fbafe10-a9b9-452e-88c1-c9b7243166a0",
@@ -1651,182 +1124,130 @@ curl https://api.lead360.app/api/v1/voice-ai/settings \
   "is_enabled": true,
   "default_language": "en",
   "enabled_languages": "[\"en\",\"es\"]",
-  "custom_greeting": "Hello, thank you for calling! How can we help?",
+  "custom_greeting": "Thank you for calling! How can I help you today?",
   "custom_instructions": "Always ask if it is an emergency.",
   "after_hours_behavior": null,
   "booking_enabled": true,
   "lead_creation_enabled": true,
   "transfer_enabled": true,
   "default_transfer_number": null,
+  "default_transfer_number_id": null,
   "max_call_duration_seconds": null,
-  "monthly_minutes_override": 200,
-  "admin_notes": "Test override for dev",
-  "stt_provider_override_id": null,
-  "llm_provider_override_id": null,
-  "tts_provider_override_id": null,
+  "monthly_minutes_override": null,
+  "admin_notes": null,
+  "stt_provider_override_id": "a8a5b151-c7c6-435a-930d-249e41868997",
+  "llm_provider_override_id": "2490153d-160e-49a1-a0db-ddc12bcbec9f",
+  "tts_provider_override_id": "ae9093bd-2f28-4b97-a240-f91bfe43f0c6",
   "stt_config_override": null,
   "llm_config_override": null,
   "tts_config_override": null,
   "voice_id_override": null,
   "created_at": "2026-02-17T22:56:03.967Z",
-  "updated_at": "2026-02-17T22:59:49.051Z",
+  "updated_at": "2026-02-22T04:03:35.285Z",
   "updated_by": null
 }
 ```
 
-**Error Responses**:
+OR if never configured:
+```json
+null
+```
 
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid JWT token |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized — valid JWT required" }`
+**Response 403**: `{ "statusCode": 403, "message": "Forbidden — requires Owner, Admin, or Manager role" }`
 
 ---
 
-### `PUT /api/v1/voice-ai/settings`
+#### PUT /api/v1/voice-ai/settings
 
-Create or update the tenant's Voice AI settings (upsert). Only behavior-layer fields can be set — infrastructure overrides are admin-only and will be ignored if sent.
+**Auth**: Bearer token (Tenant user)
+**Roles**: Owner, Admin
+**Upserts**: Voice AI behavior settings for the authenticated tenant
+**Note**: All fields are optional (PATCH semantics on PUT endpoint)
 
-If `is_enabled: true` is sent but the tenant's subscription plan does not include Voice AI, the request is rejected with `403 Forbidden`.
+**Request Body Fields (all optional)**:
+| Field | Type | Constraints | Nullable | Description |
+|-------|------|-------------|----------|-------------|
+| is_enabled | boolean | - | No | Enable or disable the Voice AI agent for this tenant |
+| enabled_languages | array of strings | - | No | ISO 639-1 language codes the agent should support **Note: Actual array, not JSON string** |
+| custom_greeting | string | max 500 chars | Yes | Custom greeting message. **Pass null to revert to global template** |
+| custom_instructions | string | max 2000 chars | Yes | Additional instructions appended to agent system prompt. **Pass null to clear** |
+| booking_enabled | boolean | - | No | Allow the agent to book appointments for callers |
+| lead_creation_enabled | boolean | - | No | Allow the agent to create leads from calls |
+| transfer_enabled | boolean | - | No | Allow the agent to transfer calls to a human operator |
+| default_transfer_number | string | E.164 format (regex: `/^\+[1-9]\d{1,14}$/`) | Yes | Default fallback transfer number. **Pass null to clear** |
+| max_call_duration_seconds | number | min: 60, max: 3600, integer | Yes | Maximum call duration in seconds. **Pass null to use global default** |
 
-**Auth**: JWT Bearer, any authenticated tenant user
+**Nullable Semantics**:
+- `custom_greeting`: **null** reverts to global template; **omitted** = no change; **string** = sets custom greeting
+- `custom_instructions`: **null** clears custom instructions; **omitted** = no change; **string** = sets custom instructions
+- `default_transfer_number`: **null** clears the default number; **omitted** = no change; **string** = sets number
+- `max_call_duration_seconds`: **null** uses global default; **omitted** = no change; **number** = sets custom duration
 
-**Request Body** (all fields optional — upsert semantics):
+**Minimal Request Example**:
+```json
+{
+  "is_enabled": true
+}
+```
 
-| Field | Type | Validation | Description |
-|-------|------|------------|-------------|
-| `is_enabled` | `boolean` | — | Enable or disable the Voice AI agent |
-| `enabled_languages` | `string[]` | Array of strings | ISO 639-1 language codes. Example: `["en", "es"]` |
-| `custom_greeting` | `string \| null` | max 500 chars | Custom greeting message. `null` reverts to global template. |
-| `custom_instructions` | `string \| null` | max 2000 chars | Additional instructions appended to the agent system prompt. `null` clears. |
-| `booking_enabled` | `boolean` | — | Allow the agent to book appointments |
-| `lead_creation_enabled` | `boolean` | — | Allow the agent to create leads from calls |
-| `transfer_enabled` | `boolean` | — | Allow the agent to transfer calls to a human |
-| `default_transfer_number` | `string \| null` | E.164 format | Fallback transfer number, e.g. `+15551234567`. `null` clears. |
-| `max_call_duration_seconds` | `integer \| null` | 60–3600 | Override max call duration in seconds. `null` uses global default (600). |
-
-**Request Body Example**:
+**Complete Request Example**:
 ```json
 {
   "is_enabled": true,
-  "enabled_languages": ["en", "es"],
-  "custom_greeting": "Hello, thank you for calling! How can we help?",
-  "custom_instructions": "Always ask if the caller has an emergency first.",
+  "enabled_languages": ["en", "es", "pt"],
+  "custom_greeting": "Thank you for calling {business_name}! How can I help you today?",
+  "custom_instructions": "Always ask if it is an emergency. Always mention we serve the Miami area.",
   "booking_enabled": true,
   "lead_creation_enabled": true,
-  "transfer_enabled": true
+  "transfer_enabled": true,
+  "default_transfer_number": "+15551234567",
+  "max_call_duration_seconds": 600
 }
 ```
 
-**Response**: `200 OK` — The full updated settings object
-
-**Curl Example**:
-```bash
-curl -X PUT https://api.lead360.app/api/v1/voice-ai/settings \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "is_enabled": true,
-    "enabled_languages": ["en", "es"],
-    "custom_greeting": "Hello, thank you for calling! How can we help?",
-    "booking_enabled": true,
-    "lead_creation_enabled": true,
-    "transfer_enabled": true
-  }'
+**Example: Clear Custom Greeting (Revert to Global Template)**:
+```json
+{
+  "custom_greeting": null
+}
 ```
 
-**Example Response**: Same shape as `GET /voice-ai/settings` (see above).
+**Response 200**: Returns full updated settings object (same structure as GET)
 
-**Error Responses**:
+**Validation Error Response 400**:
+```json
+{
+  "statusCode": 400,
+  "message": [
+    "custom_greeting must be shorter than or equal to 500 characters",
+    "default_transfer_number must be a valid E.164 phone number (e.g. +15551234567)",
+    "max_call_duration_seconds must not be less than 60",
+    "max_call_duration_seconds must not be greater than 3600",
+    "enabled_languages must be an array"
+  ],
+  "error": "Bad Request"
+}
+```
 
-| Status | Message | Cause |
-|--------|---------|-------|
-| `400` | Validation message | Invalid field values (e.g. `max_call_duration_seconds` out of range) |
-| `401` | `Unauthorized` | Missing or invalid JWT token |
-| `403` | `Your current subscription plan does not include Voice AI. Please upgrade your plan to enable this feature.` | Tenant's plan does not have `voice_ai_enabled: true` and `is_enabled: true` was sent |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized — valid JWT required" }`
+**Response 403**: Either:
+- `{ "statusCode": 403, "message": "Forbidden — requires Owner or Admin role" }`
+- `{ "statusCode": 403, "message": "Subscription plan does not include Voice AI" }` (when setting `is_enabled: true` and plan doesn't support it)
 
 ---
 
-## Tenant Transfer Numbers
+### Transfer Numbers
 
-Transfer numbers define the phone numbers the Voice AI agent can use when transferring calls to human operators. Up to **10 transfer numbers** per tenant are supported. Numbers are ordered by `display_order` for display in the UI.
+#### GET /api/v1/voice-ai/transfer-numbers
 
-### Transfer Number Object Shape
+**Auth**: Bearer token (Tenant user)
+**Roles**: Owner, Admin, Manager
+**Returns**: All call transfer destinations for the authenticated tenant
+**Order**: display_order ASC, then created_at ASC
+**Limit**: Up to 10 per tenant
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | `string (UUID)` | Transfer number UUID |
-| `tenant_id` | `string (UUID)` | Tenant UUID (always the authenticated tenant) |
-| `label` | `string` | Display name, e.g. `"Sales"`, `"Emergency"`, `"After Hours Support"` |
-| `phone_number` | `string` | E.164 format, e.g. `"+13055551234"` |
-| `transfer_type` | `"primary" \| "overflow" \| "after_hours" \| "emergency"` | How the agent uses this number (see Transfer Type Values below) |
-| `description` | `string \| null` | Optional description |
-| `is_default` | `boolean` | `true` = this number is used as the default when no other number matches |
-| `display_order` | `integer` | Order in the UI. Lower number = shown first. Updated via `/reorder`. |
-| `available_hours` | `string \| null` | JSON string defining operating hours per day (see Available Hours Format below) |
-| `created_at` | `string (ISO 8601)` | Creation timestamp |
-| `updated_at` | `string (ISO 8601)` | Last update timestamp |
-
-### Transfer Type Values
-
-| Value | When Used |
-|-------|-----------|
-| `primary` | Default routing — agent uses this first for general transfers |
-| `overflow` | Used when the primary line is busy or unavailable |
-| `after_hours` | Used outside of normal business hours (combine with `available_hours`) |
-| `emergency` | Always available, overrides all other routing logic for urgent calls |
-
-### `available_hours` JSON Format
-
-The `available_hours` field is stored and returned as a **JSON string**. When sending via the API, pass it as a string (not an object). It defines per-day time-range windows using arrays of `[start, end]` pairs. Days not listed are treated as unavailable.
-
-**Format** — each day maps to an array of `["HH:MM", "HH:MM"]` time windows:
-```json
-"{\"mon\":[[\"09:00\",\"17:00\"]],\"tue\":[[\"09:00\",\"17:00\"]],\"wed\":[[\"09:00\",\"17:00\"]],\"thu\":[[\"09:00\",\"17:00\"]],\"fri\":[[\"09:00\",\"17:00\"]]}"
-```
-
-When deserialized, this represents:
-```json
-{
-  "mon": [["09:00", "17:00"]],
-  "tue": [["09:00", "17:00"]],
-  "wed": [["09:00", "17:00"]],
-  "thu": [["09:00", "17:00"]],
-  "fri": [["09:00", "17:00"]]
-}
-```
-
-Multiple windows per day are supported (e.g. split shifts):
-```json
-{
-  "mon": [["09:00", "12:00"], ["13:00", "17:00"]]
-}
-```
-
-**Day keys**: `mon`, `tue`, `wed`, `thu`, `fri`, `sat`, `sun`
-
-**Time values**: 24-hour format `"HH:MM"`, e.g. `"09:00"`, `"17:30"`, `"00:00"`
-
----
-
-### `GET /api/v1/voice-ai/transfer-numbers`
-
-List all transfer numbers for the authenticated tenant, ordered by `display_order` ascending.
-
-**Auth**: JWT Bearer, any authenticated tenant user
-
-**Request Body**: None
-
-**Query Parameters**: None
-
-**Response**: `200 OK` — Array of transfer number objects (empty array if none configured)
-
-**Curl Example**:
-```bash
-curl https://api.lead360.app/api/v1/voice-ai/transfer-numbers \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Example Response**:
+**Response 200**:
 ```json
 [
   {
@@ -1837,8 +1258,9 @@ curl https://api.lead360.app/api/v1/voice-ai/transfer-numbers \
     "transfer_type": "after_hours",
     "description": null,
     "is_default": false,
+    "is_active": true,
     "display_order": 1,
-    "available_hours": "{\"mon\":[[\"09:00\",\"17:00\"]]}",
+    "available_hours": "{\"mon\":{\"open\":\"09:00\",\"close\":\"17:00\"}}",
     "created_at": "2026-02-17T22:58:48.762Z",
     "updated_at": "2026-02-17T23:00:14.406Z"
   },
@@ -1850,6 +1272,7 @@ curl https://api.lead360.app/api/v1/voice-ai/transfer-numbers \
     "transfer_type": "primary",
     "description": "Main sales line",
     "is_default": false,
+    "is_active": true,
     "display_order": 2,
     "available_hours": null,
     "created_at": "2026-02-17T22:58:28.174Z",
@@ -1858,328 +1281,263 @@ curl https://api.lead360.app/api/v1/voice-ai/transfer-numbers \
 ]
 ```
 
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid JWT token |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized — valid JWT required" }`
+**Response 403**: `{ "statusCode": 403, "message": "Forbidden — insufficient role" }`
 
 ---
 
-### `POST /api/v1/voice-ai/transfer-numbers`
+#### GET /api/v1/voice-ai/transfer-numbers/:id
 
-Create a new transfer number for the authenticated tenant. Maximum 10 per tenant — creating beyond this limit returns `400`.
+**Auth**: Bearer token (Tenant user)
+**Roles**: Owner, Admin, Manager
+**Returns**: Single transfer number by ID
+**Note**: Returns 404 if ID doesn't exist or belongs to different tenant
 
-**Auth**: JWT Bearer, any authenticated tenant user
+**Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | Transfer number ID |
 
-**Request Body**:
+**Response 200**: Single transfer number object (same structure as array item in GET all)
 
-| Field | Type | Required | Validation | Description |
-|-------|------|----------|------------|-------------|
-| `label` | `string` | Yes | max 100 chars | Display name, e.g. `"Sales"`, `"Support"`, `"Emergency"` |
-| `phone_number` | `string` | Yes | E.164 format (`+` + 1–15 digits) | Phone number to transfer calls to |
-| `transfer_type` | `"primary" \| "overflow" \| "after_hours" \| "emergency"` | No | enum | How the agent uses this number. Default: `"primary"`. |
-| `description` | `string` | No | max 200 chars | Optional description |
-| `is_default` | `boolean` | No | — | Default: `false`. Only one transfer number per tenant can be the default. |
-| `display_order` | `integer` | No | ≥ 0 | Position in UI. Default: `0`. Lower value = higher priority. |
-| `available_hours` | `string` | No | JSON string | Operating hours as JSON string (see `available_hours` format above) |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized — valid JWT required" }`
+**Response 403**: `{ "statusCode": 403, "message": "Forbidden — insufficient role" }`
+**Response 404**: `{ "statusCode": 404, "message": "Transfer number not found or belongs to a different tenant" }`
 
-**Request Body Example**:
+---
+
+#### POST /api/v1/voice-ai/transfer-numbers
+
+**Auth**: Bearer token (Tenant user)
+**Roles**: Owner, Admin
+**Creates**: New call transfer destination
+**Limit**: Maximum 10 per tenant
+**Note**: Setting `is_default: true` automatically unsets any existing default
+
+**Request Body Fields**:
+| Field | Type | Required | Constraints | Default | Description |
+|-------|------|----------|-------------|---------|-------------|
+| label | string | ✅ Yes | max 100 chars | - | Human-readable label for this transfer destination |
+| phone_number | string | ✅ Yes | E.164 format (regex: `/^\+[1-9]\d{7,14}$/`) | - | Phone number (e.g., '+15551234567') |
+| transfer_type | string | ❌ No | enum: 'primary', 'overflow', 'after_hours', 'emergency' | 'primary' | Category of this transfer destination |
+| description | string | ❌ No | max 200 chars | null | Optional description of when to use this number |
+| is_default | boolean | ❌ No | - | false | Whether this is the default transfer number for the tenant |
+| available_hours | string | ❌ No | JSON object as string | null | Availability windows per day. **Note: JSON string, not object**. Example: `'{"mon":[["09:00","17:00"]],"tue":[["09:00","17:00"]]}'`. **null = always available** |
+| display_order | number | ❌ No | min: 0, integer | 0 | Sort order in the UI — lower value = higher priority |
+
+**Minimal Request Example (required fields only)**:
 ```json
 {
-  "label": "Sales",
+  "label": "Sales Team",
+  "phone_number": "+13055551234"
+}
+```
+
+**Complete Request Example**:
+```json
+{
+  "label": "Sales Team",
   "phone_number": "+13055551234",
   "transfer_type": "primary",
-  "is_default": false,
+  "description": "Main sales line for customer inquiries",
+  "is_default": true,
+  "available_hours": "{\"mon\":[[\"09:00\",\"17:00\"]],\"tue\":[[\"09:00\",\"17:00\"]],\"fri\":[[\"09:00\",\"12:00\"]]}",
   "display_order": 1
 }
 ```
 
-**Request Body Example with available_hours**:
+**Response 201**: Returns created transfer number object
+
+**Validation Error Response 400**:
 ```json
 {
-  "label": "After Hours Support",
-  "phone_number": "+13055558888",
-  "transfer_type": "after_hours",
-  "is_default": false,
-  "display_order": 3,
-  "available_hours": "{\"mon\":[[\"09:00\",\"17:00\"]],\"fri\":[[\"09:00\",\"15:00\"]]}"
+  "statusCode": 400,
+  "message": [
+    "label should not be empty",
+    "label must be shorter than or equal to 100 characters",
+    "Phone must be in E.164 format (+15551234567)",
+    "transfer_type must be one of the following values: primary, overflow, after_hours, emergency",
+    "description must be shorter than or equal to 200 characters",
+    "display_order must not be less than 0"
+  ],
+  "error": "Bad Request"
 }
 ```
 
-**Response**: `201 Created` — The created transfer number object
-
-**Curl Example**:
-```bash
-curl -X POST https://api.lead360.app/api/v1/voice-ai/transfer-numbers \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "label": "Sales",
-    "phone_number": "+13055551234",
-    "transfer_type": "primary",
-    "is_default": false,
-    "display_order": 1
-  }'
-```
-
-**Example Response**:
+**Business Logic Error 400**:
 ```json
 {
-  "id": "5a1d15f3-b4ba-4571-914b-87bd9089312e",
-  "tenant_id": "14a34ab2-6f6f-4e41-9bea-c444a304557e",
-  "label": "Sales",
-  "phone_number": "+13055551234",
-  "transfer_type": "primary",
-  "description": null,
-  "is_default": false,
-  "display_order": 1,
-  "available_hours": null,
-  "created_at": "2026-02-17T22:58:28.174Z",
-  "updated_at": "2026-02-17T22:58:28.174Z"
+  "statusCode": 400,
+  "message": "Maximum of 10 transfer numbers reached",
+  "error": "Bad Request"
 }
 ```
 
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `400` | `Maximum of 10 transfer numbers per tenant has been reached.` | Tenant already has 10 transfer numbers |
-| `400` | Validation message | Missing required fields or invalid format |
-| `401` | `Unauthorized` | Missing or invalid JWT token |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized — valid JWT required" }`
+**Response 403**: `{ "statusCode": 403, "message": "Forbidden — insufficient role" }`
 
 ---
 
-### `POST /api/v1/voice-ai/transfer-numbers/reorder`
+#### PATCH /api/v1/voice-ai/transfer-numbers/reorder
 
-Bulk-update the `display_order` of multiple transfer numbers in a single request. Used to support drag-and-drop reordering in the frontend UI (FTA02).
+**Auth**: Bearer token (Tenant user)
+**Roles**: Owner, Admin
+**Bulk-updates**: display_order for multiple transfer numbers in one transaction
+**Returns**: Full updated list ordered by display_order ASC
 
-> ⚠️ **Route order matters**: `/reorder` is a static route registered **before** `/:id` in the controller. It will always be matched correctly.
+**Request Body Fields**:
+| Field | Type | Required | Constraints | Description |
+|-------|------|----------|-------------|-------------|
+| items | array of objects | ✅ Yes | minItems: 1, maxItems: 10 | Array of {id, display_order} pairs to bulk-update |
+| items[].id | string | ✅ Yes | valid UUID | UUID of the transfer number to reorder |
+| items[].display_order | number | ✅ Yes | min: 0, integer | New display order position (0-based, lower = higher priority) |
 
-**Auth**: JWT Bearer, any authenticated tenant user
-
-**Request Body**:
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `items` | `ReorderItem[]` | Yes | Array of transfer number IDs with their new display_order values |
-
-**`ReorderItem` shape**:
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | `string (UUID)` | Yes | Transfer number UUID |
-| `display_order` | `integer` | Yes | New display order value |
-
-**Request Body Example**:
+**Request Example**:
 ```json
 {
   "items": [
-    { "id": "aaa76176-d206-4499-b8ed-8df9031d5500", "display_order": 1 },
-    { "id": "5a1d15f3-b4ba-4571-914b-87bd9089312e", "display_order": 2 },
-    { "id": "ccc12345-dead-beef-cafe-000000000001", "display_order": 3 }
+    { "id": "aaa76176-d206-4499-b8ed-8df9031d5500", "display_order": 0 },
+    { "id": "5a1d15f3-b4ba-4571-914b-87bd9089312e", "display_order": 1 },
+    { "id": "c8b9e123-1234-5678-abcd-123456789def", "display_order": 2 }
   ]
 }
 ```
 
-**Response**: `200 OK` — Array of all transfer numbers in their new order
+**Response 200**: Returns full array of updated transfer numbers (same structure as GET all)
 
-**Curl Example**:
-```bash
-curl -X POST https://api.lead360.app/api/v1/voice-ai/transfer-numbers/reorder \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "items": [
-      {"id": "aaa76176-d206-4499-b8ed-8df9031d5500", "display_order": 1},
-      {"id": "5a1d15f3-b4ba-4571-914b-87bd9089312e", "display_order": 2}
-    ]
-  }'
-```
-
-**Example Response**: Array of updated transfer number objects (same shape as `GET /transfer-numbers`).
-
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `400` | Validation message | Missing `items` array or invalid item fields |
-| `400` | `The following transfer number IDs do not belong to your account: {id1}, {id2}` | One or more IDs do not belong to this tenant |
-| `400` | `Duplicate transfer number IDs are not allowed in a reorder request.` | Duplicate IDs in the items array |
-| `401` | `Unauthorized` | Missing or invalid JWT token |
-
----
-
-### `PATCH /api/v1/voice-ai/transfer-numbers/:id`
-
-Update one or more fields of an existing transfer number. All fields are optional — only provided fields are updated.
-
-**Auth**: JWT Bearer, any authenticated tenant user
-
-**Path Parameters**:
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `id` | `string (UUID)` | Yes | Transfer number UUID |
-
-**Request Body** (all fields optional):
-
-| Field | Type | Validation | Description |
-|-------|------|------------|-------------|
-| `label` | `string` | — | New display label |
-| `phone_number` | `string` | E.164 format | New phone number |
-| `transfer_type` | `"primary" \| "overflow" \| "after_hours" \| "emergency"` | enum | New transfer type |
-| `description` | `string \| null` | — | Description. `null` clears. |
-| `is_default` | `boolean` | — | Toggle default status |
-| `display_order` | `integer` | — | New display position |
-| `available_hours` | `string \| null` | JSON string | New hours definition. `null` clears. |
-
-**Request Body Example**:
+**Validation Error Response 400**:
 ```json
 {
-  "label": "Sales Team",
-  "description": "Main sales line — Mon-Fri 9am-5pm"
+  "statusCode": 400,
+  "message": [
+    "items must contain at least 1 elements",
+    "items must contain no more than 10 elements",
+    "id should not be empty",
+    "display_order must not be less than 0",
+    "display_order must be an integer number"
+  ],
+  "error": "Bad Request"
 }
 ```
 
-**Response**: `200 OK` — The updated transfer number object
-
-**Curl Example**:
-```bash
-curl -X PATCH https://api.lead360.app/api/v1/voice-ai/transfer-numbers/5a1d15f3-b4ba-4571-914b-87bd9089312e \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"label": "Sales Team", "description": "Main sales line"}'
-```
-
-**Example Response**:
+**Business Logic Error 400**:
 ```json
 {
-  "id": "5a1d15f3-b4ba-4571-914b-87bd9089312e",
-  "tenant_id": "14a34ab2-6f6f-4e41-9bea-c444a304557e",
-  "label": "Sales Team",
-  "phone_number": "+13055551234",
+  "statusCode": 400,
+  "message": "One or more IDs do not belong to the tenant",
+  "error": "Bad Request"
+}
+```
+
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized — valid JWT required" }`
+**Response 403**: `{ "statusCode": 403, "message": "Forbidden — insufficient role" }`
+
+---
+
+#### PATCH /api/v1/voice-ai/transfer-numbers/:id
+
+**Auth**: Bearer token (Tenant user)
+**Roles**: Owner, Admin
+**Updates**: One or more fields of a transfer number (partial update)
+**Note**: Setting `is_default: true` automatically unsets any existing default
+
+**Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | Transfer number ID |
+
+**Request Body Fields (all optional)**:
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| label | string | max 100 chars | Human-readable label for this transfer destination |
+| phone_number | string | E.164 format (regex: `/^\+[1-9]\d{7,14}$/`) | Phone number (e.g., '+15551234567') |
+| transfer_type | string | enum: 'primary', 'overflow', 'after_hours', 'emergency' | Category of this transfer destination |
+| description | string | max 200 chars | Optional description of when to use this number |
+| is_default | boolean | - | Whether this is the default transfer number for the tenant |
+| available_hours | string | JSON object as string | Availability windows per day **Note: JSON string, not object** |
+| display_order | number | min: 0, integer | Sort order in the UI — lower value = higher priority |
+
+**Minimal Request Example**:
+```json
+{
+  "is_default": true
+}
+```
+
+**Complete Request Example**:
+```json
+{
+  "label": "Updated Sales Team",
+  "phone_number": "+13055559999",
   "transfer_type": "primary",
-  "description": "Main sales line",
-  "is_default": false,
-  "display_order": 2,
-  "available_hours": null,
-  "created_at": "2026-02-17T22:58:28.174Z",
-  "updated_at": "2026-02-17T22:58:48.730Z"
+  "description": "Updated description - Main sales line",
+  "is_default": true,
+  "available_hours": "{\"mon\":[[\"08:00\",\"18:00\"]],\"fri\":[[\"08:00\",\"12:00\"]]}",
+  "display_order": 0
 }
 ```
 
-**Error Responses**:
+**Response 200**: Returns updated transfer number object
 
-| Status | Message | Cause |
-|--------|---------|-------|
-| `400` | Validation message | Invalid field values |
-| `401` | `Unauthorized` | Missing or invalid JWT token |
-| `404` | `Transfer number with ID "{id}" not found.` | UUID does not exist or belongs to a different tenant |
-
----
-
-### `DELETE /api/v1/voice-ai/transfer-numbers/:id`
-
-Delete a transfer number permanently. Hard delete — the record is removed from the database.
-
-**Auth**: JWT Bearer, any authenticated tenant user
-
-**Path Parameters**:
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `id` | `string (UUID)` | Yes | Transfer number UUID to delete |
-
-**Request Body**: None
-
-**Response**: `204 No Content` — Empty body on success
-
-**Curl Example**:
-```bash
-curl -X DELETE https://api.lead360.app/api/v1/voice-ai/transfer-numbers/5a1d15f3-b4ba-4571-914b-87bd9089312e \
-  -H "Authorization: Bearer $TOKEN"
+**Validation Error Response 400**:
+```json
+{
+  "statusCode": 400,
+  "message": [
+    "label must be shorter than or equal to 100 characters",
+    "Phone must be in E.164 format (+15551234567)",
+    "transfer_type must be one of the following values: primary, overflow, after_hours, emergency",
+    "display_order must not be less than 0"
+  ],
+  "error": "Bad Request"
+}
 ```
 
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid JWT token |
-| `404` | `Transfer number with ID "{id}" not found.` | UUID does not exist or belongs to a different tenant |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized — valid JWT required" }`
+**Response 403**: `{ "statusCode": 403, "message": "Forbidden — insufficient role" }`
+**Response 404**: `{ "statusCode": 404, "message": "Transfer number not found or belongs to a different tenant" }`
 
 ---
 
-## Tenant Call Logs
+#### DELETE /api/v1/voice-ai/transfer-numbers/:id
 
-### `GET /api/v1/voice-ai/call-logs`
+**Auth**: Bearer token (Tenant user)
+**Roles**: Owner, Admin
+**Soft-deletes**: Transfer number by setting is_active = false
+**Note**: Does not hard-delete from database
 
-Paginated list of all Voice AI calls for the authenticated tenant. Returns calls in reverse-chronological order.
+**Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | Transfer number ID |
 
-**Auth**: JWT Bearer, any authenticated tenant user
+**Response 204**: No content (success)
 
-**Request Body**: None
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized — valid JWT required" }`
+**Response 403**: `{ "statusCode": 403, "message": "Forbidden — insufficient role" }`
+**Response 404**: `{ "statusCode": 404, "message": "Transfer number not found or belongs to a different tenant" }`
+
+---
+
+### Call Logs & Usage (Tenant)
+
+#### GET /api/v1/voice-ai/call-logs
+
+**Auth**: Bearer token (Tenant user)
+**Roles**: Owner, Admin, Manager
+**Returns**: Paginated call logs for the authenticated tenant
+**Order**: started_at DESC (most recent first)
 
 **Query Parameters**:
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| from | ISO 8601 date | No | - | Start date (inclusive) |
+| to | ISO 8601 date | No | - | End date (inclusive) |
+| outcome | string | No | - | Filter by outcome: 'lead_created', 'transferred', 'abandoned' |
+| page | integer | No | 1 | Page number (1-based) |
+| limit | integer | No | 20 | Records per page (max: 100) |
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `from` | `string (ISO 8601)` | — | Optional. Filter calls started on or after this date/time |
-| `to` | `string (ISO 8601)` | — | Optional. Filter calls started on or before this date/time |
-| `outcome` | `string` | — | Optional. Filter by outcome: `completed`, `transferred`, `voicemail`, `abandoned`, `error` |
-| `page` | `integer` | `1` | Page number (1-based) |
-| `limit` | `integer` | `20` | Results per page (max 100) |
-
-**Response**: `200 OK` — Paginated list of call log objects
-
-**Curl Example**:
-```bash
-# All calls
-curl "https://api.lead360.app/api/v1/voice-ai/call-logs" \
-  -H "Authorization: Bearer $TOKEN"
-
-# Filtered by date range and outcome
-curl "https://api.lead360.app/api/v1/voice-ai/call-logs?from=2026-01-01&to=2026-02-28&outcome=transferred&page=1&limit=10" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Example Response**:
-```json
-{
-  "data": [
-    {
-      "id": "a91c2f04-1234-5678-abcd-ef0123456789",
-      "tenant_id": "14a34ab2-6f6f-4e41-9bea-c444a304557e",
-      "call_sid": "CA1234567890abcdef1234567890abcdef",
-      "from_number": "+13055559876",
-      "to_number": "+13055551000",
-      "direction": "inbound",
-      "status": "completed",
-      "outcome": "transferred",
-      "is_overage": false,
-      "duration_seconds": 127,
-      "transcript_summary": "Caller inquired about emergency plumbing. Agent created lead and transferred to on-call tech.",
-      "full_transcript": null,
-      "actions_taken": ["lead_created"],
-      "lead_id": "bb7c3a12-0001-4321-8765-abcdef012345",
-      "stt_provider_id": "a8a5b151-c7c6-435a-930d-249e41868997",
-      "llm_provider_id": "2490153d-160e-49a1-a0db-ddc12bcbec9f",
-      "tts_provider_id": "ae9093bd-2f28-4b97-a240-f91bfe43f0c6",
-      "started_at": "2026-02-15T14:32:01.000Z",
-      "ended_at": "2026-02-15T14:34:08.000Z",
-      "created_at": "2026-02-15T14:32:01.000Z"
-    }
-  ],
-  "meta": {
-    "total": 1,
-    "page": 1,
-    "limit": 20,
-    "total_pages": 1
-  }
-}
-```
-
-**Example Response (empty)**:
+**Response 200**:
 ```json
 {
   "data": [],
@@ -2192,128 +1550,105 @@ curl "https://api.lead360.app/api/v1/voice-ai/call-logs?from=2026-01-01&to=2026-
 }
 ```
 
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid JWT token |
-
----
-
-### `GET /api/v1/voice-ai/call-logs/:id`
-
-Get full detail for a single call log, including the complete STT transcript.
-
-**Auth**: JWT Bearer, any authenticated tenant user. Tenant can only access their own call logs.
-
-**Path Parameters**:
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `id` | `string (UUID)` | Yes | Call log UUID |
-
-**Request Body**: None
-
-**Response**: `200 OK` — Full call log object (same shape as list items — includes `full_transcript`)
-
-**Curl Example**:
-```bash
-curl "https://api.lead360.app/api/v1/voice-ai/call-logs/a91c2f04-1234-5678-abcd-ef0123456789" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Example Response**:
+OR with data:
 ```json
 {
-  "id": "a91c2f04-1234-5678-abcd-ef0123456789",
-  "tenant_id": "14a34ab2-6f6f-4e41-9bea-c444a304557e",
-  "call_sid": "CA1234567890abcdef1234567890abcdef",
-  "from_number": "+13055559876",
-  "to_number": "+13055551000",
-  "direction": "inbound",
-  "status": "completed",
-  "outcome": "transferred",
-  "is_overage": false,
-  "duration_seconds": 127,
-  "transcript_summary": "Caller inquired about emergency plumbing. Agent created lead and transferred to on-call tech.",
-  "full_transcript": "Agent: Hello, thank you for calling! How can I help you today?\nCaller: Hi, I have a water leak...",
-  "actions_taken": ["lead_created"],
-  "lead_id": "bb7c3a12-0001-4321-8765-abcdef012345",
-  "stt_provider_id": "a8a5b151-c7c6-435a-930d-249e41868997",
-  "llm_provider_id": "2490153d-160e-49a1-a0db-ddc12bcbec9f",
-  "tts_provider_id": "ae9093bd-2f28-4b97-a240-f91bfe43f0c6",
-  "started_at": "2026-02-15T14:32:01.000Z",
-  "ended_at": "2026-02-15T14:34:08.000Z",
-  "created_at": "2026-02-15T14:32:01.000Z"
+  "data": [
+    {
+      "id": "uuid",
+      "tenant_id": "uuid",
+      "call_sid": "CA123...",
+      "from_number": "+15551234567",
+      "to_number": "+15559876543",
+      "direction": "inbound",
+      "status": "completed",
+      "outcome": "lead_created",
+      "is_overage": false,
+      "duration_seconds": 127,
+      "transcript_summary": "Customer inquired about roofing services...",
+      "full_transcript": null,
+      "actions_taken": "[{\"type\":\"lead_created\",\"lead_id\":\"uuid\"}]",
+      "lead_id": "uuid",
+      "stt_provider_id": "uuid",
+      "llm_provider_id": "uuid",
+      "tts_provider_id": "uuid",
+      "started_at": "2026-02-22T14:30:00.000Z",
+      "ended_at": "2026-02-22T14:32:07.000Z",
+      "created_at": "2026-02-22T14:30:00.000Z"
+    }
+  ],
+  "meta": {
+    "total": 1,
+    "page": 1,
+    "limit": 20,
+    "total_pages": 1
+  }
 }
 ```
 
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid JWT token |
-| `404` | `Call log {id} not found` | UUID does not exist or belongs to a different tenant |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized — valid JWT required" }`
+**Response 403**: `{ "statusCode": 403, "message": "Forbidden — Owner, Admin, or Manager role required" }`
 
 ---
 
-## Tenant Usage
+#### GET /api/v1/voice-ai/call-logs/:id
 
-### `GET /api/v1/voice-ai/usage`
+**Auth**: Bearer token (Tenant user)
+**Roles**: Owner, Admin, Manager
+**Returns**: Single call log by UUID including full transcript
+**Note**: Log must belong to authenticated tenant (cross-tenant access blocked)
 
-Get the authenticated tenant's monthly Voice AI usage summary, broken down by AI provider type (STT, LLM, TTS).
+**Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | Call log ID |
 
-**Auth**: JWT Bearer, any authenticated tenant user
-
-**Request Body**: None
-
-**Query Parameters**:
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `year` | `integer` | Current year | Year to report on, e.g. `2026` |
-| `month` | `integer` | Current month | Month to report on (1–12), e.g. `2` for February |
-
-**Response**: `200 OK`
-
-**Response Shape**:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `year` | `integer` | Year of the report |
-| `month` | `integer` | Month of the report (1–12) |
-| `total_calls` | `integer` | Total Voice AI calls this tenant had this month |
-| `total_stt_seconds` | `number` | Total STT seconds processed (used for quota calculation) |
-| `total_llm_tokens` | `number` | Total LLM tokens consumed |
-| `total_tts_characters` | `number` | Total TTS characters converted to speech |
-| `estimated_cost` | `number` | Total estimated USD cost across all providers |
-| `by_provider` | `ProviderUsageSummary[]` | Per-provider breakdown (see below) |
-
-**`ProviderUsageSummary` fields**:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `provider_id` | `string (UUID)` | Provider UUID |
-| `provider_type` | `"STT" \| "LLM" \| "TTS"` | Provider category |
-| `provider_name` | `string` | Provider display name, e.g. `"Deepgram"` |
-| `total_quantity` | `number` | Total usage quantity (unit depends on `unit` field) |
-| `unit` | `"seconds" \| "tokens" \| "characters"` | Unit of measurement |
-| `estimated_cost` | `number` | Estimated USD cost for this provider |
-
-> **Quota**: The `total_stt_seconds / 60` value represents minutes used. To know the tenant's effective quota: if `GET /voice-ai/settings` returns a non-null `monthly_minutes_override`, that value is the quota; otherwise the quota comes from the subscription plan's `voice_ai_minutes_included` field. Minutes remaining = quota - (total_stt_seconds / 60). Quota exceeded when minutes used ≥ quota and the plan has no overage rate.
-
-**Curl Example**:
-```bash
-# Current month (defaults)
-curl "https://api.lead360.app/api/v1/voice-ai/usage" \
-  -H "Authorization: Bearer $TOKEN"
-
-# Specific month
-curl "https://api.lead360.app/api/v1/voice-ai/usage?year=2026&month=2" \
-  -H "Authorization: Bearer $TOKEN"
+**Response 200**:
+```json
+{
+  "id": "uuid",
+  "tenant_id": "uuid",
+  "call_sid": "CA123...",
+  "from_number": "+15551234567",
+  "to_number": "+15559876543",
+  "direction": "inbound",
+  "status": "completed",
+  "outcome": "lead_created",
+  "is_overage": false,
+  "duration_seconds": 127,
+  "transcript_summary": "Customer inquired about roofing services...",
+  "full_transcript": "[{\"timestamp\":\"2026-02-22T14:30:05.000Z\",\"speaker\":\"agent\",\"text\":\"Hello, thank you for calling...\"},{\"timestamp\":\"2026-02-22T14:30:08.000Z\",\"speaker\":\"user\",\"text\":\"Hi, I need a quote for roof repair.\"}]",
+  "actions_taken": "[{\"type\":\"lead_created\",\"lead_id\":\"uuid\",\"timestamp\":\"2026-02-22T14:31:00.000Z\"}]",
+  "lead_id": "uuid",
+  "stt_provider_id": "uuid",
+  "llm_provider_id": "uuid",
+  "tts_provider_id": "uuid",
+  "started_at": "2026-02-22T14:30:00.000Z",
+  "ended_at": "2026-02-22T14:32:07.000Z",
+  "created_at": "2026-02-22T14:30:00.000Z"
+}
 ```
 
-**Example Response (no usage yet)**:
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized — valid JWT required" }`
+**Response 403**: `{ "statusCode": 403, "message": "Forbidden — Owner, Admin, or Manager role required" }`
+**Response 404**: `{ "statusCode": 404, "message": "Call log not found or belongs to a different tenant" }`
+
+---
+
+#### GET /api/v1/voice-ai/usage
+
+**Auth**: Bearer token (Tenant user)
+**Roles**: Owner, Admin, Manager
+**Returns**: Monthly usage summary for the authenticated tenant
+**Aggregates**: STT seconds, LLM tokens, TTS characters, and estimated cost from per-call records
+
+**Query Parameters**:
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| year | integer | No | Current year | Year (e.g., 2026) |
+| month | integer | No | Current month | Month (1-12) |
+
+**Response 200**:
 ```json
 {
   "year": 2026,
@@ -2327,731 +1662,150 @@ curl "https://api.lead360.app/api/v1/voice-ai/usage?year=2026&month=2" \
 }
 ```
 
-**Example Response (with usage data)**:
+OR with usage:
 ```json
 {
   "year": 2026,
   "month": 2,
   "total_calls": 47,
-  "total_stt_seconds": 2820,
-  "total_llm_tokens": 148500,
-  "total_tts_characters": 94200,
-  "estimated_cost": 3.22,
+  "total_stt_seconds": 2840,
+  "total_llm_tokens": 15420,
+  "total_tts_characters": 8930,
+  "estimated_cost": 12.45,
   "by_provider": [
     {
-      "provider_id": "a8a5b151-c7c6-435a-930d-249e41868997",
+      "provider_id": "uuid",
+      "provider_key": "deepgram",
       "provider_type": "STT",
-      "provider_name": "Deepgram",
-      "total_quantity": 2820,
-      "unit": "seconds",
-      "estimated_cost": 0.98
+      "total_seconds": 2840,
+      "estimated_cost": 4.26
     },
     {
-      "provider_id": "2490153d-160e-49a1-a0db-ddc12bcbec9f",
+      "provider_id": "uuid",
+      "provider_key": "openai",
       "provider_type": "LLM",
-      "provider_name": "OpenAI",
-      "total_quantity": 148500,
-      "unit": "tokens",
-      "estimated_cost": 1.79
+      "total_tokens": 15420,
+      "estimated_cost": 3.08
     },
     {
-      "provider_id": "ae9093bd-2f28-4b97-a240-f91bfe43f0c6",
+      "provider_id": "uuid",
+      "provider_key": "cartesia",
       "provider_type": "TTS",
-      "provider_name": "Cartesia",
-      "total_quantity": 94200,
-      "unit": "characters",
-      "estimated_cost": 0.45
+      "total_characters": 8930,
+      "estimated_cost": 5.11
     }
   ]
 }
 ```
 
-**Error Responses**:
+**Field Descriptions**:
+- `total_calls`: Total number of calls in the month
+- `total_stt_seconds`: Total STT seconds (used for quota calculation)
+- `total_llm_tokens`: Total LLM tokens consumed
+- `total_tts_characters`: Total TTS characters generated
+- `estimated_cost`: Total estimated cost in USD
+- `by_provider`: Per-provider breakdown
 
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid JWT token |
+**Response 401**: `{ "statusCode": 401, "message": "Unauthorized — valid JWT required" }`
+**Response 403**: `{ "statusCode": 403, "message": "Forbidden — Owner, Admin, or Manager role required" }`
 
 ---
 
 ## Internal Agent Endpoints
 
-> **Auth required for all endpoints in this section**: `X-Voice-Agent-Key: {key}` header — NOT JWT.
-> All routes use `@Public()` to bypass the global JwtAuthGuard. Authentication is handled exclusively by `VoiceAgentKeyGuard`, which validates the key against the SHA-256 hash stored in `voice_ai_global_config.agent_api_key_hash`.
+**CRITICAL**: These endpoints are exclusively for the Python voice agent. They bypass global JWT authentication and use a custom authentication mechanism.
 
-The agent key is generated via `POST /api/v1/system/voice-ai/config/regenerate-key` (admin only). The plaintext key is returned **once** and never stored. Rotate it without downtime — the old key becomes invalid immediately.
+**Auth**: `X-Voice-Agent-Key` header (NOT JWT Bearer token)
+**Base**: `/api/v1/internal/voice-ai/*`
+**Purpose**: Provide agent with full tenant context and handle call lifecycle
+**Security**: These endpoints are protected by timing-safe key comparison. The agent API key is configured in global config and must match exactly.
 
-### Endpoint Overview
-
-| API ID | Method | Path | Purpose | Called When |
-|--------|--------|------|---------|-------------|
-| API-026 | `GET` | `/internal/voice-ai/tenant/:tenantId/access` | Pre-flight quota check | Before accepting the LiveKit job |
-| API-022 | `GET` | `/internal/voice-ai/tenant/:tenantId/context` | Full tenant context | After joining the LiveKit room |
-| API-024 | `POST` | `/internal/voice-ai/calls/start` | Create call log | Before audio processing begins |
-| API-030 | `POST` | `/internal/voice-ai/calls/:callSid/complete` | Finalize call + usage | In `finally` block — always runs |
-| API-027 | `POST` | `/internal/voice-ai/tenant/:tenantId/tools/:tool` | Dispatch tool action | When LLM decides to act |
+⚠️ **SECURITY WARNING**: The context endpoint returns DECRYPTED provider API keys. The agent MUST NOT cache or log this response.
 
 ---
 
-### API-026: `GET /api/v1/internal/voice-ai/tenant/:tenantId/access`
+### GET /api/v1/internal/voice-ai/tenant/:tenantId/access
 
-Pre-flight quota and enabled check. The Python agent calls this **before** accepting a call job from the LiveKit queue. It is a cheap operation — it does NOT decrypt provider credentials.
-
-**Auth**: `X-Voice-Agent-Key` header
+**Auth**: X-Voice-Agent-Key header
+**Purpose**: Pre-flight access check before agent accepts a call
+**Use Case**: Verify tenant has Voice AI enabled and sufficient quota before starting call
 
 **Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| tenantId | UUID | Tenant ID from SIP URI parameters |
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `tenantId` | `string (UUID)` | Yes | UUID of the tenant, sourced from the call routing params |
-
-**Request Body**: None
-
-**Response**: `200 OK`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `has_access` | `boolean` | `true` → agent may proceed; `false` → agent must reject the call |
-| `reason` | `string \| undefined` | Only present when `has_access: false`. See reason values below |
-| `minutes_remaining` | `number \| undefined` | Available quota minutes. Present when `has_access: true` or reason is `quota_exceeded` |
-| `overage_rate` | `number \| null \| undefined` | Cost per minute for overage. `null` = no overage allowed |
-
-**`reason` values**:
-
-| Value | Meaning | Action |
-|-------|---------|--------|
-| `not_enabled` | Voice AI is disabled for this tenant | Reject call, hang up |
-| `quota_exceeded` | Monthly minutes exhausted, no overage rate configured | Reject call, hang up |
-| `tenant_not_found` | Tenant UUID does not exist in the database | Reject call, log error |
-
-**Curl Examples**:
-
-```bash
-AGENT_KEY="your-agent-key-from-admin"
-TENANT_ID="bc5b3363-ebe5-46fb-adac-53f8ed75a28d"
-
-curl "https://api.lead360.app/api/v1/internal/voice-ai/tenant/$TENANT_ID/access" \
-  -H "X-Voice-Agent-Key: $AGENT_KEY" | jq .
+**Request Headers**:
+```
+X-Voice-Agent-Key: {agent_api_key}
 ```
 
-**Example Responses**:
-
+**Response 200** (Access Granted):
 ```json
-// Access granted
 {
   "has_access": true,
   "minutes_remaining": 453,
   "overage_rate": null
 }
+```
 
-// Access granted with overage available
-{
-  "has_access": true,
-  "minutes_remaining": 0,
-  "overage_rate": 0.05
-}
-
-// Quota exhausted, no overage
+**Response 403** (Access Denied - Quota Exceeded):
+```json
 {
   "has_access": false,
   "reason": "quota_exceeded",
   "minutes_remaining": 0,
   "overage_rate": null
 }
+```
 
-// Voice AI not enabled for this tenant
+**Response 403** (Access Denied - Not Enabled):
+```json
 {
   "has_access": false,
   "reason": "not_enabled"
 }
-
-// Tenant UUID does not exist
-{
-  "has_access": false,
-  "reason": "tenant_not_found"
-}
 ```
 
-**Error Responses**:
-
-| Status | Cause |
-|--------|-------|
-| `401` | Missing or invalid `X-Voice-Agent-Key` header |
-
-> **Note**: This endpoint returns `200` in ALL cases — even when access is denied. The agent must check `has_access` in the response body, not the HTTP status code.
+**Response 401**: `{ "statusCode": 401, "message": "Invalid agent API key" }`
+**Response 404**: `{ "statusCode": 404, "message": "Tenant not found" }`
 
 ---
 
-### API-022: `GET /api/v1/internal/voice-ai/tenant/:tenantId/context`
+### GET /api/v1/internal/voice-ai/tenant/:tenantId/context
 
-Returns the complete `FullVoiceAiContext` for the tenant. Called **once per call** after the agent has been dispatched to the LiveKit room. Contains decrypted provider API keys — see [Section 9: FullVoiceAiContext Schema Reference](#fullvoiceaicontext-schema-reference) for the full JSON shape.
+**Auth**: X-Voice-Agent-Key header
+**Purpose**: Get full merged context with decrypted provider credentials
+**Use Case**: Agent retrieves complete configuration to initialize STT, LLM, TTS providers
 
-**Auth**: `X-Voice-Agent-Key` header
+⚠️ **SECURITY CRITICAL**: Response contains PLAINTEXT API keys. Never cache, log, or persist this response.
 
 **Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| tenantId | UUID | Tenant ID from SIP URI parameters |
 
+**Query Parameters** (Optional):
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `tenantId` | `string (UUID)` | Yes | UUID of the tenant |
+| call_sid | string | No | Twilio CallSid to include in context (for call tracking) |
 
-**Request Body**: None
-
-**Cache Policy**: Agent SHOULD cache this response for **up to 60 seconds** per tenant. The context contains decrypted API keys — DO NOT cache beyond 60 seconds, DO NOT persist to disk, DO NOT log.
-
-**Response**: `200 OK` — `FullVoiceAiContext` object. See full schema in [Section 9](#fullvoiceaicontext-schema-reference).
-
-**Curl Example**:
-
-```bash
-curl "https://api.lead360.app/api/v1/internal/voice-ai/tenant/$TENANT_ID/context" \
-  -H "X-Voice-Agent-Key: $AGENT_KEY" | jq .
+**Request Headers**:
+```
+X-Voice-Agent-Key: {agent_api_key}
 ```
 
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid `X-Voice-Agent-Key` |
-| `404` | `Tenant with ID "..." not found` | Tenant UUID does not exist |
-| `500` | `Global config has not been initialized` | Platform admin has not saved the global config yet |
-
----
-
-### API-024: `POST /api/v1/internal/voice-ai/calls/start`
-
-Creates a `voice_call_log` row with `status = 'in_progress'`. Called by the Python agent **before** the audio stream begins, once dispatched to the LiveKit room.
-
-**Auth**: `X-Voice-Agent-Key` header
-
-**Request Body**:
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `tenant_id` | `string (UUID)` | Yes | Tenant UUID |
-| `call_sid` | `string` | Yes | Twilio CallSid (e.g. `CA1234567890abcdef`) |
-| `from_number` | `string` | Yes | Caller's E.164 phone number (e.g. `+15551234567`) |
-| `to_number` | `string` | Yes | Tenant's Twilio number in E.164 or SIP format |
-| `direction` | `"inbound" \| "outbound"` | No | Default: `"inbound"` |
-| `stt_provider_id` | `string (UUID)` | No | STT provider UUID from `context.providers.stt.provider_id` |
-| `llm_provider_id` | `string (UUID)` | No | LLM provider UUID from `context.providers.llm.provider_id` |
-| `tts_provider_id` | `string (UUID)` | No | TTS provider UUID from `context.providers.tts.provider_id` |
-
-> **Provider IDs**: Pass the `provider_id` values from the context response. These UUIDs link usage records to providers for billing aggregation. See [FullVoiceAiContext Schema](#fullvoiceaicontext-schema-reference) for where to source them.
-
-**Idempotency**: If the agent crashes and restarts, it may call this endpoint again with the same `call_sid`. The endpoint returns the existing `call_log_id` instead of creating a duplicate row.
-
-**Response**: `201 Created`
-
+**Response 200**:
 ```json
 {
-  "call_log_id": "7f8a9b0c-1d2e-3f4a-5b6c-7d8e9f0a1b2c"
-}
-```
-
-**Curl Example**:
-
-```bash
-curl -X POST "https://api.lead360.app/api/v1/internal/voice-ai/calls/start" \
-  -H "X-Voice-Agent-Key: $AGENT_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tenant_id": "'$TENANT_ID'",
-    "call_sid": "CA1234567890abcdef",
-    "from_number": "+15551234567",
-    "to_number": "+15559999999",
-    "direction": "inbound",
-    "stt_provider_id": "a8a5b151-c7c6-435a-930d-249e41868997",
-    "llm_provider_id": "2490153d-160e-49a1-a0db-ddc12bcbec9f",
-    "tts_provider_id": "ae9093bd-2f28-4b97-a240-f91bfe43f0c6"
-  }' | jq .
-```
-
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `400` | Validation error | Missing required fields or invalid `from_number` format |
-| `401` | `Unauthorized` | Missing or invalid `X-Voice-Agent-Key` |
-
----
-
-### API-030: `POST /api/v1/internal/voice-ai/calls/:callSid/complete`
-
-Finalizes the call log and persists per-provider usage records. Called by the Python agent in its `finally` block — **this must execute even if the call ended with an error**.
-
-All writes (call log update + usage record creation) execute in a single database transaction.
-
-**Auth**: `X-Voice-Agent-Key` header
-
-**Path Parameters**:
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `callSid` | `string` | Yes | Twilio CallSid — authoritative identifier |
-
-**Request Body**:
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `call_sid` | `string` | Yes | Twilio CallSid — must match `:callSid` path param |
-| `duration_seconds` | `integer ≥ 0` | Yes | Total call duration in seconds |
-| `outcome` | `string` | Yes | One of: `completed`, `transferred`, `voicemail`, `abandoned`, `error` |
-| `transcript_summary` | `string` | No | AI-generated summary of the call (max ~2000 chars recommended) |
-| `full_transcript` | `string` | No | Full STT output — complete conversation text |
-| `actions_taken` | `string[]` | No | List of actions taken, e.g. `["lead_created", "appointment_booked"]` |
-| `lead_id` | `string (UUID)` | No | UUID of the lead matched or created during this call |
-| `is_overage` | `boolean` | No | `true` if this call consumed overage minutes beyond the plan limit |
-| `usage_records` | `UsageRecord[]` | No | Per-provider usage records (typically 1–3 entries: STT, LLM, TTS) |
-
-**`UsageRecord` object**:
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `provider_id` | `string (UUID)` | Yes | UUID of the `voice_ai_provider` row — from context response |
-| `provider_type` | `"STT" \| "LLM" \| "TTS"` | Yes | Service category |
-| `usage_quantity` | `number ≥ 0` | Yes | Consumption amount (seconds for STT, tokens for LLM, characters for TTS) |
-| `usage_unit` | `"seconds" \| "tokens" \| "characters"` | Yes | Unit matching the provider type |
-| `estimated_cost` | `number ≥ 0` | No | Cost estimate in USD |
-
-> **`provider_id` for billing**: The `provider_id` in each usage record must be the UUID of the `voice_ai_provider` row — sourced from `context.providers.stt.provider_id`, `.llm.provider_id`, and `.tts.provider_id`. This links usage to the correct provider for quota aggregation and billing reports.
-
-**Response**: `200 OK`
-
-```json
-{
-  "success": true
-}
-```
-
-**Curl Example**:
-
-```bash
-curl -X POST "https://api.lead360.app/api/v1/internal/voice-ai/calls/CA1234567890abcdef/complete" \
-  -H "X-Voice-Agent-Key: $AGENT_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "call_sid": "CA1234567890abcdef",
-    "duration_seconds": 127,
-    "outcome": "completed",
-    "transcript_summary": "Customer called about a leaking pipe. Appointment created for next Monday.",
-    "actions_taken": ["lead_created", "appointment_booked"],
-    "lead_id": "7f8a9b0c-1d2e-3f4a-5b6c-7d8e9f0a1b2c",
-    "is_overage": false,
-    "usage_records": [
-      {
-        "provider_id": "a8a5b151-c7c6-435a-930d-249e41868997",
-        "provider_type": "STT",
-        "usage_quantity": 127,
-        "usage_unit": "seconds",
-        "estimated_cost": 0.13
-      },
-      {
-        "provider_id": "2490153d-160e-49a1-a0db-ddc12bcbec9f",
-        "provider_type": "LLM",
-        "usage_quantity": 3200,
-        "usage_unit": "tokens",
-        "estimated_cost": 0.004
-      },
-      {
-        "provider_id": "ae9093bd-2f28-4b97-a240-f91bfe43f0c6",
-        "provider_type": "TTS",
-        "usage_quantity": 8400,
-        "usage_unit": "characters",
-        "estimated_cost": 0.09
-      }
-    ]
-  }' | jq .
-```
-
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `400` | Validation error | Invalid body fields or enum values |
-| `401` | `Unauthorized` | Missing or invalid `X-Voice-Agent-Key` |
-| `404` | `Call log not found for callSid "..."` | No call log exists for the given CallSid |
-
----
-
-### API-027: `POST /api/v1/internal/voice-ai/tenant/:tenantId/tools/:tool`
-
-Generic tool dispatcher. When the LLM decides to take an action during a call, the Python agent calls this endpoint. The `:tool` path parameter selects the handler.
-
-**Auth**: `X-Voice-Agent-Key` header
-
-**Path Parameters**:
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `tenantId` | `string (UUID)` | Yes | Tenant UUID — authorization source, NOT from request body |
-| `tool` | `string` | Yes | Tool name: `create_lead`, `book_appointment`, or `transfer_call` |
-
-> **Tenant isolation**: `tenantId` is always sourced from the URL path, never from the request body. The server enforces this — body fields cannot override the tenant context.
-
-**Request Body** varies by tool — see per-tool payloads below.
-
-**Response**: `200 OK` — shape varies by tool (documented per-tool below).
-
-**Unknown tool** → `404 Not Found`:
-```json
-{
-  "statusCode": 404,
-  "message": "Unknown tool: 'my_tool'. Available: create_lead, book_appointment, transfer_call"
-}
-```
-
----
-
-#### Tool: `create_lead`
-
-Creates a new lead from a call, or returns the existing lead if one already exists for the caller's phone number. **409 conflict is not an error** — the response includes `created: false` to distinguish.
-
-**Request Body**:
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `call_log_id` | `string (UUID)` | Yes | The `call_log_id` returned by API-024 (start call) |
-| `phone_number` | `string (E.164)` | Yes | Caller's phone number (e.g. `+15551234567`) |
-| `first_name` | `string` | No | Caller's first name |
-| `last_name` | `string` | No | Caller's last name |
-| `notes` | `string` | No | Call notes to attach to the lead |
-| `service_type` | `string` | No | Service the caller is interested in |
-
-**Response**: `200 OK`
-
-```json
-// New lead created
-{
-  "lead_id": "7f8a9b0c-1d2e-3f4a-5b6c-7d8e9f0a1b2c",
-  "created": true
-}
-
-// Lead already existed for this phone number — NOT an error
-{
-  "lead_id": "3a4b5c6d-7e8f-9a0b-1c2d-3e4f5a6b7c8d",
-  "created": false
-}
-```
-
-> **`created: false` handling**: This is NOT an error. The existing lead is linked to the call log. The agent should continue normally and may use the returned `lead_id` in subsequent tool calls (e.g. `book_appointment`).
-
-**Curl Example**:
-
-```bash
-curl -X POST "https://api.lead360.app/api/v1/internal/voice-ai/tenant/$TENANT_ID/tools/create_lead" \
-  -H "X-Voice-Agent-Key: $AGENT_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "call_log_id": "7f8a9b0c-1d2e-3f4a-5b6c-7d8e9f0a1b2c",
-    "phone_number": "+15551234567",
-    "first_name": "John",
-    "last_name": "Doe",
-    "notes": "Needs urgent pipe repair",
-    "service_type": "Plumbing"
-  }' | jq .
-```
-
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `400` | `phone_number required for create_lead` | `phone_number` field is missing |
-| `401` | `Unauthorized` | Missing or invalid `X-Voice-Agent-Key` |
-
----
-
-#### Tool: `book_appointment`
-
-Creates an appointment request tied to this call. The appointment is stored as a pending service request that tenant staff can review and confirm.
-
-**Request Body**:
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `call_log_id` | `string (UUID)` | Yes | The `call_log_id` returned by API-024 |
-| `lead_id` | `string (UUID)` | No | UUID of the associated lead (from `create_lead` response) |
-| `service_type` | `string` | No | Type of service requested (e.g. `"Plumbing Repair"`) |
-| `preferred_date` | `string (ISO date)` | No | Preferred appointment date in `YYYY-MM-DD` format |
-| `notes` | `string` | No | Additional booking notes |
-
-**Response**: `200 OK`
-
-```json
-{
-  "appointment_id": "9b0c1d2e-3f4a-5b6c-7d8e-9f0a1b2c3d4e",
-  "status": "pending"
-}
-```
-
-> **Status**: Always returns `"pending"`. The appointment requires staff confirmation — the AI agent does not auto-confirm bookings.
-
-**Curl Example**:
-
-```bash
-curl -X POST "https://api.lead360.app/api/v1/internal/voice-ai/tenant/$TENANT_ID/tools/book_appointment" \
-  -H "X-Voice-Agent-Key: $AGENT_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "call_log_id": "7f8a9b0c-1d2e-3f4a-5b6c-7d8e9f0a1b2c",
-    "lead_id": "3a4b5c6d-7e8f-9a0b-1c2d-3e4f5a6b7c8d",
-    "service_type": "Plumbing Repair",
-    "preferred_date": "2026-03-01",
-    "notes": "Morning preferred, main bathroom"
-  }' | jq .
-```
-
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid `X-Voice-Agent-Key` |
-
----
-
-#### Tool: `transfer_call`
-
-Resolves the phone number to transfer the call to. The agent uses this number to initiate the Twilio transfer. If no transfer number is configured for the tenant, the response returns `success: false` with an empty `phone_number` — the agent must handle this gracefully (inform the caller, do not drop the call abruptly).
-
-**Request Body**:
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `call_log_id` | `string (UUID)` | Yes | The `call_log_id` returned by API-024 |
-| `transfer_number_id` | `string (UUID)` | No | UUID of a specific transfer number. Omit to use the tenant's default transfer number |
-| `lead_id` | `string (UUID)` | No | UUID of the associated lead |
-
-**Response**: `200 OK`
-
-```json
-// Transfer number found
-{
-  "success": true,
-  "phone_number": "+15559876543"
-}
-
-// No transfer number configured — agent must handle gracefully
-{
-  "success": false,
-  "phone_number": ""
-}
-```
-
-> **`success: false` handling**: This is NOT a server error — it means the tenant has no transfer number configured. The agent should inform the caller that it cannot transfer the call, and offer an alternative (e.g. take a message, book an appointment). Do not return `5xx` to the agent for this case.
-
-**Curl Example**:
-
-```bash
-# Use default transfer number
-curl -X POST "https://api.lead360.app/api/v1/internal/voice-ai/tenant/$TENANT_ID/tools/transfer_call" \
-  -H "X-Voice-Agent-Key: $AGENT_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "call_log_id": "7f8a9b0c-1d2e-3f4a-5b6c-7d8e9f0a1b2c"
-  }' | jq .
-
-# Use a specific transfer number
-curl -X POST "https://api.lead360.app/api/v1/internal/voice-ai/tenant/$TENANT_ID/tools/transfer_call" \
-  -H "X-Voice-Agent-Key: $AGENT_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "call_log_id": "7f8a9b0c-1d2e-3f4a-5b6c-7d8e9f0a1b2c",
-    "transfer_number_id": "f1e2d3c4-b5a6-7890-abcd-ef1234567890",
-    "lead_id": "3a4b5c6d-7e8f-9a0b-1c2d-3e4f5a6b7c8d"
-  }' | jq .
-```
-
-**Error Responses**:
-
-| Status | Message | Cause |
-|--------|---------|-------|
-| `401` | `Unauthorized` | Missing or invalid `X-Voice-Agent-Key` |
-
----
-
-## FullVoiceAiContext Schema Reference
-
-This is the complete JSON object returned by [API-022: `GET /internal/voice-ai/tenant/:tenantId/context`](#api-022-get-apiv1internalvoice-aitenanttenant-idcontext).
-
-> **SECURITY**: This response contains **decrypted API keys** for all configured AI providers. The Python agent MUST:
-> - NEVER log or print this response
-> - NEVER persist this response to disk or any cache store
-> - Cache in-memory for no more than **60 seconds**
-> - Treat `providers.*.api_key` values as secrets equivalent to environment variables
-
-### Top-Level Shape
-
-```json
-{
-  "tenant":           { ... },
-  "quota":            { ... },
-  "behavior":         { ... },
-  "providers":        { "stt": ..., "llm": ..., "tts": ... },
-  "services":         [ ... ],
-  "service_areas":    [ ... ],
-  "transfer_numbers": [ ... ]
-}
-```
-
----
-
-### `tenant` Object
-
-Identity information for the business the agent is representing.
-
-| Field | Type | Nullable | Description |
-|-------|------|----------|-------------|
-| `id` | `string (UUID)` | No | Tenant UUID |
-| `company_name` | `string` | No | Business name (e.g. `"Acme Plumbing"`) |
-| `phone` | `string (E.164) \| null` | Yes | Tenant's primary contact phone |
-| `timezone` | `string` | No | IANA timezone (e.g. `"America/New_York"`) |
-| `language` | `string \| null` | Yes | Tenant's default language code (e.g. `"en"`) |
-
----
-
-### `quota` Object
-
-Monthly usage quota for this tenant. Derived from the subscription plan plus any admin override.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `minutes_included` | `number` | Total minutes included in the current plan for this month |
-| `minutes_used` | `number` | Minutes consumed so far this month (derived from STT usage records) |
-| `minutes_remaining` | `number` | `minutes_included - minutes_used` (may be negative if overage is allowed) |
-| `overage_rate` | `number \| null` | Cost per minute for usage beyond `minutes_included`. `null` = overage not allowed — calls are rejected when quota is exceeded |
-| `quota_exceeded` | `boolean` | `true` when `minutes_used >= minutes_included`. If `overage_rate` is not `null`, the agent may continue |
-
-> **Overage logic**: When `quota_exceeded: true` AND `overage_rate` is not `null`, the agent SHOULD continue and pass `is_overage: true` in the complete-call request. When `quota_exceeded: true` AND `overage_rate: null`, the agent must reject new calls (but complete any in-progress call).
-
----
-
-### `behavior` Object
-
-Tenant-configured agent behavior. All fields are merged from `tenant_voice_ai_settings` with `voice_ai_global_config` as defaults.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `is_enabled` | `boolean` | `false` → agent must reject calls for this tenant |
-| `language` | `string` | BCP-47 language code for the agent (e.g. `"en"`, `"es"`) |
-| `greeting` | `string` | Opening message spoken by the agent. `{business_name}` has already been replaced with the actual company name |
-| `custom_instructions` | `string \| null` | Additional instructions appended to the system prompt. May contain business-specific rules |
-| `booking_enabled` | `boolean` | `true` → agent may offer and create appointments |
-| `lead_creation_enabled` | `boolean` | `true` → agent may create leads via `create_lead` tool |
-| `transfer_enabled` | `boolean` | `true` → agent may transfer calls via `transfer_call` tool |
-| `max_call_duration_seconds` | `number` | Hard limit on call length in seconds. Agent must end the call if this threshold is reached |
-
----
-
-### `providers` Object
-
-Resolved AI provider configuration with decrypted credentials. Each slot is `null` if the provider has not been configured.
-
-#### `providers.stt` — Speech-to-Text
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `provider_id` | `string (UUID)` | UUID of the `voice_ai_provider` row. Pass as `stt_provider_id` in API-024 start call, and as `usage_records[].provider_id` (with `provider_type: "STT"`) in API-030 complete call |
-| `provider_key` | `string` | Machine key identifying the provider (e.g. `"deepgram"`) |
-| `api_key` | `string` | **Decrypted** API key for the STT service — treat as secret |
-| `config` | `object` | Provider-specific configuration (e.g. `{ "model": "nova-2", "punctuate": true }`) |
-
-#### `providers.llm` — Large Language Model
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `provider_id` | `string (UUID)` | UUID of the `voice_ai_provider` row. Pass as `llm_provider_id` in API-024 start call, and as `usage_records[].provider_id` (with `provider_type: "LLM"`) in API-030 complete call |
-| `provider_key` | `string` | Machine key (e.g. `"openai"`) |
-| `api_key` | `string` | **Decrypted** API key — treat as secret |
-| `config` | `object` | Provider-specific configuration (e.g. `{ "model": "gpt-4o-mini", "temperature": 0.7, "max_tokens": 500 }`) |
-
-#### `providers.tts` — Text-to-Speech
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `provider_id` | `string (UUID)` | UUID of the `voice_ai_provider` row. Pass as `tts_provider_id` in API-024 start call, and as `usage_records[].provider_id` (with `provider_type: "TTS"`) in API-030 complete call |
-| `provider_key` | `string` | Machine key (e.g. `"cartesia"`) |
-| `api_key` | `string` | **Decrypted** API key — treat as secret |
-| `config` | `object` | Provider-specific configuration (e.g. `{ "model": "sonic-english", "speed": 1.0 }`) |
-| `voice_id` | `string \| null` | Voice identifier for TTS (e.g. Cartesia voice UUID). `null` if not configured |
-
-> **Null providers**: If a provider slot is `null`, the agent must fall back to its own defaults or terminate gracefully. Do not attempt to call a null provider.
-
----
-
-### `services` Array
-
-List of services the business offers. Use this to understand what the agent should discuss and offer.
-
-```typescript
-services: Array<{
-  name: string;           // e.g. "Plumbing Repair"
-  description: string | null;  // e.g. "General plumbing fixes and emergency repairs"
-}>
-```
-
-Empty array `[]` if the tenant has not configured any services.
-
----
-
-### `service_areas` Array
-
-Geographic areas the business serves. Use to answer "do you serve my area?" questions.
-
-```typescript
-service_areas: Array<{
-  type: string;           // e.g. "city", "zip", "county", "state"
-  value: string;          // e.g. "Miami", "33101"
-  state: string | null;   // US state abbreviation, e.g. "FL"
-}>
-```
-
-Empty array `[]` if the tenant has not configured any service areas.
-
----
-
-### `transfer_numbers` Array
-
-Phone numbers the agent can transfer calls to, ordered by `display_order ASC`.
-
-```typescript
-transfer_numbers: Array<{
-  label: string;              // e.g. "Sales", "Emergency Line"
-  phone_number: string;       // E.164 format, e.g. "+15559876543"
-  transfer_type: string;      // "primary" | "overflow" | "after_hours" | "emergency"
-  is_default: boolean;        // true = use this number when no specific number is requested
-  available_hours: string | null;  // JSON object or null (see format below)
-}>
-```
-
-**`available_hours` format** (when not `null`):
-
-```json
-{
-  "mon": [["09:00", "17:00"]],
-  "tue": [["09:00", "17:00"]],
-  "wed": [["09:00", "17:00"]],
-  "thu": [["09:00", "17:00"]],
-  "fri": [["09:00", "17:00"]],
-  "sat": [],
-  "sun": []
-}
-```
-
-Keys: `mon`, `tue`, `wed`, `thu`, `fri`, `sat`, `sun`. Value: array of `[start, end]` time pairs in `HH:MM` 24-hour format. Empty array `[]` = closed that day. `null` = available 24/7.
-
-Empty array `[]` if the tenant has no transfer numbers configured.
-
----
-
-### Complete Example Response
-
-```json
-{
+  "call_sid": "CA1234567890abcdef",
   "tenant": {
-    "id": "bc5b3363-ebe5-46fb-adac-53f8ed75a28d",
+    "id": "uuid",
     "company_name": "Acme Plumbing",
-    "phone": "+13054561234",
+    "phone": "+15551234567",
     "timezone": "America/New_York",
-    "language": "en"
+    "language": "en",
+    "business_description": "Family-owned plumbing company serving Miami for 20+ years. We specialize in residential and commercial plumbing repairs, installations, and emergency services."
   },
   "quota": {
     "minutes_included": 500,
@@ -3063,7 +1817,9 @@ Empty array `[]` if the tenant has no transfer numbers configured.
   "behavior": {
     "is_enabled": true,
     "language": "en",
+    "enabled_languages": ["en", "es", "pt"],
     "greeting": "Hello, thank you for calling Acme Plumbing! How can I help you today?",
+    "system_prompt": "You are a helpful phone assistant. Be concise, friendly, and professional.\n\nAdditional Instructions:\nAlways ask if it's an emergency. Always mention we serve the Miami area.",
     "custom_instructions": "Always ask if it's an emergency. Always mention we serve the Miami area.",
     "booking_enabled": true,
     "lead_creation_enabled": true,
@@ -3072,46 +1828,130 @@ Empty array `[]` if the tenant has no transfer numbers configured.
   },
   "providers": {
     "stt": {
-      "provider_id": "a8a5b151-c7c6-435a-930d-249e41868997",
+      "provider_id": "uuid-deepgram",
       "provider_key": "deepgram",
-      "api_key": "dg_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "config": { "model": "nova-2", "punctuate": true, "smart_format": true }
+      "api_key": "DECRYPTED_DEEPGRAM_API_KEY_HERE",
+      "config": {
+        "model": "nova-2-phonecall",
+        "punctuate": true,
+        "interim_results": true
+      }
     },
     "llm": {
-      "provider_id": "2490153d-160e-49a1-a0db-ddc12bcbec9f",
+      "provider_id": "uuid-openai",
       "provider_key": "openai",
-      "api_key": "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "config": { "model": "gpt-4o-mini", "temperature": 0.7, "max_tokens": 500 }
+      "api_key": "DECRYPTED_OPENAI_API_KEY_HERE",
+      "config": {
+        "model": "gpt-4o-mini",
+        "temperature": 0.7,
+        "max_tokens": 500
+      }
     },
     "tts": {
-      "provider_id": "ae9093bd-2f28-4b97-a240-f91bfe43f0c6",
+      "provider_id": "uuid-cartesia",
       "provider_key": "cartesia",
-      "api_key": "cartesia_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "config": { "model": "sonic-english", "speed": 1.0 },
-      "voice_id": "694f9389-aac1-45b6-b726-9d9369183238"
+      "api_key": "DECRYPTED_CARTESIA_API_KEY_HERE",
+      "config": {
+        "model": "sonic-multilingual",
+        "speed": 1.0
+      },
+      "voice_id": "agent_UB73EHZHv65uQTn44Hddho"
     }
   },
   "services": [
-    { "name": "Plumbing Repair", "description": "General plumbing fixes and emergency repairs" },
-    { "name": "Water Heater", "description": "Installation and repair of water heaters" },
-    { "name": "Drain Cleaning", "description": null }
+    {
+      "name": "Plumbing Repair",
+      "description": "General plumbing fixes and maintenance"
+    },
+    {
+      "name": "Water Heater",
+      "description": "Installation, repair, and replacement of water heaters"
+    }
   ],
   "service_areas": [
-    { "type": "city", "value": "Miami", "state": "FL" },
-    { "type": "city", "value": "Coral Gables", "state": "FL" },
-    { "type": "zip", "value": "33101", "state": "FL" }
+    {
+      "type": "city",
+      "value": "Miami",
+      "state": "FL"
+    },
+    {
+      "type": "city",
+      "value": "Coral Gables",
+      "state": "FL"
+    }
+  ],
+  "business_hours": [
+    {
+      "day": "Monday",
+      "is_closed": false,
+      "shifts": [
+        { "open": "08:00", "close": "17:00" }
+      ]
+    },
+    {
+      "day": "Tuesday",
+      "is_closed": false,
+      "shifts": [
+        { "open": "08:00", "close": "17:00" }
+      ]
+    },
+    {
+      "day": "Wednesday",
+      "is_closed": false,
+      "shifts": [
+        { "open": "08:00", "close": "17:00" }
+      ]
+    },
+    {
+      "day": "Thursday",
+      "is_closed": false,
+      "shifts": [
+        { "open": "08:00", "close": "17:00" }
+      ]
+    },
+    {
+      "day": "Friday",
+      "is_closed": false,
+      "shifts": [
+        { "open": "08:00", "close": "17:00" }
+      ]
+    },
+    {
+      "day": "Saturday",
+      "is_closed": false,
+      "shifts": [
+        { "open": "09:00", "close": "13:00" }
+      ]
+    },
+    {
+      "day": "Sunday",
+      "is_closed": true,
+      "shifts": []
+    }
+  ],
+  "industries": [
+    {
+      "name": "Plumbing",
+      "description": "Residential and commercial plumbing services"
+    },
+    {
+      "name": "HVAC",
+      "description": "Heating, ventilation, and air conditioning services"
+    }
   ],
   "transfer_numbers": [
     {
+      "id": "uuid",
       "label": "Sales",
-      "phone_number": "+13055550001",
+      "phone_number": "+15559876543",
       "transfer_type": "primary",
       "is_default": false,
-      "available_hours": "{\"mon\":[[\"09:00\",\"17:00\"]],\"tue\":[[\"09:00\",\"17:00\"]],\"wed\":[[\"09:00\",\"17:00\"]],\"thu\":[[\"09:00\",\"17:00\"]],\"fri\":[[\"09:00\",\"17:00\"]],\"sat\":[],\"sun\":[]}"
+      "available_hours": null
     },
     {
+      "id": "uuid",
       "label": "Emergency",
-      "phone_number": "+13055550002",
+      "phone_number": "+15550001111",
       "transfer_type": "emergency",
       "is_default": true,
       "available_hours": null
@@ -3120,139 +1960,470 @@ Empty array `[]` if the tenant has no transfer numbers configured.
 }
 ```
 
+**Response Fields**:
+
+| Field | Type | Nullable | Description |
+|-------|------|----------|-------------|
+| call_sid | string | Yes | Twilio CallSid if provided in query params |
+| tenant.business_description | string | Yes | "About Us" text describing the business. **NEW FIELD** - helps agent introduce the company to callers. |
+| business_hours | array | No | Daily operating hours with support for split shifts (e.g., 8am-12pm, 2pm-5pm). **NEW FIELD** - agent can tell callers when business is open. |
+| business_hours[].day | string | No | Day name (Monday, Tuesday, etc.) |
+| business_hours[].is_closed | boolean | No | Whether business is closed on this day |
+| business_hours[].shifts | array | No | Array of open/close time pairs (empty if closed) |
+| business_hours[].shifts[].open | string | No | Opening time (HH:MM format, 24-hour) |
+| business_hours[].shifts[].close | string | No | Closing time (HH:MM format, 24-hour) |
+| industries | array | No | Business types/industries. **NEW FIELD** - helps agent understand business context. |
+| industries[].name | string | No | Industry name (e.g., "Plumbing", "HVAC") |
+| industries[].description | string | Yes | Industry description |
+
+**Response 401**: `{ "statusCode": 401, "message": "Invalid agent API key" }`
+**Response 403**: `{ "statusCode": 403, "message": "Voice AI not enabled for tenant" }`
+**Response 404**: `{ "statusCode": 404, "message": "Tenant not found" }`
+
+**Agent Implementation Notes**:
+1. Call this endpoint ONCE at call start - never cache the response
+2. Extract and use provider credentials immediately
+3. Never log the full response (contains plaintext API keys)
+4. If call fails, call again (context is always fresh, never cached server-side)
+
 ---
 
-## Extended Error Reference
+### POST /api/v1/internal/voice-ai/calls/start
 
-### Standard Error Response Format
+**Auth**: X-Voice-Agent-Key header
+**Purpose**: Create call log entry when agent accepts a call
+**Use Case**: Track call start time and initial metadata
+**Idempotent**: Safe to call multiple times with same call_sid (upserts on call_sid)
 
-All errors follow this shape:
+**Request Headers**:
+```
+X-Voice-Agent-Key: {agent_api_key}
+Content-Type: application/json
+```
 
+**Request Body**:
 ```json
 {
-  "statusCode": 404,
-  "errorCode": "RESOURCE_NOT_FOUND",
-  "message": "Tenant with ID \"bc5b3363-ebe5-46fb-adac-53f8ed75a28d\" not found",
-  "error": "Not Found",
-  "timestamp": "2026-02-17T22:17:34.081Z",
-  "path": "/api/v1/internal/voice-ai/tenant/bc5b3363-ebe5-46fb-adac-53f8ed75a28d/context",
-  "requestId": "req_488ac000f3124103"
+  "tenant_id": "uuid",
+  "call_sid": "CA1234567890abcdef",
+  "from_number": "+15551234567",
+  "to_number": "+15559876543",
+  "direction": "inbound"
 }
 ```
 
-### HTTP Status Code Reference
+**Request Body Fields**:
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| tenant_id | string (UUID) | ✅ Yes | Tenant ID from SIP URI |
+| call_sid | string | ✅ Yes | Twilio CallSid (must be unique) |
+| from_number | string | ✅ Yes | Caller phone number (E.164) |
+| to_number | string | ✅ Yes | Dialed number (E.164) |
+| direction | string | ✅ Yes | Call direction: "inbound" or "outbound" |
 
-| Status | Name | When It Occurs |
-|--------|------|----------------|
-| `200` | OK | Successful GET, POST (non-creating), tool dispatch |
-| `201` | Created | Successful POST that creates a resource (API-024 start call) |
-| `204` | No Content | Successful DELETE — empty response body |
-| `400` | Bad Request | Validation failure: missing required fields, invalid enum value, wrong data type, E.164 format violation |
-| `401` | Unauthorized | Missing or invalid `Authorization: Bearer` JWT; missing or invalid `X-Voice-Agent-Key` header |
-| `403` | Forbidden | Valid JWT but insufficient permissions (e.g. non-admin accessing `/system/` routes) |
-| `404` | Not Found | Resource UUID does not exist; unknown tool name in API-027 |
-| `409` | Conflict | Duplicate unique constraint violation (e.g. duplicate `provider_key` on create) |
-| `422` | Unprocessable Entity | Business logic rejection (e.g. transfer number limit reached) |
-| `500` | Internal Server Error | Unexpected server error — includes uninitialized global config |
+**Response 201** (Created):
+```json
+{
+  "call_log_id": "uuid",
+  "message": "Call log created successfully"
+}
+```
 
-### Auth Error Details
+**Response 200** (Already Exists - Idempotent):
+```json
+{
+  "call_log_id": "uuid",
+  "message": "Call log already exists"
+}
+```
 
-| Scenario | Auth Method | Response |
-|----------|-------------|----------|
-| Missing `Authorization` header | JWT | `401 Unauthorized` |
-| Expired JWT token | JWT | `401 Unauthorized` |
-| Valid JWT but `is_platform_admin: false` on `/system/` route | JWT | `401 Unauthorized` |
-| Valid tenant JWT on `/system/` route | JWT | `401 Unauthorized` |
-| Missing `X-Voice-Agent-Key` header | Agent Key | `401 Unauthorized` |
-| Invalid or rotated agent key | Agent Key | `401 Unauthorized` |
-
-### Internal Endpoint Error Scenarios
-
-| Endpoint | Status | Scenario |
-|----------|--------|----------|
-| API-026 `/access` | `200` (always) | All cases — check `has_access` in body, not HTTP status |
-| API-022 `/context` | `404` | Tenant UUID does not exist |
-| API-022 `/context` | `500` | Global config not initialized by admin |
-| API-024 `/calls/start` | `400` | Missing `tenant_id`, `call_sid`, `from_number`, or `to_number`; invalid E.164 format |
-| API-030 `/calls/:callSid/complete` | `400` | Invalid `outcome` value; `usage_records` entry missing required fields |
-| API-030 `/calls/:callSid/complete` | `404` | No `voice_call_log` row found for the given `callSid` |
-| API-027 `/tools/:tool` | `400` | `create_lead` called without `phone_number` |
-| API-027 `/tools/:tool` | `404` | Unknown `:tool` value (not one of `create_lead`, `book_appointment`, `transfer_call`) |
-| API-027 `/tools/transfer_call` | `200` with `success: false` | No transfer number configured — NOT an HTTP error |
-| API-027 `/tools/create_lead` | `200` with `created: false` | Lead already exists for phone number — NOT an HTTP error |
-
-### Validation Error Shape (400)
-
-When request body validation fails, the response includes field-level details:
-
+**Response 400** (Validation Error):
 ```json
 {
   "statusCode": 400,
   "message": [
-    "from_number must be E.164 format",
-    "outcome must be one of the following values: completed, transferred, voicemail, abandoned, error"
+    "tenant_id must be a UUID",
+    "call_sid should not be empty",
+    "from_number must be in E.164 format"
   ],
   "error": "Bad Request"
 }
 ```
 
----
-
-## Quick Reference — All Endpoints
-
-### Admin Infrastructure (B12a)
-
-| Method | Path | Description | Response |
-|--------|------|-------------|----------|
-| `GET` | `/api/v1/system/voice-ai/providers` | List all providers | `200` Array |
-| `POST` | `/api/v1/system/voice-ai/providers` | Create provider | `201` Object |
-| `PATCH` | `/api/v1/system/voice-ai/providers/:id` | Update provider | `200` Object |
-| `DELETE` | `/api/v1/system/voice-ai/providers/:id` | Soft-delete provider | `204` Empty |
-| `GET` | `/api/v1/system/voice-ai/credentials` | List masked credentials | `200` Array |
-| `PUT` | `/api/v1/system/voice-ai/credentials/:providerId` | Upsert encrypted credential | `200` Object |
-| `DELETE` | `/api/v1/system/voice-ai/credentials/:providerId` | Remove credential | `204` Empty |
-| `GET` | `/api/v1/system/voice-ai/config` | Get global config | `200` Object |
-| `PATCH` | `/api/v1/system/voice-ai/config` | Update global config | `200` Object |
-| `POST` | `/api/v1/system/voice-ai/config/regenerate-key` | Regenerate agent API key | `200` Object |
-| `GET` | `/api/v1/system/voice-ai/plans` | List plans with voice flags | `200` Array |
-| `PATCH` | `/api/v1/system/voice-ai/plans/:planId/voice` | Update plan voice config | `200` Object |
-
-### Admin Monitoring (B12b)
-
-| Method | Path | Description | Response |
-|--------|------|-------------|----------|
-| `GET` | `/api/v1/system/voice-ai/tenants` | All tenants with voice AI summary | `200` Paginated |
-| `PATCH` | `/api/v1/system/voice-ai/tenants/:tenantId/override` | Admin override for tenant | `204` Empty |
-| `GET` | `/api/v1/system/voice-ai/call-logs` | Cross-tenant call logs | `200` Paginated |
-| `GET` | `/api/v1/system/voice-ai/usage-report` | Platform-wide usage report | `200` Object |
-
-### Tenant (B12b)
-
-| Method | Path | Description | Response |
-|--------|------|-------------|----------|
-| `GET` | `/api/v1/voice-ai/settings` | Get tenant voice AI settings | `200` Object |
-| `PUT` | `/api/v1/voice-ai/settings` | Upsert settings (behavior only) | `200` Object |
-| `GET` | `/api/v1/voice-ai/transfer-numbers` | List transfer numbers | `200` Array |
-| `POST` | `/api/v1/voice-ai/transfer-numbers` | Create transfer number | `201` Object |
-| `POST` | `/api/v1/voice-ai/transfer-numbers/reorder` | Bulk reorder transfer numbers | `200` Array |
-| `PATCH` | `/api/v1/voice-ai/transfer-numbers/:id` | Update transfer number | `200` Object |
-| `DELETE` | `/api/v1/voice-ai/transfer-numbers/:id` | Delete transfer number | `204` Empty |
-| `GET` | `/api/v1/voice-ai/call-logs` | Tenant paginated call history | `200` Paginated |
-| `GET` | `/api/v1/voice-ai/call-logs/:id` | Single call log with full transcript | `200` Object |
-| `GET` | `/api/v1/voice-ai/usage` | Monthly usage summary | `200` Object |
-
-### Internal Agent (B12c)
-
-| Method | Path | Description | Response |
-|--------|------|-------------|----------|
-| `GET` | `/api/v1/internal/voice-ai/tenant/:tenantId/access` | Pre-flight quota/enabled check | `200` Object |
-| `GET` | `/api/v1/internal/voice-ai/tenant/:tenantId/context` | Full merged context with decrypted keys | `200` FullVoiceAiContext |
-| `POST` | `/api/v1/internal/voice-ai/calls/start` | Create call log at call start | `201` `{ call_log_id }` |
-| `POST` | `/api/v1/internal/voice-ai/calls/:callSid/complete` | Finalize call log + persist usage records | `200` `{ success: true }` |
-| `POST` | `/api/v1/internal/voice-ai/tenant/:tenantId/tools/create_lead` | Create or find lead by phone | `200` `{ lead_id, created }` |
-| `POST` | `/api/v1/internal/voice-ai/tenant/:tenantId/tools/book_appointment` | Book appointment from call | `200` `{ appointment_id, status }` |
-| `POST` | `/api/v1/internal/voice-ai/tenant/:tenantId/tools/transfer_call` | Initiate call transfer | `200` `{ success, phone_number }` |
+**Response 401**: `{ "statusCode": 401, "message": "Invalid agent API key" }`
 
 ---
 
-*Voice AI REST API Documentation — Sprint B12c complete*
+### POST /api/v1/internal/voice-ai/calls/:callSid/complete
+
+**Auth**: X-Voice-Agent-Key header
+**Purpose**: Finalize call log and persist usage records
+**Use Case**: Called at end of call to save transcript, duration, and provider usage metrics
+**Atomic**: All writes happen in a single transaction
+
+**Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| callSid | string | Twilio CallSid |
+
+**Request Headers**:
+```
+X-Voice-Agent-Key: {agent_api_key}
+Content-Type: application/json
+```
+
+**Request Body**:
+```json
+{
+  "tenant_id": "uuid",
+  "status": "completed",
+  "outcome": "lead_created",
+  "duration_seconds": 127,
+  "transcript_summary": "Customer inquired about roofing services for a leak repair. Lead created and appointment scheduled for Friday 2pm.",
+  "full_transcript": "[{\"timestamp\":\"2026-02-22T14:30:05.000Z\",\"speaker\":\"agent\",\"text\":\"Hello, thank you for calling...\"},{\"timestamp\":\"2026-02-22T14:30:08.000Z\",\"speaker\":\"user\",\"text\":\"Hi, I need a quote for roof repair.\"}]",
+  "actions_taken": "[{\"type\":\"lead_created\",\"lead_id\":\"uuid\",\"timestamp\":\"2026-02-22T14:31:00.000Z\"},{\"type\":\"service_area_checked\",\"result\":\"covered\"}]",
+  "lead_id": "uuid",
+  "is_overage": false,
+  "stt_provider_id": "uuid-deepgram",
+  "llm_provider_id": "uuid-openai",
+  "tts_provider_id": "uuid-cartesia",
+  "usage": [
+    {
+      "provider_id": "uuid-deepgram",
+      "provider_type": "STT",
+      "usage_quantity": 127.0,
+      "usage_unit": "seconds",
+      "estimated_cost": 0.54
+    },
+    {
+      "provider_id": "uuid-openai",
+      "provider_type": "LLM",
+      "usage_quantity": 842.0,
+      "usage_unit": "tokens",
+      "estimated_cost": 0.17
+    },
+    {
+      "provider_id": "uuid-cartesia",
+      "provider_type": "TTS",
+      "usage_quantity": 543.0,
+      "usage_unit": "characters",
+      "estimated_cost": 0.32
+    }
+  ]
+}
+```
+
+**Request Body Fields**:
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| tenant_id | string (UUID) | ✅ Yes | Tenant ID (must match call log) |
+| status | string | ✅ Yes | Final call status: "completed", "transferred", "abandoned", "error" |
+| outcome | string | ❌ No | Call outcome: "lead_created", "transferred", "info_given", "abandoned" |
+| duration_seconds | number | ✅ Yes | Call duration in seconds |
+| transcript_summary | string | ❌ No | AI-generated summary of conversation |
+| full_transcript | string | ❌ No | Full conversation transcript (JSON string) |
+| actions_taken | string | ❌ No | JSON array of actions performed during call |
+| lead_id | string (UUID) | ❌ No | Lead ID if lead was created during call |
+| is_overage | boolean | ❌ No | Whether call exceeded quota (default: false) |
+| stt_provider_id | string (UUID) | ❌ No | STT provider used |
+| llm_provider_id | string (UUID) | ❌ No | LLM provider used |
+| tts_provider_id | string (UUID) | ❌ No | TTS provider used |
+| usage | array | ✅ Yes | Per-provider usage records |
+| usage[].provider_id | string (UUID) | ✅ Yes | Provider UUID |
+| usage[].provider_type | string | ✅ Yes | "STT", "LLM", or "TTS" |
+| usage[].usage_quantity | number | ✅ Yes | Quantity consumed (seconds, tokens, characters) |
+| usage[].usage_unit | string | ✅ Yes | Unit: "seconds", "tokens", "characters" |
+| usage[].estimated_cost | number | ❌ No | Estimated cost in USD |
+
+**Response 200**:
+```json
+{
+  "message": "Call log finalized successfully",
+  "call_log_id": "uuid",
+  "usage_records_created": 3
+}
+```
+
+**Response 400** (Validation Error):
+```json
+{
+  "statusCode": 400,
+  "message": [
+    "status must be one of: completed, transferred, abandoned, error",
+    "duration_seconds must be a positive number",
+    "usage must be an array"
+  ],
+  "error": "Bad Request"
+}
+```
+
+**Response 401**: `{ "statusCode": 401, "message": "Invalid agent API key" }`
+**Response 404**: `{ "statusCode": 404, "message": "Call log not found with sid CA123..." }`
+
+---
+
+## Business Context in Voice AI Agent
+
+When a call starts, the Voice AI Context Builder loads tenant-specific business information and provides it to the Python voice agent. This context helps the AI agent understand the business and provide contextually appropriate responses.
+
+### How Services & Industries Are Used
+
+**Services** and **Industries** are automatically loaded for each tenant and included in the agent context:
+
+- **Services**: What the business offers (e.g., "Roofing", "Plumbing", "HVAC Repair")
+- **Industries**: Business categories (e.g., "Construction", "Home Services", "Property Management")
+
+Both are platform-wide master lists managed by admins, with tenants self-assigning which apply to their business.
+
+### Context Structure
+
+The Voice AI agent receives comprehensive business context in this format:
+
+```typescript
+interface VoiceAIContext {
+  tenant: {
+    name: string;
+    businessDescription: string | null;
+  };
+  services: Array<{
+    name: string;
+    description: string | null;
+  }>;
+  industries: Array<{
+    name: string;
+    description: string | null;
+  }>;
+  businessHours: {
+    monday?: { open1: string; close1: string; open2?: string; close2?: string };
+    tuesday?: { open1: string; close1: string; open2?: string; close2?: string };
+    wednesday?: { open1: string; close1: string; open2?: string; close2?: string };
+    thursday?: { open1: string; close1: string; open2?: string; close2?: string };
+    friday?: { open1: string; close1: string; open2?: string; close2?: string };
+    saturday?: { open1: string; close1: string; open2?: string; close2?: string };
+    sunday?: { open1: string; close1: string; open2?: string; close2?: string };
+    timezone: string;
+  };
+  serviceAreas: Array<{
+    area_type: 'radius' | 'zip_codes' | 'counties' | 'cities' | 'states';
+    // ... area-specific fields
+  }>;
+  transferNumbers: Array<{
+    label: string;
+    phone_number: string;
+    is_primary: boolean;
+  }>;
+}
+```
+
+### Example Context Payload
+
+Here's a real example of what the agent receives:
+
+```json
+{
+  "tenant": {
+    "name": "ABC Roofing & Gutters",
+    "businessDescription": "Full-service roofing contractor specializing in residential and commercial projects"
+  },
+  "services": [
+    { "name": "Roofing", "description": "Roof installation, repair, and replacement" },
+    { "name": "Gutter Installation", "description": "Seamless gutter systems and repairs" },
+    { "name": "Roof Inspection", "description": "Comprehensive roof inspections and assessments" }
+  ],
+  "industries": [
+    { "name": "Construction", "description": "Building and construction services" },
+    { "name": "Home Services", "description": "Residential home improvement services" }
+  ],
+  "businessHours": {
+    "monday": { "open1": "08:00", "close1": "17:00" },
+    "tuesday": { "open1": "08:00", "close1": "17:00" },
+    "wednesday": { "open1": "08:00", "close1": "17:00" },
+    "thursday": { "open1": "08:00", "close1": "17:00" },
+    "friday": { "open1": "08:00", "close1": "17:00" },
+    "timezone": "America/New_York"
+  },
+  "serviceAreas": [
+    {
+      "area_type": "radius",
+      "center_latitude": 40.7128,
+      "center_longitude": -74.0060,
+      "radius_miles": 50
+    }
+  ],
+  "transferNumbers": [
+    {
+      "label": "Main Office",
+      "phone_number": "+15551234567",
+      "is_primary": true
+    }
+  ]
+}
+```
+
+### How Agent Uses This Context
+
+The Voice AI agent uses services and industries to provide contextually appropriate responses:
+
+#### Scenario 1: Service Inquiry (Service Listed)
+**Caller**: "Do you do roof repairs?"
+**Agent checks**: `services` array includes "Roofing"
+**Agent responds**: "Yes, we offer roofing services including repair, installation, and replacement. Would you like to schedule an appointment or get a free estimate?"
+
+#### Scenario 2: Service Inquiry (Service NOT Listed)
+**Caller**: "Do you do plumbing?"
+**Agent checks**: `services` array does NOT include "Plumbing"
+**Agent responds**: "We don't offer plumbing services. We specialize in roofing and gutter installation. Can I help you with either of those services?"
+
+#### Scenario 3: Business Type Question
+**Caller**: "What kind of business is this?"
+**Agent checks**: `industries` array includes "Home Services" and "Construction"
+**Agent responds**: "We're a home services company specializing in construction projects. Our main focus is roofing and gutter systems for both residential and commercial properties."
+
+#### Scenario 4: Service Area Question
+**Caller**: "Do you service Brooklyn?"
+**Agent checks**: `serviceAreas` array for radius/zip/county coverage
+**Agent responds**: "Yes, we service Brooklyn. We cover a 50-mile radius from Manhattan, which includes all of Brooklyn. Would you like to schedule a free inspection?"
+
+#### Scenario 5: Hours Question
+**Caller**: "Are you open on Saturday?"
+**Agent checks**: `businessHours` for Saturday
+**Agent responds**: "We're currently closed on weekends. Our hours are Monday through Friday, 8 AM to 5 PM Eastern Time. However, I can schedule an appointment for you during the week. What day works best for you?"
+
+### Context Loading
+
+The context is loaded by the **Voice AI Context Builder Service** ([voice-ai-context-builder.service.ts](../src/modules/voice-ai/services/voice-ai-context-builder.service.ts)) when:
+
+1. **Call Starts**: Agent calls `GET /internal/voice-ai/tenant/{tenantId}/context`
+2. **Context Built**: Service queries database for all tenant business info
+3. **Returned to Agent**: Complete context object sent in single response
+4. **Agent Uses**: Python voice agent uses context throughout the call
+
+### Best Practices
+
+**For Tenants**:
+- Keep services list accurate (only include what you actually offer)
+- Update industries to match your business type
+- Provide clear service descriptions (helps AI explain offerings better)
+- Keep business hours current
+
+**For Developers**:
+- Context is cached per call (no need to refetch)
+- Services and industries are loaded from junction tables (`tenant_service`, `tenant_industry`)
+- Only active services/industries are included in context
+- Empty arrays are valid (tenant hasn't configured services/industries yet)
+
+---
+
+## Internal Agent Call Flow
+
+Typical sequence for agent integration:
+
+```
+1. Agent receives SIP call with tenantId parameter
+   ↓
+2. Call GET /internal/voice-ai/tenant/{tenantId}/access
+   - Check if has_access == true
+   - If false, reject call with appropriate message
+   ↓
+3. Call GET /internal/voice-ai/tenant/{tenantId}/context?call_sid={CallSid}
+   - Receive full context with decrypted provider keys
+   - Initialize STT, LLM, TTS providers
+   ↓
+4. Call POST /internal/voice-ai/calls/start
+   - Create call log entry
+   - Receive call_log_id for tracking
+   ↓
+5. Handle call conversation
+   - Use STT → LLM → TTS pipeline
+   - Execute tools (create_lead, book_appointment, transfer_call)
+   - Track usage per provider
+   ↓
+6. Call POST /internal/voice-ai/calls/{callSid}/complete
+   - Finalize call log with transcript and duration
+   - Persist usage records for billing
+   - Update monthly usage aggregates
+```
+
+**Error Handling**:
+- If step 2 fails: Reject call with "Service unavailable" message
+- If step 3 fails: Retry once, then reject call
+- If step 4 fails: Continue with call (will be logged on completion)
+- If step 6 fails: Log error and retry up to 3 times with exponential backoff
+
+---
+
+## Error Response Format
+
+All error responses follow this standard format:
+
+```json
+{
+  "statusCode": 400,
+  "errorCode": "VALIDATION_ERROR",
+  "message": "Validation failed on field 'phone_number'",
+  "error": "Bad Request",
+  "timestamp": "2026-02-22T12:00:00.000Z",
+  "path": "/api/v1/voice-ai/transfer-numbers",
+  "requestId": "req_xxxxxxxxxx"
+}
+```
+
+**Common Status Codes**:
+- `200`: Success
+- `201`: Created
+- `204`: No Content (success, no body)
+- `400`: Bad Request (validation error)
+- `401`: Unauthorized (missing or invalid token)
+- `403`: Forbidden (insufficient permissions)
+- `404`: Not Found
+- `409`: Conflict (e.g., duplicate provider_key)
+
+---
+
+## Pagination Format
+
+All paginated endpoints follow this format:
+
+**Response**:
+```json
+{
+  "data": [ ... ],
+  "meta": {
+    "total": 100,
+    "page": 1,
+    "limit": 20,
+    "total_pages": 5
+  }
+}
+```
+
+**Default pagination**:
+- `page`: 1 (1-based indexing)
+- `limit`: 20
+- `max limit`: 100
+
+---
+
+## Rate Limiting
+
+Rate limiting is not currently enforced on Voice AI endpoints, but may be added in the future.
+
+---
+
+## Changelog
+
+| Date | Version | Changes |
+|------|---------|---------|
+| 2026-02-25 | 1.2 | **MAJOR**: Added Internal Agent Endpoints section with 4 critical endpoints (access, context, start, complete). Added new fields to context: business_description, business_hours, industries. Enhanced context for better agent capabilities. |
+| 2026-02-24 | 1.1 | Added GET `/api/v1/system/voice-ai/tenants/:tenantId/override` endpoint for retrieving current override settings (fixes tenant override form pre-population) |
+| 2026-02-22 | 1.0 | Initial API documentation - Sprint BAS27 complete |
+
+---
+
+## Support
+
+For API support, contact the platform admin or refer to the internal developer documentation.
+
+---
+
+**End of Voice AI REST API Documentation**

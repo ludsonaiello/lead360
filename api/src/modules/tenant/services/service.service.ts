@@ -20,10 +20,11 @@ export class ServiceService {
 
   /**
    * Get all services (admin endpoint - platform-wide)
+   * @param activeOnly - If true, returns only active services. If false, returns all services.
    */
-  async findAll(includeInactive = false) {
+  async findAll(activeOnly = false) {
     return this.prisma.service.findMany({
-      where: includeInactive ? {} : ({ is_active: true } as any),
+      where: activeOnly ? ({ is_active: true } as any) : {},
       orderBy: { name: 'asc' } as any,
     });
   }
@@ -46,7 +47,7 @@ export class ServiceService {
   /**
    * Create a new service (admin only)
    */
-  async create(createDto: CreateServiceDto) {
+  async create(createDto: CreateServiceDto, adminUserId?: string) {
     // Generate slug if not provided
     const slug = createDto.slug || this.generateSlug(createDto.name);
 
@@ -76,8 +77,23 @@ export class ServiceService {
         name: createDto.name,
         slug,
         description: createDto.description,
+        is_active: createDto.is_active ?? true,
+        updated_at: new Date(),
       } as any,
     });
+
+    // Audit log (only if adminUserId provided)
+    if (adminUserId) {
+      await this.auditLogger.log({
+        actor_user_id: adminUserId,
+        actor_type: 'platform_admin',
+        entity_type: 'service',
+        entity_id: service.id,
+        action_type: 'created',
+        description: `Created service: ${service.name}`,
+        after_json: service,
+      });
+    }
 
     return service;
   }
@@ -85,9 +101,13 @@ export class ServiceService {
   /**
    * Update a service (admin only)
    */
-  async update(serviceId: string, updateDto: UpdateServiceDto) {
+  async update(
+    serviceId: string,
+    updateDto: UpdateServiceDto,
+    adminUserId?: string,
+  ) {
     // Verify service exists
-    await this.findOne(serviceId);
+    const oldService = await this.findOne(serviceId);
 
     // If name is being updated, check for duplicates
     if (updateDto.name) {
@@ -128,8 +148,23 @@ export class ServiceService {
         slug: updateDto.slug,
         description: updateDto.description,
         is_active: updateDto.is_active,
+        updated_at: new Date(),
       } as any,
     });
+
+    // Audit log (only if adminUserId provided)
+    if (adminUserId) {
+      await this.auditLogger.log({
+        actor_user_id: adminUserId,
+        actor_type: 'platform_admin',
+        entity_type: 'service',
+        entity_id: service.id,
+        action_type: 'updated',
+        description: `Updated service: ${service.name}`,
+        before_json: oldService,
+        after_json: service,
+      });
+    }
 
     return service;
   }
@@ -137,9 +172,9 @@ export class ServiceService {
   /**
    * Delete a service (admin only)
    */
-  async delete(serviceId: string) {
+  async delete(serviceId: string, adminUserId?: string) {
     // Verify service exists
-    await this.findOne(serviceId);
+    const service = await this.findOne(serviceId);
 
     // Check if service is assigned to any tenants
     const assignedCount = await this.prisma.tenant_service.count({
@@ -147,14 +182,27 @@ export class ServiceService {
     });
 
     if (assignedCount > 0) {
-      throw new BadRequestException(
-        `Cannot delete service. It is currently assigned to ${assignedCount} tenant(s). Please deactivate instead.`,
+      throw new ConflictException(
+        `Cannot delete service "${service.name}". It is assigned to ${assignedCount} tenant(s)`,
       );
     }
 
     await this.prisma.service.delete({
       where: { id: serviceId } as any,
     });
+
+    // Audit log (only if adminUserId provided)
+    if (adminUserId) {
+      await this.auditLogger.log({
+        actor_user_id: adminUserId,
+        actor_type: 'platform_admin',
+        entity_type: 'service',
+        entity_id: service.id,
+        action_type: 'deleted',
+        description: `Deleted service: ${service.name}`,
+        before_json: service,
+      });
+    }
 
     return { message: 'Service deleted successfully' };
   }

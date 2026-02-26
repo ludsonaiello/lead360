@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { PlatformAdminGuard } from '../../../admin/guards/platform-admin.guard';
 import { VoiceAiGlobalConfigService } from '../../services/voice-ai-global-config.service';
 import { UpdateGlobalConfigDto } from '../../dto/update-global-config.dto';
+import { GlobalConfigResponseDto } from '../../dto/global-config-response.dto';
 
 /**
  * VoiceAiGlobalConfigController — System Admin
@@ -45,16 +46,18 @@ export class VoiceAiGlobalConfigController {
    * GET /api/v1/system/voice-ai/config
    * Return the global config singleton.
    * Sensitive fields (LiveKit keys, hash) are masked — only presence flags returned.
+   * Includes resolved provider objects with display_name and provider_key.
    */
   @Get()
   @ApiOperation({ summary: 'Get global Voice AI configuration' })
   @ApiResponse({
     status: 200,
     description: 'Global config returned (no raw keys)',
+    type: GlobalConfigResponseDto,
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
-  getConfig() {
+  getConfig(): Promise<GlobalConfigResponseDto> {
     return this.globalConfigService.getConfig();
   }
 
@@ -68,6 +71,7 @@ export class VoiceAiGlobalConfigController {
   @ApiResponse({
     status: 200,
     description: 'Config updated successfully (no raw keys returned)',
+    type: GlobalConfigResponseDto,
   })
   @ApiResponse({ status: 400, description: 'Validation error or malformed JSON field' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
@@ -75,7 +79,7 @@ export class VoiceAiGlobalConfigController {
   updateConfig(
     @Body() dto: UpdateGlobalConfigDto,
     @Request() req: { user: { id: string } },
-  ) {
+  ): Promise<GlobalConfigResponseDto> {
     return this.globalConfigService.updateConfig(req.user.id, dto);
   }
 

@@ -122,6 +122,24 @@ export interface Industry {
   updated_at: string;
 }
 
+// ============================================================================
+// Service Types
+// ============================================================================
+
+export interface Service {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================================
+// Business Size Types
+// ============================================================================
+
 export type BusinessSize = '1-5' | '6-10' | '11-25' | '26-50' | '51-100' | '101-250' | '251+';
 
 export const BUSINESS_SIZE_OPTIONS: Array<{ label: string; value: BusinessSize }> = [

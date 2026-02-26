@@ -7,6 +7,16 @@
  */
 
 // ==========================================
+// INDUSTRY
+// ==========================================
+
+export interface Industry {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
+// ==========================================
 // MAIN TENANT PROFILE
 // ==========================================
 
@@ -26,6 +36,8 @@ export interface TenantProfile {
   state_tax_id: string | null;
   sales_tax_permit: string | null;
   services_offered: string[]; // Array of service names
+  business_description: string | null;
+  industries?: Industry[] | null;
 
   // CONTACT INFORMATION
   primary_contact_phone: string | null;
@@ -594,6 +606,7 @@ export interface BusinessInfoFormData {
   ein?: string;
   state_tax_id?: string;
   sales_tax_permit?: string;
+  business_description?: string;
 
   // Contact
   primary_contact_phone?: string;

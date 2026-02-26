@@ -44,6 +44,7 @@ import { TenantPaymentTermsService } from './services/tenant-payment-terms.servi
 import { TenantBusinessHoursService } from './services/tenant-business-hours.service';
 import { TenantServiceAreaService } from './services/tenant-service-area.service';
 import { ServiceService } from './services/service.service';
+import { IndustryService } from '../admin/services/industry.service';
 
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
@@ -78,6 +79,7 @@ export class TenantController {
     private readonly businessHoursService: TenantBusinessHoursService,
     private readonly serviceAreaService: TenantServiceAreaService,
     private readonly serviceService: ServiceService,
+    private readonly industryService: IndustryService,
   ) {}
 
   /**
@@ -800,7 +802,7 @@ export class TenantController {
   @ApiOperation({ summary: 'Get all available services (for selection)' })
   @ApiResponse({ status: 200, description: 'Services retrieved successfully' })
   async getAllAvailableServices() {
-    return this.serviceService.findAll(false); // Only active services
+    return this.serviceService.findAll(true); // Only active services
   }
 
   @Get('current/assigned-services')
@@ -828,6 +830,74 @@ export class TenantController {
       req.user.tenant_id,
       assignDto,
       req.user.userId,
+    );
+  }
+
+  // ========== INDUSTRIES (TENANT) ==========
+
+  @Get('current/industries')
+  @ApiOperation({ summary: 'Get all available industries' })
+  @ApiQuery({
+    name: 'active_only',
+    required: false,
+    type: Boolean,
+    description: 'Only return active industries',
+  })
+  @ApiResponse({ status: 200, description: 'Industries retrieved successfully' })
+  async getAvailableIndustries(@Query('active_only') activeOnly?: string) {
+    // Call industry service to get all industries
+    // activeOnly === 'true' ? only active : all
+    return this.industryService.findAll(activeOnly === 'true');
+  }
+
+  @Get('current/assigned-industries')
+  @ApiOperation({ summary: 'Get tenant assigned industries' })
+  @ApiResponse({
+    status: 200,
+    description: 'Assigned industries retrieved successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Platform Admins must use admin endpoints or impersonation',
+  })
+  async getAssignedIndustries(@Request() req) {
+    const tenantId = this.validateTenantAccess(req);
+    return this.industryService.getTenantIndustries(tenantId);
+  }
+
+  @Post('current/assign-industries')
+  @Roles('Owner', 'Admin')
+  @ApiOperation({ summary: 'Assign industries to tenant' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        industry_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of industry UUIDs',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Industries assigned successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid industry IDs' })
+  @ApiResponse({
+    status: 403,
+    description: 'Platform Admins must use admin endpoints or impersonation',
+  })
+  async assignIndustries(
+    @Request() req,
+    @Body() assignDto: { industry_ids: string[] },
+  ) {
+    const tenantId = this.validateTenantAccess(req);
+    const userId = req.user.id;
+
+    // CRITICAL: This REPLACES all assignments (not additive)
+    return this.industryService.assignIndustriesToTenant(
+      tenantId,
+      assignDto.industry_ids,
+      userId,
     );
   }
 }

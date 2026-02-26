@@ -3,6 +3,7 @@ import {
   Get,
   Put,
   Delete,
+  Post,
   Body,
   Param,
   HttpCode,
@@ -107,5 +108,36 @@ export class VoiceAiCredentialsController {
   @ApiResponse({ status: 404, description: 'Credential not found' })
   async delete(@Param('providerId') providerId: string): Promise<void> {
     await this.credentialsService.delete(providerId);
+  }
+
+  /**
+   * POST /api/v1/system/voice-ai/credentials/:providerId/test
+   * Test the stored API key by making a lightweight call to the provider's API.
+   * Returns success status and descriptive message.
+   */
+  @Post(':providerId/test')
+  @ApiOperation({ summary: 'Test the stored API key with provider API' })
+  @ApiParam({
+    name: 'providerId',
+    description: 'UUID of the voice_ai_provider row',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Test result returned',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        message: { type: 'string' },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Platform Admin access required' })
+  @ApiResponse({ status: 404, description: 'Provider or credential not found' })
+  async test(
+    @Param('providerId') providerId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    return this.credentialsService.testConnection(providerId);
   }
 }

@@ -1274,6 +1274,180 @@ curl -X DELETE "https://api.lead360.app/api/v1/communication/twilio/ivr" \
 
 ---
 
+## Multi-Level IVR Support
+
+Lead360 supports multi-level (nested) IVR menus with up to 5 levels of depth. This allows for complex phone tree navigation similar to enterprise phone systems.
+
+### Key Features
+
+- **Nested Submenus**: Each menu option can either execute a terminal action or open a submenu with its own greeting and options
+- **Configurable Depth**: Tenants can set max_depth (1-5 levels) to control menu complexity
+- **Path-Based Navigation**: Twilio navigates through menu levels using path notation (e.g., "1.2.1")
+- **Recursive Structure**: Submenus can contain submenus up to the configured depth limit
+- **Validation**: Automatic detection of circular references, depth violations, and node count limits
+
+### Action Types
+
+| Action | Description | Config Required | Can be in Submenu? |
+|--------|-------------|-----------------|-------------------| | `route_to_number` | Forward call to specific phone number | `phone_number` (E.164) | ✅ Yes |
+| `route_to_default` | Forward to default company number | None | ✅ Yes |
+| `trigger_webhook` | Send webhook notification | `webhook_url` (HTTPS) | ✅ Yes |
+| `voicemail` | Record voicemail message | `max_duration_seconds` (60-300) | ✅ Yes |
+| `voice_ai` | Connect to AI voice assistant | None (uses tenant Voice AI config) | ✅ Yes |
+| `submenu` | Navigate to nested submenu | `submenu` object with greeting and options | ✅ Yes (up to max_depth) |
+| `return_to_parent` | Navigate back one level | None | ✅ Yes |
+| `return_to_root` | Return to main menu | None | ✅ Yes |
+
+### Data Model
+
+#### IVR Menu Option (Recursive)
+
+```typescript
+interface IVRMenuOption {
+  id: string;                        // UUID (required for circular reference detection)
+  digit: string;                     // "0"-"9"
+  action: IVRActionType;
+  label: string;                     // 1-100 characters
+  config: {
+    phone_number?: string;           // E.164 format (e.g., "+19781234567")
+    webhook_url?: string;            // HTTPS only
+    max_duration_seconds?: number;   // 60-300 seconds
+  };
+  submenu?: {                        // Only present if action === "submenu"
+    greeting_message: string;        // 5-500 characters
+    options: IVRMenuOption[];       // Recursive array (1-10 options)
+    timeout_seconds?: number;        // Optional override (5-60 seconds)
+  };
+}
+```
+
+### Constraints
+
+- **Max Depth**: 1-5 levels (default: 4)
+- **Max Options Per Level**: 10 (digits 0-9)
+- **Max Total Nodes**: 100 across entire tree
+- **Greeting Length**: 5-500 characters (root and submenu)
+- **Digit Uniqueness**: Must be unique within each level (not globally)
+- **Circular References**: Not allowed (validated by checking duplicate UUIDs)
+- **Submenu Action**: Cannot be used at max_depth (terminal actions only)
+
+### Example: Multi-Level IVR Configuration
+
+```json
+{
+  "ivr_enabled": true,
+  "greeting_message": "Thank you for calling ABC Company.",
+  "menu_options": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "digit": "1",
+      "action": "submenu",
+      "label": "Sales Department",
+      "config": {},
+      "submenu": {
+        "greeting_message": "Sales Department. Press 1 for new customers or 2 for existing customers.",
+        "options": [
+          {
+            "id": "550e8400-e29b-41d4-a716-446655440002",
+            "digit": "1",
+            "action": "route_to_number",
+            "label": "New Customers",
+            "config": {
+              "phone_number": "+19781234567"
+            }
+          },
+          {
+            "id": "550e8400-e29b-41d4-a716-446655440003",
+            "digit": "2",
+            "action": "submenu",
+            "label": "Existing Customers",
+            "config": {},
+            "submenu": {
+              "greeting_message": "Press 1 for account support or 2 for technical support.",
+              "options": [
+                {
+                  "id": "550e8400-e29b-41d4-a716-446655440004",
+                  "digit": "1",
+                  "action": "voice_ai",
+                  "label": "Account Support",
+                  "config": {}
+                },
+                {
+                  "id": "550e8400-e29b-41d4-a716-446655440005",
+                  "digit": "2",
+                  "action": "route_to_number",
+                  "label": "Technical Support",
+                  "config": {
+                    "phone_number": "+19781234568"
+                  }
+                }
+              ],
+              "timeout_seconds": 15
+            }
+          }
+        ],
+        "timeout_seconds": 10
+      }
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440006",
+      "digit": "2",
+      "action": "voicemail",
+      "label": "Leave a message",
+      "config": {
+        "max_duration_seconds": 180
+      }
+    }
+  ],
+  "default_action": {
+    "action": "voicemail",
+    "config": {
+      "max_duration_seconds": 180
+    }
+  },
+  "timeout_seconds": 10,
+  "max_retries": 3,
+  "max_depth": 4
+}
+```
+
+**Call Flow for Above Example**:
+
+1. Caller hears: "Thank you for calling ABC Company. Press 1 for Sales Department or 2 to leave a message."
+2. Caller presses 1
+3. Caller hears: "Sales Department. Press 1 for new customers or 2 for existing customers."
+4. Caller presses 2
+5. Caller hears: "Press 1 for account support or 2 for technical support."
+6. Caller presses 1
+7. Call connects to Voice AI assistant
+
+### TwiML Navigation
+
+Multi-level IVR uses path-based navigation:
+
+- **Root Level**: `/api/v1/twilio/ivr/menu`
+- **First Submenu**: `/api/v1/twilio/ivr/menu?path=1` (after pressing 1)
+- **Second Level**: `/api/v1/twilio/ivr/menu?path=1.2` (pressed 1, then 2)
+- **Third Level**: `/api/v1/twilio/ivr/menu?path=1.2.1` (pressed 1, then 2, then 1)
+
+Path accumulates as user navigates deeper. Each level generates TwiML with current menu's greeting and options.
+
+**Note**: These are Twilio webhook endpoints (public, no JWT auth). For authenticated REST API endpoints to manage IVR configurations, use `/api/v1/communication/twilio/ivr/*`.
+
+### Validation Errors
+
+| Error | Cause | HTTP Status |
+|-------|-------|-------------|
+| `Menu depth exceeds maximum of {N} levels` | Nested submenus exceed max_depth | 400 |
+| `Circular reference detected: Option ID "{id}" appears multiple times` | Duplicate UUID in tree | 400 |
+| `Total menu options ({N}) exceeds maximum of 100` | Too many nodes across tree | 400 |
+| `Digits must be unique within each submenu level` | Duplicate digit at same level | 400 |
+| `Option has submenu action but no submenu configuration` | Missing submenu object | 400 |
+| `Option has submenu configuration but action is not submenu` | Action/config mismatch | 400 |
+| `Invalid menu path: digit "{digit}" not found` | Invalid path during call | 404 |
+
+---
+
 ## Office Bypass Endpoints
 
 ### 1. Add Phone Number to Whitelist

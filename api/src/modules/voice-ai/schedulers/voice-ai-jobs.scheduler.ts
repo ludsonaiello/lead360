@@ -16,6 +16,10 @@ import { Queue } from 'bullmq';
  *    Audits consistency between completed call logs and usage records.
  *    Warns ops if billing data appears to be missing.
  *
+ * 3. Stuck Call Cleanup — Every hour at :15 minutes past the hour
+ *    Auto-fails calls stuck in 'in_progress' status for >2 hours.
+ *    Prevents stuck calls from polluting active call metrics.
+ *
  * NOTE: ScheduleModule.forRoot() is registered in AppModule — do NOT add it
  * here to avoid double-firing of cron jobs.
  *
@@ -29,6 +33,7 @@ export class VoiceAiJobsScheduler {
   constructor(
     @InjectQueue('voice-ai-quota-reset') private readonly quotaResetQueue: Queue,
     @InjectQueue('voice-ai-usage-sync') private readonly usageSyncQueue: Queue,
+    @InjectQueue('voice-ai-stuck-call-cleanup') private readonly stuckCallCleanupQueue: Queue,
   ) {}
 
   /**
@@ -69,6 +74,35 @@ export class VoiceAiJobsScheduler {
     } catch (error) {
       this.logger.error(
         `Failed to enqueue daily usage sync job: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
+    }
+  }
+
+  /**
+   * Stuck Call Cleanup
+   *
+   * Fires every hour at :15 minutes past the hour (00:15, 01:15, 02:15, etc.)
+   * Cleans up calls stuck in 'in_progress' status for more than 2 hours.
+   * Uses a timestamp-based jobId so each run is a distinct job.
+   *
+   * Why hourly?
+   * - Frequent enough to keep metrics accurate
+   * - Not so frequent that it impacts performance
+   * - 2-hour threshold prevents false positives from long calls
+   */
+  @Cron('15 * * * *')
+  async scheduleStuckCallCleanup(): Promise<void> {
+    try {
+      this.logger.log('Enqueueing stuck call cleanup job');
+      await this.stuckCallCleanupQueue.add(
+        'cleanup-stuck-calls',
+        {},
+        { jobId: `stuck-call-cleanup-${Date.now()}` },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to enqueue stuck call cleanup job: ${(error as Error).message}`,
         (error as Error).stack,
       );
     }

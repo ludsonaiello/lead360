@@ -23,6 +23,8 @@ import {
   MessageSquare,
   Copy,
   Check,
+  Bot,
+  ChevronRight,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
@@ -35,6 +37,7 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb';
 
 import { getIVRConfiguration, disableIVRConfiguration } from '@/lib/api/ivr';
 import type { IVRConfiguration, IVRMenuOption, IVRActionType } from '@/lib/types/ivr';
+import { ACTION_TYPE_LABELS } from '@/lib/types/ivr';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAccessToken } from '@/lib/utils/token';
 
@@ -102,13 +105,21 @@ export default function IVRConfigurationPage() {
   const getActionIcon = (action: IVRActionType) => {
     switch (action) {
       case 'route_to_number':
-        return <PhoneCall className="h-5 w-5" />;
+        return <PhoneCall className="h-4 w-4" />;
       case 'voicemail':
-        return <Voicemail className="h-5 w-5" />;
+        return <Voicemail className="h-4 w-4" />;
       case 'trigger_webhook':
-        return <LinkIcon className="h-5 w-5" />;
+        return <LinkIcon className="h-4 w-4" />;
       case 'route_to_default':
-        return <ArrowRight className="h-5 w-5" />;
+        return <ArrowRight className="h-4 w-4" />;
+      case 'voice_ai':
+        return <Bot className="h-4 w-4" />;
+      case 'submenu':
+        return <ChevronRight className="h-4 w-4" />;
+      case 'return_to_parent':
+        return <ArrowRight className="h-4 w-4 rotate-180" />;
+      case 'return_to_root':
+        return <ArrowRight className="h-4 w-4 rotate-180" />;
     }
   };
 
@@ -123,6 +134,14 @@ export default function IVRConfigurationPage() {
         return 'purple';
       case 'route_to_default':
         return 'gray';
+      case 'voice_ai':
+        return 'purple';
+      case 'submenu':
+        return 'indigo';
+      case 'return_to_parent':
+        return 'yellow';
+      case 'return_to_root':
+        return 'orange';
     }
   };
 
@@ -489,29 +508,39 @@ export default function IVRConfigurationPage() {
         </div>
       </Card>
 
-      {/* Menu Options */}
+      {/* Menu Structure - Hierarchical Display */}
       {config.menu_options.length > 0 && (
-        <div>
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-            Menu Options
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {config.menu_options
-              .sort((a, b) => a.digit.localeCompare(b.digit))
-              .map((option) => (
-                <MenuOptionCard
-                  key={option.digit}
-                  option={option}
-                  formatPhoneNumber={formatPhoneNumber}
-                  formatDuration={formatDuration}
-                  getActionIcon={getActionIcon}
-                  getActionColor={getActionColor}
-                  copyToClipboard={copyToClipboard}
-                  copiedUrl={copiedUrl}
-                />
-              ))}
+        <Card>
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+                Menu Structure
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {config.max_depth > 1
+                  ? `Multi-level menu with up to ${config.max_depth} levels`
+                  : 'Single-level menu'}
+              </p>
+            </div>
+            <div className="space-y-4">
+              {config.menu_options
+                .sort((a, b) => a.digit.localeCompare(b.digit))
+                .map((option) => (
+                  <MenuOptionDisplay
+                    key={option.id}
+                    option={option}
+                    level={1}
+                    formatPhoneNumber={formatPhoneNumber}
+                    formatDuration={formatDuration}
+                    getActionIcon={getActionIcon}
+                    getActionColor={getActionColor}
+                    copyToClipboard={copyToClipboard}
+                    copiedUrl={copiedUrl}
+                  />
+                ))}
+            </div>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Default Action Card */}
@@ -586,7 +615,7 @@ export default function IVRConfigurationPage() {
             Settings
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="flex items-start">
               <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center mr-3">
                 <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -620,6 +649,23 @@ export default function IVRConfigurationPage() {
                 </p>
               </div>
             </div>
+
+            <div className="flex items-start">
+              <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/20 rounded-lg flex items-center justify-center mr-3">
+                <ChevronRight className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  Maximum Depth
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {config.max_depth || 4} levels
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  Maximum menu nesting
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </Card>
@@ -641,10 +687,11 @@ export default function IVRConfigurationPage() {
 }
 
 /**
- * Menu Option Card Component
+ * Recursive component to display multi-level menu options
  */
-interface MenuOptionCardProps {
+interface MenuOptionDisplayProps {
   option: IVRMenuOption;
+  level?: number;
   formatPhoneNumber: (phone: string) => string;
   formatDuration: (seconds: number) => string;
   getActionIcon: (action: IVRActionType) => React.ReactElement;
@@ -653,105 +700,154 @@ interface MenuOptionCardProps {
   copiedUrl: string | null;
 }
 
-function MenuOptionCard({
+function MenuOptionDisplay({
   option,
+  level = 1,
   formatPhoneNumber,
   formatDuration,
   getActionIcon,
   getActionColor,
   copyToClipboard,
   copiedUrl,
-}: MenuOptionCardProps) {
-  const actionColor = getActionColor(option.action) as 'blue' | 'green' | 'purple' | 'gray';
-
-  const colorClasses: Record<'blue' | 'green' | 'purple' | 'gray', string> = {
-    blue: 'bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800',
-    green: 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800',
-    purple: 'bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800',
-    gray: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700',
+}: MenuOptionDisplayProps) {
+  const getActionColorClass = (action: IVRActionType) => {
+    switch (action) {
+      case 'route_to_number':
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300';
+      case 'voice_ai':
+        return 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300';
+      case 'voicemail':
+        return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300';
+      case 'trigger_webhook':
+        return 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300';
+      case 'submenu':
+        return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300';
+      case 'return_to_parent':
+        return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300';
+      case 'return_to_root':
+        return 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300';
+      default:
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
+    }
   };
 
   return (
-    <Card>
-      <div className={`p-6 border-l-4 ${colorClasses[actionColor]}`}>
-        {/* Header */}
-        <div className="flex items-center mb-3">
-          <div
-            className={`w-12 h-12 rounded-full flex items-center justify-center mr-3 text-xl font-bold ${
-              actionColor === 'blue'
-                ? 'bg-blue-600 text-white'
-                : actionColor === 'green'
-                ? 'bg-green-600 text-white'
-                : actionColor === 'purple'
-                ? 'bg-purple-600 text-white'
-                : 'bg-gray-600 text-white'
-            }`}
-          >
-            {option.digit}
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              {getActionIcon(option.action)}
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {option.action === 'route_to_number' && 'Route to Phone Number'}
-                {option.action === 'voicemail' && 'Voicemail'}
-                {option.action === 'trigger_webhook' && 'Trigger Webhook'}
-                {option.action === 'route_to_default' && 'Default Routing'}
-              </p>
-            </div>
-            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-              {option.label}
-            </p>
-          </div>
-        </div>
-
-        {/* Config Details */}
-        <div className="bg-white dark:bg-gray-900 rounded-lg p-3 mt-3">
-          {option.action === 'route_to_number' && option.config.phone_number && (
-            <div className="flex items-center gap-2">
-              <PhoneCall className="h-4 w-4 text-gray-400" />
-              <span className="text-sm text-gray-900 dark:text-white">
-                {formatPhoneNumber(option.config.phone_number)}
-              </span>
-            </div>
-          )}
-
-          {option.action === 'trigger_webhook' && option.config.webhook_url && (
-            <div className="flex items-start gap-2">
-              <LinkIcon className="h-4 w-4 text-gray-400 mt-0.5" />
-              <span className="text-sm text-gray-900 dark:text-white break-all flex-1">
-                {option.config.webhook_url}
-              </span>
-              <button
-                onClick={() => copyToClipboard(option.config.webhook_url!)}
-                className="flex-shrink-0 p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                title="Copy URL"
+    <div
+      className="space-y-3"
+      style={{ marginLeft: level > 1 ? `${(level - 1) * 1.5}rem` : '0' }}
+    >
+      <Card className={level > 1 ? 'border-l-4 border-l-primary/30' : ''}>
+        <div className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {/* Digit Badge */}
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold ${getActionColorClass(
+                  option.action
+                )}`}
               >
-                {copiedUrl === option.config.webhook_url ? (
-                  <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-          )}
+                {option.digit}
+              </div>
 
-          {option.action === 'voicemail' && option.config.max_duration_seconds && (
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-gray-400" />
-              <span className="text-sm text-gray-900 dark:text-white">
-                Max Duration: {formatDuration(option.config.max_duration_seconds)}
-              </span>
+              <div>
+                <div className="text-base font-medium text-gray-900 dark:text-white">
+                  {option.label}
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                    {getActionIcon(option.action)}
+                    <span>{ACTION_TYPE_LABELS[option.action]}</span>
+                  </Badge>
+                  {level > 1 && (
+                    <Badge variant="outline" className="text-xs">
+                      Level {level}
+                    </Badge>
+                  )}
+                </div>
+              </div>
             </div>
-          )}
+          </div>
 
-          {option.action === 'route_to_default' && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-              Uses default routing configuration
-            </p>
-          )}
+          {/* Action-Specific Details */}
+          <div className="mt-3 space-y-2">
+            {option.action === 'route_to_number' && option.config.phone_number && (
+              <div className="flex items-center gap-2 text-sm">
+                <PhoneCall className="h-4 w-4 text-muted-foreground" />
+                <span className="font-mono">{formatPhoneNumber(option.config.phone_number)}</span>
+              </div>
+            )}
+
+            {option.action === 'trigger_webhook' && option.config.webhook_url && (
+              <div className="flex items-center gap-2 text-sm">
+                <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                <span className="truncate">{option.config.webhook_url}</span>
+                <button
+                  onClick={() => copyToClipboard(option.config.webhook_url!)}
+                  className="flex-shrink-0 p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                  title="Copy URL"
+                >
+                  {copiedUrl === option.config.webhook_url ? (
+                    <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            )}
+
+            {option.action === 'voicemail' && option.config.max_duration_seconds && (
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span>Max duration: {option.config.max_duration_seconds}s</span>
+              </div>
+            )}
+
+            {option.action === 'voice_ai' && (
+              <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
+                <Bot className="h-4 w-4" />
+                <span>AI Voice Assistant</span>
+              </div>
+            )}
+
+            {/* Submenu Section */}
+            {option.action === 'submenu' && option.submenu && (
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">
+                    <ChevronRight className="h-3 w-3 mr-1" />
+                    Submenu
+                  </Badge>
+                </div>
+
+                {/* Submenu Greeting */}
+                <div className="rounded-lg bg-muted p-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">
+                    Submenu Greeting:
+                  </p>
+                  <p className="text-sm">{option.submenu.greeting_message}</p>
+                </div>
+
+                {/* Recursive: Display submenu options */}
+                <div className="space-y-2">
+                  {option.submenu.options.map((subOption) => (
+                    <MenuOptionDisplay
+                      key={subOption.id}
+                      option={subOption}
+                      level={level + 1}
+                      formatPhoneNumber={formatPhoneNumber}
+                      formatDuration={formatDuration}
+                      getActionIcon={getActionIcon}
+                      getActionColor={getActionColor}
+                      copyToClipboard={copyToClipboard}
+                      copiedUrl={copiedUrl}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </Card>
+      </Card>
+    </div>
   );
 }

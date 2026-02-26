@@ -51,7 +51,7 @@ export class VoiceAiAdminCallLogsController {
    *   tenantId — filter by a specific tenant UUID
    *   from     — ISO date string (inclusive lower bound on started_at)
    *   to       — ISO date string (inclusive upper bound on started_at)
-   *   outcome  — filter by outcome (completed | transferred | voicemail | abandoned | error)
+   *   outcome  — filter by outcome (lead_created | transferred | abandoned)
    *   page     — 1-based page index (default: 1)
    *   limit    — records per page (default: 20, max: 100)
    */
@@ -66,7 +66,7 @@ export class VoiceAiAdminCallLogsController {
   @ApiQuery({ name: 'tenantId', required: false, description: 'Filter by tenant UUID' })
   @ApiQuery({ name: 'from', required: false, description: 'Start date (ISO 8601)', example: '2026-02-01' })
   @ApiQuery({ name: 'to', required: false, description: 'End date (ISO 8601)', example: '2026-02-28' })
-  @ApiQuery({ name: 'outcome', required: false, description: 'Filter by call outcome', enum: ['completed', 'transferred', 'voicemail', 'abandoned', 'error'] })
+  @ApiQuery({ name: 'outcome', required: false, description: 'Filter by call outcome', enum: ['lead_created', 'transferred', 'abandoned'] })
   @ApiQuery({ name: 'page', required: false, description: 'Page number (default: 1)', example: 1 })
   @ApiQuery({ name: 'limit', required: false, description: 'Records per page (default: 20, max: 100)', example: 20 })
   @ApiResponse({ status: 200, description: 'Cross-tenant paginated call log list with meta' })

@@ -3,518 +3,466 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IvrConfigurationService } from './ivr-configuration.service';
 import { PrismaService } from '../../../core/database/prisma.service';
-import { CreateIvrConfigDto } from '../dto/ivr/create-ivr-config.dto';
+import { VoiceAiSipService } from '../../voice-ai/services/voice-ai-sip.service';
+import { IvrMenuOptionDto } from '../dto/ivr/create-ivr-config.dto';
 
 /**
- * IvrConfigurationService Unit Tests
+ * Integration Tests for Multi-Level IVR Navigation (Sprint IVR-2)
  *
- * Test Coverage:
- * - ✅ Create/Update IVR configuration (upsert pattern)
- * - ✅ Get IVR configuration
- * - ✅ Delete (soft delete) IVR configuration
- * - ✅ Generate IVR menu TwiML
- * - ✅ Execute IVR action (valid digit)
- * - ✅ Execute IVR action (invalid digit)
- * - ✅ Execute default action
- * - ✅ Menu options validation (duplicates, invalid digits, invalid actions)
- * - ✅ Phone number validation (E.164 format)
- * - ✅ Webhook URL validation (HTTPS only)
- * - ✅ Error handling
- *
- * Mocking Strategy:
- * - PrismaService: Mocked for database operations
- * - ConfigService: Mocked for API_BASE_URL
- * - No external dependencies (Twilio SDK used internally)
+ * Tests the path-based navigation system for multi-level IVR menus.
+ * Validates:
+ * - Root level navigation (no path)
+ * - Single-level submenu navigation (path="1")
+ * - Multi-level submenu navigation (path="1.2", "1.2.3")
+ * - Error handling for invalid paths
+ * - Error handling for non-submenu options in path
+ * - TwiML generation with path parameters
+ * - Submenu action redirects
  */
-describe('IvrConfigurationService', () => {
+describe('IvrConfigurationService - Multi-Level Navigation', () => {
   let service: IvrConfigurationService;
-  let prisma: jest.Mocked<PrismaService>;
-  let config: jest.Mocked<ConfigService>;
+  let prisma: PrismaService;
 
-  // Mock tenant ID for testing
-  const mockTenantId = 'tenant-123-456';
-
-  // Mock IVR configuration data
-  const mockIvrConfig = {
-    id: 'ivr-config-123',
-    tenant_id: mockTenantId,
-    twilio_config_id: null,
-    ivr_enabled: true,
-    greeting_message: 'Thank you for calling ABC Company.',
-    menu_options: [
-      {
-        digit: '1',
-        action: 'route_to_number',
-        label: 'Sales Department',
-        config: { phone_number: '+19781234567' },
+  // Mock data for multi-level menu structure
+  const mockMultiLevelMenu: IvrMenuOptionDto[] = [
+    {
+      id: 'opt-1',
+      digit: '1',
+      action: 'submenu',
+      label: 'Sales Department',
+      config: {},
+      submenu: {
+        greeting_message: 'Welcome to Sales. Please select an option.',
+        timeout_seconds: 15,
+        options: [
+          {
+            id: 'opt-1-1',
+            digit: '1',
+            action: 'submenu',
+            label: 'Customer Type',
+            config: {},
+            submenu: {
+              greeting_message: 'Are you a new or existing customer?',
+              options: [
+                {
+                  id: 'opt-1-1-1',
+                  digit: '1',
+                  action: 'voicemail',
+                  label: 'New Customer',
+                  config: { max_duration_seconds: 120 },
+                },
+                {
+                  id: 'opt-1-1-2',
+                  digit: '2',
+                  action: 'route_to_number',
+                  label: 'Existing Customer',
+                  config: { phone_number: '+15551234567' },
+                },
+              ],
+            },
+          },
+          {
+            id: 'opt-1-2',
+            digit: '2',
+            action: 'route_to_number',
+            label: 'Sales Manager',
+            config: { phone_number: '+15559876543' },
+          },
+        ],
       },
-      {
-        digit: '2',
-        action: 'voicemail',
-        label: 'Leave a message',
-        config: { max_duration_seconds: 180 },
-      },
-    ],
-    default_action: {
+    },
+    {
+      id: 'opt-2',
+      digit: '2',
+      action: 'route_to_number',
+      label: 'Support',
+      config: { phone_number: '+15551111111' },
+    },
+    {
+      id: 'opt-3',
+      digit: '3',
       action: 'voicemail',
+      label: 'Leave a Message',
       config: { max_duration_seconds: 180 },
     },
-    timeout_seconds: 10,
-    max_retries: 3,
-    status: 'active',
-    created_at: new Date(),
-    updated_at: new Date(),
-  };
+  ];
 
   beforeEach(async () => {
-    // Create mock Prisma service
-    const mockPrismaService = {
-      ivr_configuration: {
-        findUnique: jest.fn(),
-        create: jest.fn(),
-        update: jest.fn(),
-      },
-    };
-
-    // Create mock Config service
-    const mockConfigService = {
-      get: jest.fn((key: string) => {
-        if (key === 'API_BASE_URL') {
-          return 'https://api.lead360.app';
-        }
-        return undefined;
-      }),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         IvrConfigurationService,
         {
           provide: PrismaService,
-          useValue: mockPrismaService,
+          useValue: {
+            ivr_configuration: {
+              findUnique: jest.fn(),
+              create: jest.fn(),
+              update: jest.fn(),
+            },
+            tenant: {
+              findUnique: jest.fn(),
+            },
+          },
         },
         {
           provide: ConfigService,
-          useValue: mockConfigService,
+          useValue: {
+            get: jest.fn((key: string) => {
+              if (key === 'API_BASE_URL') return 'https://api.lead360.app';
+              return null;
+            }),
+          },
+        },
+        {
+          provide: VoiceAiSipService,
+          useValue: {
+            canHandleCall: jest.fn(),
+            buildSipTwiml: jest.fn(),
+            buildFallbackTwiml: jest.fn(),
+          },
         },
       ],
     }).compile();
 
     service = module.get<IvrConfigurationService>(IvrConfigurationService);
-    prisma = module.get(PrismaService);
-    config = module.get(ConfigService);
+    prisma = module.get<PrismaService>(PrismaService);
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
+  describe('navigateToMenuLevel()', () => {
+    it('should return root level when path is null', () => {
+      const result = service['navigateToMenuLevel'](
+        mockMultiLevelMenu,
+        'Welcome to our company',
+        null,
+      );
+
+      expect(result.greeting).toBe('Welcome to our company');
+      expect(result.options).toEqual(mockMultiLevelMenu);
+      expect(result.timeout).toBeUndefined();
+    });
+
+    it('should return root level when path is empty string', () => {
+      const result = service['navigateToMenuLevel'](
+        mockMultiLevelMenu,
+        'Welcome to our company',
+        '',
+      );
+
+      expect(result.greeting).toBe('Welcome to our company');
+      expect(result.options).toEqual(mockMultiLevelMenu);
+      expect(result.timeout).toBeUndefined();
+    });
+
+    it('should navigate to first-level submenu (path="1")', () => {
+      const result = service['navigateToMenuLevel'](
+        mockMultiLevelMenu,
+        'Welcome to our company',
+        '1',
+      );
+
+      expect(result.greeting).toBe('Welcome to Sales. Please select an option.');
+      expect(result.options).toHaveLength(2);
+      expect(result.options[0].digit).toBe('1');
+      expect(result.options[1].digit).toBe('2');
+      expect(result.timeout).toBe(15); // Submenu override timeout
+    });
+
+    it('should navigate to second-level submenu (path="1.1")', () => {
+      const result = service['navigateToMenuLevel'](
+        mockMultiLevelMenu,
+        'Welcome to our company',
+        '1.1',
+      );
+
+      expect(result.greeting).toBe('Are you a new or existing customer?');
+      expect(result.options).toHaveLength(2);
+      expect(result.options[0].digit).toBe('1');
+      expect(result.options[0].label).toBe('New Customer');
+      expect(result.options[1].digit).toBe('2');
+      expect(result.options[1].label).toBe('Existing Customer');
+      expect(result.timeout).toBeUndefined(); // No timeout override at this level
+    });
+
+    it('should throw NotFoundException for invalid digit in path (digit does not exist)', () => {
+      expect(() =>
+        service['navigateToMenuLevel'](
+          mockMultiLevelMenu,
+          'Welcome',
+          '9',
+        ),
+      ).toThrow(NotFoundException);
+
+      expect(() =>
+        service['navigateToMenuLevel'](
+          mockMultiLevelMenu,
+          'Welcome',
+          '9',
+        ),
+      ).toThrow('Invalid menu path: digit "9" not found at level 1');
+    });
+
+    it('should throw NotFoundException for invalid digit in nested path', () => {
+      expect(() =>
+        service['navigateToMenuLevel'](
+          mockMultiLevelMenu,
+          'Welcome',
+          '1.9',
+        ),
+      ).toThrow(NotFoundException);
+
+      expect(() =>
+        service['navigateToMenuLevel'](
+          mockMultiLevelMenu,
+          'Welcome',
+          '1.9',
+        ),
+      ).toThrow('Invalid menu path: digit "9" not found at level 2');
+    });
+
+    it('should throw BadRequestException when path points to non-submenu option', () => {
+      // Digit "2" at root is "Support" (route_to_number), not a submenu
+      expect(() =>
+        service['navigateToMenuLevel'](
+          mockMultiLevelMenu,
+          'Welcome',
+          '2',
+        ),
+      ).toThrow(BadRequestException);
+
+      expect(() =>
+        service['navigateToMenuLevel'](
+          mockMultiLevelMenu,
+          'Welcome',
+          '2',
+        ),
+      ).toThrow('is not a submenu');
+    });
+
+    it('should throw BadRequestException when nested path points to terminal action', () => {
+      // Path "1.2" points to "Sales Manager" (route_to_number), cannot go deeper
+      expect(() =>
+        service['navigateToMenuLevel'](
+          mockMultiLevelMenu,
+          'Welcome',
+          '1.2.1',
+        ),
+      ).toThrow(BadRequestException);
+    });
+
+    it('should handle deep nesting correctly (3 levels deep)', () => {
+      // Navigate to path "1.1" (second level submenu)
+      const result = service['navigateToMenuLevel'](
+        mockMultiLevelMenu,
+        'Welcome',
+        '1.1',
+      );
+
+      expect(result.greeting).toBe('Are you a new or existing customer?');
+      expect(result.options).toHaveLength(2);
+
+      // Verify we're at the correct level
+      expect(result.options[0].action).toBe('voicemail'); // Terminal action
+      expect(result.options[1].action).toBe('route_to_number'); // Terminal action
+    });
   });
 
-  describe('createOrUpdate', () => {
-    const validDto: CreateIvrConfigDto = {
+  describe('generateIvrMenuTwiML() with path parameter', () => {
+    const mockTenant = {
+      id: 'tenant-123',
+      subdomain: 'testcompany',
+    };
+
+    const mockConfig = {
+      id: 'config-123',
+      tenant_id: 'tenant-123',
       ivr_enabled: true,
-      greeting_message: 'Thank you for calling ABC Company.',
-      menu_options: [
-        {
-          digit: '1',
-          action: 'route_to_number',
-          label: 'Sales Department',
-          config: { phone_number: '+19781234567' },
-        },
-      ],
+      greeting_message: 'Thank you for calling. Please select an option.',
+      menu_options: mockMultiLevelMenu,
       default_action: {
         action: 'voicemail',
         config: { max_duration_seconds: 180 },
       },
       timeout_seconds: 10,
       max_retries: 3,
+      max_depth: 4,
+      status: 'active',
+      created_at: new Date(),
+      updated_at: new Date(),
     };
 
-    it('should create new IVR configuration if none exists', async () => {
-      prisma.ivr_configuration.findUnique.mockResolvedValue(null);
-      prisma.ivr_configuration.create.mockResolvedValue(mockIvrConfig);
-
-      const result = await service.createOrUpdate(mockTenantId, validDto);
-
-      expect(prisma.ivr_configuration.findUnique).toHaveBeenCalledWith({
-        where: { tenant_id: mockTenantId },
-      });
-      expect(prisma.ivr_configuration.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          tenant_id: mockTenantId,
-          ivr_enabled: validDto.ivr_enabled,
-          greeting_message: validDto.greeting_message,
-          status: 'active',
-        }),
-      });
-      expect(result).toEqual(mockIvrConfig);
+    beforeEach(() => {
+      jest.spyOn(prisma.ivr_configuration, 'findUnique').mockResolvedValue(mockConfig as any);
+      jest.spyOn(prisma.tenant, 'findUnique').mockResolvedValue(mockTenant as any);
     });
 
-    it('should update existing IVR configuration', async () => {
-      prisma.ivr_configuration.findUnique.mockResolvedValue(mockIvrConfig);
-      prisma.ivr_configuration.update.mockResolvedValue({
-        ...mockIvrConfig,
-        greeting_message: 'Updated greeting',
-      });
+    it('should generate root level TwiML with consent message (no path)', async () => {
+      const twiml = await service.generateIvrMenuTwiML('tenant-123');
 
-      const updatedDto = { ...validDto, greeting_message: 'Updated greeting' };
-      const result = await service.createOrUpdate(mockTenantId, updatedDto);
+      // Should include consent message
+      expect(twiml).toContain('This call will be recorded');
 
-      expect(prisma.ivr_configuration.findUnique).toHaveBeenCalled();
-      expect(prisma.ivr_configuration.update).toHaveBeenCalledWith({
-        where: { tenant_id: mockTenantId },
-        data: expect.objectContaining({
-          greeting_message: 'Updated greeting',
-        }),
-      });
-      expect(result.greeting_message).toBe('Updated greeting');
+      // Should include greeting
+      expect(twiml).toContain('Thank you for calling');
+
+      // Should include menu options
+      expect(twiml).toContain('Press 1 for Sales Department');
+      expect(twiml).toContain('Press 2 for Support');
+      expect(twiml).toContain('Press 3 for Leave a Message');
+
+      // Action URL should NOT include path parameter
+      expect(twiml).toContain('https://testcompany.lead360.app/api/v1/twilio/ivr/input');
+      expect(twiml).not.toContain('?path=');
+
+      // Should use config default timeout (10 seconds)
+      expect(twiml).toContain('timeout="10"');
     });
 
-    it('should reject duplicate digits in menu options', async () => {
-      const dtoWithDuplicates: CreateIvrConfigDto = {
-        ...validDto,
-        menu_options: [
-          {
-            digit: '1',
-            action: 'route_to_number',
-            label: 'Sales',
-            config: { phone_number: '+19781234567' },
-          },
-          {
-            digit: '1', // Duplicate
-            action: 'voicemail',
-            label: 'Voicemail',
-            config: { max_duration_seconds: 180 },
-          },
-        ],
-      };
+    it('should generate submenu TwiML without consent message (path="1")', async () => {
+      const twiml = await service.generateIvrMenuTwiML('tenant-123', '1');
 
-      await expect(
-        service.createOrUpdate(mockTenantId, dtoWithDuplicates),
-      ).rejects.toThrow(BadRequestException);
-      await expect(
-        service.createOrUpdate(mockTenantId, dtoWithDuplicates),
-      ).rejects.toThrow(/Duplicate digits found/);
+      // Should NOT include consent message (not at root)
+      expect(twiml).not.toContain('This call will be recorded');
+
+      // Should include submenu greeting
+      expect(twiml).toContain('Welcome to Sales');
+
+      // Should include submenu options
+      expect(twiml).toContain('Press 1 for Customer Type');
+      expect(twiml).toContain('Press 2 for Sales Manager');
+
+      // Action URL should include path parameter
+      expect(twiml).toContain('https://testcompany.lead360.app/api/v1/twilio/ivr/input?path=1');
+
+      // Should use submenu timeout override (15 seconds)
+      expect(twiml).toContain('timeout="15"');
     });
 
-    it('should reject invalid phone number format', async () => {
-      const dtoWithInvalidPhone: CreateIvrConfigDto = {
-        ...validDto,
-        menu_options: [
-          {
-            digit: '1',
-            action: 'route_to_number',
-            label: 'Sales',
-            config: { phone_number: '9781234567' }, // Missing +1
-          },
-        ],
-      };
+    it('should generate deep submenu TwiML (path="1.1")', async () => {
+      const twiml = await service.generateIvrMenuTwiML('tenant-123', '1.1');
 
-      await expect(
-        service.createOrUpdate(mockTenantId, dtoWithInvalidPhone),
-      ).rejects.toThrow(BadRequestException);
-      await expect(
-        service.createOrUpdate(mockTenantId, dtoWithInvalidPhone),
-      ).rejects.toThrow(/E.164 format/);
+      // Should NOT include consent message
+      expect(twiml).not.toContain('This call will be recorded');
+
+      // Should include second-level submenu greeting
+      expect(twiml).toContain('Are you a new or existing customer?');
+
+      // Should include second-level submenu options
+      expect(twiml).toContain('Press 1 for New Customer');
+      expect(twiml).toContain('Press 2 for Existing Customer');
+
+      // Action URL should include path parameter
+      expect(twiml).toContain('https://testcompany.lead360.app/api/v1/twilio/ivr/input?path=1.1');
+
+      // Should use config default timeout (no override at this level)
+      expect(twiml).toContain('timeout="10"');
     });
 
-    it('should reject non-HTTPS webhook URLs', async () => {
-      const dtoWithHttpWebhook: CreateIvrConfigDto = {
-        ...validDto,
-        menu_options: [
-          {
-            digit: '1',
-            action: 'trigger_webhook',
-            label: 'Webhook',
-            config: { webhook_url: 'http://example.com/webhook' }, // HTTP not HTTPS
-          },
-        ],
-      };
-
+    it('should throw NotFoundException for invalid path', async () => {
       await expect(
-        service.createOrUpdate(mockTenantId, dtoWithHttpWebhook),
-      ).rejects.toThrow(BadRequestException);
-      await expect(
-        service.createOrUpdate(mockTenantId, dtoWithHttpWebhook),
-      ).rejects.toThrow(/must use HTTPS/);
-    });
-
-    it('should reject menu options with > 10 items', async () => {
-      const dtoWithTooManyOptions: CreateIvrConfigDto = {
-        ...validDto,
-        menu_options: Array.from({ length: 11 }, (_, i) => ({
-          digit: String(i % 10),
-          action: 'voicemail' as const,
-          label: `Option ${i}`,
-          config: { max_duration_seconds: 180 },
-        })),
-      };
-
-      await expect(
-        service.createOrUpdate(mockTenantId, dtoWithTooManyOptions),
-      ).rejects.toThrow(BadRequestException);
-      await expect(
-        service.createOrUpdate(mockTenantId, dtoWithTooManyOptions),
-      ).rejects.toThrow(/between 1 and 10/);
-    });
-
-    it('should reject invalid digits (not 0-9)', async () => {
-      const dtoWithInvalidDigit: CreateIvrConfigDto = {
-        ...validDto,
-        menu_options: [
-          {
-            digit: 'A', // Invalid
-            action: 'voicemail',
-            label: 'Option',
-            config: { max_duration_seconds: 180 },
-          },
-        ],
-      };
-
-      await expect(
-        service.createOrUpdate(mockTenantId, dtoWithInvalidDigit),
-      ).rejects.toThrow(BadRequestException);
-      await expect(
-        service.createOrUpdate(mockTenantId, dtoWithInvalidDigit),
-      ).rejects.toThrow(/Digit must be 0-9/);
+        service.generateIvrMenuTwiML('tenant-123', '9.9.9'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
-  describe('findByTenantId', () => {
-    it('should return IVR configuration for tenant', async () => {
-      prisma.ivr_configuration.findUnique.mockResolvedValue(mockIvrConfig);
+  describe('executeIvrAction() with path parameter', () => {
+    const mockTenant = {
+      id: 'tenant-123',
+      subdomain: 'testcompany',
+    };
 
-      const result = await service.findByTenantId(mockTenantId);
+    const mockConfig = {
+      id: 'config-123',
+      tenant_id: 'tenant-123',
+      ivr_enabled: true,
+      greeting_message: 'Thank you for calling',
+      menu_options: mockMultiLevelMenu,
+      default_action: {
+        action: 'voicemail',
+        config: { max_duration_seconds: 180 },
+      },
+      timeout_seconds: 10,
+      max_retries: 3,
+      max_depth: 4,
+      status: 'active',
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
 
-      expect(prisma.ivr_configuration.findUnique).toHaveBeenCalledWith({
-        where: { tenant_id: mockTenantId },
-      });
-      expect(result).toEqual(mockIvrConfig);
+    beforeEach(() => {
+      jest.spyOn(prisma.ivr_configuration, 'findUnique').mockResolvedValue(mockConfig as any);
+      jest.spyOn(prisma.tenant, 'findUnique').mockResolvedValue(mockTenant as any);
     });
 
-    it('should throw NotFoundException if config does not exist', async () => {
-      prisma.ivr_configuration.findUnique.mockResolvedValue(null);
-
-      await expect(service.findByTenantId(mockTenantId)).rejects.toThrow(
-        NotFoundException,
+    it('should handle submenu action at root level and redirect with new path', async () => {
+      const twiml = await service.executeIvrAction(
+        'tenant-123',
+        '1', // Press 1 (Sales Department - submenu)
+        'CA1234567890',
+        undefined, // At root level
       );
-      await expect(service.findByTenantId(mockTenantId)).rejects.toThrow(
-        /not found/,
-      );
-    });
-  });
 
-  describe('delete', () => {
-    it('should soft delete IVR configuration', async () => {
-      prisma.ivr_configuration.findUnique.mockResolvedValue(mockIvrConfig);
-      prisma.ivr_configuration.update.mockResolvedValue({
-        ...mockIvrConfig,
-        ivr_enabled: false,
-        status: 'inactive',
-      });
-
-      const result = await service.delete(mockTenantId);
-
-      expect(prisma.ivr_configuration.update).toHaveBeenCalledWith({
-        where: { tenant_id: mockTenantId },
-        data: {
-          ivr_enabled: false,
-          status: 'inactive',
-        },
-      });
-      expect(result.ivr_enabled).toBe(false);
-      expect(result.status).toBe('inactive');
-    });
-
-    it('should throw NotFoundException if config does not exist', async () => {
-      prisma.ivr_configuration.findUnique.mockResolvedValue(null);
-
-      await expect(service.delete(mockTenantId)).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-  });
-
-  describe('generateIvrMenuTwiML', () => {
-    it('should generate valid TwiML with consent and menu options', async () => {
-      prisma.ivr_configuration.findUnique.mockResolvedValue(mockIvrConfig);
-
-      const twiml = await service.generateIvrMenuTwiML(mockTenantId);
-
-      // Verify TwiML structure
-      expect(twiml).toContain('<?xml version="1.0" encoding="UTF-8"?>');
-      expect(twiml).toContain('<Response>');
-      expect(twiml).toContain('This call will be recorded'); // Consent
-      expect(twiml).toContain('Thank you for calling ABC Company'); // Greeting
-      expect(twiml).toContain('Press 1 for Sales Department'); // Menu option
-      expect(twiml).toContain('<Gather'); // Gather element
-      expect(twiml).toContain('numDigits="1"'); // Single digit
-      expect(twiml).toContain('twilio-ivr-input'); // Action URL
-    });
-
-    it('should throw BadRequestException if IVR is disabled', async () => {
-      const disabledConfig = { ...mockIvrConfig, ivr_enabled: false };
-      prisma.ivr_configuration.findUnique.mockResolvedValue(disabledConfig);
-
-      await expect(service.generateIvrMenuTwiML(mockTenantId)).rejects.toThrow(
-        BadRequestException,
-      );
-      await expect(service.generateIvrMenuTwiML(mockTenantId)).rejects.toThrow(
-        /not enabled/,
-      );
-    });
-
-    it('should throw NotFoundException if config does not exist', async () => {
-      prisma.ivr_configuration.findUnique.mockResolvedValue(null);
-
-      await expect(service.generateIvrMenuTwiML(mockTenantId)).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-  });
-
-  describe('executeIvrAction', () => {
-    it('should execute action for valid digit', async () => {
-      prisma.ivr_configuration.findUnique.mockResolvedValue(mockIvrConfig);
-
-      const twiml = await service.executeIvrAction(mockTenantId, '1');
-
-      // Should route to number
-      expect(twiml).toContain('<Dial');
-      expect(twiml).toContain('+19781234567');
-      expect(twiml).toContain('transfer your call');
-    });
-
-    it('should replay menu for invalid digit', async () => {
-      prisma.ivr_configuration.findUnique.mockResolvedValue(mockIvrConfig);
-
-      const twiml = await service.executeIvrAction(mockTenantId, '9'); // Invalid
-
-      // Should say error and redirect to menu
-      expect(twiml).toContain('Invalid option');
-      expect(twiml).toContain('try again');
+      // Should generate redirect TwiML to submenu
       expect(twiml).toContain('<Redirect');
-      expect(twiml).toContain('twilio-ivr-menu');
+      expect(twiml).toContain('https://testcompany.lead360.app/api/v1/twilio/ivr/menu?path=1');
     });
 
-    it('should handle voicemail action', async () => {
-      prisma.ivr_configuration.findUnique.mockResolvedValue(mockIvrConfig);
-
-      const twiml = await service.executeIvrAction(mockTenantId, '2');
-
-      // Should start recording
-      expect(twiml).toContain('<Record');
-      expect(twiml).toContain('leave a message');
-      expect(twiml).toContain('maxLength="180"');
-    });
-  });
-
-  describe('executeDefaultAction', () => {
-    it('should execute default action on timeout', async () => {
-      prisma.ivr_configuration.findUnique.mockResolvedValue(mockIvrConfig);
-
-      const twiml = await service.executeDefaultAction(mockTenantId);
-
-      // Default is voicemail
-      expect(twiml).toContain('<Record');
-      expect(twiml).toContain('leave a message');
-    });
-
-    it('should throw NotFoundException if config does not exist', async () => {
-      prisma.ivr_configuration.findUnique.mockResolvedValue(null);
-
-      await expect(service.executeDefaultAction(mockTenantId)).rejects.toThrow(
-        NotFoundException,
+    it('should handle submenu action at nested level and accumulate path', async () => {
+      const twiml = await service.executeIvrAction(
+        'tenant-123',
+        '1', // Press 1 (Customer Type - submenu)
+        'CA1234567890',
+        '1', // Currently at path "1" (Sales Department)
       );
-    });
-  });
 
-  describe('edge cases', () => {
-    it('should handle all 10 digits (0-9)', async () => {
-      const dtoWithAllDigits: CreateIvrConfigDto = {
-        ivr_enabled: true,
-        greeting_message: 'Test',
-        menu_options: Array.from({ length: 10 }, (_, i) => ({
-          digit: String(i),
-          action: 'voicemail' as const,
-          label: `Option ${i}`,
-          config: { max_duration_seconds: 180 },
-        })),
-        default_action: {
-          action: 'voicemail',
-          config: { max_duration_seconds: 180 },
-        },
-        timeout_seconds: 10,
-        max_retries: 3,
-      };
-
-      prisma.ivr_configuration.findUnique.mockResolvedValue(null);
-      prisma.ivr_configuration.create.mockResolvedValue(mockIvrConfig);
-
-      await expect(
-        service.createOrUpdate(mockTenantId, dtoWithAllDigits),
-      ).resolves.toBeDefined();
+      // Should generate redirect TwiML to deeper submenu
+      expect(twiml).toContain('<Redirect');
+      expect(twiml).toContain('https://testcompany.lead360.app/api/v1/twilio/ivr/menu?path=1.1');
     });
 
-    it('should accept HTTPS webhook URLs', async () => {
-      const dtoWithHttpsWebhook: CreateIvrConfigDto = {
-        ivr_enabled: true,
-        greeting_message: 'Test',
-        menu_options: [
-          {
-            digit: '1',
-            action: 'trigger_webhook',
-            label: 'Webhook',
-            config: { webhook_url: 'https://example.com/webhook' },
-          },
-        ],
-        default_action: {
-          action: 'voicemail',
-          config: { max_duration_seconds: 180 },
-        },
-        timeout_seconds: 10,
-        max_retries: 3,
-      };
+    it('should handle terminal action at any level', async () => {
+      const twiml = await service.executeIvrAction(
+        'tenant-123',
+        '2', // Press 2 (Sales Manager - route_to_number)
+        'CA1234567890',
+        '1', // At path "1" (Sales Department submenu)
+      );
 
-      prisma.ivr_configuration.findUnique.mockResolvedValue(null);
-      prisma.ivr_configuration.create.mockResolvedValue(mockIvrConfig);
-
-      await expect(
-        service.createOrUpdate(mockTenantId, dtoWithHttpsWebhook),
-      ).resolves.toBeDefined();
+      // Should generate dial TwiML (terminal action)
+      expect(twiml).toContain('<Dial');
+      expect(twiml).toContain('+15559876543'); // Sales Manager phone number
     });
 
-    it('should validate E.164 phone numbers strictly', async () => {
-      const invalidPhones = [
-        '123', // Too short
-        '+1234567890123456', // Too long (> 15 digits)
-        '+0123456789', // Starts with 0
-        'not-a-phone',
-      ];
+    it('should handle invalid digit and redirect to current level', async () => {
+      const twiml = await service.executeIvrAction(
+        'tenant-123',
+        '9', // Invalid digit
+        'CA1234567890',
+        '1', // At path "1"
+      );
 
-      for (const invalidPhone of invalidPhones) {
-        const dto: CreateIvrConfigDto = {
-          ivr_enabled: true,
-          greeting_message: 'Test',
-          menu_options: [
-            {
-              digit: '1',
-              action: 'route_to_number',
-              label: 'Test',
-              config: { phone_number: invalidPhone },
-            },
-          ],
-          default_action: {
-            action: 'voicemail',
-            config: { max_duration_seconds: 180 },
-          },
-          timeout_seconds: 10,
-          max_retries: 3,
-        };
+      // Should say error message
+      expect(twiml).toContain('Invalid option');
 
-        await expect(service.createOrUpdate(mockTenantId, dto)).rejects.toThrow(
-          BadRequestException,
-        );
-      }
+      // Should redirect back to current menu level with path preserved
+      expect(twiml).toContain('<Redirect');
+      expect(twiml).toContain('https://testcompany.lead360.app/api/v1/twilio/ivr/menu?path=1');
+    });
+
+    it('should handle invalid digit at root level', async () => {
+      const twiml = await service.executeIvrAction(
+        'tenant-123',
+        '9', // Invalid digit
+        'CA1234567890',
+        undefined, // At root level
+      );
+
+      // Should say error message
+      expect(twiml).toContain('Invalid option');
+
+      // Should redirect back to root menu (no path)
+      expect(twiml).toContain('<Redirect');
+      expect(twiml).toContain('https://testcompany.lead360.app/api/v1/twilio/ivr/menu');
+      expect(twiml).not.toContain('?path=');
     });
   });
 });

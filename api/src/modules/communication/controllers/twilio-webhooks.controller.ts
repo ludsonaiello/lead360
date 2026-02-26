@@ -5,6 +5,7 @@ import {
   Headers,
   Req,
   Param,
+  Query,
   Header,
   Logger,
   BadRequestException,
@@ -17,6 +18,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiExcludeEndpoint,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -644,10 +646,10 @@ export class TwilioWebhooksController {
   }
 
   /**
-   * IVR Input Webhook
+   * IVR Input Webhook (Multi-Level Support)
    *
-   * Receives DTMF input from caller during IVR menu interaction.
-   * Executes configured action based on digit pressed.
+   * Receives DTMF input from caller during IVR menu interaction at any level.
+   * Executes configured action based on digit pressed, supporting multi-level navigation.
    *
    * Twilio Payload:
    * - CallSid: Call identifier
@@ -655,25 +657,38 @@ export class TwilioWebhooksController {
    * - From: Caller phone number
    * - To: Recipient phone number
    *
+   * Query Parameters:
+   * - path: Current menu path (e.g., "1" or "1.2") - optional
+   *
    * @param body - Twilio IVR webhook payload
    * @param signature - Twilio signature header
    * @param request - Express request object
+   * @param path - Current menu navigation path
    * @returns TwiML XML response
    */
   @Post('ivr/input')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Receive IVR DTMF input from Twilio' })
+  @ApiOperation({ summary: 'Receive IVR DTMF input from Twilio (multi-level)' })
+  @ApiQuery({
+    name: 'path',
+    required: false,
+    description: 'Current menu path (e.g., "1" or "1.2")',
+    example: '1.2',
+  })
   @ApiResponse({ status: 200, description: 'TwiML response returned' })
   @ApiExcludeEndpoint()
   async handleIvrInput(
     @Body() body: any,
     @Headers('x-twilio-signature') signature: string,
     @Req() request: Request,
+    @Query('path') path?: string,
   ) {
     const { CallSid, Digits } = body;
 
-    this.logger.log(`IVR input webhook: ${CallSid} - Digit: ${Digits}`);
+    this.logger.log(
+      `IVR input webhook: ${CallSid} - Digit: ${Digits}, Path: ${path || 'root'}`,
+    );
 
     // Extract tenant
     const tenantId = await this.resolveTenantFromSubdomain(request);
@@ -689,8 +704,13 @@ export class TwilioWebhooksController {
       throw new UnauthorizedException('Invalid Twilio signature');
     }
 
-    // Execute IVR action based on digit pressed (pass CallSid for voice_ai SIP routing)
-    const twiml = await this.ivrService.executeIvrAction(tenantId, Digits, CallSid);
+    // Execute IVR action based on digit pressed (pass CallSid for voice_ai SIP routing and path for navigation)
+    const twiml = await this.ivrService.executeIvrAction(
+      tenantId,
+      Digits,
+      CallSid,
+      path,
+    );
 
     this.logger.log(`✅ IVR action executed for call ${CallSid}`);
 
@@ -915,22 +935,35 @@ export class TwilioWebhooksController {
   }
 
   /**
-   * IVR Menu Webhook
-   * Returns IVR menu TwiML
+   * IVR Menu Webhook (Multi-Level Support)
+   * Returns IVR menu TwiML for any level in the menu tree
+   *
+   * Query Parameters:
+   * - path: Menu navigation path (e.g., "1.2") - optional, defaults to root
    */
   @Post('ivr/menu')
   @Public()
   @HttpCode(HttpStatus.OK)
   @Header('Content-Type', 'text/xml')
   @ApiOperation({
-    summary: 'Twilio IVR menu webhook (PUBLIC)',
-    description: 'Returns IVR menu TwiML for tenant',
+    summary: 'Twilio IVR menu webhook (PUBLIC, multi-level)',
+    description: 'Returns IVR menu TwiML for tenant at specified path',
+  })
+  @ApiQuery({
+    name: 'path',
+    required: false,
+    description: 'Menu navigation path (e.g., "1.2" for submenu)',
+    example: '1.2',
   })
   @ApiExcludeEndpoint()
-  async handleIvrMenu(@Body() payload: any, @Req() req: Request) {
+  async handleIvrMenu(
+    @Body() payload: any,
+    @Req() req: Request,
+    @Query('path') path?: string,
+  ) {
     const { CallSid } = payload;
 
-    this.logger.log(`IVR menu webhook: ${CallSid}`);
+    this.logger.log(`IVR menu webhook: ${CallSid}, Path: ${path || 'root'}`);
 
     try {
       // Extract tenant from call record
@@ -946,6 +979,7 @@ export class TwilioWebhooksController {
 
       const twiml = await this.ivrService.generateIvrMenuTwiML(
         callRecord.tenant_id,
+        path,
       );
 
       return twiml;

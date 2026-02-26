@@ -6,10 +6,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { VisualTemplateBuilderService } from './visual-template-builder.service';
+import { PuppeteerProcessManager } from '../../../../core/puppeteer/puppeteer-process-manager.service';
+import { Page } from 'puppeteer';
 import Handlebars from 'handlebars';
 // import { Cache } from 'cache-manager';
 // import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import puppeteer from 'puppeteer';
 
 interface RenderOptions {
   include_cost_breakdown?: boolean;
@@ -22,6 +23,7 @@ export class TemplateRendererService {
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => VisualTemplateBuilderService))
     private readonly visualBuilder: VisualTemplateBuilderService,
+    private readonly puppeteerManager: PuppeteerProcessManager,
     // @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
     this.registerHandlebarsHelpers();
@@ -385,20 +387,13 @@ export class TemplateRendererService {
   }
 
   private async generatePdfFromHtml(html: string): Promise<Buffer> {
-    // Launch Puppeteer browser
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu',
-      ],
-    });
+    // Get shared browser instance from PuppeteerProcessManager
+    const browser = await this.puppeteerManager.getBrowser();
+
+    let page: Page | null = null;
 
     try {
-      const page = await browser.newPage();
+      page = await browser.newPage();
 
       // Set content with proper wait for resources
       await page.setContent(html, {
@@ -423,7 +418,21 @@ export class TemplateRendererService {
     } catch (error) {
       throw new BadRequestException(`Failed to generate PDF: ${error.message}`);
     } finally {
-      await browser.close();
+      // Ensure page is closed even if errors occur
+      if (page) {
+        try {
+          // Close with timeout to prevent hanging
+          await Promise.race([
+            page.close(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Page close timeout')), 5000),
+            ),
+          ]);
+        } catch (closeError) {
+          // Page cleanup failed - log for monitoring but don't throw
+          console.error(`Failed to close PDF page: ${closeError.message}`);
+        }
+      }
     }
   }
 

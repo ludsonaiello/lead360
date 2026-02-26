@@ -1,7 +1,9 @@
+import { randomBytes } from 'crypto';
 import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
@@ -141,5 +143,81 @@ export class IndustryService {
     );
 
     return { message: 'Industry deleted successfully' };
+  }
+
+  /**
+   * Get tenant's assigned industries
+   */
+  async getTenantIndustries(tenantId: string) {
+    const tenantIndustries = await this.prisma.tenant_industry.findMany({
+      where: { tenant_id: tenantId } as any,
+      include: {
+        industry: true,
+      } as any,
+    });
+
+    return tenantIndustries.map((ti) => ti.industry);
+  }
+
+  /**
+   * Assign industries to tenant (replaces all existing assignments)
+   */
+  async assignIndustriesToTenant(
+    tenantId: string,
+    industryIds: string[],
+    userId: string,
+  ) {
+    // Validate all industry IDs exist and are active
+    const industries = await this.prisma.industry.findMany({
+      where: {
+        id: { in: industryIds },
+        is_active: true,
+      } as any,
+    });
+
+    if (industries.length !== industryIds.length) {
+      const foundIds = industries.map((i) => i.id);
+      const missingIds = industryIds.filter((id) => !foundIds.includes(id));
+      throw new BadRequestException(
+        `Some industry IDs are invalid or inactive: ${missingIds.join(', ')}`,
+      );
+    }
+
+    // Use transaction to replace all assignments
+    await this.prisma.$transaction(async (tx) => {
+      // Delete existing assignments
+      await tx.tenant_industry.deleteMany({
+        where: { tenant_id: tenantId } as any,
+      });
+
+      // Create new assignments
+      if (industryIds.length > 0) {
+        await tx.tenant_industry.createMany({
+          data: industryIds.map((industry_id) => ({
+            id: randomBytes(16).toString('hex'),
+            tenant_id: tenantId,
+            industry_id,
+          })) as any,
+        });
+      }
+    });
+
+    // Audit log
+    await this.auditLogger.log({
+      actor_user_id: userId,
+      actor_type: 'user',
+      entity_type: 'tenant_industry',
+      entity_id: tenantId,
+      action_type: 'updated',
+      description: `Updated tenant industries (assigned ${industryIds.length} industries)`,
+      after_json: { industry_ids: industryIds },
+    });
+
+    this.logger.log(
+      `Tenant ${tenantId} industries updated: ${industryIds.length} industries assigned by user ${userId}`,
+    );
+
+    // Return updated industries
+    return this.getTenantIndustries(tenantId);
   }
 }

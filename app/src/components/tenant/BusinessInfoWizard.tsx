@@ -49,6 +49,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { MaskedInput } from '@/components/ui/MaskedInput';
 import ServicesSelector from '@/components/tenant/ServicesSelector';
+import IndustrySelector from '@/components/tenant/IndustrySelector';
 
 interface BusinessInfoWizardProps {
   tenant: TenantProfile | null;
@@ -166,8 +167,9 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [assignedServiceIds, setAssignedServiceIds] = useState<string[]>([]);
+  const [assignedIndustryIds, setAssignedIndustryIds] = useState<string[]>([]);
 
-  // Load assigned services on mount
+  // Load assigned services and industries on mount
   useEffect(() => {
     const loadAssignedServices = async () => {
       try {
@@ -183,7 +185,22 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
       }
     };
 
+    const loadAssignedIndustries = async () => {
+      try {
+        const industries = await tenantApi.getAssignedIndustries();
+        const industryIds = industries.map((i) => i.id);
+        setAssignedIndustryIds(industryIds);
+        // Update form with loaded industry IDs (trigger validation)
+        step1Form.setValue('industries', industryIds, { shouldValidate: true });
+      } catch (error) {
+        console.error('Failed to load assigned industries:', error);
+        // If it fails, set empty array
+        setAssignedIndustryIds([]);
+      }
+    };
+
     loadAssignedServices();
+    loadAssignedIndustries();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 
@@ -200,6 +217,7 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
       ein: tenant?.ein || '',
       state_tax_id: tenant?.state_tax_id || '',
       sales_tax_permit: tenant?.sales_tax_permit || '',
+      business_description: tenant?.business_description || '',
       default_language: (tenant as any)?.default_language || undefined,
       services_offered: [], // Will be populated by useEffect after fetching from API
     },
@@ -317,7 +335,7 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
         const step3Data = step3Form.getValues();
 
         // Extract services_offered to handle separately
-        const { services_offered, ...step1DataWithoutServices } = step1Data;
+        const { services_offered, industries, ...step1DataWithoutServices } = step1Data;
 
         const allData = {
           ...step1DataWithoutServices,
@@ -336,11 +354,13 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
 
         console.log('📤 Business Settings - Request Data:', allData);
         console.log('📤 Services to assign:', services_offered);
+        console.log('📤 Industries to assign:', industries);
 
-        // Update profile and assign services in parallel
+        // Update profile and assign services and industries in parallel
         const [response] = await Promise.all([
           tenantApi.updateTenantProfile(allData),
           tenantApi.assignServices({ service_ids: services_offered }),
+          tenantApi.assignIndustries({ industry_ids: industries || [] }),
         ]);
 
         console.log('📥 Business Settings - API Response:', response);
@@ -472,6 +492,28 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
                 leftIcon={<FileText className="w-5 h-5" />}
               />
 
+              {/* Business Description - spans full width in grid */}
+              <div className="col-span-1 md:col-span-2">
+                <Controller
+                  name="business_description"
+                  control={step1Form.control}
+                  render={({ field }) => (
+                    <Textarea
+                      {...field}
+                      value={field.value || ''}
+                      label="Business Description (Optional)"
+                      placeholder="Tell us about your business - your story, specialties, service area, years in business, etc. This helps our Voice AI agent introduce your company to callers."
+                      error={step1Form.formState.errors.business_description?.message}
+                      helperText="Used by Voice AI agent to introduce your business to callers. Maximum 5000 characters."
+                      rows={6}
+                      maxLength={5000}
+                      showCharacterCount={true}
+                      resize="vertical"
+                    />
+                  )}
+                />
+              </div>
+
               <Select
                 label="Default Language"
                 options={languageOptions}
@@ -496,6 +538,24 @@ export function BusinessInfoWizard({ tenant, onUpdate }: BusinessInfoWizardProps
                     }}
                     error={step1Form.formState.errors.services_offered?.message}
                     required
+                  />
+                )}
+              />
+            </div>
+
+            <div className="mt-6">
+              <Controller
+                name="industries"
+                control={step1Form.control}
+                render={({ field }) => (
+                  <IndustrySelector
+                    value={field.value || []}
+                    onChange={(value) => {
+                      field.onChange(value);
+                      // Trigger full form validation after change
+                      setTimeout(() => step1Form.trigger(), 0);
+                    }}
+                    error={step1Form.formState.errors.industries?.message}
                   />
                 )}
               />

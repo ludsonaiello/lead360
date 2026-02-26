@@ -1,7 +1,5 @@
 import {
   Injectable,
-  OnModuleInit,
-  OnModuleDestroy,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
@@ -12,7 +10,8 @@ import { QrCodeGeneratorService } from './qr-code-generator.service';
 import { FilesService } from '../../files/files.service';
 import { FileCategory } from '../../files/dto/upload-file.dto';
 import { PdfResponseDto } from '../dto/pdf/pdf-response.dto';
-import * as puppeteer from 'puppeteer';
+import { PuppeteerProcessManager } from '../../../core/puppeteer/puppeteer-process-manager.service';
+import { Page } from 'puppeteer';
 import * as Handlebars from 'handlebars';
 import * as crypto from 'crypto';
 
@@ -30,7 +29,7 @@ import * as crypto from 'crypto';
  * - File storage integration
  *
  * Performance:
- * - Singleton Puppeteer browser (reused)
+ * - Shared Puppeteer browser (singleton via PuppeteerProcessManager)
  * - ~2-5 seconds per PDF
  * - 30s timeout
  * - Optional async queue for large PDFs
@@ -38,9 +37,8 @@ import * as crypto from 'crypto';
  * @author Developer 5
  */
 @Injectable()
-export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
+export class QuotePdfGeneratorService {
   private readonly logger = new Logger(QuotePdfGeneratorService.name);
-  private browser: puppeteer.Browser | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -48,43 +46,9 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
     private readonly templateService: QuoteTemplateService,
     private readonly qrCodeService: QrCodeGeneratorService,
     private readonly filesService: FilesService,
+    private readonly puppeteerManager: PuppeteerProcessManager,
   ) {}
 
-  /**
-   * Initialize Puppeteer browser on module startup
-   */
-  async onModuleInit() {
-    try {
-      this.logger.log('Launching Puppeteer browser...');
-      this.browser = await puppeteer.launch({
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-        ],
-      });
-      this.logger.log('Puppeteer browser launched successfully');
-    } catch (error) {
-      this.logger.error(
-        `Failed to launch Puppeteer browser: ${error.message}`,
-        error.stack,
-      );
-      // Don't throw - allow app to start even if PDF generation is unavailable
-    }
-  }
-
-  /**
-   * Close Puppeteer browser on module shutdown
-   */
-  async onModuleDestroy() {
-    if (this.browser) {
-      this.logger.log('Closing Puppeteer browser...');
-      await this.browser.close();
-      this.logger.log('Puppeteer browser closed');
-    }
-  }
 
   /**
    * Generate PDF for a quote
@@ -109,11 +73,6 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
     includeCostBreakdown: boolean = false,
     forceRegenerate: boolean = false,
   ): Promise<PdfResponseDto> {
-    if (!this.browser) {
-      throw new Error(
-        'PDF generation unavailable - Puppeteer browser not initialized',
-      );
-    }
 
     // 1. Fetch quote with PDF metadata and latest_pdf_file relation
     const quote = await this.prisma.quote.findFirst({
@@ -411,17 +370,21 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
   /**
    * Convert HTML to PDF using Puppeteer
    *
+   * Uses shared browser instance from PuppeteerProcessManager.
+   * Implements robust error handling and page cleanup.
+   *
    * @param html - HTML string
    * @returns PDF buffer
    */
   private async htmlToPdf(html: string): Promise<Buffer> {
-    if (!this.browser) {
-      throw new Error('Browser not initialized');
-    }
+    // Get shared browser instance from manager
+    const browser = await this.puppeteerManager.getBrowser();
 
-    const page = await this.browser.newPage();
+    let page: Page | null = null;
 
     try {
+      page = await browser.newPage();
+
       await page.setContent(html, {
         waitUntil: 'networkidle0',
         timeout: 30000,
@@ -439,8 +402,30 @@ export class QuotePdfGeneratorService implements OnModuleInit, OnModuleDestroy {
       });
 
       return Buffer.from(pdfBuffer);
+    } catch (error) {
+      this.logger.error(
+        `PDF generation failed: ${error.message}`,
+        error.stack,
+      );
+      throw error;
     } finally {
-      await page.close();
+      // Ensure page is closed even if errors occur
+      if (page) {
+        try {
+          // Close with timeout to prevent hanging
+          await Promise.race([
+            page.close(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Page close timeout')), 5000),
+            ),
+          ]);
+        } catch (closeError) {
+          this.logger.error(
+            `Failed to close PDF page: ${closeError.message}. Page may be orphaned.`,
+          );
+          // Page cleanup failed - log for monitoring but don't throw
+        }
+      }
     }
   }
 

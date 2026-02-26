@@ -386,6 +386,7 @@ unknown unknown
     String default_payment_instructions "❓"
     String timezone 
     String default_language "❓"
+    String business_description "❓"
     String subscription_status 
     DateTime trial_end_date "❓"
     String billing_cycle "❓"
@@ -760,6 +761,7 @@ unknown unknown
     Json default_action 
     Int timeout_seconds 
     Int max_retries 
+    Int max_depth 
     String status 
     DateTime created_at 
     DateTime updated_at 
@@ -836,14 +838,15 @@ unknown unknown
     String id "🗝️"
     String encrypted_api_key 
     String masked_api_key 
+    String additional_config "❓"
     DateTime created_at 
     DateTime updated_at 
-    String updated_by "❓"
     }
   
 
   "voice_ai_global_config" {
     String id "🗝️"
+    Boolean agent_enabled 
     String default_stt_config "❓"
     String default_llm_config "❓"
     String default_tts_config "❓"
@@ -853,14 +856,19 @@ unknown unknown
     String default_greeting_template 
     String default_system_prompt 
     Int default_max_call_duration_seconds 
+    Int default_max_call_seconds 
     String default_transfer_behavior 
     String default_tools_enabled 
+    String livekit_url "❓"
     String livekit_sip_trunk_url "❓"
+    String livekit_api_key_encrypted "❓"
+    String livekit_api_secret_encrypted "❓"
     String livekit_api_key "❓"
     String livekit_api_secret "❓"
     String agent_api_key_hash "❓"
     String agent_api_key_preview "❓"
     Int max_concurrent_calls 
+    DateTime created_at 
     DateTime updated_at 
     String updated_by "❓"
     }
@@ -874,9 +882,9 @@ unknown unknown
     String custom_greeting "❓"
     String custom_instructions "❓"
     String after_hours_behavior "❓"
-    Boolean booking_enabled "❓"
-    Boolean lead_creation_enabled "❓"
-    Boolean transfer_enabled "❓"
+    Boolean booking_enabled 
+    Boolean lead_creation_enabled 
+    Boolean transfer_enabled 
     String default_transfer_number "❓"
     Int max_call_duration_seconds "❓"
     Int monthly_minutes_override "❓"
@@ -901,6 +909,7 @@ unknown unknown
     String transfer_type 
     String description "❓"
     Boolean is_default 
+    Boolean is_active 
     Int display_order 
     String available_hours "❓"
     DateTime created_at 
@@ -911,9 +920,12 @@ unknown unknown
   "voice_call_log" {
     String id "🗝️"
     String call_sid 
+    String room_name "❓"
     String from_number 
     String to_number 
     String direction 
+    String language_used "❓"
+    String intent "❓"
     String status 
     String outcome "❓"
     Boolean is_overage 
@@ -921,10 +933,11 @@ unknown unknown
     String transcript_summary "❓"
     String full_transcript "❓"
     String actions_taken "❓"
-    String lead_id "❓"
+    String transferred_to "❓"
     String stt_provider_id "❓"
     String llm_provider_id "❓"
     String tts_provider_id "❓"
+    String error_message "❓"
     DateTime started_at 
     DateTime ended_at "❓"
     DateTime created_at 
@@ -941,6 +954,19 @@ unknown unknown
     Int month 
     DateTime billed_at 
     DateTime created_at 
+    }
+  
+
+  "voice_monthly_usage" {
+    String id "🗝️"
+    Int year 
+    Int month 
+    Int minutes_used 
+    Int overage_minutes 
+    Decimal estimated_overage_cost "❓"
+    Int total_calls 
+    DateTime created_at 
+    DateTime updated_at 
     }
   
 
@@ -1737,15 +1763,19 @@ unknown unknown
     "call_transcription" }o--|| call_record : "call_record"
     "transcription_provider_configuration" }o--|o "tenant" : "tenant"
     "voice_ai_credentials" |o--|| voice_ai_provider : "provider"
+    "voice_ai_credentials" }o--|o "user" : "updated_by_user"
     "voice_ai_global_config" }o--|o voice_ai_provider : "stt_provider"
     "voice_ai_global_config" }o--|o voice_ai_provider : "llm_provider"
     "voice_ai_global_config" }o--|o voice_ai_provider : "tts_provider"
     "tenant_voice_ai_settings" |o--|| "tenant" : "tenant"
+    "tenant_voice_ai_settings" }o--|o tenant_voice_transfer_number : "default_transfer_number_rel"
     "tenant_voice_transfer_number" }o--|| "tenant" : "tenant"
     "voice_call_log" }o--|| "tenant" : "tenant"
+    "voice_call_log" }o--|o lead : "lead"
     "voice_usage_record" }o--|| "tenant" : "tenant"
     "voice_usage_record" }o--|| voice_call_log : "call_log"
     "voice_usage_record" }o--|| voice_ai_provider : "provider"
+    "voice_monthly_usage" }o--|| "tenant" : "tenant"
     "job_log" }o--|| "job" : "job"
     "email_queue" |o--|| "job" : "job"
     "lead" }o--|| "tenant" : "tenant"

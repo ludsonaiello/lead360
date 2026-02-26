@@ -3,6 +3,9 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUrl,
+  IsUUID,
+  Length,
   Max,
   MaxLength,
   Min,
@@ -18,19 +21,24 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
  * are stored as raw JSON strings — the service validates JSON parseability.
  */
 export class UpdateGlobalConfigDto {
+  @ApiPropertyOptional({ description: 'Enable or disable the voice AI agent globally' })
+  @IsOptional()
+  @IsBoolean()
+  agent_enabled?: boolean;
+
   @ApiPropertyOptional({ description: 'UUID of the default STT provider row' })
   @IsOptional()
-  @IsString()
+  @IsUUID()
   default_stt_provider_id?: string;
 
   @ApiPropertyOptional({ description: 'UUID of the default LLM provider row' })
   @IsOptional()
-  @IsString()
+  @IsUUID()
   default_llm_provider_id?: string;
 
   @ApiPropertyOptional({ description: 'UUID of the default TTS provider row' })
   @IsOptional()
-  @IsString()
+  @IsUUID()
   default_tts_provider_id?: string;
 
   @ApiPropertyOptional({ description: 'Cartesia voice ID or provider-specific voice identifier' })
@@ -38,10 +46,10 @@ export class UpdateGlobalConfigDto {
   @IsString()
   default_voice_id?: string;
 
-  @ApiPropertyOptional({ description: 'BCP-47 language code, e.g. "en"', maxLength: 10 })
+  @ApiPropertyOptional({ description: 'BCP-47 language code, e.g. "en"', minLength: 2, maxLength: 10 })
   @IsOptional()
   @IsString()
-  @MaxLength(10)
+  @Length(2, 10)
   default_language?: string;
 
   @ApiPropertyOptional({
@@ -116,6 +124,11 @@ export class UpdateGlobalConfigDto {
   @IsString()
   default_tts_config?: string;
 
+  @ApiPropertyOptional({ description: 'LiveKit server URL, e.g. wss://your-project.livekit.cloud' })
+  @IsOptional()
+  @IsUrl({ protocols: ['http', 'https', 'wss', 'ws'], require_protocol: true })
+  livekit_url?: string;
+
   @ApiPropertyOptional({ description: 'LiveKit SIP trunk URL, e.g. sip.livekit.cloud' })
   @IsOptional()
   @IsString()
@@ -132,11 +145,13 @@ export class UpdateGlobalConfigDto {
   livekit_api_secret?: string;
 
   @ApiPropertyOptional({
-    description: 'Max concurrent calls across the entire platform (≥1)',
+    description: 'Max concurrent calls across the entire platform (1-100)',
     minimum: 1,
+    maximum: 100,
   })
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(100)
   max_concurrent_calls?: number;
 }

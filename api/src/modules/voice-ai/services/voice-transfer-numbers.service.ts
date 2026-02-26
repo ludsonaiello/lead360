@@ -31,15 +31,27 @@ export class VoiceTransferNumbersService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * List all transfer numbers for a tenant, ordered by display_order ASC then created_at ASC.
+   * List all active transfer numbers for a tenant, ordered by display_order ASC then created_at ASC.
    */
   async findAll(
     tenantId: string,
   ): Promise<tenant_voice_transfer_number[]> {
     return this.prisma.tenant_voice_transfer_number.findMany({
-      where: { tenant_id: tenantId },
+      where: { tenant_id: tenantId, is_active: true },
       orderBy: [{ display_order: 'asc' }, { created_at: 'asc' }],
     });
+  }
+
+  /**
+   * Get a single transfer number by ID.
+   *
+   * @throws NotFoundException if the record does not exist or belongs to a different tenant
+   */
+  async findById(
+    tenantId: string,
+    id: string,
+  ): Promise<tenant_voice_transfer_number> {
+    return this.findOneOrFail(tenantId, id);
   }
 
   /**
@@ -55,7 +67,7 @@ export class VoiceTransferNumbersService {
     dto: CreateTransferNumberDto,
   ): Promise<tenant_voice_transfer_number> {
     const count = await this.prisma.tenant_voice_transfer_number.count({
-      where: { tenant_id: tenantId },
+      where: { tenant_id: tenantId, is_active: true },
     });
 
     if (count >= this.MAX_TRANSFER_NUMBERS) {
@@ -127,14 +139,18 @@ export class VoiceTransferNumbersService {
   }
 
   /**
-   * Delete a transfer number.
+   * Soft-delete a transfer number by setting is_active = false.
    *
    * @throws NotFoundException if the record does not exist or belongs to a different tenant
    */
-  async delete(tenantId: string, id: string): Promise<void> {
+  async deactivate(
+    tenantId: string,
+    id: string,
+  ): Promise<tenant_voice_transfer_number> {
     await this.findOneOrFail(tenantId, id);
-    await this.prisma.tenant_voice_transfer_number.delete({
+    return this.prisma.tenant_voice_transfer_number.update({
       where: { id },
+      data: { is_active: false },
     });
   }
 

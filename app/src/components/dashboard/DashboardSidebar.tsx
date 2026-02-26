@@ -49,6 +49,9 @@ import {
   Server,
   Mic,
   Headset,
+  Bot,
+  Receipt,
+  Wrench,
 } from 'lucide-react';
 import ProtectedMenuItem from '@/components/rbac/shared/ProtectedMenuItem';
 import { useAuth } from '@/contexts/AuthContext';
@@ -120,6 +123,17 @@ const navigation: (NavItem | NavGroup)[] = [
           { name: 'API Test', href: '/communications/twilio/api-test', icon: Activity, permission: 'communications:view' },
         ],
       },
+      {
+        name: 'Voice AI',
+        icon: Bot,
+        permission: 'communications:view',
+        items: [
+          { name: 'Settings', href: '/voice-ai/settings', icon: Settings, permission: 'communications:view' },
+          { name: 'Transfer Numbers', href: '/voice-ai/transfer-numbers', icon: Phone, permission: 'communications:view' },
+          { name: 'Call Logs', href: '/voice-ai/call-logs', icon: Receipt, permission: 'communications:view' },
+          { name: 'Usage Dashboard', href: '/voice-ai/usage', icon: BarChart3, permission: 'communications:view' },
+        ],
+      },
       { name: 'Settings', href: '/communications/settings', icon: Settings, permission: 'communications:edit' },
     ],
   },
@@ -144,6 +158,7 @@ const adminNavigationGroups: (NavItem | NavGroup)[] = [
       { name: 'Tenants', href: '/admin/tenants', icon: Building2, permission: 'platform_admin:view_all_tenants' },
       { name: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCard, permission: 'platform_admin:view_all_tenants' },
       { name: 'Industries', href: '/admin/industries', icon: Briefcase, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Services', href: '/admin/services', icon: Wrench, permission: 'platform_admin:view_all_tenants' },
     ],
   },
   {
@@ -212,6 +227,20 @@ const adminNavigationGroups: (NavItem | NavGroup)[] = [
           },
         ],
       },
+    ],
+  },
+  {
+    name: 'Voice AI',
+    icon: Bot,
+    permission: 'platform_admin:view_all_tenants',
+    items: [
+      { name: 'Monitoring', href: '/admin/voice-ai/monitoring', icon: Activity, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Reports', href: '/admin/voice-ai/reports', icon: BarChart3, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Global Config', href: '/admin/voice-ai/config', icon: Cog, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Providers', href: '/admin/voice-ai/providers', icon: Server, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Credentials', href: '/admin/voice-ai/credentials', icon: Key, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Plan Configuration', href: '/admin/voice-ai/plans', icon: Receipt, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Tenant Management', href: '/admin/voice-ai/tenants', icon: Building2, permission: 'platform_admin:view_all_tenants' },
     ],
   },
   {

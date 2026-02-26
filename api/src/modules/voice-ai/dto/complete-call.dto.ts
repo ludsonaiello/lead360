@@ -45,18 +45,28 @@ export class CompleteCallDto {
   @IsNotEmpty()
   call_sid: string;
 
-  @ApiProperty({ description: 'Total call duration in seconds', minimum: 0 })
-  @IsInt()
-  @Min(0)
-  duration_seconds: number;
-
   @ApiProperty({
-    description: 'Call outcome',
-    enum: ['completed', 'transferred', 'voicemail', 'abandoned', 'error'],
+    description: 'Final call status',
+    enum: ['completed', 'failed', 'transferred'],
   })
   @IsString()
-  @IsIn(['completed', 'transferred', 'voicemail', 'abandoned', 'error'])
-  outcome: string;
+  @IsIn(['completed', 'failed', 'transferred'])
+  status: string;
+
+  @ApiPropertyOptional({ description: 'Total call duration in seconds', minimum: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  duration_seconds?: number;
+
+  @ApiPropertyOptional({
+    description: 'Call outcome',
+    enum: ['lead_created', 'transferred', 'abandoned'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['lead_created', 'transferred', 'abandoned'])
+  outcome?: string;
 
   @ApiPropertyOptional({ description: 'AI-generated transcript summary' })
   @IsOptional()
@@ -78,6 +88,16 @@ export class CompleteCallDto {
   @IsOptional()
   @IsString()
   lead_id?: string;
+
+  @ApiPropertyOptional({ description: 'Phone number the call was transferred to (E.164 format)' })
+  @IsOptional()
+  @IsString()
+  transferred_to?: string;
+
+  @ApiPropertyOptional({ description: 'Error message if call failed' })
+  @IsOptional()
+  @IsString()
+  error_message?: string;
 
   @ApiPropertyOptional({ description: 'True if this call consumed overage minutes beyond the plan limit' })
   @IsOptional()

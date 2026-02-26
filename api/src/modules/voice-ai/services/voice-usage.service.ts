@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, voice_monthly_usage } from '@prisma/client';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { QuotaCheckResult } from '../interfaces/quota-check-result.interface';
+import { UsageSummaryDto } from '../dto/usage-summary.dto';
+import { AdminUsageFiltersDto } from '../dto/admin-usage-filters.dto';
 
 /**
  * Data shape for a single per-provider usage entry.
@@ -154,25 +157,17 @@ export class VoiceUsageService {
     };
   }
 
-  // ─── Quota Guard ─────────────────────────────────────────────────────────────
+  // ─── Quota Guard (Sprint B07 - informational check only) ────────────────────
 
   /**
    * Check whether a new call is allowed under the tenant's monthly quota.
+   * Sprint B07 version — informational check only, does NOT increment usage.
    *
-   * This is an informational pre-flight check — the Python agent makes the
-   * final acceptance decision via the `quota_exceeded` + `overage_rate` fields
-   * returned by the context endpoint (Sprint B06a / B04).
-   *
-   * Logic:
-   *   - minutes_used < minutes_included        → allowed, not overage
-   *   - minutes_used >= minutes_included
-   *     + overage_rate === null                → blocked (no overage billing)
-   *   - minutes_used >= minutes_included
-   *     + overage_rate !== null                → allowed, marked as overage
+   * For Sprint BAS14 quota enforcement with atomic reservation, use checkAndReserveMinuteV2() below.
    *
    * @param tenantId  Tenant UUID
    */
-  async checkAndReserveMinute(tenantId: string): Promise<{
+  async checkQuotaAllowed(tenantId: string): Promise<{
     allowed: boolean;
     is_overage: boolean;
     reason?: string;
@@ -191,11 +186,13 @@ export class VoiceUsageService {
     return { allowed: true, is_overage: true };
   }
 
-  // ─── Tenant Usage Summary ────────────────────────────────────────────────────
+  // ─── Tenant Usage Summary (Sprint B07 - detailed per-provider) ──────────────
 
   /**
-   * Monthly usage summary for a single tenant.
+   * Monthly usage summary for a single tenant - Sprint B07 version.
    * Groups by provider to show per-provider consumption and estimated cost.
+   *
+   * For Sprint BAS14 quota-focused summary, use getMonthlyUsageSummary() below.
    *
    * @param tenantId  Tenant UUID
    * @param year      Year to query (e.g. 2026)
@@ -391,5 +388,413 @@ export class VoiceUsageService {
       total_estimated_cost: totalEstimatedCost,
       by_tenant: byTenant,
     };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Sprint BAS14: Monthly Usage Counter (voice_monthly_usage table)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get or create monthly usage record for a tenant.
+   * Uses upsert with UNIQUE(tenant_id, year, month) to avoid duplicates.
+   *
+   * @param tenantId  Tenant UUID
+   * @param year      Year (defaults to current year)
+   * @param month     Month 1-12 (defaults to current month)
+   * @returns voice_monthly_usage record
+   */
+  async getOrCreateMonthlyUsage(
+    tenantId: string,
+    year?: number,
+    month?: number,
+  ): Promise<voice_monthly_usage> {
+    const now = new Date();
+    const targetYear = year ?? now.getFullYear();
+    const targetMonth = month ?? now.getMonth() + 1;
+
+    return this.prisma.voice_monthly_usage.upsert({
+      where: {
+        tenant_id_year_month: {
+          tenant_id: tenantId,
+          year: targetYear,
+          month: targetMonth,
+        },
+      },
+      create: {
+        tenant_id: tenantId,
+        year: targetYear,
+        month: targetMonth,
+        minutes_used: 0,
+        overage_minutes: 0,
+        estimated_overage_cost: null,
+        total_calls: 0,
+      },
+      update: {}, // No-op on update, just return existing record
+    });
+  }
+
+  /**
+   * Check quota and reserve 1 minute if allowed.
+   * Sprint BAS14: Atomically increments minutes_used or overage_minutes.
+   *
+   * Logic:
+   *   1. Get tenant's subscription plan (voice_ai_minutes_included, voice_ai_overage_rate)
+   *   2. Get current month usage via getOrCreateMonthlyUsage()
+   *   3. If minutes_used < voice_ai_minutes_included:
+   *        - Increment minutes_used
+   *        - Return { allowed: true, is_overage: false }
+   *   4. Else if voice_ai_overage_rate IS NOT NULL:
+   *        - Increment overage_minutes
+   *        - Return { allowed: true, is_overage: true }
+   *   5. Else:
+   *        - Return { allowed: false, reason: 'quota_exceeded' }
+   *
+   * @param tenantId  Tenant UUID
+   * @returns QuotaCheckResult with reservation status
+   */
+  async checkAndReserveMinute(tenantId: string): Promise<QuotaCheckResult> {
+    // 1. Get tenant's subscription plan AND settings (for override)
+    const [tenant, settings] = await Promise.all([
+      this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        include: { subscription_plan: true },
+      }),
+      this.prisma.tenant_voice_ai_settings.findUnique({
+        where: { tenant_id: tenantId },
+      }),
+    ]);
+
+    if (!tenant) {
+      return {
+        allowed: false,
+        is_overage: false,
+        reason: 'tenant_disabled',
+        minutes_used: 0,
+        minutes_included: 0,
+        overage_rate: null,
+      };
+    }
+
+    if (!tenant.subscription_plan) {
+      return {
+        allowed: false,
+        is_overage: false,
+        reason: 'plan_not_included',
+        minutes_used: 0,
+        minutes_included: 0,
+        overage_rate: null,
+      };
+    }
+
+    // CRITICAL: Check monthly_minutes_override first, fall back to plan's included minutes
+    const minutesIncluded =
+      settings?.monthly_minutes_override ??
+      tenant.subscription_plan.voice_ai_minutes_included;
+
+    const overageRate =
+      tenant.subscription_plan.voice_ai_overage_rate != null
+        ? Number(tenant.subscription_plan.voice_ai_overage_rate)
+        : null;
+
+    // 2. Get or create current month usage (outside transaction for simplicity)
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+
+    await this.getOrCreateMonthlyUsage(tenantId, year, month);
+
+    // 3. Atomically check and increment usage
+    return this.prisma.$transaction(async (tx) => {
+      // Read current usage with row lock
+      const usage = await tx.voice_monthly_usage.findUnique({
+        where: {
+          tenant_id_year_month: {
+            tenant_id: tenantId,
+            year,
+            month,
+          },
+        },
+      });
+
+      if (!usage) {
+        // Should never happen since we upserted above, but handle gracefully
+        return {
+          allowed: false,
+          is_overage: false,
+          reason: 'quota_exceeded',
+          minutes_used: 0,
+          minutes_included: minutesIncluded,
+          overage_rate: overageRate,
+        };
+      }
+
+      const currentMinutesUsed = usage.minutes_used;
+
+      // Check if within included quota
+      if (currentMinutesUsed < minutesIncluded) {
+        // Increment minutes_used and total_calls
+        await tx.voice_monthly_usage.update({
+          where: {
+            tenant_id_year_month: {
+              tenant_id: tenantId,
+              year,
+              month,
+            },
+          },
+          data: {
+            minutes_used: { increment: 1 },
+            total_calls: { increment: 1 },
+          },
+        });
+
+        return {
+          allowed: true,
+          is_overage: false,
+          minutes_used: currentMinutesUsed + 1,
+          minutes_included: minutesIncluded,
+          overage_rate: overageRate,
+        };
+      }
+
+      // Quota exceeded - check if overage is allowed
+      if (overageRate === null) {
+        return {
+          allowed: false,
+          is_overage: false,
+          reason: 'quota_exceeded',
+          minutes_used: currentMinutesUsed,
+          minutes_included: minutesIncluded,
+          overage_rate: null,
+        };
+      }
+
+      // Overage allowed - increment overage_minutes
+      await tx.voice_monthly_usage.update({
+        where: {
+          tenant_id_year_month: {
+            tenant_id: tenantId,
+            year,
+            month,
+          },
+        },
+        data: {
+          overage_minutes: { increment: 1 },
+          total_calls: { increment: 1 },
+          estimated_overage_cost: {
+            increment: overageRate, // Increment by rate for 1 minute (consistent with recordCallDuration)
+          },
+        },
+      });
+
+      return {
+        allowed: true,
+        is_overage: true,
+        minutes_used: currentMinutesUsed,
+        minutes_included: minutesIncluded,
+        overage_rate: overageRate,
+      };
+    });
+  }
+
+  /**
+   * Record actual call duration after call completes.
+   * Converts seconds to minutes (ceiling) and adjusts for the 1-minute reservation.
+   *
+   * IMPORTANT: checkAndReserveMinute() already reserved 1 minute, so we increment by (actual - 1).
+   * Example: 5-minute call = reserved 1 + adjust by 4 = 5 minutes total ✓
+   *
+   * @param tenantId         Tenant UUID
+   * @param durationSeconds  Actual call duration in seconds
+   * @param isOverage        Whether this was an overage call
+   */
+  async recordCallDuration(
+    tenantId: string,
+    durationSeconds: number,
+    isOverage: boolean,
+  ): Promise<void> {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+
+    // Convert seconds to minutes (ceiling)
+    const durationMinutes = Math.ceil(durationSeconds / 60);
+
+    // Adjust for the 1-minute reservation already made by checkAndReserveMinute()
+    // Use max(0, ...) to handle edge case where call is < 1 minute (already covered by reservation)
+    const adjustmentMinutes = Math.max(0, durationMinutes - 1);
+
+    // Ensure record exists
+    await this.getOrCreateMonthlyUsage(tenantId, year, month);
+
+    // Update usage based on overage status
+    if (isOverage) {
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        include: { subscription_plan: true },
+      });
+
+      const overageRate =
+        tenant?.subscription_plan?.voice_ai_overage_rate != null
+          ? Number(tenant.subscription_plan.voice_ai_overage_rate)
+          : 0;
+
+      await this.prisma.voice_monthly_usage.update({
+        where: {
+          tenant_id_year_month: {
+            tenant_id: tenantId,
+            year,
+            month,
+          },
+        },
+        data: {
+          overage_minutes: { increment: adjustmentMinutes },
+          estimated_overage_cost: {
+            increment: adjustmentMinutes * overageRate,
+          },
+        },
+      });
+    } else {
+      await this.prisma.voice_monthly_usage.update({
+        where: {
+          tenant_id_year_month: {
+            tenant_id: tenantId,
+            year,
+            month,
+          },
+        },
+        data: {
+          minutes_used: { increment: adjustmentMinutes },
+        },
+      });
+    }
+  }
+
+  /**
+   * Get usage summary for tenant (current month + comparison).
+   * Sprint BAS14 version: Uses voice_monthly_usage table.
+   *
+   * @param tenantId  Tenant UUID
+   * @param year      Optional year (defaults to current year)
+   * @param month     Optional month (defaults to current month)
+   * @returns UsageSummaryDto with quota information
+   */
+  async getMonthlyUsageSummary(
+    tenantId: string,
+    year?: number,
+    month?: number,
+  ): Promise<UsageSummaryDto> {
+    const now = new Date();
+    const targetYear = year ?? now.getFullYear();
+    const targetMonth = month ?? now.getMonth() + 1;
+
+    // Get month usage
+    const usage = await this.getOrCreateMonthlyUsage(
+      tenantId,
+      targetYear,
+      targetMonth,
+    );
+
+    // Get tenant's plan AND settings (for override)
+    const [tenant, settings] = await Promise.all([
+      this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        include: { subscription_plan: true },
+      }),
+      this.prisma.tenant_voice_ai_settings.findUnique({
+        where: { tenant_id: tenantId },
+      }),
+    ]);
+
+    // CRITICAL: Check monthly_minutes_override first, fall back to plan's included minutes
+    const minutesIncluded =
+      settings?.monthly_minutes_override ??
+      (tenant?.subscription_plan?.voice_ai_minutes_included ?? 0);
+
+    const overageRate =
+      tenant?.subscription_plan?.voice_ai_overage_rate != null
+        ? Number(tenant.subscription_plan.voice_ai_overage_rate)
+        : null;
+
+    const percentageUsed =
+      minutesIncluded > 0 ? (usage.minutes_used / minutesIncluded) * 100 : 0;
+
+    const estimatedOverageCost =
+      usage.estimated_overage_cost != null
+        ? Number(usage.estimated_overage_cost)
+        : null;
+
+    return {
+      tenant_id: tenantId,
+      year: usage.year,
+      month: usage.month,
+      minutes_used: usage.minutes_used,
+      minutes_included: minutesIncluded,
+      overage_minutes: usage.overage_minutes,
+      estimated_overage_cost: estimatedOverageCost,
+      total_calls: usage.total_calls,
+      percentage_used: Math.round(percentageUsed * 100) / 100, // Round to 2 decimals
+    };
+  }
+
+  /**
+   * Reset monthly usage for all tenants.
+   * Called by BullMQ scheduler on the 1st of each month.
+   *
+   * Strategy: Delete all records from the previous month.
+   * New records will be created on-demand via getOrCreateMonthlyUsage().
+   */
+  async resetMonthlyUsage(): Promise<void> {
+    const now = new Date();
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const year = lastMonth.getFullYear();
+    const month = lastMonth.getMonth() + 1;
+
+    // Delete previous month's records
+    // (Alternative: could reset all records to 0, but deleting is cleaner)
+    await this.prisma.voice_monthly_usage.deleteMany({
+      where: {
+        year,
+        month,
+      },
+    });
+  }
+
+  /**
+   * Get monthly usage records for admin reporting.
+   * Supports filtering by year, month, and tenant.
+   *
+   * @param filters  AdminUsageFiltersDto with optional year, month, tenant_id
+   * @returns Array of voice_monthly_usage records
+   */
+  async getUsageForAdmin(
+    filters: AdminUsageFiltersDto,
+  ): Promise<voice_monthly_usage[]> {
+    const where: any = {};
+
+    if (filters.year !== undefined) {
+      where.year = filters.year;
+    }
+
+    if (filters.month !== undefined) {
+      where.month = filters.month;
+    }
+
+    if (filters.tenant_id !== undefined) {
+      where.tenant_id = filters.tenant_id;
+    }
+
+    return this.prisma.voice_monthly_usage.findMany({
+      where,
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            company_name: true,
+            subdomain: true,
+          },
+        },
+      },
+      orderBy: [{ year: 'desc' }, { month: 'desc' }, { minutes_used: 'desc' }],
+    });
   }
 }

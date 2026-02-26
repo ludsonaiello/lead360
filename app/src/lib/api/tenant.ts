@@ -625,6 +625,39 @@ export async function assignServices(data: AssignServicesData): Promise<Service[
 }
 
 // ==========================================
+// INDUSTRIES (TENANT SELF-MANAGEMENT)
+// ==========================================
+
+/**
+ * GET /api/v1/tenants/current/industries
+ * Get all available industries that can be assigned to tenants
+ */
+export async function getAvailableIndustries(activeOnly: boolean = true): Promise<Industry[]> {
+  const response = await apiClient.get<Industry[]>('/tenants/current/industries', {
+    params: { active_only: activeOnly },
+  });
+  return response.data;
+}
+
+/**
+ * GET /api/v1/tenants/current/assigned-industries
+ * Get the industries currently assigned to the tenant
+ */
+export async function getAssignedIndustries(): Promise<Industry[]> {
+  const response = await apiClient.get<Industry[]>('/tenants/current/assigned-industries');
+  return response.data;
+}
+
+/**
+ * POST /api/v1/tenants/current/assign-industries
+ * Assign industries to the tenant (replaces all existing assignments)
+ */
+export async function assignIndustries(data: { industry_ids: string[] }): Promise<Industry[]> {
+  const response = await apiClient.post<Industry[]>('/tenants/current/assign-industries', data);
+  return response.data;
+}
+
+// ==========================================
 // EXPORT AS OBJECT (alternative style)
 // ==========================================
 
@@ -694,6 +727,11 @@ export const tenantApi = {
   getAllServices,
   getAssignedServices,
   assignServices,
+
+  // Industries
+  getAvailableIndustries,
+  getAssignedIndustries,
+  assignIndustries,
 };
 
 export default tenantApi;

@@ -158,7 +158,10 @@ export class VoiceCallLogService {
     callSid: string;
     fromNumber: string;
     toNumber: string;
+    roomName?: string;
     direction?: string;
+    languageUsed?: string;
+    intent?: string;
     sttProviderId?: string;
     llmProviderId?: string;
     ttsProviderId?: string;
@@ -177,9 +180,12 @@ export class VoiceCallLogService {
       data: {
         tenant_id: data.tenantId,
         call_sid: data.callSid,
+        room_name: data.roomName ?? null,
         from_number: data.fromNumber,
         to_number: data.toNumber,
         direction: data.direction ?? 'inbound',
+        language_used: data.languageUsed ?? null,
+        intent: data.intent ?? null,
         status: 'in_progress',
         stt_provider_id: data.sttProviderId ?? null,
         llm_provider_id: data.llmProviderId ?? null,
@@ -203,12 +209,15 @@ export class VoiceCallLogService {
    */
   async completeCall(data: {
     callSid: string;
-    durationSeconds: number;
-    outcome: string;
+    status: string;
+    durationSeconds?: number;
+    outcome?: string;
     transcriptSummary?: string;
     fullTranscript?: string;
     actionsTaken?: string[];
     leadId?: string;
+    transferredTo?: string;
+    errorMessage?: string;
     isOverage?: boolean;
     usageRecords?: UsageRecordData[];
   }): Promise<void> {
@@ -220,13 +229,15 @@ export class VoiceCallLogService {
         callLog = await tx.voice_call_log.update({
           where: { call_sid: data.callSid },
           data: {
-            status: 'completed',
-            duration_seconds: data.durationSeconds,
-            outcome: data.outcome,
+            status: data.status,
+            duration_seconds: data.durationSeconds ?? null,
+            outcome: data.outcome ?? null,
             transcript_summary: data.transcriptSummary ?? null,
             full_transcript: data.fullTranscript ?? null,
             actions_taken: data.actionsTaken ? JSON.stringify(data.actionsTaken) : null,
             lead_id: data.leadId ?? null,
+            transferred_to: data.transferredTo ?? null,
+            error_message: data.errorMessage ?? null,
             is_overage: data.isOverage ?? false,
             ended_at: new Date(),
           },
@@ -332,6 +343,25 @@ export class VoiceCallLogService {
     return mapRow(row);
   }
 
+  /**
+   * Get call log by Twilio call_sid — no tenant filter (used internally by agent worker).
+   *
+   * @param callSid  Twilio CallSid
+   * @returns        Call log DTO or null if not found
+   */
+  async findByCallSid(callSid: string): Promise<VoiceCallLogDto | null> {
+    const row = await this.prisma.voice_call_log.findUnique({
+      where: { call_sid: callSid },
+      select: CALL_LOG_SELECT,
+    });
+
+    if (!row) {
+      return null;
+    }
+
+    return mapRow(row);
+  }
+
   // ─── Admin Queries ──────────────────────────────────────────────────────────
 
   /**
@@ -385,6 +415,136 @@ export class VoiceCallLogService {
         limit,
         total_pages: Math.ceil(total / limit),
       },
+    };
+  }
+
+  // ─── Usage Reports ──────────────────────────────────────────────────────────
+
+  /**
+   * Get aggregate usage report for admin — cross-tenant statistics.
+   *
+   * Returns call volume, duration, costs, and breakdowns by provider type and outcome.
+   *
+   * @param filters  Optional tenant_id, date range, provider_type filter
+   */
+  async getUsageReport(filters: {
+    tenant_id?: string;
+    from?: Date;
+    to?: Date;
+    provider_type?: string;
+  }): Promise<{
+    total_calls: number;
+    total_duration_seconds: number;
+    overage_calls: number;
+    total_estimated_cost: number;
+    by_provider_type: Array<{
+      provider_type: string;
+      total_quantity: number;
+      usage_unit: string;
+      estimated_cost: number;
+    }>;
+    by_outcome: Array<{
+      outcome: string | null;
+      count: number;
+    }>;
+  }> {
+    // Build where clause for call logs
+    const callWhere = {
+      ...(filters.tenant_id ? { tenant_id: filters.tenant_id } : {}),
+      ...(filters.from || filters.to
+        ? {
+            started_at: {
+              ...(filters.from ? { gte: filters.from } : {}),
+              ...(filters.to ? { lte: filters.to } : {}),
+            },
+          }
+        : {}),
+      status: 'completed', // Only count completed calls
+    };
+
+    // Build where clause for usage records
+    const usageWhere = {
+      ...(filters.tenant_id ? { tenant_id: filters.tenant_id } : {}),
+      ...(filters.provider_type ? { provider_type: filters.provider_type } : {}),
+      call_log: {
+        ...(filters.from || filters.to
+          ? {
+              started_at: {
+                ...(filters.from ? { gte: filters.from } : {}),
+                ...(filters.to ? { lte: filters.to } : {}),
+              },
+            }
+          : {}),
+      },
+    };
+
+    // Run all aggregations in parallel
+    const [
+      totalCalls,
+      callStats,
+      overageCalls,
+      usageByProvider,
+      callsByOutcome,
+    ] = await Promise.all([
+      // Total call count
+      this.prisma.voice_call_log.count({ where: callWhere }),
+
+      // Sum of duration
+      this.prisma.voice_call_log.aggregate({
+        where: callWhere,
+        _sum: { duration_seconds: true },
+      }),
+
+      // Overage call count
+      this.prisma.voice_call_log.count({
+        where: { ...callWhere, is_overage: true },
+      }),
+
+      // Group by provider type with sums
+      this.prisma.voice_usage_record.groupBy({
+        by: ['provider_type', 'usage_unit'],
+        where: usageWhere,
+        _sum: {
+          usage_quantity: true,
+          estimated_cost: true,
+        },
+      }),
+
+      // Group by outcome
+      this.prisma.voice_call_log.groupBy({
+        by: ['outcome'],
+        where: callWhere,
+        _count: { id: true },
+      }),
+    ]);
+
+    // Calculate total estimated cost across all usage records
+    const totalEstimatedCost = usageByProvider.reduce(
+      (sum, record) => sum + (Number(record._sum.estimated_cost) || 0),
+      0,
+    );
+
+    // Format by_provider_type
+    const byProviderType = usageByProvider.map((record) => ({
+      provider_type: record.provider_type,
+      total_quantity: Number(record._sum.usage_quantity) || 0,
+      usage_unit: record.usage_unit,
+      estimated_cost: Number(record._sum.estimated_cost) || 0,
+    }));
+
+    // Format by_outcome
+    const byOutcome = callsByOutcome.map((record) => ({
+      outcome: record.outcome,
+      count: record._count.id,
+    }));
+
+    return {
+      total_calls: totalCalls,
+      total_duration_seconds: callStats._sum.duration_seconds || 0,
+      overage_calls: overageCalls,
+      total_estimated_cost: totalEstimatedCost,
+      by_provider_type: byProviderType,
+      by_outcome: byOutcome,
     };
   }
 }
