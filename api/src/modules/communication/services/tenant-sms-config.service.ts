@@ -142,6 +142,30 @@ export class TenantSmsConfigService {
   }
 
   /**
+   * Find tenant ID by phone number.
+   *
+   * Used by Voice AI to look up which tenant owns a given Twilio phone number.
+   * This is called when a SIP call arrives and we need to determine the tenant
+   * from the trunk phone number (the Twilio number that was called).
+   *
+   * @param phoneNumber - E.164 formatted phone number (e.g., +19781234567)
+   * @returns Tenant ID if found, null otherwise
+   */
+  async findTenantIdByPhoneNumber(phoneNumber: string): Promise<string | null> {
+    const config = await this.prisma.tenant_sms_config.findFirst({
+      where: {
+        from_phone: phoneNumber,
+        is_active: true,
+      },
+      select: {
+        tenant_id: true,
+      },
+    });
+
+    return config?.tenant_id || null;
+  }
+
+  /**
    * Get decrypted credentials for internal use only
    * NEVER expose this data through API endpoints
    *

@@ -58,7 +58,7 @@ async function bootstrap() {
     origin: [
       'https://app.lead360.app',
       /\.lead360\.app$/,
-      'http://localhost:3000', // Development
+      'http://localhost:8000', // Development
     ],
     credentials: true,
   });

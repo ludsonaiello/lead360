@@ -1,137 +1,259 @@
 /**
- * Voice Agent Entrypoint — Sprint BAS24
+ * Voice Agent Entrypoint — Refactored for HTTP API Bridge (VAB-04)
  *
- * This file serves as the entrypoint for @livekit/agents AgentServer.
- * The AgentServer requires a file path with a default export function.
+ * This function is called by LiveKit AgentServer for each incoming call.
+ * It runs in a SEPARATE CHILD PROCESS - NestJS services are NOT available.
  *
- * Architecture:
- *   1. AgentServer loads this file dynamically
- *   2. Calls the default export function with JobContext
- *   3. This function creates VoiceAgentSession and handles the conversation
+ * All data is fetched via HTTP calls to the Lead360 API.
  *
- * NOTE: This file is loaded outside the NestJS dependency injection context.
- * It receives services via a global registry set by VoiceAgentService.
+ * Flow:
+ * 1. Connect to LiveKit room
+ * 2. Wait for SIP participant
+ * 3. Extract SIP attributes (phone numbers, call SID)
+ * 4. Look up tenant by phone number (HTTP)
+ * 5. Check access/quota (HTTP)
+ * 6. Load full context (HTTP)
+ * 7. Start call log (HTTP)
+ * 8. Run agent session (STT → LLM → TTS)
+ * 9. Complete call log (HTTP)
  */
 
-import type { JobContext } from '@livekit/agents';
+import { JobContext, defineAgent } from '@livekit/agents';
+import {
+  lookupTenant,
+  checkAccess,
+  getContext,
+  startCallLog,
+  completeCallLog,
+} from './utils/agent-api';
+import { waitForSipParticipant, extractSipAttributes } from './utils/sip-participant';
+import { VoiceAiContext } from './utils/api-types';
 import { VoiceAgentSession } from './voice-agent.session';
 import { AgentTool } from './tools/tool.interface';
+import {
+  HttpFindLeadTool,
+  HttpCreateLeadTool,
+  HttpCheckServiceAreaTool,
+  HttpTransferCallTool,
+} from './tools/http-tools';
 
 /**
- * Global registry for NestJS services.
- * Set by VoiceAgentService.startWorker() before starting the AgentServer.
+ * Log separator for visual clarity in logs
  */
-export let agentServiceRegistry: {
-  contextBuilder: any;
-  callLogService: any;
-  usageService: any;
-  buildTools: () => AgentTool[];
-  livekitConfig: { url: string; apiKey: string; apiSecret: string };
-} | null = null;
-
-export function setAgentServiceRegistry(registry: typeof agentServiceRegistry): void {
-  agentServiceRegistry = registry;
+function logSeparator(message: string): void {
+  console.log('');
+  console.log('='.repeat(100));
+  console.log(`  ${message}`);
+  console.log('='.repeat(100));
+  console.log('');
 }
 
 /**
- * Agent entrypoint function.
+ * Agent entrypoint function
  *
- * This is called by @livekit/agents AgentServer for each job.
- * It connects to the room, builds context, and starts the conversation.
- *
- * @param ctx JobContext provided by @livekit/agents
+ * Called by @livekit/agents AgentServer for each job.
+ * Runs in a child process - no NestJS services available.
  */
-export default async function voiceAgentEntrypoint(ctx: JobContext): Promise<void> {
-  const logger = console; // Use console for logging (NestJS logger not available here)
+async function voiceAgentEntrypoint(ctx: JobContext): Promise<void> {
+  const startTime = Date.now();
+  let tenantId: string | null = null;
+  let callSid: string | null = null;
+  let callLogId: string | null = null;
 
   try {
-    logger.log(`[VoiceAgent] Job started: ${ctx.job.id}`);
+    logSeparator(`🆕 NEW CALL STARTING - Job ID: ${ctx.job.id}`);
 
-    if (!agentServiceRegistry) {
-      throw new Error('Agent service registry not initialized');
-    }
-
-    // Connect to the room
+    // Step 1: Connect to LiveKit room
+    console.log('[VoiceAgent] Connecting to LiveKit room...');
     await ctx.connect();
-    logger.log(`[VoiceAgent] Connected to room: ${ctx.room.name}`);
+    console.log(`[VoiceAgent] Connected to room: ${ctx.room.name}`);
 
-    // Extract tenant_id and call_sid from room metadata
-    const { tenantId, callSid } = extractCallParams(ctx);
+    // Step 2: Wait for SIP participant
+    console.log('[VoiceAgent] Waiting for SIP participant...');
+    const sipParticipant = await waitForSipParticipant(ctx.room as any);
 
-    if (!tenantId || !callSid) {
-      logger.error('[VoiceAgent] Missing tenant_id or call_sid in room metadata');
-      ctx.shutdown('missing_params');
+    if (!sipParticipant) {
+      console.error('[VoiceAgent] ❌ No SIP participant joined within timeout');
+      logSeparator('❌ CALL FAILED - No SIP participant');
       return;
     }
 
-    logger.log(`[VoiceAgent] Processing call for tenant: ${tenantId}, call_sid: ${callSid}`);
+    // Step 3: Extract SIP attributes
+    const sipAttrs = extractSipAttributes(sipParticipant);
+    callSid = sipAttrs.callSid;
 
-    // Build context
-    const context = await agentServiceRegistry.contextBuilder.buildContext(tenantId, callSid);
+    console.log(`[VoiceAgent] SIP attributes:`);
+    console.log(`  - Call SID: ${sipAttrs.callSid}`);
+    console.log(`  - Trunk Phone: ${sipAttrs.trunkPhoneNumber}`);
+    console.log(`  - Caller Phone: ${sipAttrs.callerPhoneNumber}`);
 
-    // Build tools
-    const tools = agentServiceRegistry.buildTools();
+    if (!sipAttrs.trunkPhoneNumber) {
+      console.error('[VoiceAgent] ❌ Missing trunk phone number in SIP attributes');
+      logSeparator('❌ CALL FAILED - Missing trunk phone number');
+      return;
+    }
 
-    // Create session
-    const session = new VoiceAgentSession(
-      context,
-      tools,
-      ctx.room as any, // Type cast needed due to TypeScript module resolution quirks
-      agentServiceRegistry.livekitConfig,
-    );
+    // Step 4: Look up tenant by phone number
+    console.log('[VoiceAgent] 🔍 Looking up tenant...');
+    const lookupResult = await lookupTenant(sipAttrs.trunkPhoneNumber);
 
-    // Add shutdown callback to complete call log
-    ctx.addShutdownCallback(async () => {
-      logger.log(`[VoiceAgent] Call ending: ${callSid}`);
+    if (!lookupResult.success || !lookupResult.data?.found) {
+      console.error(`[VoiceAgent] ❌ Tenant not found for phone: ${sipAttrs.trunkPhoneNumber}`);
+      // TODO: Play "number not configured" message to caller
+      logSeparator('❌ CALL FAILED - Tenant not found');
+      return;
+    }
 
-      // Get conversation history
-      const history = session.getConversationHistory();
-      const transcript = history
-        .filter(msg => msg.role === 'user' || msg.role === 'assistant')
-        .map(msg => `${msg.role}: ${msg.content}`)
-        .join('\n');
+    tenantId = lookupResult.data.tenant_id!;
+    console.log(`[VoiceAgent] ✅ Tenant found: ${lookupResult.data.tenant_name} (${tenantId})`);
 
-      // Complete call log
-      await agentServiceRegistry!.callLogService.completeCall({
-        callSid,
-        status: 'completed',
-        outcome: 'completed',
-        fullTranscript: transcript,
-      });
+    // Step 5: Check access/quota
+    console.log('[VoiceAgent] 📊 Checking quota...');
+    const accessResult = await checkAccess(tenantId);
 
-      logger.log(`[VoiceAgent] Call log completed: ${callSid}`);
+    if (!accessResult.success || !accessResult.data?.has_access) {
+      const reason = accessResult.data?.reason || 'unknown';
+      console.error(`[VoiceAgent] ❌ Access denied: ${reason}`);
+      // TODO: Play "service unavailable" message to caller
+      logSeparator(`❌ CALL FAILED - Access denied: ${reason}`);
+      return;
+    }
+
+    console.log(`[VoiceAgent] ✅ Quota OK - ${accessResult.data.minutes_remaining} minutes remaining`);
+
+    // Step 6: Load full context
+    console.log('[VoiceAgent] 📋 Loading context...');
+    const contextResult = await getContext(tenantId);
+
+    if (!contextResult.success || !contextResult.data) {
+      console.error('[VoiceAgent] ❌ Failed to load context');
+      logSeparator('❌ CALL FAILED - Context load failed');
+      return;
+    }
+
+    const context = contextResult.data;
+    console.log(`[VoiceAgent] ✅ Context loaded for: ${context.tenant.company_name}`);
+
+    // Step 7: Start call log
+    console.log('[VoiceAgent] 📝 Starting call log...');
+    const startResult = await startCallLog({
+      tenant_id: tenantId,
+      call_sid: callSid || `job-${ctx.job.id}`,
+      from_number: sipAttrs.callerPhoneNumber || 'unknown',
+      to_number: sipAttrs.trunkPhoneNumber,
+      room_name: ctx.room.name,
+      direction: 'inbound',
     });
 
-    // Start the conversation
-    await session.start();
+    if (startResult.success && startResult.data) {
+      callLogId = startResult.data.call_log_id;
+      console.log(`[VoiceAgent] ✅ Call log started: ${callLogId}`);
+    } else {
+      console.warn('[VoiceAgent] ⚠️  Failed to start call log, continuing anyway');
+    }
+
+    // Step 8: Run agent session
+    console.log('[VoiceAgent] 🚀 Starting conversation pipeline...');
+    await runAgentSession(ctx, context, sipAttrs);
+
+    // Step 9: Complete call log
+    const durationSeconds = Math.round((Date.now() - startTime) / 1000);
+    logSeparator(`✅ CALL COMPLETED - Duration: ${durationSeconds}s`);
+
+    if (callLogId && callSid) {
+      await completeCallLog(callSid, {
+        status: 'completed',
+        duration_seconds: durationSeconds,
+        outcome: 'abandoned', // Default to abandoned - will be updated when lead creation/transfer is implemented
+        // transcript_summary: will be added when transcription is implemented
+        // full_transcript: will be added when transcription is implemented
+      });
+      console.log('[VoiceAgent] ✅ Call log completed');
+    }
 
   } catch (error: any) {
-    logger.error(`[VoiceAgent] Error: ${error.message}`, error.stack);
-    ctx.shutdown('error');
+    const durationSeconds = Math.round((Date.now() - startTime) / 1000);
+    console.error(`[VoiceAgent] ❌ Error: ${error.message}`, error.stack);
+    logSeparator(`❌ CALL FAILED - Duration: ${durationSeconds}s`);
+
+    // Try to complete call log with error
+    if (callSid) {
+      try {
+        await completeCallLog(callSid, {
+          status: 'failed',
+          duration_seconds: durationSeconds,
+          outcome: 'abandoned',
+          error_message: error.message,
+        });
+      } catch (e) {
+        console.error('[VoiceAgent] Failed to complete call log on error');
+      }
+    }
   }
 }
 
 /**
- * Extract tenant_id and call_sid from JobContext.
+ * Run the actual agent session (STT → LLM → TTS)
+ *
+ * Integrates VoiceAgentSession class to handle full conversation pipeline.
+ * Tools are created with HTTP API client for isolated process architecture.
  */
-function extractCallParams(ctx: JobContext): { tenantId: string; callSid: string } {
-  // Try room metadata
+async function runAgentSession(
+  ctx: JobContext,
+  context: VoiceAiContext,
+  sipAttrs: { callSid: string | null; callerPhoneNumber: string | null }
+): Promise<void> {
+  console.log(`[VoiceAgent] Greeting: ${context.behavior.greeting}`);
+  console.log(`[VoiceAgent] Services: ${context.services.map(s => s.name).join(', ')}`);
+  console.log(`[VoiceAgent] Service areas: ${context.service_areas.length} configured`);
+
+  // Load LiveKit configuration for transfer functionality
+  const livekitUrl = process.env.LIVEKIT_WS_URL || '';
+  const livekitApiKey = process.env.LIVEKIT_API_KEY || '';
+  const livekitApiSecret = process.env.LIVEKIT_API_SECRET || '';
+
+  if (!livekitUrl || !livekitApiKey || !livekitApiSecret) {
+    console.warn('[VoiceAgent] ⚠️  LiveKit credentials incomplete - call transfer will not work');
+  }
+
+  const livekitConfig = {
+    url: livekitUrl,
+    apiKey: livekitApiKey,
+    apiSecret: livekitApiSecret,
+  };
+
+  // Create HTTP-based tool instances for VAB architecture
+  // These tools use HTTP API calls instead of direct NestJS service access (process isolation)
+  const tools: AgentTool[] = [
+    new HttpFindLeadTool(),
+    new HttpCreateLeadTool(),
+    new HttpCheckServiceAreaTool(),
+    new HttpTransferCallTool(),
+  ];
+
+  console.log('[VoiceAgent] 🚀 Starting VoiceAgentSession with full STT→LLM→TTS pipeline...');
+
+  // Create and start VoiceAgentSession
+  // Note: Minor type difference between api-types.VoiceAiContext and interface.VoiceAiContext
+  // (email field nullability), but runtime data structure is compatible
+  const session = new VoiceAgentSession(
+    context as any,
+    tools,
+    ctx.room as any,
+    livekitConfig,
+    undefined, // voiceLogger - optional for now
+  );
+
   try {
-    if (ctx.room.metadata) {
-      const metadata = JSON.parse(ctx.room.metadata);
-      if (metadata.tenant_id && metadata.call_sid) {
-        return { tenantId: metadata.tenant_id, callSid: metadata.call_sid };
-      }
-    }
-  } catch (e) {
-    // Not valid JSON
+    await session.start();
+    console.log('[VoiceAgent] ✅ VoiceAgentSession completed successfully');
+  } catch (error: any) {
+    console.error(`[VoiceAgent] ❌ VoiceAgentSession error: ${error.message}`, error.stack);
+    throw error;
   }
-
-  // Try room name pattern
-  const match = ctx.room.name?.match(/tenant_([^_]+)_call_(.+)/);
-  if (match) {
-    return { tenantId: match[1], callSid: match[2] };
-  }
-
-  return { tenantId: '', callSid: '' };
 }
+
+// Export as Agent object for LiveKit
+export default defineAgent({
+  entry: voiceAgentEntrypoint,
+});

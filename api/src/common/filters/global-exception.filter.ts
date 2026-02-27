@@ -155,7 +155,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
    */
   private setCorsHeaders(response: Response, request: Request): void {
     const origin = request.get('origin');
-    const allowedOrigins = ['https://app.lead360.app', 'http://localhost:3000'];
+    const allowedOrigins = ['https://app.lead360.app', 'http://localhost:8000'];
 
     // Check if origin is allowed (exact match or subdomain match)
     const isAllowed =

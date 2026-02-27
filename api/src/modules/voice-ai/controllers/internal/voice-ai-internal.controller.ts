@@ -20,11 +20,16 @@ import { VoiceAgentKeyGuard } from '../../guards/voice-agent-key.guard';
 import { VoiceAiInternalService } from '../../services/voice-ai-internal.service';
 import { StartCallDto } from '../../dto/start-call.dto';
 import { CompleteCallDto } from '../../dto/complete-call.dto';
+import { LookupTenantDto, LookupTenantResponseDto } from '../../dto/internal/lookup-tenant.dto';
+import { CreateLeadToolDto, CreateLeadToolResponseDto } from '../../dto/internal/tool-create-lead.dto';
+import { FindLeadToolDto, FindLeadToolResponseDto } from '../../dto/internal/tool-find-lead.dto';
+import { CheckServiceAreaToolDto, CheckServiceAreaToolResponseDto } from '../../dto/internal/tool-check-service-area.dto';
+import { TransferCallToolDto, TransferCallToolResponseDto } from '../../dto/internal/tool-transfer-call.dto';
 
 /**
- * VoiceAiInternalController — Sprint B06a + B06b
+ * VoiceAiInternalController — Sprint B06a + B06b + VAB-05
  *
- * Internal endpoints consumed exclusively by the Python voice agent.
+ * Internal endpoints consumed exclusively by the voice agent.
  * These routes bypass the global JwtAuthGuard (@Public()) and use
  * VoiceAgentKeyGuard instead, which validates the X-Voice-Agent-Key header.
  *
@@ -42,7 +47,11 @@ import { CompleteCallDto } from '../../dto/complete-call.dto';
  *   POST /calls/start               — create call log at call start
  *   POST /calls/:callSid/complete   — finalise call log + persist usage records
  *
- * Sprint B06c endpoints (tool dispatch) — added in next sprint.
+ * Sprint VAB-05 endpoints (agent tools):
+ *   POST /tenant/:tenantId/tools/create_lead         — create lead from call info
+ *   POST /tenant/:tenantId/tools/find_lead           — find existing lead by phone
+ *   POST /tenant/:tenantId/tools/check_service_area  — verify service area coverage
+ *   POST /tenant/:tenantId/tools/transfer_call       — get transfer number for handoff
  */
 @ApiTags('Internal — Voice Agent')
 @ApiHeader({
@@ -55,6 +64,43 @@ import { CompleteCallDto } from '../../dto/complete-call.dto';
 @UseGuards(VoiceAgentKeyGuard)
 export class VoiceAiInternalController {
   constructor(private readonly internalService: VoiceAiInternalService) {}
+
+  // ---------------------------------------------------------------------------
+  // Sprint VAB-01 — Tenant Lookup
+  // ---------------------------------------------------------------------------
+
+  /**
+   * POST /api/v1/internal/voice-ai/lookup-tenant
+   *
+   * Looks up a tenant by their Twilio phone number.
+   * Used by the agent to identify which tenant a call belongs to.
+   *
+   * The agent receives the Twilio number from LiveKit SIP participant
+   * attributes (sip.trunkPhoneNumber) and needs to map it to a tenant.
+   *
+   * Response:
+   *   { found: true, tenant_id: "uuid", tenant_name: "Business Name", phone_number: "+1..." }
+   *   { found: false, phone_number: "+1..." }
+   *   { found: false, error: "..." }
+   */
+  @Post('lookup-tenant')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Look up tenant by Twilio phone number',
+    description:
+      'Called by the agent to identify which tenant owns a Twilio phone number. ' +
+      'The agent receives this number from LiveKit SIP participant attributes.',
+  })
+  @ApiBody({ type: LookupTenantDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Lookup result (found or not found)',
+    type: LookupTenantResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  async lookupTenant(@Body() dto: LookupTenantDto): Promise<LookupTenantResponseDto> {
+    return this.internalService.lookupTenantByPhoneNumber(dto.phone_number);
+  }
 
   // ---------------------------------------------------------------------------
   // Sprint B06a — Context & Access
@@ -218,5 +264,133 @@ export class VoiceAiInternalController {
   ): Promise<{ success: true }> {
     await this.internalService.completeCall(callSid, dto);
     return { success: true };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sprint VAB-05 — Agent Tools
+  // ---------------------------------------------------------------------------
+
+  /**
+   * POST /api/v1/internal/voice-ai/tenant/:tenantId/tools/create_lead
+   *
+   * Creates a new lead from information collected during a voice call.
+   * Called by the agent LLM tool when it decides to create a lead.
+   *
+   * Uses LeadsService to handle validation, phone uniqueness, and persistence.
+   * The agent acts as a system user (userId = null).
+   */
+  @Post('tenant/:tenantId/tools/create_lead')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Tool: Create Lead',
+    description:
+      'Creates a new lead from call information. ' +
+      'Called by the agent when the LLM decides to create a lead after collecting caller info.',
+  })
+  @ApiParam({ name: 'tenantId', description: 'UUID of the tenant', type: String })
+  @ApiBody({ type: CreateLeadToolDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Lead creation result',
+    type: CreateLeadToolResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Validation error — invalid request body' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  createLead(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: CreateLeadToolDto,
+  ): Promise<CreateLeadToolResponseDto> {
+    return this.internalService.toolCreateLead(tenantId, dto);
+  }
+
+  /**
+   * POST /api/v1/internal/voice-ai/tenant/:tenantId/tools/find_lead
+   *
+   * Finds an existing lead by phone number.
+   * Called by the agent LLM tool at the start of a conversation to check
+   * if the caller is already in the system.
+   */
+  @Post('tenant/:tenantId/tools/find_lead')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Tool: Find Lead',
+    description:
+      'Finds an existing lead by phone number. ' +
+      'Called by the agent at the start of a call to check if the caller is already a customer.',
+  })
+  @ApiParam({ name: 'tenantId', description: 'UUID of the tenant', type: String })
+  @ApiBody({ type: FindLeadToolDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Lead search result',
+    type: FindLeadToolResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Validation error — invalid request body' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  findLead(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: FindLeadToolDto,
+  ): Promise<FindLeadToolResponseDto> {
+    return this.internalService.toolFindLead(tenantId, dto);
+  }
+
+  /**
+   * POST /api/v1/internal/voice-ai/tenant/:tenantId/tools/check_service_area
+   *
+   * Checks if a location is within the tenant's service area.
+   * Called by the agent LLM tool before creating a lead to verify coverage.
+   */
+  @Post('tenant/:tenantId/tools/check_service_area')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Tool: Check Service Area',
+    description:
+      'Checks if a location (ZIP, city, state) is within the service area. ' +
+      'Called by the agent before creating a lead to confirm coverage.',
+  })
+  @ApiParam({ name: 'tenantId', description: 'UUID of the tenant', type: String })
+  @ApiBody({ type: CheckServiceAreaToolDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Service area check result',
+    type: CheckServiceAreaToolResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Validation error — invalid request body' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  checkServiceArea(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: CheckServiceAreaToolDto,
+  ): Promise<CheckServiceAreaToolResponseDto> {
+    return this.internalService.toolCheckServiceArea(tenantId, dto);
+  }
+
+  /**
+   * POST /api/v1/internal/voice-ai/tenant/:tenantId/tools/transfer_call
+   *
+   * Gets the transfer number for call handoff to a human agent.
+   * Called by the agent LLM tool when the caller requests to speak with a person.
+   */
+  @Post('tenant/:tenantId/tools/transfer_call')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Tool: Transfer Call',
+    description:
+      'Gets the transfer number for call handoff to a human. ' +
+      'Called by the agent when the caller requests to speak with a person or for complex issues.',
+  })
+  @ApiParam({ name: 'tenantId', description: 'UUID of the tenant', type: String })
+  @ApiBody({ type: TransferCallToolDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Transfer call result',
+    type: TransferCallToolResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Validation error — invalid request body' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  transferCall(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: TransferCallToolDto,
+  ): Promise<TransferCallToolResponseDto> {
+    return this.internalService.toolTransferCall(tenantId, dto);
   }
 }

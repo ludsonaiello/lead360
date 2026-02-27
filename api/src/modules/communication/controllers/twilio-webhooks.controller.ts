@@ -38,6 +38,8 @@ import { SmsMetricsService } from '../services/sms-metrics.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { EncryptionService } from '../../../core/encryption/encryption.service';
 import { v4 as uuidv4 } from 'uuid';
+import twilio from 'twilio';
+import { createVoiceAILogger, logSeparator, VoiceAILogLevel, VoiceAILogCategory } from '../../voice-ai/utils/voice-ai-logger.util';
 
 /**
  * Twilio Webhooks Controller (Public Endpoints)
@@ -301,8 +303,37 @@ export class TwilioWebhooksController {
     @Headers('x-twilio-signature') signature: string,
     @Req() request: Request,
   ) {
+    const callStartTime = Date.now();
+
     this.logger.log(
       `Inbound call webhook received: ${body.CallSid} from ${body.From}`,
+    );
+
+    // Extract tenant FIRST (needed for logger)
+    const tenantId = await this.resolveTenantFromSubdomain(request);
+
+    // Create voice AI logger for this call
+    const voiceLogger = createVoiceAILogger(tenantId, body.CallSid);
+
+    // Log separator for new call
+    logSeparator(`📞 INBOUND CALL FROM TWILIO - CallSid: ${body.CallSid}`);
+
+    // Log initial Twilio webhook
+    voiceLogger.log(
+      'INFO' as any,
+      'JOB_START' as any,
+      '📞 Call received from Twilio',
+      {
+        call_sid: body.CallSid,
+        from: body.From,
+        to: body.To,
+        call_status: body.CallStatus,
+        direction: body.Direction,
+        forwarded_from: body.ForwardedFrom || null,
+        caller_country: body.CallerCountry || null,
+        caller_state: body.CallerState || null,
+        caller_city: body.CallerCity || null,
+      },
     );
 
     // Log all request headers for debugging signature verification
@@ -334,8 +365,11 @@ export class TwilioWebhooksController {
       '[HEADERS] ===============================================',
     );
 
-    // Extract tenant
-    const tenantId = await this.resolveTenantFromSubdomain(request);
+    voiceLogger.log(
+      'INFO' as any,
+      'SESSION' as any,
+      '🔐 Verifying Twilio signature...',
+    );
 
     // Verify signature
     const authToken = await this.getTenantTwilioAuthToken(tenantId);
@@ -345,11 +379,34 @@ export class TwilioWebhooksController {
       !this.webhookVerification.verifyTwilio(url, body, signature, authToken)
     ) {
       this.logger.error('❌ Invalid Twilio signature for call webhook');
+      voiceLogger.logError(new Error('Invalid Twilio signature'), 'Twilio webhook verification');
       throw new UnauthorizedException('Invalid Twilio signature');
     }
 
+    voiceLogger.log(
+      'SUCCESS' as any,
+      'SESSION' as any,
+      '✅ Twilio signature verified',
+    );
+
+    voiceLogger.log(
+      'INFO' as any,
+      'SESSION' as any,
+      '📋 Processing inbound call, generating TwiML response...',
+    );
+
     // Handle inbound call (returns TwiML)
     const twiml = await this.callService.handleInboundCall(tenantId, body);
+
+    const webhookDuration = Date.now() - callStartTime;
+    voiceLogger.log(
+      'SUCCESS' as any,
+      'SESSION' as any,
+      `✅ TwiML generated and returned to Twilio (${webhookDuration}ms)`,
+      {
+        twiml_preview: twiml.substring(0, 200) + '...',
+      },
+    );
 
     this.logger.log(`✅ Inbound call processed: ${body.CallSid}`);
 
@@ -693,6 +750,12 @@ export class TwilioWebhooksController {
     // Extract tenant
     const tenantId = await this.resolveTenantFromSubdomain(request);
 
+    // Load to_number from call_record for voice_ai tenant lookup
+    const callRecord = await this.prisma.call_record.findUnique({
+      where: { twilio_call_sid: CallSid },
+      select: { to_number: true },
+    });
+
     // Verify signature
     const authToken = await this.getTenantTwilioAuthToken(tenantId);
     const url = this.buildWebhookUrl(request);
@@ -710,6 +773,7 @@ export class TwilioWebhooksController {
       Digits,
       CallSid,
       path,
+      callRecord?.to_number,
     );
 
     this.logger.log(`✅ IVR action executed for call ${CallSid}`);
@@ -966,10 +1030,10 @@ export class TwilioWebhooksController {
     this.logger.log(`IVR menu webhook: ${CallSid}, Path: ${path || 'root'}`);
 
     try {
-      // Extract tenant from call record
+      // Extract tenant and to_number from call record
       const callRecord = await this.prisma.call_record.findUnique({
         where: { twilio_call_sid: CallSid },
-        select: { tenant_id: true },
+        select: { tenant_id: true, to_number: true },
       });
 
       if (!callRecord || !callRecord.tenant_id) {
@@ -980,6 +1044,8 @@ export class TwilioWebhooksController {
       const twiml = await this.ivrService.generateIvrMenuTwiML(
         callRecord.tenant_id,
         path,
+        CallSid,
+        callRecord.to_number,
       );
 
       return twiml;
@@ -1028,6 +1094,101 @@ export class TwilioWebhooksController {
       this.logger.error(`IVR default action failed: ${error.message}`);
       return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>We're sorry, an error occurred.</Say><Hangup/></Response>`;
     }
+  }
+
+  /**
+   * SIP Dial Result Webhook
+   * Captures SIP response codes when LiveKit SIP dial completes
+   * CRITICAL for debugging: Shows WHY LiveKit accepted/rejected the call
+   */
+  @Post('sip/dial-result')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Header('Content-Type', 'text/xml')
+  @ApiOperation({
+    summary: 'Twilio SIP dial result webhook (PUBLIC)',
+    description: 'Captures SIP response codes from LiveKit dial attempts',
+  })
+  @ApiExcludeEndpoint()
+  async handleSipDialResult(@Body() body: any, @Req() req: Request) {
+    const { CallSid, DialCallStatus, DialSipResponseCode } = body;
+
+    // Extract tenant from call record
+    const callRecord = await this.prisma.call_record.findUnique({
+      where: { twilio_call_sid: CallSid },
+      select: { tenant_id: true },
+    });
+
+    const tenantId = callRecord?.tenant_id;
+
+    // Use Voice AI logger for structured logging
+    const voiceLogger = createVoiceAILogger(tenantId || 'unknown', CallSid);
+
+    this.logger.log('='.repeat(100));
+    this.logger.log('📞 SIP DIAL RESULT RECEIVED FROM TWILIO');
+    this.logger.log('='.repeat(100));
+    this.logger.log(`CallSid: ${CallSid}`);
+    this.logger.log(`DialCallStatus: ${DialCallStatus}`);
+    this.logger.log(`DialSipResponseCode: ${DialSipResponseCode}`);
+    this.logger.log(`DialSipCallId: ${body.DialSipCallId}`);
+    this.logger.log(`DialSipHeader_User-Agent: ${body['DialSipHeader_User-Agent']}`);
+
+    // Log all X-headers returned by LiveKit
+    Object.keys(body).forEach(key => {
+      if (key.startsWith('DialSipHeader_')) {
+        this.logger.log(`${key}: ${body[key]}`);
+      }
+    });
+
+    this.logger.log('Full SIP dial result body:');
+    this.logger.log(JSON.stringify(body, null, 2));
+    this.logger.log('='.repeat(100));
+
+    // Use Voice AI logger for permanent record
+    voiceLogger.log(
+      DialCallStatus === 'completed' ? VoiceAILogLevel.SUCCESS : VoiceAILogLevel.ERROR,
+      VoiceAILogCategory.SIP_DIAL,
+      DialCallStatus === 'completed'
+        ? '✅ LiveKit SIP dial succeeded'
+        : `❌ LiveKit SIP dial failed - Status: ${DialCallStatus}`,
+      {
+        call_sid: CallSid,
+        dial_status: DialCallStatus,
+        sip_response_code: DialSipResponseCode,
+        sip_call_id: body.DialSipCallId,
+        all_headers: Object.keys(body)
+          .filter(k => k.startsWith('DialSipHeader_'))
+          .reduce((acc, k) => ({ ...acc, [k]: body[k] }), {}),
+        full_body: body,
+      }
+    );
+
+    // Interpret SIP response codes
+    if (DialSipResponseCode) {
+      const code = parseInt(DialSipResponseCode);
+      let meaning = 'Unknown';
+
+      if (code === 200) meaning = '✅ OK - Call connected successfully';
+      else if (code === 486) meaning = '❌ Busy - No agent available';
+      else if (code === 480) meaning = '❌ Temporarily Unavailable';
+      else if (code === 503) meaning = '❌ Service Unavailable - LiveKit down or agent not registered';
+      else if (code === 404) meaning = '❌ Not Found - Dispatch rule not matching';
+      else if (code === 403) meaning = '❌ Forbidden - Authentication issue';
+      else if (code >= 400 && code < 500) meaning = '❌ Client Error';
+      else if (code >= 500) meaning = '❌ Server Error';
+
+      this.logger.log(`SIP Response Code ${code}: ${meaning}`);
+
+      voiceLogger.log(
+        code === 200 ? VoiceAILogLevel.SUCCESS : VoiceAILogLevel.ERROR,
+        VoiceAILogCategory.SIP_DIAL,
+        `SIP ${code}: ${meaning}`,
+      );
+    }
+
+    // Return empty TwiML (call already ended)
+    const twiml = new twilio.twiml.VoiceResponse();
+    return twiml.toString();
   }
 
   /**

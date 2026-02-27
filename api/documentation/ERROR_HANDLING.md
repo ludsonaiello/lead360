@@ -579,7 +579,7 @@ Both `HttpExceptionFilter` and `GlobalExceptionFilter` include:
 **Allowed Origins**:
 - `https://app.lead360.app`
 - `https://*.lead360.app` (any subdomain)
-- `http://localhost:3000` (development)
+- `http://localhost:8000` (development)
 
 Without these headers, error responses would be blocked by the browser, resulting in cryptic CORS errors instead of the actual error message.
 

@@ -18,6 +18,7 @@ import {
   IvrActionType,
 } from '../dto/ivr/create-ivr-config.dto';
 import { VoiceAiSipService } from '../../voice-ai/services/voice-ai-sip.service';
+import { createVoiceAILogger } from '../../voice-ai/utils/voice-ai-logger.util';
 
 /**
  * IvrConfigurationService
@@ -227,11 +228,18 @@ export class IvrConfigurationService {
    *
    * @param tenantId - Tenant UUID
    * @param path - Navigation path (e.g., "1.2" for submenu)
+   * @param callSid - Twilio CallSid (optional, passed to voice_ai routing)
+   * @param toNumber - Original Twilio number called (optional, used for voice_ai tenant lookup)
    * @returns TwiML XML string
    * @throws NotFoundException if configuration does not exist
    * @throws BadRequestException if IVR is not enabled
    */
-  async generateIvrMenuTwiML(tenantId: string, path?: string): Promise<string> {
+  async generateIvrMenuTwiML(
+    tenantId: string,
+    path?: string,
+    callSid?: string,
+    toNumber?: string,
+  ): Promise<string> {
     const config = await this.findByTenantId(tenantId);
 
     if (!config.ivr_enabled) {
@@ -318,6 +326,7 @@ export class IvrConfigurationService {
    * @param digit - Digit pressed by user (0-9)
    * @param callSid - Twilio call SID
    * @param path - Current menu path (optional)
+   * @param toNumber - Original Twilio number called (optional, used for voice_ai tenant lookup)
    * @returns TwiML XML string
    * @throws NotFoundException if configuration does not exist
    */
@@ -326,6 +335,7 @@ export class IvrConfigurationService {
     digit: string,
     callSid?: string,
     path?: string,
+    toNumber?: string,
   ): Promise<string> {
     const config = await this.findByTenantId(tenantId);
 
@@ -422,7 +432,7 @@ export class IvrConfigurationService {
 
     // Handle voice_ai action (special routing)
     if (selectedOption.action === 'voice_ai') {
-      return this.executeVoiceAiAction(tenantId, callSid ?? '', selectedOption);
+      return this.executeVoiceAiAction(tenantId, callSid ?? '', selectedOption, toNumber);
     }
 
     // Execute terminal action (route_to_number, voicemail, webhook, etc.)
@@ -486,24 +496,58 @@ export class IvrConfigurationService {
    * @param tenantId - Tenant UUID
    * @param callSid - Twilio CallSid for SIP routing correlation
    * @param action - The IVR action config (used for fallback phone_number)
+   * @param toNumber - Original Twilio number called (for voice_ai tenant lookup)
    * @returns TwiML XML string
    */
   private async executeVoiceAiAction(
     tenantId: string,
     callSid: string,
     action: IvrMenuOptionDto | IvrDefaultActionDto,
+    toNumber?: string,
   ): Promise<string> {
     this.logger.log(
       `Executing voice_ai IVR action for tenant ${tenantId}, callSid=${callSid}`,
     );
 
+    // Create voice AI logger for this call
+    const voiceLogger = createVoiceAILogger(tenantId, callSid);
+
+    voiceLogger.log(
+      'INFO' as any,
+      'SESSION' as any,
+      '🔀 IVR routing to Voice AI agent',
+      {
+        action_type: 'voice_ai',
+        action_config: action.config,
+      },
+    );
+
     const canHandle = await this.voiceAiSipService.canHandleCall(tenantId);
 
+    voiceLogger.logQuotaCheck(canHandle.allowed, {
+      allowed: canHandle.allowed,
+      reason: canHandle.reason,
+    });
+
     if (canHandle.allowed) {
-      return this.voiceAiSipService.buildSipTwiml(tenantId, callSid);
+      voiceLogger.log(
+        'SUCCESS' as any,
+        'SESSION' as any,
+        '✅ Quota check passed, routing to LiveKit SIP',
+      );
+      return this.voiceAiSipService.buildSipTwiml(tenantId, callSid, toNumber);
     }
 
     // Fallback: determine transfer number and message
+    voiceLogger.log(
+      'WARN' as any,
+      'SESSION' as any,
+      '⚠️ Voice AI not available, using fallback',
+      {
+        reason: canHandle.reason,
+      },
+    );
+
     const settings = await this.prisma.tenant_voice_ai_settings.findUnique({
       where: { tenant_id: tenantId },
     });
@@ -520,6 +564,11 @@ export class IvrConfigurationService {
       this.logger.warn(
         `Voice AI fallback: no transfer number configured for tenant ${tenantId} — hanging up`,
       );
+      voiceLogger.log(
+        'ERROR' as any,
+        'SESSION' as any,
+        '❌ No fallback number configured, hanging up',
+      );
       return [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<Response>',
@@ -528,6 +577,12 @@ export class IvrConfigurationService {
         '</Response>',
       ].join('\n');
     }
+
+    voiceLogger.log(
+      'INFO' as any,
+      'SESSION' as any,
+      `📞 Using fallback transfer to ${fallbackNumber}`,
+    );
 
     return this.voiceAiSipService.buildFallbackTwiml(fallbackNumber, message);
   }

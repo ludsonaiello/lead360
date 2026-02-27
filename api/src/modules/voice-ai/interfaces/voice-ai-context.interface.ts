@@ -26,6 +26,13 @@ export interface VoiceAiContext {
     timezone: string;
     language: string | null;
     business_description: string | null;
+    email: string | null;
+    primary_address: {
+      street: string | null;
+      city: string | null;
+      state: string | null;
+      zip: string | null;
+    } | null;
   };
   quota: {
     minutes_included: number;

@@ -76,6 +76,7 @@ export class VoiceAiContextBuilderService {
           id: true,
           company_name: true,
           primary_contact_phone: true,
+          primary_contact_email: true,
           timezone: true,
           default_language: true,
           business_description: true,
@@ -84,6 +85,16 @@ export class VoiceAiContextBuilderService {
               voice_ai_enabled: true,
               voice_ai_minutes_included: true,
               voice_ai_overage_rate: true,
+            },
+          },
+          tenant_address: {
+            where: { is_default: true },
+            take: 1,
+            select: {
+              line1: true,
+              city: true,
+              state: true,
+              zip_code: true,
             },
           },
         },
@@ -259,6 +270,8 @@ export class VoiceAiContextBuilderService {
     }
 
     // Step 7: Assemble FullVoiceAiContext
+    const primaryAddress = tenant.tenant_address?.[0];
+
     return {
       call_sid: callSid ?? null,
       tenant: {
@@ -268,6 +281,13 @@ export class VoiceAiContextBuilderService {
         timezone: tenant.timezone,
         language: tenant.default_language ?? null,
         business_description: tenant.business_description ?? null,
+        email: tenant.primary_contact_email ?? null,
+        primary_address: primaryAddress ? {
+          street: primaryAddress.line1 ?? null,
+          city: primaryAddress.city ?? null,
+          state: primaryAddress.state ?? null,
+          zip: primaryAddress.zip_code ?? null,
+        } : null,
       },
       quota: {
         minutes_included: minutesIncluded,
