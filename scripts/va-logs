@@ -1,0 +1,137 @@
+#!/bin/bash
+
+###############################################################################
+# Voice AI Quick Log Viewer
+# Usage: va-logs [option]
+#
+# Quick one-liner commands for common log views
+###############################################################################
+
+VOICE_AI_LOG="/var/www/lead360.app/logs/voice-ai-calls.log"
+
+case "$1" in
+    ""|all)
+        echo "📊 All Voice AI logs (Ctrl+C to exit)"
+        tail -f "$VOICE_AI_LOG"
+        ;;
+
+    conv|conversation)
+        echo "💬 Conversation only (Ctrl+C to exit)"
+        echo "Looking for STT (User said) and LLM (Agent response) logs..."
+        echo ""
+
+        # Check if any conversation logs exist
+        if grep -q -E "STT.*User said|LLM.*Agent response" "$VOICE_AI_LOG" 2>/dev/null; then
+            tail -f "$VOICE_AI_LOG" | grep -E "STT.*User said|LLM.*Agent response" --line-buffered
+        else
+            echo "⚠️  No conversation logs found yet."
+            echo ""
+            echo "This means either:"
+            echo "  1. No calls have reached the voice agent session yet"
+            echo "  2. The voice agent hasn't been restarted with the latest fixes"
+            echo ""
+            echo "Try one of these instead:"
+            echo "  va-logs session    - View API/routing logs (what's happening now)"
+            echo "  va-logs all        - View all logs"
+            echo "  va-logs last 50    - View last 50 lines"
+            echo ""
+            echo "Press Ctrl+C to exit (waiting for new logs...)"
+            tail -f "$VOICE_AI_LOG" | grep -E "STT.*User said|LLM.*Agent response" --line-buffered
+        fi
+        ;;
+
+    stt|speech)
+        echo "🎤 Speech-to-Text (Ctrl+C to exit)"
+        tail -f "$VOICE_AI_LOG" | grep "STT" --line-buffered
+        ;;
+
+    llm|ai)
+        echo "🧠 LLM requests/responses (Ctrl+C to exit)"
+        tail -f "$VOICE_AI_LOG" | grep "LLM" --line-buffered
+        ;;
+
+    tts|voice)
+        echo "🔊 Text-to-Speech (Ctrl+C to exit)"
+        tail -f "$VOICE_AI_LOG" | grep "TTS" --line-buffered
+        ;;
+
+    tools)
+        echo "🔧 Tool executions (Ctrl+C to exit)"
+        tail -f "$VOICE_AI_LOG" | grep "TOOL_CALL" --line-buffered
+        ;;
+
+    errors)
+        echo "❌ Errors only (Ctrl+C to exit)"
+        tail -f "$VOICE_AI_LOG" | grep "ERROR" --line-buffered
+        ;;
+
+    session|sessions)
+        echo "📡 Session/routing logs (what's actually happening - Ctrl+C to exit)"
+        tail -f "$VOICE_AI_LOG" | grep -E "SESSION|JOB_START|JOB_END|QUOTA|SIP_DIAL" --line-buffered
+        ;;
+
+    calls)
+        echo "📞 Call lifecycle (start/end/routing - Ctrl+C to exit)"
+        tail -f "$VOICE_AI_LOG" | grep -E "JOB_START|JOB_END|SIP_DIAL" --line-buffered
+        ;;
+
+    clean)
+        echo "✨ Clean conversation flow (Ctrl+C to exit)"
+        tail -f "$VOICE_AI_LOG" | grep -E "JOB_START|User said|Agent response|Tool executed|Transfer|JOB_END" --line-buffered
+        ;;
+
+    last)
+        lines=${2:-50}
+        echo "📜 Last $lines lines"
+        tail -n "$lines" "$VOICE_AI_LOG"
+        ;;
+
+    search)
+        if [ -z "$2" ]; then
+            echo "Usage: va-logs search <term>"
+            exit 1
+        fi
+        echo "🔍 Searching for: $2"
+        grep -i "$2" "$VOICE_AI_LOG" | tail -n 100
+        ;;
+
+    help|-h|--help)
+        echo "Voice AI Quick Log Viewer"
+        echo ""
+        echo "Usage: va-logs [option]"
+        echo ""
+        echo "Options:"
+        echo "  (none)         View all logs (default)"
+        echo "  all            View all logs"
+        echo "  session        View API/routing logs (current activity)"
+        echo "  calls          View call lifecycle (start/end/routing)"
+        echo "  conv           View conversation only (user + agent)"
+        echo "  stt            View speech-to-text only"
+        echo "  llm            View LLM requests/responses"
+        echo "  tts            View text-to-speech only"
+        echo "  tools          View tool executions"
+        echo "  errors         View errors only"
+        echo "  clean          View clean conversation flow"
+        echo "  last [N]       View last N lines (default: 50)"
+        echo "  search <term>  Search for a term"
+        echo "  help           Show this help"
+        echo ""
+        echo "Examples:"
+        echo "  va-logs                    # All logs"
+        echo "  va-logs session            # API/routing (what's working now)"
+        echo "  va-logs calls              # Call lifecycle"
+        echo "  va-logs conv               # Conversation only (if agent running)"
+        echo "  va-logs last 100           # Last 100 lines"
+        echo "  va-logs search 'error'     # Search for 'error'"
+        echo ""
+        echo "Note: If no conversation logs appear, the voice agent may need to be"
+        echo "      restarted with the latest fixes. Use 'va-logs session' to see"
+        echo "      current API activity."
+        ;;
+
+    *)
+        echo "Unknown option: $1"
+        echo "Use 'va-logs help' for usage"
+        exit 1
+        ;;
+esac

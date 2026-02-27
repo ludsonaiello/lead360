@@ -9,6 +9,7 @@ import { Room, RemoteTrack, RemoteAudioTrack, AudioStream, AudioSource, LocalAud
 import { ParticipantKind } from '@livekit/rtc-node';
 import { SipClient } from 'livekit-server-sdk';
 import { VoiceAILogger } from '../utils/voice-ai-logger.util';
+import { CartesiaWebSocketTtsProvider } from './providers/cartesia-websocket-tts.provider';
 
 /**
  * VoiceAgentSession — Sprint BAS24
@@ -44,6 +45,11 @@ export class VoiceAgentSession {
   private audioTrack: LocalAudioTrack | null = null;
   private audioStreamReader: ReadableStreamDefaultReader<AudioFrame> | null = null;
   private actionsTaken: string[] = [];
+
+  // Sprint BAS-TTS: WebSocket streaming TTS for ultra-low latency
+  private streamingTtsProvider: CartesiaWebSocketTtsProvider | null = null;
+  private currentTtsContextId: string | null = null;
+  private isAgentSpeaking = false;
 
   constructor(
     private readonly context: VoiceAiContext,
@@ -253,12 +259,74 @@ export class VoiceAgentSession {
       this.logger.log(`🔍 🔍 🔍 SIP READINESS CHECK COMPLETE 🔍 🔍 🔍`);
       this.logger.log(``);
 
-      // Play greeting
+      // ====================================================================================
+      // Sprint BAS-TTS-02: Initialize WebSocket streaming TTS for ultra-low latency
+      // ====================================================================================
+      this.logger.log(`🚀 Initializing WebSocket streaming TTS...`);
+
+      this.streamingTtsProvider = new CartesiaWebSocketTtsProvider();
+
+      // Build streaming TTS config from context (dynamic configuration)
+      const streamingTtsConfig = {
+        apiKey: this.context.providers.tts!.api_key,
+        voiceId: this.context.providers.tts!.voice_id || '',
+        model: (this.context.providers.tts!.config?.model as string) || 'sonic-3',
+        language: this.context.behavior.language,
+        sampleRate: (this.context.providers.tts!.config?.outputFormat as any)?.sampleRate || 16000,
+        encoding: (this.context.providers.tts!.config?.outputFormat as any)?.encoding || 'pcm_s16le',
+      };
+
+      await this.streamingTtsProvider.connect(streamingTtsConfig);
+
+      // Set up audio chunk handler - streams audio to LiveKit as it arrives
+      this.streamingTtsProvider.onAudioChunk((contextId, audioData, isDone) => {
+        // Only process if this is the current context (not cancelled)
+        if (contextId === this.currentTtsContextId && this.isAgentSpeaking) {
+          if (audioData.length > 0) {
+            this.streamAudioChunkToLiveKit(audioData);
+          }
+        }
+
+        if (isDone && contextId === this.currentTtsContextId) {
+          this.isAgentSpeaking = false;
+          this.logger.log(`✅ TTS complete for context: ${contextId}`);
+        }
+      });
+
+      this.logger.log(`✅ WebSocket streaming TTS initialized`);
+
+      // ====================================================================================
+      // Sprint BAS-TTS-04: Play greeting via streaming TTS (ultra-low latency)
+      // ====================================================================================
       if (this.context.behavior.greeting) {
         this.voiceLogger?.logSessionEvent('playing_greeting', {
           greeting: this.context.behavior.greeting,
         });
-        await this.speak(ttsProvider, this.context.behavior.greeting);
+
+        this.currentTtsContextId = `greeting-${Date.now()}`;
+        this.isAgentSpeaking = true;
+
+        this.logger.log(`🎙️  Playing greeting via streaming TTS (context: ${this.currentTtsContextId})`);
+
+        // Stream greeting to TTS (send entire greeting at once, mark as final)
+        this.streamingTtsProvider!.streamText(
+          this.context.behavior.greeting,
+          this.currentTtsContextId,
+          true, // isFinal = true (flush audio immediately)
+        );
+
+        // Wait for greeting to complete (with timeout)
+        const greetingTimeout = setTimeout(() => {
+          this.logger.warn('⚠️  Greeting playback timeout after 10 seconds');
+          this.isAgentSpeaking = false;
+        }, 10000);
+
+        while (this.isAgentSpeaking) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        clearTimeout(greetingTimeout);
+        this.logger.log('✅ Greeting playback complete');
       }
 
       // Start STT session
@@ -282,6 +350,28 @@ export class VoiceAgentSession {
         this.voiceLogger?.logSTT(text, isFinal);
 
         if (isFinal && text.trim()) {
+          // ====================================================================================
+          // Sprint BAS-TTS-03: Barge-in detection
+          // If user speaks while agent is talking, cancel current TTS generation
+          // ====================================================================================
+          if (this.isAgentSpeaking) {
+            this.logger.log(`🛑 Barge-in detected: User interrupted with "${text}"`);
+
+            // Cancel current TTS generation
+            if (this.currentTtsContextId && this.streamingTtsProvider) {
+              this.streamingTtsProvider.cancelContext(this.currentTtsContextId);
+              this.currentTtsContextId = null;
+            }
+
+            // Stop agent speaking state (audio callback will ignore future chunks)
+            this.isAgentSpeaking = false;
+
+            this.voiceLogger?.logSessionEvent('barge_in_detected', {
+              user_text: text,
+              cancelled_context: this.currentTtsContextId,
+            });
+          }
+
           this.logger.log(`User said: ${text}`);
           await this.handleUtterance(text, llmProvider, ttsProvider);
           currentUtterance = '';
@@ -304,28 +394,28 @@ export class VoiceAgentSession {
             track_sid: track.sid,
           });
 
-          try {
-            // Create audio stream from the remote audio track
-            const audioStream = new AudioStream(track as RemoteAudioTrack, {
-              sampleRate: 16000, // Match Deepgram's expected sample rate
-              numChannels: 1,    // Mono audio
-            });
-
-            // Read audio frames and send to STT
-            this.audioStreamReader = audioStream.getReader();
-
-            // Start reading frames in background
-            this.pipeAudioToStt(this.audioStreamReader, sttSession).catch((error) => {
-              this.logger.error(`Error piping audio to STT: ${error.message}`, error.stack);
-              this.voiceLogger?.logError(error, 'Audio piping to STT');
-            });
-
-          } catch (error) {
-            this.logger.error(`Error setting up audio stream: ${error.message}`, error.stack);
-            this.voiceLogger?.logError(error, 'Audio stream setup');
-          }
+          this.setupAudioPipeline(track as RemoteAudioTrack, sttSession);
         }
       });
+
+      // Check for already-subscribed tracks (fixes race condition where SIP participant
+      // audio track is already subscribed before event listener is attached)
+      for (const participant of this.room.remoteParticipants.values()) {
+        if (participant.kind === ParticipantKind.SIP) {
+          for (const publication of participant.trackPublications.values()) {
+            if (publication.track && publication.track.kind === TrackKind.KIND_AUDIO) {
+              this.logger.log(`Found already-subscribed audio track from: ${participant.identity}`);
+              this.voiceLogger?.logSessionEvent('audio_track_already_subscribed', {
+                participant_identity: participant.identity,
+                participant_name: participant.name,
+                track_sid: publication.track.sid,
+              });
+
+              this.setupAudioPipeline(publication.track as RemoteAudioTrack, sttSession);
+            }
+          }
+        }
+      }
 
       this.logger.log('Voice session started successfully');
       this.voiceLogger?.logSessionEvent('session_ready', {
@@ -395,6 +485,16 @@ export class VoiceAgentSession {
         const responseText = await llmSession.getText();
         this.voiceLogger?.logLLMResponse(responseText || '[tool calls only]', toolCalls);
 
+        // ═══════════════════════════════════════════════════════════════════════════
+        // FIX: Add assistant message WITH tool_calls to history BEFORE adding tool results
+        // OpenAI requires: user → assistant (with tool_calls) → tool → assistant
+        // ═══════════════════════════════════════════════════════════════════════════
+        this.conversationHistory.push({
+          role: 'assistant',
+          content: responseText || '',  // May be empty when only tool calls
+          tool_calls: toolCalls,        // Include the tool_calls array
+        });
+
         for (const toolCall of toolCalls) {
           await this.executeToolCall(toolCall);
 
@@ -415,21 +515,67 @@ export class VoiceAgentSession {
           maxTokens: 200,
         });
 
-        const followUpText = await followUpSession.getText();
-        this.voiceLogger?.logLLMResponse(followUpText, []);
+        // ====================================================================================
+        // Sprint BAS-TTS-02: Stream follow-up response to WebSocket TTS (ultra-low latency)
+        // ====================================================================================
+        this.currentTtsContextId = `turn-${Date.now()}`;
+        this.isAgentSpeaking = true;
+        let followUpText = '';
 
-        this.conversationHistory.push({ role: 'assistant', content: followUpText });
-        await this.speak(ttsProvider, followUpText);
+        try {
+          this.logger.log(`🎙️  Streaming follow-up response to TTS (context: ${this.currentTtsContextId})`);
+
+          // Stream LLM tokens directly to TTS
+          for await (const token of followUpSession.stream()) {
+            followUpText += token;
+            this.streamingTtsProvider!.streamText(token, this.currentTtsContextId, false);
+          }
+
+          // Signal end of text (flush final audio)
+          this.streamingTtsProvider!.streamText('', this.currentTtsContextId, true);
+
+          this.voiceLogger?.logLLMResponse(followUpText, []);
+          this.conversationHistory.push({ role: 'assistant', content: followUpText });
+          this.logger.log(`Assistant: ${followUpText}`);
+
+        } finally {
+          // Wait for TTS to complete before continuing
+          while (this.isAgentSpeaking) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
 
       } else {
-        // No tool calls — just speak the response
-        const responseText = await llmSession.getText();
-        this.logger.log(`Assistant: ${responseText}`);
+        // ====================================================================================
+        // Sprint BAS-TTS-02: Stream response to WebSocket TTS (ultra-low latency)
+        // No tool calls — stream response directly to TTS as LLM generates tokens
+        // ====================================================================================
+        this.currentTtsContextId = `turn-${Date.now()}`;
+        this.isAgentSpeaking = true;
+        let responseText = '';
 
-        this.voiceLogger?.logLLMResponse(responseText, []);
+        try {
+          this.logger.log(`🎙️  Streaming response to TTS (context: ${this.currentTtsContextId})`);
 
-        this.conversationHistory.push({ role: 'assistant', content: responseText });
-        await this.speak(ttsProvider, responseText);
+          // Stream LLM tokens directly to TTS
+          for await (const token of llmSession.stream()) {
+            responseText += token;
+            this.streamingTtsProvider!.streamText(token, this.currentTtsContextId, false);
+          }
+
+          // Signal end of text (flush final audio)
+          this.streamingTtsProvider!.streamText('', this.currentTtsContextId, true);
+
+          this.voiceLogger?.logLLMResponse(responseText, []);
+          this.conversationHistory.push({ role: 'assistant', content: responseText });
+          this.logger.log(`Assistant: ${responseText}`);
+
+        } finally {
+          // Wait for TTS to complete before continuing
+          while (this.isAgentSpeaking) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
       }
 
     } catch (error) {
@@ -839,12 +985,52 @@ export class VoiceAgentSession {
   }
 
   /**
+   * Stream audio chunk to LiveKit immediately (Sprint BAS-TTS-02).
+   *
+   * This method is called by the WebSocket TTS callback as audio chunks arrive,
+   * enabling ultra-low latency playback (300-500ms time-to-first-audio).
+   *
+   * @param audioData PCM audio buffer (s16le format)
+   */
+  private streamAudioChunkToLiveKit(audioData: Buffer): void {
+    if (!this.audioSource) {
+      this.logger.warn('Audio source not initialized - dropping chunk');
+      return;
+    }
+
+    try {
+      // Convert Buffer to Int16Array (PCM s16le format)
+      const int16Array = new Int16Array(
+        audioData.buffer,
+        audioData.byteOffset,
+        audioData.length / 2, // 2 bytes per Int16 sample
+      );
+
+      const sampleRate = 16000;
+      const numChannels = 1;
+      const samplesPerChannel = int16Array.length;
+
+      // Create and send audio frame immediately
+      const audioFrame = new AudioFrame(int16Array, sampleRate, numChannels, samplesPerChannel);
+
+      // Send frame asynchronously (don't block WebSocket callback)
+      this.audioSource.captureFrame(audioFrame).catch(error => {
+        this.logger.error(`Failed to capture audio frame: ${error.message}`);
+      });
+
+    } catch (error) {
+      this.logger.error(`Error streaming audio chunk to LiveKit: ${error.message}`);
+    }
+  }
+
+  /**
    * Cleanup resources to prevent memory leaks.
    *
    * Releases:
    * - Audio stream reader
    * - Audio source and track
    * - Event listeners
+   * - WebSocket TTS connection
    */
   private async cleanup(): Promise<void> {
     this.logger.log('Cleaning up session resources');
@@ -876,6 +1062,16 @@ export class VoiceAgentSession {
           this.audioTrack = null;
         } catch (e) {
           this.logger.warn(`Error closing audio track: ${e.message}`);
+        }
+      }
+
+      // Disconnect WebSocket TTS (Sprint BAS-TTS-02)
+      if (this.streamingTtsProvider) {
+        try {
+          await this.streamingTtsProvider.disconnect();
+          this.streamingTtsProvider = null;
+        } catch (e) {
+          this.logger.warn(`Error disconnecting streaming TTS: ${e.message}`);
         }
       }
 
@@ -928,6 +1124,32 @@ export class VoiceAgentSession {
    */
   getActionsTaken(): string[] {
     return [...this.actionsTaken];
+  }
+
+  /**
+   * Setup audio pipeline from a LiveKit audio track to STT.
+   * This is extracted to avoid code duplication between trackSubscribed event and already-subscribed check.
+   */
+  private setupAudioPipeline(track: RemoteAudioTrack, sttSession: any): void {
+    try {
+      const audioStream = new AudioStream(track, {
+        sampleRate: 16000, // Match Deepgram's expected sample rate
+        numChannels: 1,    // Mono audio
+      });
+
+      // Read audio frames and send to STT
+      this.audioStreamReader = audioStream.getReader();
+
+      // Start reading frames in background
+      this.pipeAudioToStt(this.audioStreamReader, sttSession).catch((error) => {
+        this.logger.error(`Error piping audio to STT: ${error.message}`, error.stack);
+        this.voiceLogger?.logError(error, 'Audio piping to STT');
+      });
+
+    } catch (error) {
+      this.logger.error(`Error setting up audio stream: ${error.message}`, error.stack);
+      this.voiceLogger?.logError(error, 'Audio stream setup');
+    }
   }
 
   /**

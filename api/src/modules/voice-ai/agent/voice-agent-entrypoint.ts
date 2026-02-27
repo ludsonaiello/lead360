@@ -36,6 +36,7 @@ import {
   HttpCheckServiceAreaTool,
   HttpTransferCallTool,
 } from './tools/http-tools';
+import { createVoiceAILogger } from '../utils/voice-ai-logger.util';
 
 /**
  * Log separator for visual clarity in logs
@@ -233,6 +234,9 @@ async function runAgentSession(
 
   console.log('[VoiceAgent] 🚀 Starting VoiceAgentSession with full STT→LLM→TTS pipeline...');
 
+  // Create VoiceAILogger for structured logging to voice-ai-calls.log
+  const voiceLogger = createVoiceAILogger(context.tenant.id, sipAttrs.callSid || undefined);
+
   // Create and start VoiceAgentSession
   // Note: Minor type difference between api-types.VoiceAiContext and interface.VoiceAiContext
   // (email field nullability), but runtime data structure is compatible
@@ -241,7 +245,7 @@ async function runAgentSession(
     tools,
     ctx.room as any,
     livekitConfig,
-    undefined, // voiceLogger - optional for now
+    voiceLogger, // ✅ Now passing VoiceAILogger for full structured logging
   );
 
   try {
