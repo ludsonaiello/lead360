@@ -103,3 +103,32 @@ export class HttpTransferCallTool implements AgentTool {
     return JSON.stringify(response.data);
   }
 }
+
+/**
+ * EndCallTool - HTTP-based wrapper
+ *
+ * Uses canonical definition from AGENT_TOOLS[4] (end_call)
+ *
+ * This tool allows the LLM to end the call when conversation is complete.
+ * It does NOT make HTTP calls (local execution only).
+ * The actual session termination is handled in VoiceAgentSession.
+ */
+export class HttpEndCallTool implements AgentTool {
+  definition: LlmTool = AGENT_TOOLS[4] as LlmTool;
+
+  async execute(args: { reason: string; notes?: string }, context: ToolExecutionContext): Promise<string> {
+    console.log(`[HttpEndCallTool] End call requested - Reason: ${args.reason}`);
+    if (args.notes) {
+      console.log(`[HttpEndCallTool] Notes: ${args.notes}`);
+    }
+
+    // Return success response
+    // The actual session stop will be handled by VoiceAgentSession when it detects this tool call
+    return JSON.stringify({
+      success: true,
+      message: 'Call will end after this response',
+      reason: args.reason,
+      notes: args.notes || null,
+    });
+  }
+}

@@ -295,6 +295,86 @@ export interface CallHistoryResponse {
 }
 
 /**
+ * Unified call record including both IVR and Voice AI calls
+ * Used by the unified call history endpoint
+ */
+export interface UnifiedCallRecord {
+  /** Call record UUID */
+  id: string;
+  /** Call type discriminator: 'ivr' for regular calls, 'voice_ai' for AI agent calls */
+  call_type: 'ivr' | 'voice_ai';
+  /** Twilio Call SID */
+  call_sid: string;
+  /** Caller phone number */
+  from_number: string;
+  /** Recipient phone number */
+  to_number: string;
+  /** Call direction */
+  direction: CallDirection;
+  /** Current call status */
+  status: CallStatus;
+  /** Call outcome */
+  outcome: string | null;
+  /** Call duration in seconds */
+  duration_seconds: number | null;
+  /** Recording file URL */
+  recording_url: string | null;
+  /** Recording duration in seconds */
+  recording_duration_seconds: number | null;
+  /** Recording processing status */
+  recording_status: RecordingStatus;
+  /** When call was created (ISO 8601) */
+  created_at: string;
+  /** When call ended (ISO 8601) */
+  ended_at: string | null;
+  /** Associated lead information */
+  lead: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    phone: string | null;
+  } | null;
+  /** User who initiated the call (null for Voice AI calls) */
+  initiated_by_user: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  } | null;
+  /** Transcription information */
+  transcription: {
+    transcription_text: string | null;
+    language_detected: string | null;
+    confidence_score: number | null;
+    transcription_provider: string;
+    status: string;
+  } | null;
+}
+
+/**
+ * Unified call history response
+ * Includes both IVR and Voice AI calls merged together
+ */
+export interface UnifiedCallHistoryResponse {
+  /** Array of unified call records */
+  data: UnifiedCallRecord[];
+  /** Pagination metadata */
+  meta: {
+    /** Total number of call records (IVR + Voice AI) */
+    total: number;
+    /** Current page number */
+    page: number;
+    /** Items per page */
+    limit: number;
+    /** Total number of pages */
+    totalPages: number;
+    /** Number of IVR calls */
+    ivr_count: number;
+    /** Number of Voice AI calls */
+    voice_ai_count: number;
+  };
+}
+
+/**
  * Call recording response
  * Includes URL and transcription availability
  */

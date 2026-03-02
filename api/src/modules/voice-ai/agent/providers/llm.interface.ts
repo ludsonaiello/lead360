@@ -48,4 +48,7 @@ export interface LlmSession {
 
   // Stream text chunks for TTS
   stream(): AsyncIterable<string>;
+
+  // Get usage statistics
+  getUsage(): { totalTokens: number };
 }

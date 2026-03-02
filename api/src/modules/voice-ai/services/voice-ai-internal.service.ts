@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   VoiceAiContextBuilderService,
   FullVoiceAiContext,
@@ -13,8 +13,10 @@ import { CreateLeadToolDto, CreateLeadToolResponseDto } from '../dto/internal/to
 import { FindLeadToolDto, FindLeadToolResponseDto } from '../dto/internal/tool-find-lead.dto';
 import { CheckServiceAreaToolDto, CheckServiceAreaToolResponseDto } from '../dto/internal/tool-check-service-area.dto';
 import { TransferCallToolDto, TransferCallToolResponseDto } from '../dto/internal/tool-transfer-call.dto';
+import { FindLeadByPhoneDto, FindLeadByPhoneResponseDto } from '../dto/internal/find-lead-by-phone.dto';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { LeadsService } from '../../leads/services/leads.service';
+import { generatePhoneVariations } from '../utils/phone-normalizer.util';
 
 /**
  * Access check result returned by checkAccess().
@@ -233,6 +235,30 @@ export class VoiceAiInternalService {
     });
   }
 
+  /**
+   * Get call status — Verification endpoint
+   *
+   * Returns the current status and ended_at timestamp of a call log.
+   * Used for verification/debugging purposes - allows the agent to check
+   * if a call completion request was successful.
+   *
+   * @param callSid  Twilio CallSid
+   * @returns        { status: string, ended_at: Date | null }
+   * @throws NotFoundException if no call log exists for callSid
+   */
+  async getCallStatus(callSid: string): Promise<{ status: string; ended_at: Date | null }> {
+    const callLog = await this.callLogService.findByCallSid(callSid);
+
+    if (!callLog) {
+      throw new NotFoundException(`Call log not found for call_sid: ${callSid}`);
+    }
+
+    return {
+      status: callLog.status,
+      ended_at: callLog.ended_at,
+    };
+  }
+
   // ---------------------------------------------------------------------------
   // Sprint VAB-05 — Agent Tool HTTP Endpoints
   // ---------------------------------------------------------------------------
@@ -325,14 +351,26 @@ export class VoiceAiInternalService {
     this.logger.log(`[Tool] Finding lead for phone: ${dto.phone_number}`);
 
     try {
-      // Sanitize phone number to match database format (digits only)
-      const sanitizedPhone = dto.phone_number.replace(/\D/g, '');
+      // Generate all possible phone number variations for lookup
+      const phoneVariations = generatePhoneVariations(dto.phone_number);
+      this.logger.log(`[Tool] Checking phone variations: ${phoneVariations.join(', ')}`);
 
       // Query lead_phone table with tenant isolation
+      // Uses OR to check all variations, AND to enforce tenant isolation
       const leadPhone = await this.prisma.lead_phone.findFirst({
         where: {
-          phone: { contains: sanitizedPhone },
-          lead: { tenant_id: tenantId },  // CRITICAL: Tenant isolation
+          AND: [
+            {
+              // CRITICAL: Try all phone variations with OR
+              OR: phoneVariations.map(variant => ({
+                phone: variant,  // Exact match (not contains)
+              })),
+            },
+            {
+              // CRITICAL: Tenant isolation MUST be in AND clause
+              lead: { tenant_id: tenantId },
+            },
+          ],
         },
         include: {
           lead: {
@@ -511,6 +549,128 @@ export class VoiceAiInternalService {
         success: false,
         error: error.message || 'Could not retrieve transfer number',
       };
+    }
+  }
+
+  /**
+   * Find Lead by Phone Number — Sprint 4 (agent_sprint_fixes_feb27_4)
+   *
+   * Looks up a lead by phone number BEFORE the first LLM interaction.
+   * This allows the agent to personalize the greeting for returning callers.
+   *
+   * CRITICAL SECURITY REQUIREMENT:
+   *   - MUST filter by BOTH phone_number AND tenant_id
+   *   - This prevents cross-tenant data leakage
+   *
+   * @param tenantId UUID of the tenant
+   * @param phoneNumber Phone number in E.164 format (+1XXXXXXXXXX)
+   * @returns FindLeadByPhoneResponseDto with found status and lead info
+   */
+  async findLeadByPhone(tenantId: string, phoneNumber: string): Promise<FindLeadByPhoneResponseDto> {
+    this.logger.log(`🔍 Looking up lead for phone: ${phoneNumber}, tenant: ${tenantId}`);
+
+    try {
+      // Generate all possible phone number variations for lookup
+      const phoneVariations = generatePhoneVariations(phoneNumber);
+      this.logger.log(`🔍 Checking phone variations: ${phoneVariations.join(', ')}`);
+
+      // Query lead_phone table with CRITICAL tenant isolation
+      // Uses OR to check all variations, AND to enforce tenant isolation
+      const leadPhone = await this.prisma.lead_phone.findFirst({
+        where: {
+          AND: [
+            {
+              // CRITICAL: Try all phone variations with OR
+              OR: phoneVariations.map(variant => ({
+                phone: variant,  // Exact match (not contains)
+              })),
+            },
+            {
+              // CRITICAL: Tenant isolation MUST be in AND clause
+              lead: { tenant_id: tenantId },
+            },
+          ],
+        },
+        include: {
+          lead: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              status: true,
+              emails: {
+                where: { is_primary: true },
+                take: 1,
+                select: { email: true },
+              },
+              notes: {
+                where: { is_pinned: true },
+                orderBy: { created_at: 'desc' },
+                take: 1,
+                select: { note_text: true },
+              },
+              voice_call_logs: {
+                where: { status: 'completed' },
+                orderBy: { ended_at: 'desc' },
+                take: 1,
+                select: { ended_at: true },
+              },
+              call_records: {
+                orderBy: { created_at: 'desc' },
+                select: { id: true },
+              },
+            },
+          },
+        },
+      });
+
+      if (!leadPhone?.lead) {
+        this.logger.log(`ℹ️  No lead found for phone ${phoneNumber} (tried: ${phoneVariations.join(', ')})`);
+        return { found: false, lead: null };
+      }
+
+      const lead = leadPhone.lead;
+      const fullName = `${lead.first_name} ${lead.last_name}`;
+
+      // Calculate total contacts (voice calls + other call records)
+      const voiceCallCount = lead.voice_call_logs?.length || 0;
+      const otherCallCount = lead.call_records?.length || 0;
+      const totalContacts = voiceCallCount + otherCallCount;
+
+      // Get last contact date from most recent voice call
+      const lastContactDate = lead.voice_call_logs?.[0]?.ended_at || null;
+
+      // Get primary email
+      const primaryEmail = lead.emails?.[0]?.email || null;
+
+      // Get most recent pinned note
+      const pinnedNote = lead.notes?.[0]?.note_text || null;
+
+      this.logger.log(`✅ Known caller detected: ${fullName} (${lead.id})`);
+      this.logger.log(`  - Status: ${lead.status}`);
+      this.logger.log(`  - Total contacts: ${totalContacts}`);
+      this.logger.log(`  - Last contact: ${lastContactDate ? new Date(lastContactDate).toLocaleDateString() : 'N/A'}`);
+
+      return {
+        found: true,
+        lead: {
+          id: lead.id,
+          first_name: lead.first_name,
+          last_name: lead.last_name,
+          full_name: fullName,
+          email: primaryEmail,
+          phone_number: phoneNumber,
+          status: lead.status,
+          last_contact_date: lastContactDate,
+          total_contacts: totalContacts,
+          notes: pinnedNote,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`❌ Error finding lead by phone: ${error.message}`, error.stack);
+      // Fail gracefully - return not found instead of throwing
+      // This prevents the call from crashing if lead lookup fails
+      return { found: false, lead: null };
     }
   }
 }

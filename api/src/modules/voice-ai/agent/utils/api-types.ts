@@ -48,6 +48,21 @@ export interface VoiceAiContext {
       zip: string | null;
     } | null;
   };
+
+  // Sprint 4: Lead context for personalized greeting (agent_sprint_fixes_feb27_4)
+  lead?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    full_name: string;
+    email: string | null;
+    phone_number: string;
+    status: string;
+    last_contact_date: Date | null;
+    total_contacts: number;
+    notes: string | null;
+  } | null;
+
   quota: {
     minutes_included: number;
     minutes_used: number;
@@ -134,4 +149,25 @@ export interface TransferCallResult {
   reason?: string;
   action?: string;  // 'TRANSFER'
   error?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Sprint 4 — Lead Context for First Interaction (agent_sprint_fixes_feb27_4)
+// ---------------------------------------------------------------------------
+
+// Find Lead by Phone response (for call context before first LLM interaction)
+export interface FindLeadByPhoneResponse {
+  found: boolean;
+  lead?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    full_name: string;
+    email: string | null;
+    phone_number: string;
+    status: string;
+    last_contact_date: Date | null;
+    total_contacts: number;
+    notes: string | null;
+  } | null;
 }

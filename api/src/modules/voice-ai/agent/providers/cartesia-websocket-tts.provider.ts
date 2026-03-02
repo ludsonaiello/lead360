@@ -38,6 +38,17 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
   private isConnecting = false;
   private messageQueue: string[] = []; // Queue messages during reconnection
 
+  // ====================================================================================
+  // FIX BUG B: Token buffering to prevent empty/punctuation-only transcripts
+  // Cartesia rejects empty or punctuation-only text as initial transcript.
+  // We buffer tokens until we have meaningful content before sending.
+  // ====================================================================================
+  private tokenBuffer: Map<string, string> = new Map();
+  private contextHasContent: Set<string> = new Set();
+
+  // Usage tracking: total characters sent for synthesis
+  private totalCharactersSent = 0;
+
   /**
    * Connect to Cartesia WebSocket API.
    *
@@ -175,6 +186,10 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
    * @param text Text chunk (can be partial sentence or empty for final flush)
    * @param contextId Unique identifier for this utterance
    * @param isFinal Whether this is the last chunk (triggers final flush)
+   *
+   * FIX BUG B: Buffers tokens until meaningful content exists.
+   * Cartesia rejects empty or punctuation-only text as the initial transcript for a context.
+   * We buffer tokens until we have at least some alphanumeric characters before sending.
    */
   streamText(text: string, contextId: string, isFinal: boolean): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
@@ -185,12 +200,70 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
       return;
     }
 
-    const message = this.buildTtsMessage(text, contextId, isFinal);
+    // ====================================================================================
+    // FIX BUG B: Buffer and validate tokens before sending
+    // ====================================================================================
 
-    this.logger.debug(`📤 Streaming text: "${text.substring(0, 50)}...", context: ${contextId}, final: ${isFinal}`);
+    // Get or create buffer for this context
+    const currentBuffer = this.tokenBuffer.get(contextId) || '';
+    const newBuffer = currentBuffer + text;
+    this.tokenBuffer.set(contextId, newBuffer);
+
+    // Check if buffer has meaningful content (not just punctuation/whitespace)
+    // Unicode-aware pattern supports all languages (Latin, Cyrillic, Arabic, Chinese, etc.)
+    const hasContent = /\p{L}|\p{N}/u.test(newBuffer);
+
+    // If this context hasn't sent content yet, wait until we have meaningful text
+    if (!this.contextHasContent.has(contextId)) {
+      if (hasContent) {
+        // First meaningful content - send buffered text
+        this.contextHasContent.add(contextId);
+        const textToSend = this.tokenBuffer.get(contextId) || '';
+        this.tokenBuffer.set(contextId, ''); // Clear buffer
+
+        if (textToSend.trim()) {
+          this.sendToCartesia(textToSend, contextId, isFinal);
+        }
+
+        // Cleanup if this was also the final chunk (single-token utterance)
+        if (isFinal) {
+          this.tokenBuffer.delete(contextId);
+          this.contextHasContent.delete(contextId);
+        }
+      } else if (isFinal) {
+        // Final chunk but no meaningful content - skip entirely
+        this.logger.warn(`Context ${contextId} has no meaningful content - skipping`);
+        this.tokenBuffer.delete(contextId);
+      }
+      // Otherwise, keep buffering
+      return;
+    }
+
+    // Context already has content - send immediately (even punctuation is fine now)
+    this.tokenBuffer.set(contextId, ''); // Clear buffer
+    if (text.trim() || isFinal) {
+      this.sendToCartesia(text, contextId, isFinal);
+    }
+
+    // Cleanup on final
+    if (isFinal) {
+      this.tokenBuffer.delete(contextId);
+      this.contextHasContent.delete(contextId);
+    }
+  }
+
+  /**
+   * Send text to Cartesia WebSocket (internal helper).
+   * Called after buffering and validation.
+   */
+  private sendToCartesia(text: string, contextId: string, isFinal: boolean): void {
+    const message = this.buildTtsMessage(text, contextId, isFinal);
+    this.logger.debug(`📤 Sending to Cartesia: "${text.substring(0, 50)}...", context: ${contextId}, final: ${isFinal}`);
 
     try {
-      this.ws.send(JSON.stringify(message));
+      this.ws!.send(JSON.stringify(message));
+      // Track characters sent for usage reporting
+      this.totalCharactersSent += text.length;
     } catch (error) {
       this.logger.error(`Failed to send text to WebSocket: ${error.message}`);
     }
@@ -273,6 +346,13 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
       this.ws = null;
       this.config = null;
       this.messageQueue = [];
+
+      // Clear token buffers (Bug B fix cleanup)
+      this.tokenBuffer.clear();
+      this.contextHasContent.clear();
+
+      // Note: Don't reset totalCharactersSent here - it needs to be available for usage reporting
+      // after disconnect() is called
     }
   }
 
@@ -281,5 +361,13 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
    */
   isConnected(): boolean {
     return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Get usage statistics.
+   * Returns total characters sent for TTS synthesis during this session.
+   */
+  getUsage(): { totalCharacters: number } {
+    return { totalCharacters: this.totalCharactersSent };
   }
 }

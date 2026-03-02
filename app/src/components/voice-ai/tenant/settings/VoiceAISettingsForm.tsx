@@ -28,7 +28,7 @@ const settingsSchema = z.object({
   is_enabled: z.boolean(),
   enabled_languages: z.array(z.string()).min(1, 'Select at least one language'),
   custom_greeting: z.string().max(500, 'Must be 500 characters or less').nullable().optional(),
-  custom_instructions: z.string().max(2000, 'Must be 2000 characters or less').nullable().optional(),
+  custom_instructions: z.string().max(3000, 'Must be 3000 characters or less').nullable().optional(),
   booking_enabled: z.boolean(),
   lead_creation_enabled: z.boolean(),
   transfer_enabled: z.boolean(),
@@ -354,7 +354,7 @@ export const VoiceAISettingsForm: React.FC<VoiceAISettingsFormProps> = ({ readOn
               helperText="Additional instructions for the agent. Leave empty if not needed."
               rows={4}
               disabled={readOnly}
-              maxLength={2000}
+              maxLength={3000}
             />
             {customInstructions && !readOnly && (
               <button
@@ -368,7 +368,7 @@ export const VoiceAISettingsForm: React.FC<VoiceAISettingsFormProps> = ({ readOn
             )}
             {customInstructions && (
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {customInstructions.length} / 2000 characters
+                {customInstructions.length} / 3000 characters
               </p>
             )}
           </div>

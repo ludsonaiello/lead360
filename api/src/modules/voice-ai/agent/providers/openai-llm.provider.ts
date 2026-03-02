@@ -23,6 +23,7 @@ export class OpenAiLlmProvider implements LlmProvider {
       temperature: config.temperature ?? 0.7,
       max_tokens: config.maxTokens ?? 200,
       stream: true,
+      stream_options: { include_usage: true }, // Request usage data in stream
     });
 
     // Buffer for collecting chunks
@@ -31,6 +32,7 @@ export class OpenAiLlmProvider implements LlmProvider {
     let streamConsumed = false;
     let streamComplete = false;
     const textChunks: string[] = [];
+    let totalTokens = 0; // Track usage
 
     // Consume stream once and buffer everything
     const consumeStream = async () => {
@@ -64,6 +66,11 @@ export class OpenAiLlmProvider implements LlmProvider {
               if (tc.function?.name) existing.function.name += tc.function.name;
               if (tc.function?.arguments) existing.function.arguments += tc.function.arguments;
             }
+          }
+
+          // Capture usage data (included in final chunk when stream_options.include_usage is true)
+          if (chunk.usage) {
+            totalTokens = chunk.usage.total_tokens || 0;
           }
         }
       } catch (error) {
@@ -135,6 +142,11 @@ export class OpenAiLlmProvider implements LlmProvider {
                   if (tc.function?.arguments) existing.function.arguments += tc.function.arguments;
                 }
               }
+
+              // Capture usage data (included in final chunk when stream_options.include_usage is true)
+              if (chunk.usage) {
+                totalTokens = chunk.usage.total_tokens || 0;
+              }
             }
           } finally {
             streamComplete = true;
@@ -145,6 +157,10 @@ export class OpenAiLlmProvider implements LlmProvider {
             yield chunk;
           }
         }
+      },
+
+      getUsage: () => {
+        return { totalTokens };
       },
     };
   }

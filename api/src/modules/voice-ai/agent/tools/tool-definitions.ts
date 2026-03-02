@@ -93,4 +93,26 @@ export const AGENT_TOOLS: LlmToolDefinition[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'end_call',
+      description: 'End the call when the conversation is complete and you have said goodbye to the caller. Use this tool after you\'ve provided all necessary information and concluded the conversation.',
+      parameters: {
+        type: 'object',
+        properties: {
+          reason: {
+            type: 'string',
+            description: 'Why the call is ending',
+            enum: ['lead_created', 'transferred', 'not_interested', 'information_provided', 'service_unavailable', 'other']
+          },
+          notes: {
+            type: 'string',
+            description: 'Optional brief notes about the call outcome (max 200 chars)'
+          },
+        },
+        required: ['reason'],
+      },
+    },
+  },
 ];

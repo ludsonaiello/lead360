@@ -108,6 +108,16 @@ export class VoiceAiGlobalConfigService {
     if (dto.max_concurrent_calls !== undefined)
       updateData.max_concurrent_calls = dto.max_concurrent_calls;
 
+    // Sprint Voice-UX-01: Conversational phrases (2026-02-27)
+    if (dto.recovery_messages !== undefined)
+      updateData.recovery_messages = dto.recovery_messages;
+    if (dto.filler_phrases !== undefined)
+      updateData.filler_phrases = dto.filler_phrases;
+    if (dto.long_wait_messages !== undefined)
+      updateData.long_wait_messages = dto.long_wait_messages;
+    if (dto.system_error_messages !== undefined)
+      updateData.system_error_messages = dto.system_error_messages;
+
     // Encrypt LiveKit keys — never store plaintext
     // Handle three cases: undefined (don't update), null (clear), string (encrypt)
     if (dto.livekit_api_key !== undefined) {
@@ -269,6 +279,21 @@ export class VoiceAiGlobalConfigService {
     dto.livekit_api_secret_set = config.livekit_api_secret !== null;
     dto.agent_api_key_preview = config.agent_api_key_preview;
     dto.max_concurrent_calls = config.max_concurrent_calls;
+
+    // Sprint Voice-UX-01: Conversational phrases (2026-02-27)
+    dto.recovery_messages = config.recovery_messages
+      ? JSON.parse(JSON.stringify(config.recovery_messages))
+      : null;
+    dto.filler_phrases = config.filler_phrases
+      ? JSON.parse(JSON.stringify(config.filler_phrases))
+      : null;
+    dto.long_wait_messages = config.long_wait_messages
+      ? JSON.parse(JSON.stringify(config.long_wait_messages))
+      : null;
+    dto.system_error_messages = config.system_error_messages
+      ? JSON.parse(JSON.stringify(config.system_error_messages))
+      : null;
+
     dto.updated_at = config.updated_at;
     dto.updated_by = config.updated_by;
 

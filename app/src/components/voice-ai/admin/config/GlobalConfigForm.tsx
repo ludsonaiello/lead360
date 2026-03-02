@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Save, Key, Server, Settings, MessageSquare, Languages, Wrench, Phone, Bot } from 'lucide-react';
+import { Save, Key, Server, Settings, MessageSquare, Languages, Wrench, Phone, Bot, MessageCircle } from 'lucide-react';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
 import Select from '@/components/ui/Select';
@@ -17,6 +17,7 @@ import RegenerateKeyModal from './RegenerateKeyModal';
 import LiveKitConfig from './LiveKitConfig';
 import ProviderConfigBuilder from './ProviderConfigBuilder';
 import ArrayEditor from './ArrayEditor';
+import PhrasesList from './PhrasesList';
 
 /**
  * JSON validation helper
@@ -62,7 +63,7 @@ const globalConfigSchema = z.object({
     .nullable()
     .refine((val) => isValidJSON(val), { message: 'Must be valid JSON array' }),
   default_greeting_template: z.string().max(500).optional().nullable(),
-  default_system_prompt: z.string().max(2000).optional().nullable(),
+  default_system_prompt: z.string().max(3000).optional().nullable(),
   default_max_call_duration_seconds: z
     .number()
     .min(60, 'Must be at least 60 seconds')
@@ -90,6 +91,31 @@ const globalConfigSchema = z.object({
     .max(100, 'Must be at most 100')
     .optional()
     .nullable(),
+  // Sprint Voice-UX-01: Conversational Phrases (2026-02-27)
+  recovery_messages: z
+    .array(z.string().max(150))
+    .min(1)
+    .max(10)
+    .optional()
+    .nullable(),
+  filler_phrases: z
+    .array(z.string().max(150))
+    .min(1)
+    .max(10)
+    .optional()
+    .nullable(),
+  long_wait_messages: z
+    .array(z.string().max(150))
+    .min(1)
+    .max(10)
+    .optional()
+    .nullable(),
+  system_error_messages: z
+    .array(z.string().max(150))
+    .min(1)
+    .max(10)
+    .optional()
+    .nullable(),
 });
 
 type GlobalConfigFormData = z.infer<typeof globalConfigSchema>;
@@ -102,8 +128,8 @@ interface GlobalConfigFormProps {
 
 /**
  * Global Configuration Form
- * 8 sections: Agent Status, Providers, Voice & Language, Agent Behavior,
- * Tool Toggles, Call Handling, LiveKit Config, Agent API Key
+ * 9 sections: Agent Status, Providers, Voice & Language, Agent Behavior,
+ * Tool Toggles, Call Handling, LiveKit Config, Agent API Key, Conversational Phrases
  */
 export default function GlobalConfigForm({
   config,
@@ -155,6 +181,11 @@ export default function GlobalConfigForm({
       livekit_api_key: '',
       livekit_api_secret: '',
       max_concurrent_calls: config.max_concurrent_calls,
+      // Sprint Voice-UX-01: Conversational Phrases (2026-02-27)
+      recovery_messages: config.recovery_messages || null,
+      filler_phrases: config.filler_phrases || null,
+      long_wait_messages: config.long_wait_messages || null,
+      system_error_messages: config.system_error_messages || null,
     },
   });
 
@@ -345,7 +376,7 @@ export default function GlobalConfigForm({
               error={errors.default_system_prompt?.message}
               rows={5}
               disabled={isSubmitting}
-              helperText="Base prompt for all agent conversations. Max 2000 characters."
+              helperText="Base prompt for all agent conversations. Max 3000 characters."
             />
           </div>
         </section>
@@ -467,6 +498,69 @@ export default function GlobalConfigForm({
                 using the old key.
               </p>
             </div>
+          </div>
+        </section>
+
+        {/* Section 9: Conversational Phrases - Sprint Voice-UX-01 */}
+        <section className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <MessageCircle className="h-6 w-6 text-brand-600 dark:text-brand-400" />
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              9. Conversational Phrases
+            </h2>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+            Customize how the AI agent communicates during different scenarios.
+            The agent will randomly select from these phrases to sound more natural and human-like.
+          </p>
+          <div className="space-y-8">
+            {/* Recovery Messages */}
+            <PhrasesList
+              value={watch('recovery_messages')}
+              onChange={(value) => setValue('recovery_messages', value)}
+              label="Recovery Messages"
+              description="Used when the agent doesn't understand or gets empty input from the caller"
+              placeholder="Sorry, I didn't catch that. Could you repeat?"
+              disabled={isSubmitting}
+            />
+
+            {/* Filler Phrases */}
+            <PhrasesList
+              value={watch('filler_phrases')}
+              onChange={(value) => setValue('filler_phrases', value)}
+              label="Filler Phrases"
+              description="Spoken before checking information or calling tools"
+              placeholder="Let me check that for you."
+              disabled={isSubmitting}
+            />
+
+            {/* Long Wait Messages */}
+            <PhrasesList
+              value={watch('long_wait_messages')}
+              onChange={(value) => setValue('long_wait_messages', value)}
+              label="Long Wait Messages"
+              description="Periodic updates during operations taking longer than 20 seconds"
+              placeholder="Still checking, just a moment..."
+              disabled={isSubmitting}
+            />
+
+            {/* System Error Messages */}
+            <PhrasesList
+              value={watch('system_error_messages')}
+              onChange={(value) => setValue('system_error_messages', value)}
+              label="System Error Messages"
+              description="Generic messages for system errors (database, API failures)"
+              placeholder="I'm having some trouble right now. Could you try again?"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          {/* Info Box */}
+          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <p className="text-sm text-blue-800 dark:text-blue-300">
+              <strong>Tip:</strong> Use friendly, conversational language. Avoid technical terms like "error", "system", or "processing".
+              The agent will randomly select phrases to sound more natural.
+            </p>
           </div>
         </section>
 

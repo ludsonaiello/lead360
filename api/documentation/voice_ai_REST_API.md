@@ -3,8 +3,8 @@
 **Module**: Voice AI
 **API Version**: v1
 **Base URL**: `https://api.lead360.app/api/v1`
-**Last Updated**: 2026-02-24
-**Sprint**: BAS27 (+ Tenant Override Pre-population Fix)
+**Last Updated**: 2026-02-28
+**Sprint**: Sprint 5 (STT Configuration from Database)
 
 ---
 
@@ -492,7 +492,7 @@ OR
     "provider_type": "TTS",
     "display_name": "Cartesia"
   },
-  "default_stt_config": "{\"model\":\"nova-2-phonecall\",\"punctuate\":true,\"interim_results\":true}",
+  "default_stt_config": "{\"model\":\"nova-2-phonecall\",\"endpointing\":800,\"utterance_end_ms\":2000,\"vad_events\":true,\"interim_results\":true,\"punctuate\":true}",
   "default_llm_config": "{\"model\":\"gpt-4o-mini\",\"temperature\":0,\"max_tokens\":500}",
   "default_tts_config": "{\"model\":\"sonic-multilingual\",\"speed\":1}",
   "default_voice_id": "agent_UB73EHZHv65uQTn44Hddho",
@@ -571,7 +571,7 @@ OR
   "default_max_call_duration_seconds": 300,
   "default_transfer_behavior": "end_call",
   "default_tools_enabled": "{\"booking\":true,\"lead_creation\":true,\"call_transfer\":true}",
-  "default_stt_config": "{\"model\":\"nova-2-phonecall\",\"punctuate\":true}",
+  "default_stt_config": "{\"model\":\"nova-2-phonecall\",\"endpointing\":800,\"utterance_end_ms\":2000,\"vad_events\":true,\"interim_results\":true,\"punctuate\":true}",
   "default_llm_config": "{\"model\":\"gpt-4o-mini\",\"temperature\":0}",
   "default_tts_config": "{\"model\":\"sonic-multilingual\",\"speed\":1}",
   "livekit_url": "wss://lead360-8owqtn2p.livekit.cloud",
@@ -622,6 +622,83 @@ OR
 
 **Response 401**: `{ "statusCode": 401, "message": "Unauthorized" }`
 **Response 403**: `{ "statusCode": 403, "message": "Platform Admin access required" }`
+
+---
+
+#### STT Configuration Guide (Sprint 5)
+
+The `default_stt_config` field controls Speech-to-Text behavior and is critical for preventing interruptions during natural speech pauses.
+
+**Recommended Configuration**:
+```json
+{
+  "model": "nova-2-phonecall",
+  "endpointing": 800,
+  "utterance_end_ms": 2000,
+  "vad_events": true,
+  "interim_results": true,
+  "punctuate": true,
+  "smart_format": true
+}
+```
+
+**Key Parameters**:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `model` | string | `"nova-2-phonecall"` | Deepgram model optimized for phone calls |
+| `endpointing` | number | `800` | Milliseconds of silence before assuming user stopped speaking |
+| `utterance_end_ms` | number | `2000` | Milliseconds before finalizing the transcript |
+| `vad_events` | boolean | `true` | Enable Voice Activity Detection for better silence detection |
+| `interim_results` | boolean | `true` | Send partial transcription results |
+| `punctuate` | boolean | `true` | Add punctuation to transcripts |
+| `smart_format` | boolean | `true` | Format numbers, dates, and times intelligently |
+
+**Understanding Endpointing**:
+
+The `endpointing` parameter controls how long the system waits for silence before concluding the user has stopped speaking:
+
+- **Too Low (< 600ms)**: Agent interrupts during normal pauses in speech
+  - Example: "I would like... *[pause 600ms]* ...to schedule a service"
+  - Result: Agent cuts off after "I would like" ❌
+
+- **Recommended (800-1000ms)**: Natural conversation flow
+  - Allows for normal thinking pauses
+  - User completes full sentences
+  - Agent responds to complete thoughts ✅
+
+- **Too High (> 1500ms)**: Slow, unnatural responses
+  - Long awkward silences
+  - Poor user experience
+
+**Understanding Utterance End**:
+
+The `utterance_end_ms` parameter controls how long before the transcript is finalized:
+
+- **Too Low (< 1500ms)**: Premature finalization, incomplete sentences
+- **Recommended (2000-2500ms)**: Complete sentences captured
+- **Too High (> 3000ms)**: Delayed responses, sluggish conversation
+
+**Testing Your Configuration**:
+
+1. Make a test call
+2. Speak with natural pauses: "I would like... um... to schedule a service"
+3. Check logs for: `[DeepgramSTT] Starting transcription with config:`
+4. Verify the agent waits for your complete sentence
+
+**Troubleshooting**:
+
+- **Agent interrupts frequently**: Increase `endpointing` to 900-1000ms
+- **Agent responds too slowly**: Decrease `endpointing` to 700-800ms
+- **Incomplete transcripts**: Increase `utterance_end_ms` to 2500ms
+- **Poor silence detection**: Ensure `vad_events: true`
+
+**Tenant Overrides**:
+
+Tenants can override global STT settings via the `stt_config_override` field in their tenant settings. This allows per-tenant tuning based on:
+- Language (some languages have different pause patterns)
+- Industry (technical vs casual conversation styles)
+- User feedback
 
 ---
 

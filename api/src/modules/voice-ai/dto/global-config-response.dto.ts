@@ -42,7 +42,10 @@ export class GlobalConfigResponseDto {
   @ApiPropertyOptional({ description: 'Default TTS provider details', type: SafeProviderInfo })
   default_tts_provider: SafeProviderInfo | null;
 
-  @ApiPropertyOptional({ description: 'JSON object with STT provider-specific config' })
+  @ApiPropertyOptional({
+    description: 'JSON object with STT provider-specific config (includes endpointing, utterance_end_ms, etc.)',
+    example: '{"model":"nova-2-phonecall","endpointing":800,"utterance_end_ms":2000,"vad_events":true}',
+  })
   default_stt_config: string | null;
 
   @ApiPropertyOptional({ description: 'JSON object with LLM provider-specific config' })
@@ -96,6 +99,19 @@ export class GlobalConfigResponseDto {
 
   @ApiProperty({ description: 'Max concurrent calls platform-wide' })
   max_concurrent_calls: number;
+
+  // Sprint Voice-UX-01: Conversational phrases (2026-02-27)
+  @ApiPropertyOptional({ description: 'Recovery messages when STT fails or gets empty input', type: [String] })
+  recovery_messages: string[] | null;
+
+  @ApiPropertyOptional({ description: 'Filler phrases spoken before tool execution', type: [String] })
+  filler_phrases: string[] | null;
+
+  @ApiPropertyOptional({ description: 'Messages during long tool execution (>20s)', type: [String] })
+  long_wait_messages: string[] | null;
+
+  @ApiPropertyOptional({ description: 'Generic system error messages', type: [String] })
+  system_error_messages: string[] | null;
 
   @ApiProperty({ description: 'Last updated timestamp' })
   updated_at: Date;

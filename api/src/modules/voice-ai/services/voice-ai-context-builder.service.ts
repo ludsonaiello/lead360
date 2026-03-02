@@ -269,7 +269,10 @@ export class VoiceAiContextBuilderService {
       systemPrompt += `\n\nAdditional Instructions:\n${tenantSettings.custom_instructions}`;
     }
 
-    // Step 7: Assemble FullVoiceAiContext
+    // Step 7: Load conversational phrases from global config
+    const conversationalPhrases = this.parseConversationalPhrases(globalConfig);
+
+    // Step 8: Assemble FullVoiceAiContext
     const primaryAddress = tenant.tenant_address?.[0];
 
     return {
@@ -363,6 +366,7 @@ export class VoiceAiContextBuilderService {
         is_default: tn.is_default,
         available_hours: tn.available_hours ?? null,
       })),
+      conversational_phrases: conversationalPhrases,
     };
   }
 
@@ -449,5 +453,69 @@ export class VoiceAiContextBuilderService {
         shifts,
       };
     });
+  }
+
+  /**
+   * Parse conversational phrases from global config.
+   * Returns default phrases if config fields are missing/invalid.
+   * Sprint: Voice-UX-01 (2026-02-27)
+   */
+  private parseConversationalPhrases(globalConfig: any): {
+    recovery_messages: string[];
+    filler_phrases: string[];
+    long_wait_messages: string[];
+    system_error_messages: string[];
+  } {
+    return {
+      recovery_messages: this.parseJsonArrayWithFallback(
+        globalConfig.recovery_messages,
+        [
+          "Sorry, I didn't quite catch that. Could you repeat?",
+          "I missed that. What did you say?",
+          "Could you say that again, please?",
+        ]
+      ),
+      filler_phrases: this.parseJsonArrayWithFallback(
+        globalConfig.filler_phrases,
+        [
+          "Let me check that for you.",
+          "One moment while I look that up.",
+          "Alright, I'll check the information. Hold on.",
+        ]
+      ),
+      long_wait_messages: this.parseJsonArrayWithFallback(
+        globalConfig.long_wait_messages,
+        [
+          "Still checking, just a moment...",
+          "This is taking a bit longer, almost there...",
+          "I'm still working on it, one moment please...",
+        ]
+      ),
+      system_error_messages: this.parseJsonArrayWithFallback(
+        globalConfig.system_error_messages,
+        [
+          "I'm having some trouble right now. Could you try again?",
+          "Something's not working on my end. Please try again.",
+        ]
+      ),
+    };
+  }
+
+  /**
+   * Parse JSON array with fallback to default if invalid.
+   * Used for conversational phrases - always returns valid array.
+   * Sprint: Voice-UX-01 (2026-02-27)
+   */
+  private parseJsonArrayWithFallback(
+    jsonString: string | null | undefined,
+    fallback: string[]
+  ): string[] {
+    if (!jsonString) return fallback;
+    try {
+      const parsed = JSON.parse(jsonString);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : fallback;
+    } catch {
+      return fallback;
+    }
   }
 }

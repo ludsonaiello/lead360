@@ -483,6 +483,7 @@ export class CallManagementService {
         data: {
           status: 'completed',
           ended_at: new Date(),
+          duration_seconds: duration,
           ...(cost !== null && { cost }),
         },
       });
@@ -501,6 +502,7 @@ export class CallManagementService {
   /**
    * Handle recording ready webhook
    * Downloads recording from Twilio and stores in local filesystem
+   * Supports both regular IVR calls (call_record) and Voice AI calls (voice_call_log)
    *
    * @param callSid - Twilio Call SID
    * @param recordingUrl - Twilio recording URL
@@ -511,26 +513,48 @@ export class CallManagementService {
     recordingUrl: string,
     duration: number,
   ): Promise<void> {
+    // Try to find call in regular call_record table first (IVR calls)
     const call_record = await this.prisma.call_record.findUnique({
       where: { twilio_call_sid: callSid },
       include: { tenant: true },
     });
 
+    // If not found in call_record, try voice_call_log (Voice AI calls)
+    let voice_call_log: Awaited<ReturnType<typeof this.prisma.voice_call_log.findUnique>> = null;
+    let isVoiceAiCall = false;
+
     if (!call_record) {
-      this.logger.error(`❌ CallRecord not found for CallSid: ${callSid}`);
+      voice_call_log = await this.prisma.voice_call_log.findUnique({
+        where: { call_sid: callSid },
+        include: { tenant: true },
+      });
+
+      if (voice_call_log) {
+        isVoiceAiCall = true;
+        this.logger.log(`🤖 Voice AI call recording ready for ${callSid}`);
+      }
+    }
+
+    // If call not found in either table, log error and return
+    if (!call_record && !voice_call_log) {
+      this.logger.error(`❌ Call not found in call_record or voice_call_log for CallSid: ${callSid}`);
       return;
     }
 
-    if (!call_record.tenant_id) {
-      this.logger.error(`❌ CallRecord ${call_record.id} has no tenant_id`);
+    // TypeScript guard: at this point, either call_record or voice_call_log must exist
+    const callRecord = (call_record || voice_call_log)!;
+    const callType = isVoiceAiCall ? 'voice_ai' : 'ivr';
+
+    if (!callRecord.tenant_id) {
+      this.logger.error(`❌ Call ${callRecord.id} has no tenant_id`);
       return;
     }
 
-    this.logger.log(`🎙️  Recording ready for call ${callSid}. Downloading...`);
+    this.logger.log(`🎙️  Recording ready for ${callType} call ${callSid}. Downloading...`);
 
     try {
       // 1. Download recording from Twilio
-      const config = await this.getTenantTwilioConfig(call_record.tenant_id);
+      const config = await this.getTenantTwilioConfig(callRecord.tenant_id);
       const credentials = JSON.parse(
         this.encryption.decrypt(config.credentials),
       );
@@ -550,8 +574,10 @@ export class CallManagementService {
       // 2. Store recording in filesystem
       const year = new Date().getFullYear();
       const month = String(new Date().getMonth() + 1).padStart(2, '0');
-      const filename = `${call_record.id}.mp3`;
-      const relativePath = `${call_record.tenant_id}/communication/recordings/${year}/${month}`;
+      const filename = `${callRecord.id}.mp3`;
+      // Use different path for voice AI calls vs regular calls
+      const recordingType = isVoiceAiCall ? 'voice-ai' : 'communication';
+      const relativePath = `${callRecord.tenant_id}/${recordingType}/recordings/${year}/${month}`;
       const fullDir = join(this.recordingsBasePath, relativePath);
       const fullPath = join(fullDir, filename);
 
@@ -561,38 +587,58 @@ export class CallManagementService {
       // Write recording file
       await fs.writeFile(fullPath, recordingBuffer);
 
-      // 3. Update CallRecord with recording info
+      // 3. Update call record with recording info
       // IMPORTANT: Store full URL (not relative path) for transcription processor
       // Transcription processor needs to download the file via HTTP/HTTPS
-      const tenant = call_record.tenant;
+      // Get tenant separately since voice_call_log doesn't have tenant included
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: callRecord.tenant_id },
+        select: { subdomain: true },
+      });
+
       if (!tenant) {
         throw new Error(`Tenant not found for call ${callSid}`);
       }
 
       const publicUrl = `https://${tenant.subdomain}.lead360.app/uploads/public/${relativePath}/${filename}`;
 
-      await this.prisma.call_record.update({
-        where: { id: call_record.id },
-        data: {
-          recording_url: publicUrl,
-          recording_duration_seconds: duration,
-          recording_status: 'available',
-        },
-      });
+      // Update the appropriate table based on call type
+      if (isVoiceAiCall) {
+        await this.prisma.voice_call_log.update({
+          where: { id: callRecord.id },
+          data: {
+            recording_url: publicUrl,
+            recording_duration_seconds: duration,
+            recording_status: 'available',
+          },
+        });
+      } else {
+        await this.prisma.call_record.update({
+          where: { id: callRecord.id },
+          data: {
+            recording_url: publicUrl,
+            recording_duration_seconds: duration,
+            recording_status: 'available',
+          },
+        });
+      }
 
-      this.logger.log(`✅ Recording stored for call ${callSid}: ${publicUrl}`);
+      this.logger.log(`✅ Recording stored for ${callType} call ${callSid}: ${publicUrl}`);
 
-      // Sprint 5: Auto-queue transcription job
-      if (this.transcriptionJobService) {
+      // Auto-queue transcription job (only for IVR calls)
+      // Voice AI calls already have real-time transcription via STT
+      if (this.transcriptionJobService && !isVoiceAiCall) {
         try {
-          await this.transcriptionJobService.queueTranscription(call_record.id);
-          this.logger.log(`🎤 Transcription queued for call ${callSid}`);
+          await this.transcriptionJobService.queueTranscription(callRecord.id);
+          this.logger.log(`🎤 Transcription queued for ${callType} call ${callSid}`);
         } catch (error) {
           this.logger.error(
             `⚠️  Failed to queue transcription for ${callSid}: ${error.message}`,
           );
           // Don't throw - recording is still successful even if transcription fails to queue
         }
+      } else if (isVoiceAiCall) {
+        this.logger.log(`🤖 Voice AI call already has real-time transcription, skipping recording transcription`);
       }
     } catch (error) {
       this.logger.error(
@@ -600,10 +646,18 @@ export class CallManagementService {
         error.stack,
       );
 
-      await this.prisma.call_record.update({
-        where: { id: call_record.id },
-        data: { recording_status: 'failed' },
-      });
+      // Update recording status to failed in the appropriate table
+      if (isVoiceAiCall) {
+        await this.prisma.voice_call_log.update({
+          where: { id: callRecord.id },
+          data: { recording_status: 'failed' },
+        });
+      } else {
+        await this.prisma.call_record.update({
+          where: { id: callRecord.id },
+          data: { recording_status: 'failed' },
+        });
+      }
     }
   }
 
@@ -925,6 +979,182 @@ export class CallManagementService {
         page,
         limit,
         totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Get unified call history including both IVR calls and Voice AI calls
+   * Returns both call types merged and sorted by date with a call_type flag
+   *
+   * @param tenantId - Tenant UUID (multi-tenant isolation)
+   * @param page - Page number (1-indexed)
+   * @param limit - Records per page (max 100)
+   * @returns Paginated unified call records
+   */
+  async findAllUnified(tenantId: string, page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+
+    // Fetch both call types in parallel
+    const [ivrCalls, voiceAiCalls, ivrTotal, voiceAiTotal] = await Promise.all([
+      // IVR calls (call_record)
+      this.prisma.call_record.findMany({
+        where: { tenant_id: tenantId },
+        skip: 0, // We'll handle pagination after merging
+        take: limit * 2, // Fetch more to ensure we have enough after merge
+        orderBy: { created_at: 'desc' },
+        include: {
+          lead: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              phones: {
+                where: { is_primary: true },
+                select: { phone: true },
+                take: 1,
+              },
+            },
+          },
+          initiated_by_user: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+            },
+          },
+          transcriptions: {
+            where: { is_current: true },
+            select: {
+              transcription_text: true,
+              language_detected: true,
+              confidence_score: true,
+              transcription_provider: true,
+              status: true,
+            },
+          },
+        },
+      }),
+      // Voice AI calls (voice_call_log)
+      this.prisma.voice_call_log.findMany({
+        where: { tenant_id: tenantId },
+        skip: 0, // We'll handle pagination after merging
+        take: limit * 2, // Fetch more to ensure we have enough after merge
+        orderBy: { started_at: 'desc' },
+        include: {
+          lead: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              phones: {
+                where: { is_primary: true },
+                select: { phone: true },
+                take: 1,
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.call_record.count({ where: { tenant_id: tenantId } }),
+      this.prisma.voice_call_log.count({ where: { tenant_id: tenantId } }),
+    ]);
+
+    // Format IVR calls
+    const formattedIvrCalls = ivrCalls.map((call) => {
+      const currentTranscription = call.transcriptions?.[0] || null;
+
+      return {
+        id: call.id,
+        call_type: 'ivr' as const,
+        call_sid: call.twilio_call_sid,
+        from_number: call.from_number,
+        to_number: call.to_number,
+        direction: call.direction,
+        status: call.status,
+        outcome: call.outcome,
+        duration_seconds: call.duration_seconds,
+        recording_url: call.recording_url,
+        recording_duration_seconds: call.recording_duration_seconds,
+        recording_status: call.recording_status,
+        created_at: call.created_at,
+        ended_at: call.ended_at,
+        lead: call.lead
+          ? {
+              ...call.lead,
+              phone: call.lead.phones[0]?.phone || null,
+              phones: undefined,
+            }
+          : null,
+        initiated_by_user: call.initiated_by_user || null,
+        transcription: currentTranscription
+          ? {
+              transcription_text: currentTranscription.transcription_text,
+              language_detected: currentTranscription.language_detected,
+              confidence_score: currentTranscription.confidence_score
+                ? parseFloat(currentTranscription.confidence_score.toString())
+                : null,
+              transcription_provider:
+                currentTranscription.transcription_provider,
+              status: currentTranscription.status,
+            }
+          : null,
+      };
+    });
+
+    // Format Voice AI calls
+    const formattedVoiceAiCalls = voiceAiCalls.map((call) => ({
+      id: call.id,
+      call_type: 'voice_ai' as const,
+      call_sid: call.call_sid,
+      from_number: call.from_number,
+      to_number: call.to_number,
+      direction: call.direction,
+      status: call.status,
+      outcome: call.outcome,
+      duration_seconds: call.duration_seconds,
+      recording_url: call.recording_url,
+      recording_duration_seconds: call.recording_duration_seconds,
+      recording_status: call.recording_status,
+      created_at: call.started_at, // Use started_at for consistency with created_at
+      ended_at: call.ended_at,
+      lead: call.lead
+        ? {
+            ...call.lead,
+            phone: call.lead.phones[0]?.phone || null,
+            phones: undefined,
+          }
+        : null,
+      initiated_by_user: null, // Voice AI calls are always inbound
+      transcription: call.full_transcript
+        ? {
+            transcription_text: call.full_transcript,
+            language_detected: call.language_used || null,
+            confidence_score: null,
+            transcription_provider: 'voice_ai_stt' as const,
+            status: call.transcription_status || 'completed',
+          }
+        : null,
+    }));
+
+    // Merge and sort by date
+    const allCalls = [...formattedIvrCalls, ...formattedVoiceAiCalls].sort(
+      (a, b) => b.created_at.getTime() - a.created_at.getTime(),
+    );
+
+    // Apply pagination after merging
+    const paginatedCalls = allCalls.slice(skip, skip + limit);
+    const total = ivrTotal + voiceAiTotal;
+
+    return {
+      data: paginatedCalls,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        ivr_count: ivrTotal,
+        voice_ai_count: voiceAiTotal,
       },
     };
   }

@@ -25,6 +25,7 @@ import {
   getContext,
   startCallLog,
   completeCallLog,
+  findLeadByPhone,
 } from './utils/agent-api';
 import { waitForSipParticipant, extractSipAttributes } from './utils/sip-participant';
 import { VoiceAiContext } from './utils/api-types';
@@ -35,6 +36,7 @@ import {
   HttpCreateLeadTool,
   HttpCheckServiceAreaTool,
   HttpTransferCallTool,
+  HttpEndCallTool,
 } from './tools/http-tools';
 import { createVoiceAILogger } from '../utils/voice-ai-logger.util';
 
@@ -135,6 +137,25 @@ async function voiceAgentEntrypoint(ctx: JobContext): Promise<void> {
     const context = contextResult.data;
     console.log(`[VoiceAgent] ✅ Context loaded for: ${context.tenant.company_name}`);
 
+    // Step 6.5: Look up lead by phone number (Sprint 4: agent_sprint_fixes_feb27_4)
+    console.log('[VoiceAgent] 🔍 Looking up lead by phone...');
+    const leadResult = await findLeadByPhone(tenantId, sipAttrs.callerPhoneNumber || '');
+
+    let leadContext: any = null;
+    if (leadResult.success && leadResult.data?.found) {
+      leadContext = leadResult.data.lead;
+      console.log(`[VoiceAgent] ✅ Known caller detected: ${leadContext.full_name}`);
+      console.log(`[VoiceAgent]   - Status: ${leadContext.status}`);
+      console.log(`[VoiceAgent]   - Total contacts: ${leadContext.total_contacts}`);
+      console.log(`[VoiceAgent]   - Last contact: ${leadContext.last_contact_date ? new Date(leadContext.last_contact_date).toLocaleDateString() : 'First time caller'}`);
+
+      // Add lead to context
+      context.lead = leadContext;
+    } else {
+      console.log('[VoiceAgent] ℹ️  New caller (no existing lead found)');
+      context.lead = null;
+    }
+
     // Step 7: Start call log
     console.log('[VoiceAgent] 📝 Starting call log...');
     const startResult = await startCallLog({
@@ -155,30 +176,48 @@ async function voiceAgentEntrypoint(ctx: JobContext): Promise<void> {
 
     // Step 8: Run agent session
     console.log('[VoiceAgent] 🚀 Starting conversation pipeline...');
-    await runAgentSession(ctx, context, sipAttrs);
+    const session = await runAgentSession(ctx, context, sipAttrs);
 
-    // Step 9: Complete call log
+    // Step 9: Complete call log (SUCCESS PATH)
     const durationSeconds = Math.round((Date.now() - startTime) / 1000);
     logSeparator(`✅ CALL COMPLETED - Duration: ${durationSeconds}s`);
 
-    if (callLogId && callSid) {
-      await completeCallLog(callSid, {
-        status: 'completed',
-        duration_seconds: durationSeconds,
-        outcome: 'abandoned', // Default to abandoned - will be updated when lead creation/transfer is implemented
-        // transcript_summary: will be added when transcription is implemented
-        // full_transcript: will be added when transcription is implemented
+    if (callSid) {
+      console.log(`[VoiceAgent] 📝 Attempting to complete call log for call_sid: ${callSid}`);
+
+      // Collect usage records from the session
+      const usageRecords = session.getUsageRecords();
+      console.log(`[VoiceAgent] 📊 Collected usage records: ${usageRecords.length} providers`);
+      usageRecords.forEach(record => {
+        console.log(`  - ${record.provider_type}: ${record.usage_quantity} ${record.usage_unit}`);
       });
-      console.log('[VoiceAgent] ✅ Call log completed');
+
+      try {
+        await completeCallLog(callSid, {
+          status: 'completed',
+          duration_seconds: durationSeconds,
+          outcome: session.getCallOutcome() || 'abandoned', // Sprint 2: Use outcome from end_call tool, fallback to 'abandoned'
+          usage_records: usageRecords,
+          // transcript_summary: will be added when transcription is implemented
+          // full_transcript: will be added when transcription is implemented
+        });
+        console.log('[VoiceAgent] ✅ Call log completion request sent successfully');
+      } catch (e: any) {
+        // Log error but don't throw - call should be considered ended
+        console.error(`[VoiceAgent] ⚠️  Call log completion failed but call still ended: ${e.message}`);
+      }
+    } else {
+      console.warn('[VoiceAgent] ⚠️  Cannot complete call log - callSid is null');
     }
 
   } catch (error: any) {
     const durationSeconds = Math.round((Date.now() - startTime) / 1000);
-    console.error(`[VoiceAgent] ❌ Error: ${error.message}`, error.stack);
+    console.error(`[VoiceAgent] ❌ Error during call: ${error.message}`, error.stack);
     logSeparator(`❌ CALL FAILED - Duration: ${durationSeconds}s`);
 
-    // Try to complete call log with error
+    // ALWAYS try to complete call log with error status (FAILURE PATH)
     if (callSid) {
+      console.log(`[VoiceAgent] 📝 Attempting to complete call log as 'failed' for call_sid: ${callSid}`);
       try {
         await completeCallLog(callSid, {
           status: 'failed',
@@ -186,9 +225,15 @@ async function voiceAgentEntrypoint(ctx: JobContext): Promise<void> {
           outcome: 'abandoned',
           error_message: error.message,
         });
-      } catch (e) {
-        console.error('[VoiceAgent] Failed to complete call log on error');
+        console.log('[VoiceAgent] ✅ Call log marked as failed successfully');
+      } catch (e: any) {
+        // Log detailed error but don't throw - we've already logged the original error
+        console.error(`[VoiceAgent] ❌ Failed to mark call log as failed for call_sid: ${callSid}`);
+        console.error(`[VoiceAgent]   - Reason: ${e.message}`);
+        console.error('[VoiceAgent]   - This call may remain stuck in "in_progress" status');
       }
+    } else {
+      console.warn('[VoiceAgent] ⚠️  Cannot complete call log - callSid is null (call will remain orphaned)');
     }
   }
 }
@@ -203,7 +248,7 @@ async function runAgentSession(
   ctx: JobContext,
   context: VoiceAiContext,
   sipAttrs: { callSid: string | null; callerPhoneNumber: string | null }
-): Promise<void> {
+): Promise<VoiceAgentSession> {
   console.log(`[VoiceAgent] Greeting: ${context.behavior.greeting}`);
   console.log(`[VoiceAgent] Services: ${context.services.map(s => s.name).join(', ')}`);
   console.log(`[VoiceAgent] Service areas: ${context.service_areas.length} configured`);
@@ -230,6 +275,7 @@ async function runAgentSession(
     new HttpCreateLeadTool(),
     new HttpCheckServiceAreaTool(),
     new HttpTransferCallTool(),
+    new HttpEndCallTool(),
   ];
 
   console.log('[VoiceAgent] 🚀 Starting VoiceAgentSession with full STT→LLM→TTS pipeline...');
@@ -255,6 +301,8 @@ async function runAgentSession(
     console.error(`[VoiceAgent] ❌ VoiceAgentSession error: ${error.message}`, error.stack);
     throw error;
   }
+
+  return session;
 }
 
 // Export as Agent object for LiveKit

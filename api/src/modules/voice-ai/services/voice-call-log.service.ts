@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { VoiceUsageService, UsageRecordData } from './voice-usage.service';
 
@@ -22,6 +22,10 @@ export interface VoiceCallLogDto {
   stt_provider_id: string | null;
   llm_provider_id: string | null;
   tts_provider_id: string | null;
+  recording_url: string | null;
+  recording_duration_seconds: number | null;
+  recording_status: string;
+  transcription_status: string;
   started_at: Date;
   ended_at: Date | null;
   created_at: Date;
@@ -54,6 +58,10 @@ const CALL_LOG_SELECT = {
   stt_provider_id: true,
   llm_provider_id: true,
   tts_provider_id: true,
+  recording_url: true,
+  recording_duration_seconds: true,
+  recording_status: true,
+  transcription_status: true,
   started_at: true,
   ended_at: true,
   created_at: true,
@@ -81,6 +89,10 @@ function mapRow(row: {
   stt_provider_id: string | null;
   llm_provider_id: string | null;
   tts_provider_id: string | null;
+  recording_url: string | null;
+  recording_duration_seconds: number | null;
+  recording_status: string;
+  transcription_status: string;
   started_at: Date;
   ended_at: Date | null;
   created_at: Date;
@@ -112,6 +124,10 @@ function mapRow(row: {
     stt_provider_id: row.stt_provider_id,
     llm_provider_id: row.llm_provider_id,
     tts_provider_id: row.tts_provider_id,
+    recording_url: row.recording_url,
+    recording_duration_seconds: row.recording_duration_seconds,
+    recording_status: row.recording_status,
+    transcription_status: row.transcription_status,
     started_at: row.started_at,
     ended_at: row.ended_at,
     created_at: row.created_at,
@@ -136,6 +152,8 @@ function mapRow(row: {
  */
 @Injectable()
 export class VoiceCallLogService {
+  private readonly logger = new Logger(VoiceCallLogService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly usageService: VoiceUsageService,
@@ -204,6 +222,12 @@ export class VoiceCallLogService {
    * Prisma transaction to guarantee atomicity. If usage records fail to save,
    * the call log update is rolled back.
    *
+   * Transaction behavior:
+   *   - If voice_call_log update succeeds but usage record creation fails,
+   *     the entire transaction is rolled back (call log remains 'in_progress')
+   *   - If call_sid is not found (P2025 error), throws NotFoundException
+   *   - Any other database error will be thrown and logged by caller
+   *
    * @param data  Call outcome data from CompleteCallDto fields (snake_case → camelCase mapping done in InternalService)
    * @throws NotFoundException  if no call_log exists for callSid
    */
@@ -221,48 +245,74 @@ export class VoiceCallLogService {
     isOverage?: boolean;
     usageRecords?: UsageRecordData[];
   }): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      // 1. Update call log — throws P2025 if call_sid not found
-      let callLog: { id: string; tenant_id: string };
+    this.logger.log(`📝 Completing call log for call_sid: ${data.callSid}`);
+    this.logger.log(`  - Status: ${data.status}`);
+    this.logger.log(`  - Duration: ${data.durationSeconds ?? 'N/A'}s`);
+    this.logger.log(`  - Outcome: ${data.outcome ?? 'N/A'}`);
+    if (data.usageRecords && data.usageRecords.length > 0) {
+      this.logger.log(`  - Usage records: ${data.usageRecords.length} providers`);
+    }
 
-      try {
-        callLog = await tx.voice_call_log.update({
-          where: { call_sid: data.callSid },
-          data: {
-            status: data.status,
-            duration_seconds: data.durationSeconds ?? null,
-            outcome: data.outcome ?? null,
-            transcript_summary: data.transcriptSummary ?? null,
-            full_transcript: data.fullTranscript ?? null,
-            actions_taken: data.actionsTaken ? JSON.stringify(data.actionsTaken) : null,
-            lead_id: data.leadId ?? null,
-            transferred_to: data.transferredTo ?? null,
-            error_message: data.errorMessage ?? null,
-            is_overage: data.isOverage ?? false,
-            ended_at: new Date(),
-          },
-          select: { id: true, tenant_id: true },
-        });
-      } catch (err: unknown) {
-        const prismaError = err as { code?: string };
-        if (prismaError.code === 'P2025') {
-          throw new NotFoundException(
-            `Call log not found for call_sid: ${data.callSid}`,
-          );
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // 1. Update call log — throws P2025 if call_sid not found
+        let callLog: { id: string; tenant_id: string };
+
+        try {
+          callLog = await tx.voice_call_log.update({
+            where: { call_sid: data.callSid },
+            data: {
+              status: data.status,
+              duration_seconds: data.durationSeconds ?? null,
+              outcome: data.outcome ?? null,
+              transcript_summary: data.transcriptSummary ?? null,
+              full_transcript: data.fullTranscript ?? null,
+              actions_taken: data.actionsTaken ? JSON.stringify(data.actionsTaken) : null,
+              lead_id: data.leadId ?? null,
+              transferred_to: data.transferredTo ?? null,
+              error_message: data.errorMessage ?? null,
+              is_overage: data.isOverage ?? false,
+              ended_at: new Date(),
+            },
+            select: { id: true, tenant_id: true },
+          });
+
+          this.logger.log(`✅ Call log updated successfully: ${callLog.id}`);
+        } catch (err: unknown) {
+          const prismaError = err as { code?: string };
+          if (prismaError.code === 'P2025') {
+            this.logger.error(`❌ Call log not found for call_sid: ${data.callSid}`);
+            throw new NotFoundException(
+              `Call log not found for call_sid: ${data.callSid}`,
+            );
+          }
+          this.logger.error(`❌ Database error while updating call log: ${(err as Error).message}`);
+          throw err;
         }
-        throw err;
-      }
 
-      // 2. Create per-provider usage records (1–3 rows: STT, LLM, TTS)
-      if (data.usageRecords?.length) {
-        await this.usageService.createUsageRecords(
-          tx,
-          callLog.tenant_id,
-          callLog.id,
-          data.usageRecords,
-        );
+        // 2. Create per-provider usage records (1–3 rows: STT, LLM, TTS)
+        if (data.usageRecords?.length) {
+          this.logger.log(`  - Creating ${data.usageRecords.length} usage record(s)...`);
+          await this.usageService.createUsageRecords(
+            tx,
+            callLog.tenant_id,
+            callLog.id,
+            data.usageRecords,
+          );
+          this.logger.log(`  - Usage records created successfully`);
+        }
+      });
+
+      this.logger.log(`✅ Call completion transaction committed for call_sid: ${data.callSid}`);
+    } catch (error: unknown) {
+      // Error already logged above, but ensure it's caught and re-thrown
+      if (error instanceof NotFoundException) {
+        throw error; // NotFoundException already logged
       }
-    });
+      this.logger.error(`❌ Failed to complete call log for call_sid: ${data.callSid}`);
+      this.logger.error(`  - Error: ${(error as Error).message}`);
+      throw error;
+    }
   }
 
   // ─── Tenant Queries ─────────────────────────────────────────────────────────

@@ -304,3 +304,4 @@
 2026/02/26 18:02:41 [error] 116307#116307: *147721 access forbidden by rule, client: 103.168.66.40, server: lead360.app, request: "GET /.env HTTP/1.1", host: "www.lead360.app"
 2026/02/26 18:02:41 [error] 116307#116307: *147721 access forbidden by rule, client: 103.168.66.40, server: lead360.app, request: "GET /api/.env HTTP/1.1", host: "www.lead360.app"
 2026/02/26 18:02:42 [error] 116307#116307: *147721 access forbidden by rule, client: 103.168.66.40, server: lead360.app, request: "GET /config/.env HTTP/1.1", host: "www.lead360.app"
+2026/03/02 07:49:41 [error] 1262733#1262733: *124521 access forbidden by rule, client: 62.4.16.187, server: lead360.app, request: "GET /.git/config HTTP/1.1", host: "lead360.app"

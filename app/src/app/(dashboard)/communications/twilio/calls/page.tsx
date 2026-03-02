@@ -30,6 +30,7 @@ import {
   Calendar,
   Play,
   AlertCircle,
+  Bot,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -45,8 +46,8 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { CallDetailsModal } from '@/components/twilio/CallDetailsModal';
 import { CallRecordCard } from '@/components/twilio/CallRecordCard';
 
-import { getCallHistory } from '@/lib/api/twilio-tenant';
-import type { CallRecord, CallHistoryResponse, CallDirection, CallStatus, CallType } from '@/lib/types/twilio-tenant';
+import { getUnifiedCallHistory } from '@/lib/api/twilio-tenant';
+import type { UnifiedCallRecord, UnifiedCallHistoryResponse, CallDirection, CallStatus, CallType } from '@/lib/types/twilio-tenant';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Helper functions for formatting
@@ -100,51 +101,40 @@ function formatDirection(direction: CallDirection): string {
   return direction === 'inbound' ? 'Inbound' : 'Outbound';
 }
 
-function formatCallType(type: CallType): string {
-  const typeMap: Record<CallType, string> = {
-    customer_call: 'Customer Call',
-    office_bypass_call: 'Office Bypass',
-    ivr_routed_call: 'IVR Routed',
-  };
-  return typeMap[type] || type;
-}
-
-function getLeadFullName(lead: CallRecord['lead']): string {
+function getLeadFullName(lead: UnifiedCallRecord['lead']): string {
   if (!lead) return 'Unknown';
   return `${lead.first_name} ${lead.last_name}`.trim() || 'Unknown';
 }
 
-function getUserFullName(user: CallRecord['initiated_by_user']): string {
+function getUserFullName(user: UnifiedCallRecord['initiated_by_user']): string {
   if (!user) return 'System';
   return `${user.first_name} ${user.last_name}`.trim() || 'System';
 }
 
 // CSV export function
-function exportToCSV(calls: CallRecord[]) {
+function exportToCSV(calls: UnifiedCallRecord[]) {
   const headers = [
     'Date/Time',
+    'Call Type',
     'Lead Name',
     'Lead Phone',
     'Direction',
     'Status',
-    'Call Type',
     'Duration (seconds)',
     'Recording Available',
     'Initiated By',
-    'Call Reason',
   ];
 
   const rows = calls.map((call) => [
     format(new Date(call.created_at), 'yyyy-MM-dd HH:mm:ss'),
+    call.call_type === 'voice_ai' ? 'AI Call' : 'IVR Call',
     getLeadFullName(call.lead),
     call.lead?.phone || call.direction === 'inbound' ? call.from_number : call.to_number,
     formatDirection(call.direction),
     formatCallStatus(call.status),
-    formatCallType(call.call_type),
     call.recording_duration_seconds?.toString() || '0',
     call.recording_url ? 'Yes' : 'No',
     getUserFullName(call.initiated_by_user),
-    call.call_reason || '',
   ]);
 
   const csvContent = [
@@ -167,23 +157,25 @@ export default function CallHistoryPage() {
   const { user } = useAuth();
 
   // State
-  const [calls, setCalls] = useState<CallRecord[]>([]);
+  const [calls, setCalls] = useState<UnifiedCallRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
+  const [ivrCount, setIvrCount] = useState(0);
+  const [voiceAiCount, setVoiceAiCount] = useState(0);
 
   // Filters
   const [directionFilter, setDirectionFilter] = useState<CallDirection | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<CallStatus | 'all'>('all');
-  const [callTypeFilter, setCallTypeFilter] = useState<CallType | 'all'>('all');
+  const [callTypeFilter, setCallTypeFilter] = useState<'all' | 'ivr' | 'voice_ai'>('all');
   const [dateFrom, setDateFrom] = useState<Date | null>(null);
   const [dateTo, setDateTo] = useState<Date | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Modal
-  const [selectedCall, setSelectedCall] = useState<CallRecord | null>(null);
+  const [selectedCall, setSelectedCall] = useState<UnifiedCallRecord | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   // RBAC - Check if user can view call history
@@ -212,9 +204,8 @@ export default function CallHistoryPage() {
 
   const callTypeOptions = [
     { value: 'all', label: 'All Types' },
-    { value: 'customer_call', label: 'Customer Call' },
-    { value: 'office_bypass_call', label: 'Office Bypass' },
-    { value: 'ivr_routed_call', label: 'IVR Routed' },
+    { value: 'ivr', label: 'IVR Calls' },
+    { value: 'voice_ai', label: 'AI Calls' },
   ];
 
   const perPageOptions = [
@@ -234,10 +225,12 @@ export default function CallHistoryPage() {
   const fetchCallHistory = async () => {
     try {
       setLoading(true);
-      const response = await getCallHistory({ page, limit });
+      const response = await getUnifiedCallHistory({ page, limit });
       setCalls(response.data);
       setTotal(response.meta.total);
       setTotalPages(response.meta.totalPages);
+      setIvrCount(response.meta.ivr_count);
+      setVoiceAiCount(response.meta.voice_ai_count);
     } catch (error: any) {
       console.error('Error fetching call history:', error);
       toast.error('Failed to load call history');
@@ -479,6 +472,7 @@ export default function CallHistoryPage() {
       <div className="text-sm text-gray-600 dark:text-gray-400">
         Showing {filteredCalls.length} of {total} calls
         {filteredCalls.length !== total && ' (filtered)'}
+        {' '} • {ivrCount} IVR • {voiceAiCount} AI
       </div>
 
       {/* Table (Desktop) and Cards (Mobile) */}
@@ -508,6 +502,9 @@ export default function CallHistoryPage() {
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Phone
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Type
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Direction
@@ -550,6 +547,19 @@ export default function CallHistoryPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
                           {call.lead?.phone || (call.direction === 'inbound' ? call.from_number : call.to_number)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {call.call_type === 'voice_ai' ? (
+                            <Badge variant="purple">
+                              <Bot className="w-3 h-3 mr-1" />
+                              AI Call
+                            </Badge>
+                          ) : (
+                            <Badge variant="gray">
+                              <Phone className="w-3 h-3 mr-1" />
+                              IVR
+                            </Badge>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <Badge variant={getCallDirectionVariant(call.direction)}>

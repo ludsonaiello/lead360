@@ -5,11 +5,15 @@ import { createLlmProvider } from './providers/llm-factory';
 import { createTtsProvider } from './providers/tts-factory';
 import { AgentTool } from './tools/tool.interface';
 import { LlmMessage, LlmToolCall } from './providers/llm.interface';
-import { Room, RemoteTrack, RemoteAudioTrack, AudioStream, AudioSource, LocalAudioTrack, AudioFrame, TrackKind, TrackPublishOptions } from '@livekit/rtc-node';
+import { Room, RemoteTrack, RemoteAudioTrack, AudioStream, AudioSource, LocalAudioTrack, AudioFrame, TrackKind, TrackPublishOptions, LocalTrackPublication } from '@livekit/rtc-node';
 import { ParticipantKind } from '@livekit/rtc-node';
 import { SipClient } from 'livekit-server-sdk';
 import { VoiceAILogger } from '../utils/voice-ai-logger.util';
 import { CartesiaWebSocketTtsProvider } from './providers/cartesia-websocket-tts.provider';
+
+//BACKGROUND AUDIO
+import { voice } from '@livekit/agents';
+import { ReadableStream  } from 'stream/web';
 
 /**
  * VoiceAgentSession — Sprint BAS24
@@ -43,6 +47,15 @@ export class VoiceAgentSession {
   private transferReason: string | null = null;
   private audioSource: AudioSource | null = null;
   private audioTrack: LocalAudioTrack | null = null;
+  /**
+   * Audio publication object returned by LiveKit when track is published.
+   * Contains the actual track SID (not TR_unknown) and subscription status.
+   * Used to verify track is ready before streaming audio chunks.
+   *
+   * CRITICAL: Always check this.audioPublication.sid (NOT this.audioTrack.sid)
+   * when validating if audio can be streamed.
+   */
+  private audioPublication: LocalTrackPublication | null = null;
   private audioStreamReader: ReadableStreamDefaultReader<AudioFrame> | null = null;
   private actionsTaken: string[] = [];
 
@@ -50,6 +63,18 @@ export class VoiceAgentSession {
   private streamingTtsProvider: CartesiaWebSocketTtsProvider | null = null;
   private currentTtsContextId: string | null = null;
   private isAgentSpeaking = false;
+
+  // Sprint 05: Audio chunk queue to prevent overlapping audio
+  private audioChunkQueue: Buffer[] = [];
+  private isProcessingAudioQueue = false;
+
+  // Usage tracking: Store session references and accumulated usage
+  private sttSession: any = null;
+  private accumulatedLlmTokens = 0;
+
+  // Sprint 2: Call outcome tracking for end_call tool
+  private callOutcome: 'lead_created' | 'transferred' | 'not_interested' | 'information_provided' | 'service_unavailable' | 'abandoned' | 'other' | null = null;
+  private startTime: number = 0;
 
   constructor(
     private readonly context: VoiceAiContext,
@@ -74,6 +99,7 @@ export class VoiceAgentSession {
    */
   async start(): Promise<void> {
     try {
+      this.startTime = Date.now(); // Sprint 2: Track session start time for duration logging
       this.logger.log(`Starting voice session for tenant: ${this.context.tenant.id}`);
       this.voiceLogger?.logSessionEvent('session_started', {
         tenant_id: this.context.tenant.id,
@@ -114,13 +140,50 @@ export class VoiceAgentSession {
       const ttsProvider = createTtsProvider(this.context.providers.tts.provider_key);
 
       // Initialize conversation with system prompt
+      // Sprint 4: Add lead context if available (agent_sprint_fixes_feb27_4)
+      let systemPrompt = this.context.behavior.system_prompt;
+
+      // Add lead context if available
+      if (this.context.lead) {
+        const lead = this.context.lead;
+        systemPrompt += `\n\n=== CALLER INFORMATION ===
+You are speaking with: ${lead.full_name}
+Phone: ${lead.phone_number}
+Email: ${lead.email || 'Not provided'}
+Status: ${lead.status}
+Previous Contacts: ${lead.total_contacts || 0}
+Last Contact: ${lead.last_contact_date ? new Date(lead.last_contact_date).toLocaleDateString() : 'First time caller'}
+
+IMPORTANT:
+- This is a KNOWN caller, not a new lead
+- Greet them by name: "Hi ${lead.first_name}!"
+- Do NOT ask for information you already have
+- Reference their previous interaction if relevant
+- Ask how you can help them today
+`;
+
+        if (lead.notes) {
+          systemPrompt += `\nPrevious Notes: ${lead.notes}`;
+        }
+
+        this.logger.log(`✅ Lead context added to system prompt: ${lead.full_name}`);
+        this.voiceLogger?.logSessionEvent('lead_context_added_to_prompt', {
+          lead_id: lead.id,
+          lead_name: lead.full_name,
+          total_contacts: lead.total_contacts,
+        });
+      } else {
+        this.logger.log('ℹ️  No lead context available - new caller');
+      }
+
       this.conversationHistory = [
-        { role: 'system', content: this.context.behavior.system_prompt },
+        { role: 'system', content: systemPrompt },
       ];
 
       this.voiceLogger?.logSessionEvent('system_prompt_loaded', {
-        prompt_length: this.context.behavior.system_prompt.length,
-        prompt_preview: this.context.behavior.system_prompt.substring(0, 200),
+        prompt_length: systemPrompt.length,
+        prompt_preview: systemPrompt.substring(0, 200),
+        has_lead_context: !!this.context.lead,
       });
 
       // Gap 2: Create and publish audio track for TTS output
@@ -130,25 +193,46 @@ export class VoiceAgentSession {
 
       // Publish the audio track to the room
       if (this.room.localParticipant) {
-        await this.room.localParticipant.publishTrack(this.audioTrack, new TrackPublishOptions());
-        this.logger.log('✅ Published audio track to room');
+        this.audioPublication = await this.room.localParticipant.publishTrack(
+          this.audioTrack,
+          new TrackPublishOptions()
+        );
+        this.logger.log(`✅ Published audio track to room with SID: ${this.audioPublication.sid}`);
 
-        // Log audio track details
-        this.logger.log(`📊 Audio Track Details:`);
-        this.logger.log(`  - Track SID: ${this.audioTrack?.sid || 'unknown'}`);
-        this.logger.log(`  - Track name: ${this.audioTrack?.name || 'unknown'}`);
-        this.logger.log(`  - Track kind: ${this.audioTrack?.kind || 'unknown'}`);
-        this.logger.log(`  - Muted: ${this.audioTrack?.muted || 'unknown'}`);
+        // ====================================================================================
+        // Wait for SIP participant to subscribe to our audio track
+        // This ensures they're ready to receive audio before we start speaking
+        // ====================================================================================
+        this.logger.log(`⏳ Waiting for SIP participant to subscribe to agent audio...`);
+
+        try {
+          await Promise.race([
+            this.audioPublication.waitForSubscription(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Subscription timeout')), 5000)
+            )
+          ]);
+          this.logger.log(`✅ SIP participant subscribed - ready to stream audio`);
+        } catch (error) {
+          this.logger.warn(`⚠️  Subscription wait timeout after 5s - proceeding anyway`);
+        }
+
+        // Log audio publication details (not just track)
+        this.logger.log(`📊 Audio Publication Details:`);
+        this.logger.log(`  - Publication SID: ${this.audioPublication.sid}`);
+        this.logger.log(`  - Track name: ${this.audioTrack.name}`);
+        this.logger.log(`  - Track kind: ${this.audioTrack.kind}`);
+        this.logger.log(`  - Muted: ${this.audioPublication.muted}`);
         this.logger.log(`  - Sample rate: 16000Hz`);
         this.logger.log(`  - Channels: 1 (mono)`);
 
         // VoiceAI structured logging
-        this.voiceLogger?.logSessionEvent('audio_track_published', {
-          track_sid: this.audioTrack?.sid,
-          track_name: this.audioTrack?.name,
+        this.voiceLogger?.logSessionEvent('audio_publication_ready', {
+          publication_sid: this.audioPublication.sid,
+          track_name: this.audioTrack.name,
           sample_rate: 16000,
           channels: 1,
-          muted: this.audioTrack?.muted,
+          muted: this.audioPublication.muted,
         });
 
         // Check if any participants are subscribed (should be 0 initially)
@@ -157,7 +241,7 @@ export class VoiceAgentSession {
 
         for (const participant of this.room.remoteParticipants.values()) {
           for (const publication of participant.trackPublications.values()) {
-            if (publication.sid === this.audioTrack.sid) {
+            if (publication.sid === this.audioPublication.sid) {
               subscriberCount++;
               subscribers.push(`${participant.identity} (${participant.kind})`);
               this.logger.log(`  📌 Subscriber detected: ${participant.identity} (kind: ${participant.kind})`);
@@ -226,7 +310,7 @@ export class VoiceAgentSession {
           // Note: This might not be possible to check directly - we can only see their published tracks
           // and our own track subscriptions, not who is subscribed to our tracks.
           this.logger.log(`  📊 Checking if SIP participant can receive our audio...`);
-          this.logger.log(`    Agent audio track SID: ${this.audioTrack?.sid || 'unknown'}`);
+          this.logger.log(`    Agent audio publication SID: ${this.audioPublication?.sid || 'unknown'}`);
 
           // VoiceAI structured logging
           this.voiceLogger?.logSessionEvent('sip_participant_check', {
@@ -260,6 +344,37 @@ export class VoiceAgentSession {
       this.logger.log(``);
 
       // ====================================================================================
+      // FIX BUG A (STEP 2): Wait for SIP participant to be ready to receive audio
+      // The SIP participant needs time to subscribe to our audio track.
+      // If we start playing before they're subscribed, they won't hear anything.
+      // ====================================================================================
+      this.logger.log(`⏳ Waiting for SIP participant to be ready to receive audio...`);
+
+      const maxSubscriberWaitMs = 5000;
+      const subscriberWaitStart = Date.now();
+      let sipParticipantReady = false;
+
+      while (Date.now() - subscriberWaitStart < maxSubscriberWaitMs) {
+        // Check if any remote participant exists (SIP participant)
+        // LiveKit auto-subscribes by default, so presence of participant usually means they'll subscribe
+        if (this.room.remoteParticipants.size > 0) {
+          sipParticipantReady = true;
+          this.logger.log(`✅ SIP participant ready to receive audio (${this.room.remoteParticipants.size} participants in room)`);
+          break;
+        }
+
+        await new Promise(r => setTimeout(r, 200));
+      }
+
+      if (!sipParticipantReady) {
+        this.logger.warn(`⚠️  No SIP participant found after ${maxSubscriberWaitMs}ms - proceeding anyway`);
+      }
+
+      // Additional safety: Small delay to ensure audio track subscription is fully established
+      this.logger.log(`⏳ Waiting additional 500ms for audio subscription to stabilize...`);
+      await new Promise(r => setTimeout(r, 500));
+
+      // ====================================================================================
       // Sprint BAS-TTS-02: Initialize WebSocket streaming TTS for ultra-low latency
       // ====================================================================================
       this.logger.log(`🚀 Initializing WebSocket streaming TTS...`);
@@ -280,13 +395,25 @@ export class VoiceAgentSession {
 
       // Set up audio chunk handler - streams audio to LiveKit as it arrives
       this.streamingTtsProvider.onAudioChunk((contextId, audioData, isDone) => {
-        // Only process if this is the current context (not cancelled)
-        if (contextId === this.currentTtsContextId && this.isAgentSpeaking) {
-          if (audioData.length > 0) {
-            this.streamAudioChunkToLiveKit(audioData);
-          }
+        // Sprint Voice-UX-01: Support background contexts (filler, longwait) in addition to main context
+        // Sprint 04: Removed && this.isAgentSpeaking check - audio should play even if it arrives after timeout
+        const isMainContext = contextId === this.currentTtsContextId;
+        const isBackgroundContext = contextId.startsWith('longwait-') || contextId.startsWith('filler-');
+
+        // Process audio for current main context OR background contexts
+        // Audio will play even if it arrives after timeout (isAgentSpeaking = false)
+        if ((isMainContext || isBackgroundContext) && audioData.length > 0) {
+          // Sprint 05: Queue chunks to prevent overlapping audio (voices mixing issue)
+          this.audioChunkQueue.push(audioData);
+
+          // Start processing queue if not already processing
+          this.processAudioChunkQueue().catch(error => {
+            this.logger.error(`Error in audio queue processor: ${error.message}`);
+            this.logger.error(`  Context: ${contextId}`);
+          });
         }
 
+        // Only manage isAgentSpeaking flag for main context (not background contexts)
         if (isDone && contextId === this.currentTtsContextId) {
           this.isAgentSpeaking = false;
           this.logger.log(`✅ TTS complete for context: ${contextId}`);
@@ -333,7 +460,7 @@ export class VoiceAgentSession {
       this.voiceLogger?.logSessionEvent('starting_stt_session', {
         language: this.context.behavior.language,
       });
-      const sttSession = await sttProvider.startTranscription({
+      this.sttSession = await sttProvider.startTranscription({
         apiKey: this.context.providers.stt.api_key,
         language: this.context.behavior.language,
         ...this.context.providers.stt.config,
@@ -341,7 +468,7 @@ export class VoiceAgentSession {
 
       // Handle transcripts
       let currentUtterance = '';
-      sttSession.on('transcript', async (text: string, isFinal: boolean) => {
+      this.sttSession.on('transcript', async (text: string, isFinal: boolean) => {
         if (!this.isActive) return;
 
         currentUtterance = text;
@@ -350,6 +477,15 @@ export class VoiceAgentSession {
         this.voiceLogger?.logSTT(text, isFinal);
 
         if (isFinal && text.trim()) {
+          // ====================================================================================
+          // Sprint Voice-UX-01: Filter out invalid/noise transcripts
+          // ====================================================================================
+          if (!this.isValidTranscript(text)) {
+            this.logger.debug(`Filtering out invalid transcript: "${text}"`);
+            currentUtterance = '';
+            return;
+          }
+
           // ====================================================================================
           // Sprint BAS-TTS-03: Barge-in detection
           // If user speaks while agent is talking, cancel current TTS generation
@@ -378,7 +514,7 @@ export class VoiceAgentSession {
         }
       });
 
-      sttSession.on('error', (error: Error) => {
+      this.sttSession.on('error', (error: Error) => {
         this.logger.error(`STT error: ${error.message}`, error.stack);
         this.voiceLogger?.logError(error, 'STT session error');
       });
@@ -394,7 +530,7 @@ export class VoiceAgentSession {
             track_sid: track.sid,
           });
 
-          this.setupAudioPipeline(track as RemoteAudioTrack, sttSession);
+          this.setupAudioPipeline(track as RemoteAudioTrack, this.sttSession);
         }
       });
 
@@ -411,7 +547,7 @@ export class VoiceAgentSession {
                 track_sid: publication.track.sid,
               });
 
-              this.setupAudioPipeline(publication.track as RemoteAudioTrack, sttSession);
+              this.setupAudioPipeline(publication.track as RemoteAudioTrack, this.sttSession);
             }
           }
         }
@@ -427,7 +563,9 @@ export class VoiceAgentSession {
 
       // Cleanup
       await this.cleanup();
-      await sttSession.close();
+      if (this.sttSession) {
+        await this.sttSession.close();
+      }
       this.logger.log('Voice session ended');
       this.voiceLogger?.logSessionEvent('session_ended', {
         actions_taken: this.actionsTaken,
@@ -495,14 +633,36 @@ export class VoiceAgentSession {
           tool_calls: toolCalls,        // Include the tool_calls array
         });
 
-        for (const toolCall of toolCalls) {
-          await this.executeToolCall(toolCall);
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Sprint Voice-UX-01: Speak filler phrase BEFORE executing tools
+        // ═══════════════════════════════════════════════════════════════════════════
+        await this.speakFillerPhrase();
 
-          // Check if transfer was requested
-          if (this.transferRequested) {
-            await this.handleTransfer(this.transferNumber!, ttsProvider);
-            return;
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Sprint Voice-UX-01: Start long-wait monitor
+        // ═══════════════════════════════════════════════════════════════════════════
+        const longWaitMonitor = this.startLongWaitMonitor();
+
+        try {
+          for (const toolCall of toolCalls) {
+            await this.executeToolCall(toolCall);
+
+            // Check if transfer was requested
+            if (this.transferRequested) {
+              await this.handleTransfer(this.transferNumber!, ttsProvider);
+              return;
+            }
+
+            // Sprint 2: Check if end_call was invoked
+            if (toolCall.function.name === 'end_call') {
+              this.logger.log('🔚 end_call detected - will end session after final response');
+              // Don't return here - let the LLM speak the final goodbye message first
+              // Session will end naturally when isActive = false
+            }
           }
+        } finally {
+          // Stop long-wait monitor
+          longWaitMonitor.stop();
         }
 
         // Get follow-up response after tool execution
@@ -538,12 +698,20 @@ export class VoiceAgentSession {
           this.conversationHistory.push({ role: 'assistant', content: followUpText });
           this.logger.log(`Assistant: ${followUpText}`);
 
+          // Accumulate LLM token usage
+          const usage = followUpSession.getUsage();
+          this.accumulatedLlmTokens += usage.totalTokens;
+
         } finally {
           // Wait for TTS to complete before continuing
           while (this.isAgentSpeaking) {
             await new Promise(resolve => setTimeout(resolve, 100));
           }
         }
+
+        // Accumulate LLM token usage from initial session (with tool calls)
+        const initialUsage = llmSession.getUsage();
+        this.accumulatedLlmTokens += initialUsage.totalTokens;
 
       } else {
         // ====================================================================================
@@ -570,6 +738,10 @@ export class VoiceAgentSession {
           this.conversationHistory.push({ role: 'assistant', content: responseText });
           this.logger.log(`Assistant: ${responseText}`);
 
+          // Accumulate LLM token usage
+          const usage = llmSession.getUsage();
+          this.accumulatedLlmTokens += usage.totalTokens;
+
         } finally {
           // Wait for TTS to complete before continuing
           while (this.isAgentSpeaking) {
@@ -582,9 +754,13 @@ export class VoiceAgentSession {
       this.logger.error(`Error handling utterance: ${error.message}`, error.stack);
       this.voiceLogger?.logError(error, 'Handling utterance');
 
+      // Sprint Voice-UX-01: Categorize error and use appropriate message
+      const errorCategory = this.categorizeError(error);
+      const errorMessage = this.getErrorMessage(errorCategory);
+
       // Attempt to speak an error message
       try {
-        await this.speak(ttsProvider, "I'm sorry, I encountered an error. Please try again.");
+        await this.speak(ttsProvider, errorMessage);
       } catch (speakError) {
         this.logger.error(`Failed to speak error message: ${speakError.message}`);
         this.voiceLogger?.logError(speakError, 'Speaking error message');
@@ -661,6 +837,32 @@ export class VoiceAgentSession {
         const parsed = JSON.parse(result);
         if (parsed.lead_id) {
           this.voiceLogger?.logLeadCreated(parsed.lead_id, parsed);
+        }
+      }
+
+      // Sprint 2: Handle end_call tool execution
+      if (toolCall.function.name === 'end_call') {
+        try {
+          const parsed = JSON.parse(result);
+          const reason = args.reason || 'other';
+
+          // Log the termination with duration
+          this.logger.log(`🔚 end_call tool invoked: ${reason}`);
+          this.voiceLogger?.logSessionEvent('call_ended_by_agent', {
+            reason,
+            notes: args.notes || null,
+            duration_seconds: Math.floor((Date.now() - this.startTime) / 1000),
+          });
+
+          // Set call outcome (will be used when completing call log)
+          this.setCallOutcome(reason);
+
+          // Mark session as ending
+          this.isActive = false;
+
+          this.logger.log('🔚 Call will end after agent speaks final response');
+        } catch (e) {
+          this.logger.error(`Error processing end_call result: ${e.message}`);
         }
       }
 
@@ -863,6 +1065,15 @@ export class VoiceAgentSession {
         }
       }
 
+      if (this.audioPublication) {
+        try {
+          this.logger.error(`  - Audio publication SID: ${this.audioPublication.sid}`);
+          this.logger.error(`  - Audio publication muted: ${this.audioPublication.muted}`);
+        } catch (e) {
+          this.logger.error(`  - Could not read audio publication properties`);
+        }
+      }
+
       if (this.audioTrack) {
         try {
           this.logger.error(`  - Audio track SID: ${this.audioTrack.sid}`);
@@ -985,6 +1196,32 @@ export class VoiceAgentSession {
   }
 
   /**
+   * Process audio chunk queue sequentially to prevent overlapping audio (Sprint 05).
+   *
+   * This ensures chunks are processed one at a time, preventing the "voices mixing" issue.
+   */
+  private async processAudioChunkQueue(): Promise<void> {
+    if (this.isProcessingAudioQueue) {
+      return; // Already processing
+    }
+
+    this.isProcessingAudioQueue = true;
+
+    try {
+      while (this.audioChunkQueue.length > 0) {
+        const chunk = this.audioChunkQueue.shift();
+        if (chunk) {
+          await this.streamAudioChunkToLiveKit(chunk);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error processing audio chunk queue: ${error.message}`);
+    } finally {
+      this.isProcessingAudioQueue = false;
+    }
+  }
+
+  /**
    * Stream audio chunk to LiveKit immediately (Sprint BAS-TTS-02).
    *
    * This method is called by the WebSocket TTS callback as audio chunks arrive,
@@ -992,9 +1229,18 @@ export class VoiceAgentSession {
    *
    * @param audioData PCM audio buffer (s16le format)
    */
-  private streamAudioChunkToLiveKit(audioData: Buffer): void {
+  private async streamAudioChunkToLiveKit(audioData: Buffer): Promise<void> {
     if (!this.audioSource) {
       this.logger.warn('Audio source not initialized - dropping chunk');
+      return;
+    }
+
+    // ====================================================================================
+    // Safety check: Verify publication exists and has valid SID before capturing frames
+    // If track is not properly published, captureFrame() will throw InvalidState error
+    // ====================================================================================
+    if (!this.audioPublication || !this.audioPublication.sid || this.audioPublication.sid === 'TR_unknown') {
+      this.logger.warn(`Audio publication not ready (SID: ${this.audioPublication?.sid || 'null'}) - dropping chunk`);
       return;
     }
 
@@ -1010,16 +1256,39 @@ export class VoiceAgentSession {
       const numChannels = 1;
       const samplesPerChannel = int16Array.length;
 
-      // Create and send audio frame immediately
-      const audioFrame = new AudioFrame(int16Array, sampleRate, numChannels, samplesPerChannel);
+      // ====================================================================================
+      // FIX: Split audio into 10ms frames for proper real-time streaming
+      // Large frames (100ms+) cause choppy audio - LiveKit expects small, paced frames.
+      // This matches the working approach in speak() method (lines 856-913).
+      // ====================================================================================
+      const frameSizeMs = 10;
+      const samplesPerFrame = (sampleRate * frameSizeMs) / 1000; // 160 samples at 16kHz
 
-      // Send frame asynchronously (don't block WebSocket callback)
-      this.audioSource.captureFrame(audioFrame).catch(error => {
-        this.logger.error(`Failed to capture audio frame: ${error.message}`);
-      });
+      // Process each 10ms frame sequentially
+      for (let i = 0; i < samplesPerChannel; i += samplesPerFrame) {
+        const frameLength = Math.min(samplesPerFrame, samplesPerChannel - i);
+        const frameData = int16Array.slice(i, i + frameLength);
+
+        // Create audio frame (10ms of audio)
+        const audioFrame = new AudioFrame(frameData, sampleRate, numChannels, frameLength);
+
+        // Send frame sequentially - await provides natural pacing for smooth playback
+        try {
+          await this.audioSource.captureFrame(audioFrame);
+        } catch (error) {
+          this.logger.error(`Failed to capture audio frame (offset ${i}/${samplesPerChannel} samples): ${error.message}`);
+          this.logger.error(`  Publication SID: ${this.audioPublication?.sid}`);
+          this.logger.error(`  Frame samples: ${frameLength}`);
+          this.logger.error(`  Total chunk samples: ${samplesPerChannel}`);
+          throw error; // Stop processing on frame error
+        }
+      }
 
     } catch (error) {
       this.logger.error(`Error streaming audio chunk to LiveKit: ${error.message}`);
+      this.logger.error(`  Publication SID: ${this.audioPublication?.sid}`);
+      this.logger.error(`  Buffer length: ${audioData.length} bytes`);
+      this.logger.error(`  Samples: ${audioData.length / 2}`);
     }
   }
 
@@ -1065,6 +1334,18 @@ export class VoiceAgentSession {
         }
       }
 
+      // Clean up audio publication
+      if (this.audioPublication) {
+        try {
+          // Note: Publication is automatically cleaned up when track is closed
+          // We just need to null out our reference to allow garbage collection
+          this.audioPublication = null;
+          this.logger.log('✅ Audio publication reference cleared');
+        } catch (e) {
+          this.logger.warn(`Error cleaning up audio publication: ${e.message}`);
+        }
+      }
+
       // Disconnect WebSocket TTS (Sprint BAS-TTS-02)
       if (this.streamingTtsProvider) {
         try {
@@ -1074,6 +1355,13 @@ export class VoiceAgentSession {
           this.logger.warn(`Error disconnecting streaming TTS: ${e.message}`);
         }
       }
+
+      // Sprint 05: Clear audio chunk queue
+      if (this.audioChunkQueue.length > 0) {
+        this.logger.log(`Clearing ${this.audioChunkQueue.length} pending audio chunks from queue`);
+        this.audioChunkQueue = [];
+      }
+      this.isProcessingAudioQueue = false;
 
       // Remove all room event listeners to prevent memory leaks
       // Note: LiveKit Room uses TypedEventEmitter, we should remove our listeners
@@ -1124,6 +1412,91 @@ export class VoiceAgentSession {
    */
   getActionsTaken(): string[] {
     return [...this.actionsTaken];
+  }
+
+  /**
+   * Set call outcome (used by end_call tool).
+   * Sprint 2: Tool-Based Call Termination
+   */
+  setCallOutcome(outcome: string): void {
+    this.callOutcome = outcome as any;
+  }
+
+  /**
+   * Get call outcome (used when completing call log).
+   * Sprint 2: Tool-Based Call Termination
+   */
+  getCallOutcome(): string | null {
+    return this.callOutcome;
+  }
+
+  /**
+   * Get usage records for this session (STT, LLM, TTS).
+   * Returns array of usage records with provider IDs, quantities, and estimated costs.
+   */
+  getUsageRecords(): Array<{
+    provider_id: string;
+    provider_type: 'STT' | 'LLM' | 'TTS';
+    usage_quantity: number;
+    usage_unit: 'seconds' | 'tokens' | 'characters';
+    estimated_cost?: number;
+  }> {
+    const records: Array<{
+      provider_id: string;
+      provider_type: 'STT' | 'LLM' | 'TTS';
+      usage_quantity: number;
+      usage_unit: 'seconds' | 'tokens' | 'characters';
+      estimated_cost?: number;
+    }> = [];
+
+    // STT usage
+    if (this.sttSession && this.context.providers.stt) {
+      try {
+        const { totalSeconds } = this.sttSession.getUsage();
+        if (totalSeconds > 0) {
+          records.push({
+            provider_id: this.context.providers.stt.provider_id,
+            provider_type: 'STT',
+            usage_quantity: totalSeconds,
+            usage_unit: 'seconds',
+            // Cost calculation can be added here if pricing is available in config
+          });
+        }
+      } catch (error) {
+        this.logger.warn(`Failed to get STT usage: ${error.message}`);
+      }
+    }
+
+    // LLM usage
+    if (this.accumulatedLlmTokens > 0 && this.context.providers.llm) {
+      records.push({
+        provider_id: this.context.providers.llm.provider_id,
+        provider_type: 'LLM',
+        usage_quantity: this.accumulatedLlmTokens,
+        usage_unit: 'tokens',
+        // Cost calculation can be added here if pricing is available in config
+      });
+    }
+
+    // TTS usage
+    if (this.streamingTtsProvider && this.context.providers.tts) {
+      try {
+        const { totalCharacters } = this.streamingTtsProvider.getUsage();
+        if (totalCharacters > 0) {
+          records.push({
+            provider_id: this.context.providers.tts.provider_id,
+            provider_type: 'TTS',
+            usage_quantity: totalCharacters,
+            usage_unit: 'characters',
+            // Cost calculation can be added here if pricing is available in config
+          });
+        }
+      } catch (error) {
+        this.logger.warn(`Failed to get TTS usage: ${error.message}`);
+      }
+    }
+
+    return records;
   }
 
   /**
@@ -1197,6 +1570,213 @@ export class VoiceAgentSession {
     // Poll every 100ms until inactive
     while (this.isActive) {
       await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Sprint Voice-UX-01: Conversational UX Improvements (2026-02-27)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Categorize error type for appropriate error message selection.
+   * Sprint: Voice-UX-01
+   */
+  private categorizeError(error: Error): 'stt' | 'llm' | 'tool' | 'system' {
+    // STT errors
+    if (error.name?.includes('Deepgram') ||
+        error.message?.includes('transcription') ||
+        error.message?.includes('STT')) {
+      return 'stt';
+    }
+
+    // LLM errors
+    if (error.message?.includes('OpenAI') ||
+        error.message?.includes('completion') ||
+        error.message?.includes('LLM')) {
+      return 'llm';
+    }
+
+    // Tool execution errors
+    if (error.message?.includes('tool') ||
+        error.message?.includes('execute')) {
+      return 'tool';
+    }
+
+    // Generic system error
+    return 'system';
+  }
+
+  /**
+   * Get appropriate error message based on error category.
+   * Sprint: Voice-UX-01
+   */
+  private getErrorMessage(category: 'stt' | 'llm' | 'tool' | 'system'): string {
+    const phrases = this.context.conversational_phrases;
+
+    switch (category) {
+      case 'stt':
+        return this.getRandomPhrase(phrases.recovery_messages);
+      case 'llm':
+      case 'tool':
+      case 'system':
+      default:
+        return this.getRandomPhrase(phrases.system_error_messages);
+    }
+  }
+
+  /**
+   * Get random phrase from array with fallback.
+   * Sprint: Voice-UX-01
+   */
+  private getRandomPhrase(phrases: string[]): string {
+    if (!phrases || phrases.length === 0) {
+      // Fallback if admin deleted all phrases
+      return "Sorry, could you repeat that?";
+    }
+    return phrases[Math.floor(Math.random() * phrases.length)];
+  }
+
+  /**
+   * Check if transcript is valid (not just noise/breathing/silence).
+   * Filters out:
+   * - Very short utterances (< 2 characters)
+   * - Common filler sounds ("uh", "um", "ah", "mm")
+   * - Only punctuation
+   * Sprint: Voice-UX-01
+   */
+  private isValidTranscript(text: string): boolean {
+    const cleaned = text.trim().toLowerCase();
+
+    // Too short - likely noise
+    if (cleaned.length < 2) {
+      return false;
+    }
+
+    // Common filler sounds - ignore
+    const fillerSounds = ['uh', 'um', 'ah', 'mm', 'hmm', 'mhm', 'uh-huh'];
+    if (fillerSounds.includes(cleaned)) {
+      return false;
+    }
+
+    // Only punctuation/special chars - not real speech
+    if (!/[a-zA-Z0-9]/.test(cleaned)) {
+      return false;
+    }
+
+    // Valid transcript
+    return true;
+  }
+
+  /**
+   * Speak a filler phrase before executing tools.
+   * Uses streaming TTS for low latency.
+   * Sprint: Voice-UX-01
+   */
+  private async speakFillerPhrase(): Promise<void> {
+    if (!this.streamingTtsProvider) {
+      this.logger.warn('Streaming TTS not available - skipping filler phrase');
+      return;
+    }
+
+    const fillerPhrase = this.getRandomPhrase(
+      this.context.conversational_phrases.filler_phrases
+    );
+
+    this.logger.log(`🗣️  Speaking filler: "${fillerPhrase}"`);
+
+    const contextId = `filler-${Date.now()}`;
+    this.currentTtsContextId = contextId;
+    this.isAgentSpeaking = true;
+
+    try {
+      // Stream filler phrase (mark as final to flush immediately)
+      this.streamingTtsProvider.streamText(fillerPhrase, contextId, true);
+
+      // Wait for playback with timeout
+      const startTime = Date.now();
+      const maxWaitMs = 5000;  // Filler should be short
+
+      while (this.isAgentSpeaking && (Date.now() - startTime) < maxWaitMs) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+
+      if (this.isAgentSpeaking) {
+        this.logger.warn('Filler phrase timeout - proceeding with tool execution');
+        this.isAgentSpeaking = false;
+      }
+
+    } catch (error) {
+      this.logger.error(`Failed to speak filler phrase: ${error.message}`);
+      this.isAgentSpeaking = false;
+      // Non-critical - continue with tool execution
+    }
+  }
+
+  /**
+   * Start a long-wait monitor that speaks periodic updates.
+   * Returns a controller object with stop() method.
+   * Sprint: Voice-UX-01
+   */
+  private startLongWaitMonitor(): { stop: () => void } {
+    const LONG_WAIT_THRESHOLD_MS = 20000;  // 20 seconds (user preference)
+    const PERIODIC_UPDATE_MS = 15000;       // Every 15 seconds after threshold
+
+    let isStopped = false;
+    let timerId: NodeJS.Timeout | null = null;
+    let periodicTimerId: NodeJS.Timeout | null = null;
+
+    // Start monitoring
+    const startTime = Date.now();
+
+    // Schedule initial long-wait message
+    timerId = setTimeout(async () => {
+      if (isStopped) return;
+
+      const elapsed = Date.now() - startTime;
+      this.logger.log(`⏱️  Long wait detected (${elapsed}ms) - speaking update message`);
+
+      await this.speakLongWaitMessage();
+
+      // Schedule periodic updates
+      periodicTimerId = setInterval(async () => {
+        if (isStopped) return;
+        await this.speakLongWaitMessage();
+      }, PERIODIC_UPDATE_MS);
+
+    }, LONG_WAIT_THRESHOLD_MS);
+
+    // Return controller
+    return {
+      stop: () => {
+        isStopped = true;
+        if (timerId) clearTimeout(timerId);
+        if (periodicTimerId) clearInterval(periodicTimerId);
+        this.logger.log('⏱️  Long-wait monitor stopped');
+      }
+    };
+  }
+
+  /**
+   * Speak a "still checking" message during long tool execution.
+   * Sprint: Voice-UX-01
+   */
+  private async speakLongWaitMessage(): Promise<void> {
+    if (!this.streamingTtsProvider) return;
+
+    const message = this.getRandomPhrase(
+      this.context.conversational_phrases.long_wait_messages
+    );
+
+    this.logger.log(`🗣️  Speaking long-wait message: "${message}"`);
+
+    // Use separate context to avoid interfering with main conversation
+    const contextId = `longwait-${Date.now()}`;
+
+    try {
+      this.streamingTtsProvider.streamText(message, contextId, true);
+      // Don't wait for completion - let it play in background
+    } catch (error) {
+      this.logger.error(`Failed to speak long-wait message: ${error.message}`);
     }
   }
 }

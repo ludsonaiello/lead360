@@ -72,6 +72,11 @@ export interface StreamingTtsProvider {
    * Check if connected.
    */
   isConnected(): boolean;
+
+  /**
+   * Get usage statistics (total characters synthesized).
+   */
+  getUsage(): { totalCharacters: number };
 }
 
 /**

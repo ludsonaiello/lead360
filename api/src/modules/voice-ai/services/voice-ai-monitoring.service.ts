@@ -422,6 +422,26 @@ export class VoiceAiMonitoringService {
       orderBy: { started_at: 'desc' },
     });
 
+    // Log active call count for debugging
+    this.logger.debug(`Found ${activeCalls.length} active call(s)`);
+
+    if (activeCalls.length > 0) {
+      this.logger.debug(`Active call SIDs: ${activeCalls.map(c => c.call_sid).join(', ')}`);
+
+      // Log calls that have been active for a suspiciously long time (>10 minutes)
+      const now = new Date();
+      const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
+      const stuckCalls = activeCalls.filter(call => call.started_at < tenMinutesAgo);
+
+      if (stuckCalls.length > 0) {
+        this.logger.warn(`⚠️  ${stuckCalls.length} call(s) have been active for >10 minutes (possibly stuck):`);
+        stuckCalls.forEach(call => {
+          const durationMinutes = Math.floor((now.getTime() - call.started_at.getTime()) / 60000);
+          this.logger.warn(`  - ${call.call_sid} (${call.tenant.company_name}) - ${durationMinutes} minutes`);
+        });
+      }
+    }
+
     const now = new Date();
 
     return activeCalls.map((call) => ({

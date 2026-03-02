@@ -925,6 +925,8 @@ model call_record {
   call_type                  String    @db.VarChar(30) // 'customer_call' | 'office_bypass_call' | 'ivr_routed_call'
   initiated_by               String?   @db.VarChar(36) // User ID if outbound
   call_reason                String?   @db.Text
+  outcome                    String?   @db.VarChar(50) // Call outcome (matched to voice_call_log)
+  duration_seconds           Int? // Total call duration in seconds (matched to voice_call_log)
   recording_url              String?   @db.VarChar(500)
   recording_duration_seconds Int?
   recording_status           String    @default("pending") @db.VarChar(30) // 'pending' | 'available' | 'processing_transcription' | 'transcribed' | 'failed'
@@ -946,6 +948,7 @@ model call_record {
   @@index([tenant_id, created_at])
   @@index([tenant_id, status])
   @@index([tenant_id, lead_id])
+  @@index([tenant_id, outcome])
   @@index([twilio_call_sid])
   @@index([from_number])
   @@index([to_number])
@@ -1130,6 +1133,13 @@ model voice_ai_global_config {
   agent_api_key_hash                String?  @db.VarChar(128)
   agent_api_key_preview             String?  @db.VarChar(10)
   max_concurrent_calls              Int      @default(10)
+
+  // Conversational UX phrases (Sprint Voice-UX-01 - 2026-02-27)
+  recovery_messages                 Json?    // When STT fails / empty input
+  filler_phrases                    Json?    // Before tool execution
+  long_wait_messages                Json?    // During long tool execution (>20s)
+  system_error_messages             Json?    // Generic system errors
+
   created_at                        DateTime @default(now())
   updated_at                        DateTime @updatedAt
   updated_by                        String?  @db.VarChar(36)
@@ -1222,10 +1232,14 @@ model voice_call_log {
   stt_provider_id    String?   @db.VarChar(36)
   llm_provider_id    String?   @db.VarChar(36)
   tts_provider_id    String?   @db.VarChar(36)
-  error_message      String?   @db.Text
-  started_at         DateTime  @default(now())
-  ended_at           DateTime?
-  created_at         DateTime  @default(now())
+  error_message              String?   @db.Text
+  recording_url              String?   @db.VarChar(500)
+  recording_duration_seconds Int?
+  recording_status           String    @default("pending") @db.VarChar(30)
+  transcription_status       String    @default("pending") @db.VarChar(30)
+  started_at                 DateTime  @default(now())
+  ended_at                   DateTime?
+  created_at                 DateTime  @default(now())
 
   tenant        tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   lead          lead?                @relation(fields: [lead_id], references: [id])
@@ -1236,6 +1250,7 @@ model voice_call_log {
   @@index([tenant_id, status])
   @@index([call_sid])
   @@index([tenant_id, outcome])
+  @@index([recording_status])
   @@map("voice_call_log")
 }
 

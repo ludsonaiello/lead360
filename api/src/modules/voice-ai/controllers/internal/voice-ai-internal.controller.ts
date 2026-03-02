@@ -25,6 +25,7 @@ import { CreateLeadToolDto, CreateLeadToolResponseDto } from '../../dto/internal
 import { FindLeadToolDto, FindLeadToolResponseDto } from '../../dto/internal/tool-find-lead.dto';
 import { CheckServiceAreaToolDto, CheckServiceAreaToolResponseDto } from '../../dto/internal/tool-check-service-area.dto';
 import { TransferCallToolDto, TransferCallToolResponseDto } from '../../dto/internal/tool-transfer-call.dto';
+import { FindLeadByPhoneDto, FindLeadByPhoneResponseDto } from '../../dto/internal/find-lead-by-phone.dto';
 
 /**
  * VoiceAiInternalController — Sprint B06a + B06b + VAB-05
@@ -266,6 +267,43 @@ export class VoiceAiInternalController {
     return { success: true };
   }
 
+  /**
+   * GET /api/v1/internal/voice-ai/calls/:callSid/status
+   *
+   * Returns the current status of a call log.
+   * Used for verification/debugging purposes - allows the agent to check
+   * if a call completion request was successful.
+   *
+   * Response: { status: string, ended_at: Date | null }
+   */
+  @Get('calls/:callSid/status')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Get call status',
+    description:
+      'Returns the current status and ended_at timestamp of a call log. ' +
+      'Used for verification after completion attempts.',
+  })
+  @ApiParam({ name: 'callSid', description: 'Twilio CallSid', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'Call status retrieved',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'completed' },
+        ended_at: { type: 'string', format: 'date-time', nullable: true },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  @ApiResponse({ status: 404, description: 'Call log not found for the given callSid' })
+  async getCallStatus(
+    @Param('callSid') callSid: string,
+  ): Promise<{ status: string; ended_at: Date | null }> {
+    return this.internalService.getCallStatus(callSid);
+  }
+
   // ---------------------------------------------------------------------------
   // Sprint VAB-05 — Agent Tools
   // ---------------------------------------------------------------------------
@@ -392,5 +430,43 @@ export class VoiceAiInternalController {
     @Body() dto: TransferCallToolDto,
   ): Promise<TransferCallToolResponseDto> {
     return this.internalService.toolTransferCall(tenantId, dto);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sprint 4 — Lead Context for First Interaction (agent_sprint_fixes_feb27_4)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * POST /api/v1/internal/voice-ai/leads/find-by-phone
+   *
+   * Looks up a lead by phone number and tenant ID BEFORE the first LLM interaction.
+   * This allows the agent to personalize the greeting for returning callers.
+   *
+   * CRITICAL SECURITY REQUIREMENT:
+   *   - MUST filter by BOTH phone_number AND tenant_id
+   *   - This prevents cross-tenant data leakage
+   *
+   * Response:
+   *   { found: true, lead: { id, first_name, last_name, ... } }
+   *   { found: false, lead: null }
+   */
+  @Post('leads/find-by-phone')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Find lead by phone number for call context',
+    description:
+      'Called by the agent BEFORE the first LLM interaction to check if the caller is a known lead. ' +
+      'Returns lead details if found, allowing the agent to personalize the greeting. ' +
+      'CRITICAL: Enforces tenant_id filtering to prevent cross-tenant data leakage.',
+  })
+  @ApiBody({ type: FindLeadByPhoneDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Lead lookup result (found or not found)',
+    type: FindLeadByPhoneResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  findLeadByPhone(@Body() dto: FindLeadByPhoneDto): Promise<FindLeadByPhoneResponseDto> {
+    return this.internalService.findLeadByPhone(dto.tenant_id, dto.phone_number);
   }
 }

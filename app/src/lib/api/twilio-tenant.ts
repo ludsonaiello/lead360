@@ -24,6 +24,8 @@ import type {
   InitiateCallRequest,
   InitiateCallResponse,
   CallHistoryResponse,
+  UnifiedCallRecord,
+  UnifiedCallHistoryResponse,
   CallRecordingResponse,
   CallTranscriptionResponse,
   // IVR
@@ -230,6 +232,27 @@ export async function getCallHistory(params: {
 }): Promise<CallHistoryResponse> {
   const response = await apiClient.get<CallHistoryResponse>(
     '/communication/twilio/call-history',
+    { params }
+  );
+  return response.data;
+}
+
+/**
+ * Get unified call history including both IVR and Voice AI calls
+ * Returns merged view of regular IVR calls and AI agent calls
+ * Each call includes a call_type field to distinguish the source
+ * @endpoint GET /api/v1/communication/twilio/call-history/unified
+ * @permission Owner, Admin, Manager, Sales
+ * @param params Pagination parameters
+ * @param params.page Page number (1-indexed, default: 1)
+ * @param params.limit Items per page (1-100, default: 20)
+ */
+export async function getUnifiedCallHistory(params: {
+  page?: number;
+  limit?: number;
+}): Promise<UnifiedCallHistoryResponse> {
+  const response = await apiClient.get<UnifiedCallHistoryResponse>(
+    '/communication/twilio/call-history/unified',
     { params }
   );
   return response.data;

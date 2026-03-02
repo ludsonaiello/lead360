@@ -158,6 +158,9 @@ export class VoiceAiSipService {
     // Build callback URL for SIP dial results
     const actionUrl = `https://${tenant?.subdomain || 'app'}.lead360.app/api/v1/twilio/sip/dial-result`;
 
+    // Build recording callback URL (uses same webhook as IVR calls)
+    const recordingCallbackUrl = `https://${tenant?.subdomain || 'app'}.lead360.app/api/v1/twilio/recording/ready`;
+
     voiceLogger.log(
       'SUCCESS' as any,
       'SESSION' as any,
@@ -169,17 +172,26 @@ export class VoiceAiSipService {
         call_sid: callSid,
         twilio_number: toNumber,
         action_url: actionUrl,
-        note: 'Twilio number passed as X-Called-Number query parameter (X-Twilio-* prefix reserved by Twilio). Action URL will capture SIP response codes.',
+        recording_callback_url: recordingCallbackUrl,
+        note: 'Twilio number passed as X-Called-Number query parameter (X-Twilio-* prefix reserved by Twilio). Action URL will capture SIP response codes. Call recording enabled with dual-channel capture.',
       },
     );
 
     // Build TwiML with SIP URI (header now in query string)
     // The action URL receives DialSipResponseCode when the dial completes
     // This is CRITICAL for debugging - shows WHY LiveKit accepted/rejected the call
+    // Recording is enabled with record-from-answer-dual to capture both caller and AI agent
     const twiml = [
       '<?xml version="1.0" encoding="UTF-8"?>',
       '<Response>',
-      `  <Dial action="${actionUrl}" method="POST">`,
+      // Recording consent message (legal requirement in many jurisdictions)
+      '  <Say voice="Polly.Joanna" language="en-US">This call will be recorded for quality and training purposes.</Say>',
+      // Dial with recording enabled (dual-channel: records both sides)
+      `  <Dial action="${actionUrl}"`,
+      '        method="POST"',
+      '        record="record-from-answer-dual"',
+      `        recordingStatusCallback="${recordingCallbackUrl}"`,
+      '        recordingStatusCallbackMethod="POST">',
       `    <Sip>${sipUri}</Sip>`,
       '  </Dial>',
       '</Response>',

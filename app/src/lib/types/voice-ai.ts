@@ -181,6 +181,11 @@ export interface GlobalConfig {
   livekit_api_secret_set: boolean;
   agent_api_key_preview: string;
   max_concurrent_calls: number;
+  // Sprint Voice-UX-01: Conversational phrases (2026-02-27)
+  recovery_messages?: string[] | null;
+  filler_phrases?: string[] | null;
+  long_wait_messages?: string[] | null;
+  system_error_messages?: string[] | null;
   updated_at: string; // ISO date string
   updated_by: string; // User ID
 }
@@ -210,6 +215,11 @@ export interface UpdateGlobalConfigRequest {
   livekit_api_key?: string | null;
   livekit_api_secret?: string | null;
   max_concurrent_calls?: number | null;
+  // Sprint Voice-UX-01: Conversational phrases (2026-02-27)
+  recovery_messages?: string[] | null;
+  filler_phrases?: string[] | null;
+  long_wait_messages?: string[] | null;
+  system_error_messages?: string[] | null;
 }
 
 /**

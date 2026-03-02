@@ -57,11 +57,11 @@ export class UpsertTenantVoiceSettingsDto {
     example:
       'Always ask if the caller has an emergency. Always mention we serve the Miami area.',
     nullable: true,
-    maxLength: 2000,
+    maxLength: 3000,
   })
   @IsOptional()
   @IsString()
-  @MaxLength(2000)
+  @MaxLength(3000)
   custom_instructions?: string | null;
 
   @ApiPropertyOptional({

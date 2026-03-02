@@ -34,6 +34,21 @@ export interface VoiceAiContext {
       zip: string | null;
     } | null;
   };
+
+  // Sprint 4: Lead context for personalized greeting (agent_sprint_fixes_feb27_4)
+  lead?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    full_name: string;
+    email: string | null;
+    phone_number: string;
+    status: string;
+    last_contact_date: Date | null;
+    total_contacts: number;
+    notes: string | null;
+  } | null;
+
   quota: {
     minutes_included: number;
     minutes_used: number;
@@ -91,4 +106,10 @@ export interface VoiceAiContext {
     is_default: boolean;
     available_hours: string | null;
   }>;
+  conversational_phrases: {
+    recovery_messages: string[];        // When STT fails / empty input
+    filler_phrases: string[];           // Before tool execution
+    long_wait_messages: string[];       // During long tool execution (>20s)
+    system_error_messages: string[];    // Generic system errors
+  };
 }

@@ -16,6 +16,7 @@ import {
   FindLeadResult,
   CheckServiceAreaResult,
   TransferCallResult,
+  FindLeadByPhoneResponse,
 } from './api-types';
 
 /**
@@ -74,14 +75,57 @@ export async function completeCallLog(
     lead_id?: string;
     transferred_to?: string;
     error_message?: string;
+    usage_records?: Array<{
+      provider_id: string;
+      provider_type: 'STT' | 'LLM' | 'TTS';
+      usage_quantity: number;
+      usage_unit: 'seconds' | 'tokens' | 'characters';
+      estimated_cost?: number;
+    }>;
   }
 ): Promise<ApiResponse<CompleteCallResponse>> {
-  console.log(`[Agent API] Completing call log for call: ${callSid}`);
-  // DTO requires call_sid in body (even though it's in the URL path)
-  return apiPost<CompleteCallResponse>(`/api/v1/internal/voice-ai/calls/${callSid}/complete`, {
-    call_sid: callSid,
-    ...data,
-  });
+  console.log(`[Agent API] 📝 Attempting to complete call log for call_sid: ${callSid}`);
+  console.log(`[Agent API]   - Duration: ${data.duration_seconds}s`);
+  console.log(`[Agent API]   - Status: ${data.status || 'completed'}`);
+  console.log(`[Agent API]   - Outcome: ${data.outcome}`);
+  if (data.usage_records && data.usage_records.length > 0) {
+    console.log(`[Agent API]   - Usage records: ${data.usage_records.length} providers`);
+  }
+
+  try {
+    // DTO requires call_sid in body (even though it's in the URL path)
+    const response = await apiPost<CompleteCallResponse>(`/api/v1/internal/voice-ai/calls/${callSid}/complete`, {
+      call_sid: callSid,
+      ...data,
+    });
+
+    if (response.success) {
+      console.log(`[Agent API] ✅ Call log completion successful for call_sid: ${callSid}`);
+    } else {
+      console.error(`[Agent API] ❌ Call log completion failed for call_sid: ${callSid}`);
+      console.error(`[Agent API]   - Error: ${response.error || 'Unknown error'}`);
+    }
+
+    return response;
+  } catch (error: any) {
+    // Log detailed error information but DO NOT throw
+    // The call should be marked as ended even if the update fails
+    console.error(`[Agent API] ❌ Exception while completing call log for call_sid: ${callSid}`);
+    console.error(`[Agent API]   - Error message: ${error.message}`);
+    console.error(`[Agent API]   - Error stack: ${error.stack}`);
+
+    if (error.response) {
+      console.error(`[Agent API]   - HTTP status: ${error.response.status}`);
+      console.error(`[Agent API]   - Response body: ${JSON.stringify(error.response.data)}`);
+    }
+
+    // Return error response instead of throwing
+    return {
+      success: false,
+      error: error.message,
+      data: undefined,
+    };
+  }
 }
 
 // ============================================================================
@@ -158,4 +202,55 @@ export async function toolTransferCall(
     `/api/v1/internal/voice-ai/tenant/${tenantId}/tools/transfer_call`,
     { reason, destination }
   );
+}
+
+// ============================================================================
+// Sprint 4 — Lead Context for First Interaction (agent_sprint_fixes_feb27_4)
+// ============================================================================
+
+/**
+ * Find lead by phone number for call context
+ *
+ * Looks up a lead by phone number BEFORE the first LLM interaction.
+ * This allows the agent to personalize the greeting for returning callers.
+ *
+ * CRITICAL SECURITY REQUIREMENT:
+ *   - The backend MUST filter by BOTH phone_number AND tenant_id
+ *   - This prevents cross-tenant data leakage
+ *
+ * Error handling:
+ *   - If lead service throws error, return { found: false } (fail gracefully)
+ *   - Don't let lead lookup failure crash the call
+ *   - Log the error for debugging
+ */
+export async function findLeadByPhone(
+  tenantId: string,
+  phoneNumber: string
+): Promise<ApiResponse<FindLeadByPhoneResponse>> {
+  console.log(`[Agent API] 🔍 Looking up lead for phone: ${phoneNumber}`);
+
+  try {
+    const response = await apiPost<FindLeadByPhoneResponse>(
+      '/api/v1/internal/voice-ai/leads/find-by-phone',
+      {
+        tenant_id: tenantId,
+        phone_number: phoneNumber,
+      }
+    );
+
+    if (response.success && response.data?.found) {
+      console.log(`[Agent API] ✅ Known caller detected: ${response.data.lead?.full_name}`);
+    } else {
+      console.log('[Agent API] ℹ️  New caller (no existing lead found)');
+    }
+
+    return response;
+  } catch (error: any) {
+    // Fail gracefully - don't crash the call if lead lookup fails
+    console.error(`[Agent API] ⚠️  Lead lookup error: ${error.message}`);
+    return {
+      success: true,
+      data: { found: false, lead: null },
+    };
+  }
 }

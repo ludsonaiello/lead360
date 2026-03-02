@@ -7,18 +7,38 @@ export class DeepgramSttProvider implements SttProvider {
   private readonly logger = new Logger(DeepgramSttProvider.name);
 
   async startTranscription(config: SttConfig): Promise<SttSession> {
+    // Log the STT configuration being used (Sprint 5: STT Config from DB)
+    this.logger.log('[DeepgramSTT] Starting transcription with config:', {
+      model: config.model || 'nova-2-phonecall',
+      language: config.language,
+      endpointing: config.endpointing ?? 800,
+      utterance_end_ms: config.utterance_end_ms ?? 2000,
+      vad_events: config.vad_events ?? true,
+      interim_results: config.interim_results ?? true,
+      punctuate: config.punctuate ?? true,
+    });
+
     const deepgram = createClient(config.apiKey);
 
     const connection = deepgram.listen.live({
       language: config.language,
-      model: config.model || 'nova-2',
+      model: config.model || 'nova-2-phonecall',
       encoding: 'linear16',
       sample_rate: config.sampleRate || 16000,
       channels: 1,
       smart_format: true,
-      punctuate: true,
-      interim_results: true,
+
+      // Configurable settings with sensible defaults
+      // Sprint 5: Updated fallbacks to reduce interruptions (500→800, 1500→2000)
+      punctuate: config.punctuate ?? true,
+      interim_results: config.interim_results ?? true,
+      endpointing: config.endpointing ?? 800,
+      utterance_end_ms: config.utterance_end_ms ?? 2000,
+      vad_events: config.vad_events ?? true,
     });
+
+    // Track usage: session start time for duration calculation
+    const startTime = Date.now();
 
     // Return a session object that wraps the Deepgram connection
     return {
@@ -43,6 +63,10 @@ export class DeepgramSttProvider implements SttProvider {
       },
       close: async () => {
         connection.requestClose();
+      },
+      getUsage: () => {
+        const totalSeconds = Math.round((Date.now() - startTime) / 1000);
+        return { totalSeconds };
       },
     };
   }

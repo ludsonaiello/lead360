@@ -739,6 +739,8 @@ unknown unknown
     String status 
     String call_type 
     String call_reason "❓"
+    String outcome "❓"
+    Int duration_seconds "❓"
     String recording_url "❓"
     Int recording_duration_seconds "❓"
     String recording_status 
@@ -868,6 +870,10 @@ unknown unknown
     String agent_api_key_hash "❓"
     String agent_api_key_preview "❓"
     Int max_concurrent_calls 
+    Json recovery_messages "❓"
+    Json filler_phrases "❓"
+    Json long_wait_messages "❓"
+    Json system_error_messages "❓"
     DateTime created_at 
     DateTime updated_at 
     String updated_by "❓"
@@ -938,6 +944,10 @@ unknown unknown
     String llm_provider_id "❓"
     String tts_provider_id "❓"
     String error_message "❓"
+    String recording_url "❓"
+    Int recording_duration_seconds "❓"
+    String recording_status 
+    String transcription_status 
     DateTime started_at 
     DateTime ended_at "❓"
     DateTime created_at 

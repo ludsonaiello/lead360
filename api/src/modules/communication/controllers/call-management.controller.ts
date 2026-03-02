@@ -183,6 +183,79 @@ export class CallManagementController {
   }
 
   /**
+   * Get unified call history including both IVR and Voice AI calls
+   *
+   * GET /api/v1/communication/twilio/call-history/unified
+   *
+   * Returns a merged view of both regular IVR calls and Voice AI calls,
+   * sorted by date with a call_type flag ('ivr' | 'voice_ai')
+   *
+   * @param req - Express request with authenticated user
+   * @param query - Pagination parameters
+   * @returns Paginated unified call history with call type indicators
+   */
+  @Get('call-history/unified')
+  @Roles('Owner', 'Admin', 'Manager', 'Sales')
+  @ApiOperation({
+    summary: 'Get unified call history (IVR + Voice AI)',
+    description:
+      'Returns paginated call history including both regular IVR calls and Voice AI calls. Each call includes a call_type field to distinguish between "ivr" and "voice_ai" calls.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Unified call history retrieved successfully',
+    schema: {
+      example: {
+        data: [
+          {
+            id: 'uuid',
+            call_type: 'voice_ai',
+            call_sid: 'CAxxxxx',
+            from_number: '+1234567890',
+            to_number: '+0987654321',
+            direction: 'inbound',
+            status: 'completed',
+            outcome: 'answered',
+            duration_seconds: 120,
+            recording_url: 'https://...',
+            recording_status: 'available',
+            created_at: '2024-01-01T00:00:00Z',
+            ended_at: '2024-01-01T00:02:00Z',
+            lead: { id: 'uuid', first_name: 'John', last_name: 'Doe' },
+            transcription: { transcription_text: '...' },
+          },
+        ],
+        meta: {
+          total: 150,
+          page: 1,
+          limit: 20,
+          totalPages: 8,
+          ivr_count: 100,
+          voice_ai_count: 50,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized (missing or invalid JWT)',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden (insufficient permissions)',
+  })
+  async getUnifiedCallHistory(
+    @Request() req,
+    @Query() query: CallHistoryQueryDto,
+  ) {
+    return this.callService.findAllUnified(
+      req.user.tenant_id,
+      query.page,
+      query.limit,
+    );
+  }
+
+  /**
    * Initiate outbound call to Lead
    *
    * POST /api/v1/communication/twilio/calls/initiate
