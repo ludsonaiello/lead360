@@ -2239,6 +2239,319 @@ Content-Type: application/json
 
 ---
 
+## Voice AI Tools (Sprint 19)
+
+The Voice AI agent has access to several tools that it can invoke during a call to perform actions like booking appointments, rescheduling, and canceling. These tools are exposed via HTTP endpoints that the Python agent calls when the LLM decides to use them.
+
+---
+
+### Tool: reschedule_appointment
+
+**Purpose**: Allows Voice AI to reschedule an existing appointment with identity verification.
+
+**Tool Definition** (passed to LLM):
+```json
+{
+  "name": "reschedule_appointment",
+  "description": "Reschedules an existing appointment to a new date/time. Verifies caller identity before allowing reschedule.",
+  "parameters": {
+    "call_log_id": {
+      "type": "string",
+      "required": true,
+      "description": "The UUID of the current call log"
+    },
+    "lead_id": {
+      "type": "string",
+      "required": true,
+      "description": "The UUID of the lead requesting reschedule"
+    },
+    "appointment_id": {
+      "type": "string",
+      "required": false,
+      "description": "The UUID of the appointment to reschedule (provide when caller confirms new time)"
+    },
+    "new_date": {
+      "type": "string",
+      "required": false,
+      "description": "New date in YYYY-MM-DD format (provide when caller confirms new time)"
+    },
+    "new_time": {
+      "type": "string",
+      "required": false,
+      "description": "New start time in HH:MM format (provide when caller confirms new time)"
+    }
+  }
+}
+```
+
+**Endpoint**: `POST /api/v1/internal/voice-ai/tenant/:tenantId/tools/reschedule_appointment`
+
+**Auth**: X-Voice-Agent-Key header
+
+**Identity Verification**: Caller phone number (from call_log) must match lead's phone number
+
+**Two-Phase Operation**:
+
+**Phase 1 - Initial Call** (get current appointment + available slots):
+```json
+{
+  "call_log_id": "uuid",
+  "lead_id": "uuid"
+}
+```
+
+**Phase 2 - Confirm Call** (execute reschedule):
+```json
+{
+  "call_log_id": "uuid",
+  "lead_id": "uuid",
+  "appointment_id": "uuid",
+  "new_date": "2026-03-12",
+  "new_time": "10:30"
+}
+```
+
+---
+
+#### Response Scenarios
+
+**1. Verification Failed** (caller phone doesn't match lead):
+```json
+{
+  "status": "verification_failed",
+  "message": "Phone number does not match our records.",
+  "action": "Voice AI should ask for name + appointment date for manual verification"
+}
+```
+
+**2. No Active Appointment**:
+```json
+{
+  "status": "no_appointment_found",
+  "message": "No active appointments found for this lead.",
+  "action": "Voice AI should offer to book a new appointment"
+}
+```
+
+**3. Multiple Active Appointments** (caller must choose):
+```json
+{
+  "status": "multiple_appointments",
+  "appointments": [
+    {
+      "id": "uuid",
+      "date": "2026-03-10",
+      "time": "09:00",
+      "type": "Quote Visit"
+    },
+    {
+      "id": "uuid",
+      "date": "2026-03-15",
+      "time": "14:00",
+      "type": "Follow-up Visit"
+    }
+  ],
+  "message": "You have multiple appointments. Which one would you like to reschedule?",
+  "action": "Voice AI should read appointments and ask caller to choose one"
+}
+```
+
+**4. Available Slots Returned** (Phase 1 success):
+```json
+{
+  "status": "slots_available",
+  "current_appointment": {
+    "id": "uuid",
+    "date": "2026-03-10",
+    "time": "09:00",
+    "type": "Quote Visit"
+  },
+  "available_slots": [
+    {
+      "date": "2026-03-12",
+      "day_name": "Thursday",
+      "slots": [
+        { "start_time": "09:00", "end_time": "10:30" },
+        { "start_time": "10:30", "end_time": "12:00" }
+      ]
+    },
+    {
+      "date": "2026-03-13",
+      "day_name": "Friday",
+      "slots": [
+        { "start_time": "14:00", "end_time": "15:30" }
+      ]
+    }
+  ],
+  "message": "Your current appointment is March 10 at 9 AM. Next available times are Thursday March 12...",
+  "action": "Voice AI should present slots conversationally and ask caller to choose"
+}
+```
+
+**5. Rescheduled Successfully** (Phase 2 success):
+```json
+{
+  "status": "rescheduled",
+  "new_appointment_id": "uuid",
+  "old_appointment_id": "uuid",
+  "message": "Your appointment has been rescheduled to March 12 at 10:30 AM",
+  "confirmation_sent": true
+}
+```
+
+**6. Error**:
+```json
+{
+  "status": "error",
+  "error": "Appointment not found or cannot be rescheduled"
+}
+```
+
+---
+
+### Tool: cancel_appointment
+
+**Purpose**: Allows Voice AI to cancel an existing appointment with identity verification.
+
+**Tool Definition** (passed to LLM):
+```json
+{
+  "name": "cancel_appointment",
+  "description": "Cancels an existing appointment. Verifies caller identity before allowing cancellation.",
+  "parameters": {
+    "call_log_id": {
+      "type": "string",
+      "required": true,
+      "description": "The UUID of the current call log"
+    },
+    "lead_id": {
+      "type": "string",
+      "required": true,
+      "description": "The UUID of the lead requesting cancellation"
+    },
+    "appointment_id": {
+      "type": "string",
+      "required": false,
+      "description": "The UUID of the appointment to cancel (provide when caller confirms cancellation)"
+    },
+    "reason": {
+      "type": "string",
+      "required": false,
+      "description": "Reason for cancellation (optional - Voice AI can ask)"
+    }
+  }
+}
+```
+
+**Endpoint**: `POST /api/v1/internal/voice-ai/tenant/:tenantId/tools/cancel_appointment`
+
+**Auth**: X-Voice-Agent-Key header
+
+**Identity Verification**: Same as reschedule_appointment
+
+**Two-Phase Operation**:
+
+**Phase 1 - Initial Call** (get active appointments):
+```json
+{
+  "call_log_id": "uuid",
+  "lead_id": "uuid"
+}
+```
+
+**Phase 2 - Confirm Call** (execute cancellation):
+```json
+{
+  "call_log_id": "uuid",
+  "lead_id": "uuid",
+  "appointment_id": "uuid",
+  "reason": "customer_cancelled"
+}
+```
+
+---
+
+#### Response Scenarios
+
+**1. Verification Failed**: Same as reschedule
+
+**2. No Active Appointment**: Same as reschedule
+
+**3. Multiple Active Appointments**: Same as reschedule (caller must choose which to cancel)
+
+**4. Cancelled Successfully**:
+```json
+{
+  "status": "cancelled",
+  "appointment_id": "uuid",
+  "appointment_date": "2026-03-10",
+  "appointment_time": "09:00",
+  "cancellation_reason": "customer_cancelled",
+  "message": "Your appointment on March 10 at 9 AM has been cancelled.",
+  "confirmation_sent": true
+}
+```
+
+**5. Error**:
+```json
+{
+  "status": "error",
+  "error": "Appointment not found or cannot be cancelled"
+}
+```
+
+---
+
+### Voice AI Conversation Flow Examples
+
+**Example 1: Successful Reschedule**
+
+```
+Caller: "I need to reschedule my appointment"
+AI: [Calls reschedule_appointment with call_log_id and lead_id]
+AI: [Receives slots_available response]
+AI: "Your current appointment is Thursday, March 10 at 9 AM. I have availability on March 12 at 9 AM, 10:30 AM, or March 15 at 2 PM. Which works best for you?"
+Caller: "March 12 at 10:30"
+AI: [Confirms reschedule with appointment_id, new_date, new_time]
+AI: [Receives rescheduled response]
+AI: "Perfect! I've rescheduled your appointment to Thursday, March 12 at 10:30 AM. You'll receive a confirmation text message shortly."
+```
+
+**Example 2: Identity Verification Failure**
+
+```
+Caller: "I want to cancel my appointment"
+AI: [Calls cancel_appointment with call_log_id and lead_id]
+AI: [Receives verification_failed response]
+AI: "I need to verify your identity. Can you please provide your full name and the date of your appointment?"
+Caller: "John Smith, March 10"
+AI: [Manual verification by staff or secondary check]
+```
+
+**Example 3: No Active Appointment**
+
+```
+Caller: "I'd like to reschedule"
+AI: [Calls reschedule_appointment]
+AI: [Receives no_appointment_found response]
+AI: "I don't see any upcoming appointments for you. Would you like to schedule a new appointment?"
+```
+
+**Example 4: Multiple Appointments**
+
+```
+Caller: "I need to cancel"
+AI: [Calls cancel_appointment]
+AI: [Receives multiple_appointments response]
+AI: "I see you have two appointments: one on March 10 at 9 AM for a Quote Visit, and another on March 15 at 2 PM for a Follow-up Visit. Which one would you like to cancel?"
+Caller: "The one on March 10"
+AI: [Confirms cancellation with appointment_id for March 10 appointment]
+AI: [Receives cancelled response]
+AI: "Your appointment on March 10 at 9 AM has been cancelled. Is there anything else I can help you with?"
+```
+
+---
+
 ## Business Context in Voice AI Agent
 
 When a call starts, the Voice AI Context Builder loads tenant-specific business information and provides it to the Python voice agent. This context helps the AI agent understand the business and provide contextually appropriate responses.
@@ -2491,6 +2804,7 @@ Rate limiting is not currently enforced on Voice AI endpoints, but may be added 
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-03-03 | 1.3 | **Sprint 19**: Added Voice AI Tools section documenting reschedule_appointment and cancel_appointment tools with identity verification, two-phase operation flow, and conversation examples. |
 | 2026-02-25 | 1.2 | **MAJOR**: Added Internal Agent Endpoints section with 4 critical endpoints (access, context, start, complete). Added new fields to context: business_description, business_hours, industries. Enhanced context for better agent capabilities. |
 | 2026-02-24 | 1.1 | Added GET `/api/v1/system/voice-ai/tenants/:tenantId/override` endpoint for retrieving current override settings (fixes tenant override form pre-population) |
 | 2026-02-22 | 1.0 | Initial API documentation - Sprint BAS27 complete |

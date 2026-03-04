@@ -52,6 +52,7 @@ import {
   Bot,
   Receipt,
   Wrench,
+  Calendar as CalendarIcon,
 } from 'lucide-react';
 import ProtectedMenuItem from '@/components/rbac/shared/ProtectedMenuItem';
 import { useAuth } from '@/contexts/AuthContext';
@@ -84,6 +85,7 @@ const navigation: (NavItem | NavGroup)[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Leads', href: '/leads', icon: UserPlus, permission: 'leads:view' },
   { name: 'Customers', href: '/customers', icon: Users, permission: 'users:view' },
+  { name: 'Calendar', href: '/calendar', icon: CalendarIcon, permission: 'calendar:view' },
   {
     name: 'Quotes',
     icon: Calculator,

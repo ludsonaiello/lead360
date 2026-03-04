@@ -22,6 +22,13 @@ export enum ActivityType {
   CONVERTED_TO_CUSTOMER = 'converted_to_customer',
   MARKED_AS_LOST = 'marked_as_lost',
   REACTIVATED = 'reactivated',
+  // Sprint 17: Appointment activity types
+  APPOINTMENT_SCHEDULED = 'appointment_scheduled',
+  APPOINTMENT_CONFIRMED = 'appointment_confirmed',
+  APPOINTMENT_RESCHEDULED = 'appointment_rescheduled',
+  APPOINTMENT_CANCELLED = 'appointment_cancelled',
+  APPOINTMENT_COMPLETED = 'appointment_completed',
+  APPOINTMENT_NO_SHOW = 'appointment_no_show',
 }
 
 export interface CreateActivityDto {

@@ -19,7 +19,32 @@ export class FindLeadToolResponseDto {
   lead_id?: string;
 
   @ApiPropertyOptional()
-  lead_name?: string;
+  first_name?: string;
+
+  @ApiPropertyOptional()
+  last_name?: string;
+
+  @ApiPropertyOptional()
+  full_name?: string;
+
+  @ApiPropertyOptional()
+  email?: string;
+
+  @ApiPropertyOptional()
+  phone_number?: string;
+
+  @ApiPropertyOptional()
+  status?: string;
+
+  @ApiPropertyOptional({ description: 'Primary address of the lead' })
+  address?: {
+    address_line1: string;
+    address_line2: string | null;
+    city: string;
+    state: string;
+    zip_code: string;
+    country: string;
+  };
 
   @ApiPropertyOptional()
   error?: string;

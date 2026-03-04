@@ -33,10 +33,15 @@ const statusConfig = {
     label: 'Lost',
     icon: XCircle,
   },
+  unknown: {
+    variant: 'neutral' as const,
+    label: 'Unknown',
+    icon: UserPlus,
+  },
 };
 
 export function LeadStatusBadge({ status, className = '' }: LeadStatusBadgeProps) {
-  const config = statusConfig[status];
+  const config = statusConfig[status] || statusConfig.unknown;
 
   return (
     <Badge variant={config.variant} icon={config.icon} className={className}>

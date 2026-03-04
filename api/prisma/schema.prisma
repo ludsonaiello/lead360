@@ -268,24 +268,24 @@ model service {
 }
 
 model subscription_plan {
-  id             String   @id @db.VarChar(36)
-  name           String   @unique @db.VarChar(100)
-  description    String?  @db.Text
-  monthly_price  Decimal  @db.Decimal(10, 2)
-  annual_price   Decimal  @db.Decimal(10, 2)
-  max_users      Int
-  max_storage_gb Decimal? @db.Decimal(10, 2)
-  offers_trial   Boolean  @default(false)
-  trial_days     Int?
-  feature_flags              String   @db.LongText
-  is_active                  Boolean  @default(true)
-  is_default                 Boolean  @default(false)
-  created_at                 DateTime @default(now())
-  updated_at                 DateTime
-  voice_ai_enabled           Boolean  @default(false)
-  voice_ai_minutes_included  Int      @default(0)
-  voice_ai_overage_rate      Decimal? @db.Decimal(10, 4)
-  tenant                     tenant[]
+  id                        String   @id @db.VarChar(36)
+  name                      String   @unique @db.VarChar(100)
+  description               String?  @db.Text
+  monthly_price             Decimal  @db.Decimal(10, 2)
+  annual_price              Decimal  @db.Decimal(10, 2)
+  max_users                 Int
+  max_storage_gb            Decimal? @db.Decimal(10, 2)
+  offers_trial              Boolean  @default(false)
+  trial_days                Int?
+  feature_flags             String   @db.LongText
+  is_active                 Boolean  @default(true)
+  is_default                Boolean  @default(false)
+  created_at                DateTime @default(now())
+  updated_at                DateTime
+  voice_ai_enabled          Boolean  @default(false)
+  voice_ai_minutes_included Int      @default(0)
+  voice_ai_overage_rate     Decimal? @db.Decimal(10, 4)
+  tenant                    tenant[]
 
   @@index([is_active])
   @@index([is_default])
@@ -408,6 +408,11 @@ model tenant {
   voice_call_logs                         voice_call_log[]
   voice_usage_records                     voice_usage_record[]
   voice_monthly_usages                    voice_monthly_usage[]
+  appointment_types                       appointment_type[]
+  appointments                            appointment[]
+  calendar_provider_connections           calendar_provider_connection[]
+  calendar_sync_logs                      calendar_sync_log[]
+  calendar_external_blocks                calendar_external_block[]
 
   @@index([ein])
   @@index([is_active])
@@ -594,65 +599,70 @@ model tenant_service_area {
 }
 
 model user {
-  id                                            String                   @id @db.VarChar(36)
-  tenant_id                                     String?                  @db.VarChar(36)
-  email                                         String                   @db.VarChar(255)
-  password_hash                                 String                   @db.VarChar(255)
-  first_name                                    String                   @db.VarChar(100)
-  last_name                                     String                   @db.VarChar(100)
-  phone                                         String?                  @db.VarChar(20)
-  is_active                                     Boolean                  @default(false)
-  is_platform_admin                             Boolean                  @default(false)
-  email_verified                                Boolean                  @default(false)
+  id                                            String                         @id @db.VarChar(36)
+  tenant_id                                     String?                        @db.VarChar(36)
+  email                                         String                         @db.VarChar(255)
+  password_hash                                 String                         @db.VarChar(255)
+  first_name                                    String                         @db.VarChar(100)
+  last_name                                     String                         @db.VarChar(100)
+  phone                                         String?                        @db.VarChar(20)
+  is_active                                     Boolean                        @default(false)
+  is_platform_admin                             Boolean                        @default(false)
+  email_verified                                Boolean                        @default(false)
   email_verified_at                             DateTime?
-  activation_token                              String?                  @db.VarChar(255)
+  activation_token                              String?                        @db.VarChar(255)
   activation_token_expires                      DateTime?
-  password_reset_token                          String?                  @db.VarChar(255)
+  password_reset_token                          String?                        @db.VarChar(255)
   password_reset_expires                        DateTime?
   last_login_at                                 DateTime?
-  mfa_enabled                                   Boolean                  @default(false)
-  mfa_secret                                    String?                  @db.VarChar(255)
-  oauth_provider                                String?                  @db.VarChar(50)
-  oauth_provider_id                             String?                  @db.VarChar(255)
-  created_at                                    DateTime                 @default(now())
+  mfa_enabled                                   Boolean                        @default(false)
+  mfa_secret                                    String?                        @db.VarChar(255)
+  oauth_provider                                String?                        @db.VarChar(50)
+  oauth_provider_id                             String?                        @db.VarChar(255)
+  created_at                                    DateTime                       @default(now())
   updated_at                                    DateTime
   deleted_at                                    DateTime?
   audit_log                                     audit_log[]
   file                                          file[]
   refresh_token                                 refresh_token[]
-  tenant                                        tenant?                  @relation(fields: [tenant_id], references: [id])
-  user_role_user_role_assigned_by_user_idTouser user_role[]              @relation("user_role_assigned_by_user_idTouser")
-  user_role_user_role_user_idTouser             user_role[]              @relation("user_role_user_idTouser")
+  tenant                                        tenant?                        @relation(fields: [tenant_id], references: [id])
+  user_role_user_role_assigned_by_user_idTouser user_role[]                    @relation("user_role_assigned_by_user_idTouser")
+  user_role_user_role_user_idTouser             user_role[]                    @relation("user_role_user_idTouser")
   user_signature                                user_signature?
   share_links                                   file_share_link[]
   feature_flags_updated                         feature_flag[]
   maintenance_modes_updated                     maintenance_mode[]
   system_settings_updated                       system_setting[]
-  impersonation_sessions_as_admin               impersonation_session[]  @relation("ImpersonatingAdmin")
-  impersonation_sessions_as_target              impersonation_session[]  @relation("ImpersonatedUser")
+  impersonation_sessions_as_admin               impersonation_session[]        @relation("ImpersonatingAdmin")
+  impersonation_sessions_as_target              impersonation_session[]        @relation("ImpersonatedUser")
   export_jobs                                   export_job[]
-  leads_created                                 lead[]                   @relation("lead_created_by_user")
-  lead_notes                                    lead_note[]              @relation("lead_note_user")
-  lead_activities                               lead_activity[]          @relation("lead_activity_user")
-  quote_notes                                   quote_note[]             @relation("quote_note_user")
-  webhook_api_keys_created                      webhook_api_key[]        @relation("webhook_api_key_created_by_user")
-  communication_events                          communication_event[]    @relation("communication_event_user")
-  notifications                                 notification[]           @relation("notification_user")
-  quote_templates_created                       quote_template[]         @relation("quote_template_creator")
-  vendors_created                               vendor[]                 @relation("vendor_creator")
-  quotes_created                                quote[]                  @relation("quote_creator")
-  quote_versions_changed                        quote_version[]          @relation("quote_version_changer")
-  quote_approvals                               quote_approval[]         @relation("quote_approval_approver")
-  item_libraries_created                        item_library[]           @relation("item_library_creator")
-  quote_bundles_created                         quote_bundle[]           @relation("quote_bundle_creator")
-  scheduled_reports                             scheduled_report[]       @relation("scheduled_reports")
-  template_versions_created                     quote_template_version[] @relation("template_version_creator")
-  template_components_created                   template_component[]     @relation("template_component_creator")
-  initiated_calls                               call_record[]            @relation("user_initiated_calls")
-  admin_alerts_acknowledged                     admin_alert[]            @relation("alert_acknowledged_by")
-  admin_alerts_resolved                         admin_alert[]            @relation("alert_resolved_by")
-  sms_templates_created                         sms_template[]           @relation("sms_template_creator")
-  voice_ai_credentials_updated                  voice_ai_credentials[]   @relation("voice_ai_credentials_updated_by")
+  leads_created                                 lead[]                         @relation("lead_created_by_user")
+  lead_notes                                    lead_note[]                    @relation("lead_note_user")
+  lead_activities                               lead_activity[]                @relation("lead_activity_user")
+  quote_notes                                   quote_note[]                   @relation("quote_note_user")
+  webhook_api_keys_created                      webhook_api_key[]              @relation("webhook_api_key_created_by_user")
+  communication_events                          communication_event[]          @relation("communication_event_user")
+  notifications                                 notification[]                 @relation("notification_user")
+  quote_templates_created                       quote_template[]               @relation("quote_template_creator")
+  vendors_created                               vendor[]                       @relation("vendor_creator")
+  quotes_created                                quote[]                        @relation("quote_creator")
+  quote_versions_changed                        quote_version[]                @relation("quote_version_changer")
+  quote_approvals                               quote_approval[]               @relation("quote_approval_approver")
+  item_libraries_created                        item_library[]                 @relation("item_library_creator")
+  quote_bundles_created                         quote_bundle[]                 @relation("quote_bundle_creator")
+  scheduled_reports                             scheduled_report[]             @relation("scheduled_reports")
+  template_versions_created                     quote_template_version[]       @relation("template_version_creator")
+  template_components_created                   template_component[]           @relation("template_component_creator")
+  initiated_calls                               call_record[]                  @relation("user_initiated_calls")
+  admin_alerts_acknowledged                     admin_alert[]                  @relation("alert_acknowledged_by")
+  admin_alerts_resolved                         admin_alert[]                  @relation("alert_resolved_by")
+  sms_templates_created                         sms_template[]                 @relation("sms_template_creator")
+  voice_ai_credentials_updated                  voice_ai_credentials[]         @relation("voice_ai_credentials_updated_by")
+  appointment_types_created                     appointment_type[]             @relation("AppointmentTypeCreatedBy")
+  appointments_assigned                         appointment[]                  @relation("AppointmentAssignedTo")
+  appointments_created                          appointment[]                  @relation("AppointmentCreatedBy")
+  appointments_cancelled                        appointment[]                  @relation("AppointmentCancelledBy")
+  calendar_provider_connections                 calendar_provider_connection[]
 
   @@unique([email, tenant_id])
   @@index([activation_token])
@@ -939,9 +949,9 @@ model call_record {
   updated_at                 DateTime  @updatedAt
 
   // Relations
-  tenant            tenant?               @relation("tenant_call_records", fields: [tenant_id], references: [id], onDelete: Cascade)
-  lead              lead?                 @relation("lead_call_records", fields: [lead_id], references: [id], onDelete: SetNull)
-  initiated_by_user user?                 @relation("user_initiated_calls", fields: [initiated_by], references: [id], onDelete: SetNull)
+  tenant            tenant?              @relation("tenant_call_records", fields: [tenant_id], references: [id], onDelete: Cascade)
+  lead              lead?                @relation("lead_call_records", fields: [lead_id], references: [id], onDelete: SetNull)
+  initiated_by_user user?                @relation("user_initiated_calls", fields: [initiated_by], references: [id], onDelete: SetNull)
   transcriptions    call_transcription[] // One-to-many: allows retries
 
   // Indexes
@@ -1100,49 +1110,49 @@ model voice_ai_credentials {
   updated_at        DateTime @updatedAt
   updated_by        String?  @db.VarChar(36)
 
-  provider          voice_ai_provider @relation(fields: [provider_id], references: [id], onDelete: Cascade)
-  updated_by_user   user?             @relation("voice_ai_credentials_updated_by", fields: [updated_by], references: [id])
+  provider        voice_ai_provider @relation(fields: [provider_id], references: [id], onDelete: Cascade)
+  updated_by_user user?             @relation("voice_ai_credentials_updated_by", fields: [updated_by], references: [id])
 
   @@map("voice_ai_credentials")
 }
 
 model voice_ai_global_config {
-  id                                String   @id @default("default") @db.VarChar(36)
-  agent_enabled                     Boolean  @default(false)
-  default_stt_provider_id           String?  @db.VarChar(36)
-  default_llm_provider_id           String?  @db.VarChar(36)
-  default_tts_provider_id           String?  @db.VarChar(36)
-  default_stt_config                String?  @db.Text
-  default_llm_config                String?  @db.Text
-  default_tts_config                String?  @db.Text
-  default_voice_id                  String?  @db.VarChar(100)
-  default_language                  String   @default("en") @db.VarChar(10)
-  default_languages                 String   @default("[\"en\"]") @db.Text
-  default_greeting_template         String   @default("Hello, thank you for calling {business_name}! How can I help you today?") @db.Text
-  default_system_prompt             String   @default("You are a helpful phone assistant. Be concise, friendly, and professional.") @db.LongText
-  default_max_call_duration_seconds Int      @default(600)
-  default_max_call_seconds          Int      @default(300)
-  default_transfer_behavior         String   @default("end_call") @db.VarChar(20)
-  default_tools_enabled             String   @default("{\"booking\":true,\"lead_creation\":true,\"call_transfer\":true}") @db.Text
-  livekit_url                       String?  @db.VarChar(255)
-  livekit_sip_trunk_url             String?  @db.VarChar(255)
-  livekit_api_key_encrypted         String?  @db.LongText
-  livekit_api_secret_encrypted      String?  @db.LongText
-  livekit_api_key                   String?  @db.Text
-  livekit_api_secret                String?  @db.Text
-  agent_api_key_hash                String?  @db.VarChar(128)
-  agent_api_key_preview             String?  @db.VarChar(10)
-  max_concurrent_calls              Int      @default(10)
+  id                                String  @id @default("default") @db.VarChar(36)
+  agent_enabled                     Boolean @default(false)
+  default_stt_provider_id           String? @db.VarChar(36)
+  default_llm_provider_id           String? @db.VarChar(36)
+  default_tts_provider_id           String? @db.VarChar(36)
+  default_stt_config                String? @db.Text
+  default_llm_config                String? @db.Text
+  default_tts_config                String? @db.Text
+  default_voice_id                  String? @db.VarChar(100)
+  default_language                  String  @default("en") @db.VarChar(10)
+  default_languages                 String  @default("[\"en\"]") @db.Text
+  default_greeting_template         String  @default("Hello, thank you for calling {business_name}! How can I help you today?") @db.Text
+  default_system_prompt             String  @default("You are a helpful phone assistant. Be concise, friendly, and professional.") @db.LongText
+  default_max_call_duration_seconds Int     @default(600)
+  default_max_call_seconds          Int     @default(300)
+  default_transfer_behavior         String  @default("end_call") @db.VarChar(20)
+  default_tools_enabled             String  @default("{\"booking\":true,\"lead_creation\":true,\"call_transfer\":true}") @db.Text
+  livekit_url                       String? @db.VarChar(255)
+  livekit_sip_trunk_url             String? @db.VarChar(255)
+  livekit_api_key_encrypted         String? @db.LongText
+  livekit_api_secret_encrypted      String? @db.LongText
+  livekit_api_key                   String? @db.Text
+  livekit_api_secret                String? @db.Text
+  agent_api_key_hash                String? @db.VarChar(128)
+  agent_api_key_preview             String? @db.VarChar(10)
+  max_concurrent_calls              Int     @default(10)
 
   // Conversational UX phrases (Sprint Voice-UX-01 - 2026-02-27)
-  recovery_messages                 Json?    // When STT fails / empty input
-  filler_phrases                    Json?    // Before tool execution
-  long_wait_messages                Json?    // During long tool execution (>20s)
-  system_error_messages             Json?    // Generic system errors
+  recovery_messages     Json? // When STT fails / empty input
+  filler_phrases        Json? // Before tool execution
+  long_wait_messages    Json? // During long tool execution (>20s)
+  system_error_messages Json? // Generic system errors
 
-  created_at                        DateTime @default(now())
-  updated_at                        DateTime @updatedAt
-  updated_by                        String?  @db.VarChar(36)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  updated_by String?  @db.VarChar(36)
 
   stt_provider voice_ai_provider? @relation("stt_provider", fields: [default_stt_provider_id], references: [id])
   llm_provider voice_ai_provider? @relation("llm_provider", fields: [default_llm_provider_id], references: [id])
@@ -1179,7 +1189,7 @@ model tenant_voice_ai_settings {
   updated_at                 DateTime @updatedAt
   updated_by                 String?  @db.VarChar(36)
 
-  tenant                  tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  tenant                      tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   default_transfer_number_rel tenant_voice_transfer_number? @relation("settings_default_transfer", fields: [default_transfer_number_id], references: [id])
 
   @@index([tenant_id])
@@ -1200,7 +1210,7 @@ model tenant_voice_transfer_number {
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
 
-  tenant   tenant                    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  tenant   tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   settings tenant_voice_ai_settings[] @relation("settings_default_transfer")
 
   @@index([tenant_id])
@@ -1211,27 +1221,27 @@ model tenant_voice_transfer_number {
 }
 
 model voice_call_log {
-  id                 String    @id @default(uuid()) @db.VarChar(36)
-  tenant_id          String    @db.VarChar(36)
-  call_sid           String    @unique @db.VarChar(100)
-  room_name          String?   @db.VarChar(100)
-  from_number        String    @db.VarChar(20)
-  to_number          String    @db.VarChar(20)
-  direction          String    @default("inbound") @db.VarChar(10)
-  language_used      String?   @db.VarChar(10)
-  intent             String?   @db.VarChar(50)
-  status             String    @default("in_progress") @db.VarChar(20)
-  outcome            String?   @db.VarChar(50)
-  is_overage         Boolean   @default(false)
-  duration_seconds   Int?
-  transcript_summary String?   @db.Text
-  full_transcript    String?   @db.LongText
-  actions_taken      String?   @db.Text
-  lead_id            String?   @db.VarChar(36)
-  transferred_to     String?   @db.VarChar(20)
-  stt_provider_id    String?   @db.VarChar(36)
-  llm_provider_id    String?   @db.VarChar(36)
-  tts_provider_id    String?   @db.VarChar(36)
+  id                         String    @id @default(uuid()) @db.VarChar(36)
+  tenant_id                  String    @db.VarChar(36)
+  call_sid                   String    @unique @db.VarChar(100)
+  room_name                  String?   @db.VarChar(100)
+  from_number                String    @db.VarChar(20)
+  to_number                  String    @db.VarChar(20)
+  direction                  String    @default("inbound") @db.VarChar(10)
+  language_used              String?   @db.VarChar(10)
+  intent                     String?   @db.VarChar(50)
+  status                     String    @default("in_progress") @db.VarChar(20)
+  outcome                    String?   @db.VarChar(50)
+  is_overage                 Boolean   @default(false)
+  duration_seconds           Int?
+  transcript_summary         String?   @db.Text
+  full_transcript            String?   @db.LongText
+  actions_taken              String?   @db.Text
+  lead_id                    String?   @db.VarChar(36)
+  transferred_to             String?   @db.VarChar(20)
+  stt_provider_id            String?   @db.VarChar(36)
+  llm_provider_id            String?   @db.VarChar(36)
+  tts_provider_id            String?   @db.VarChar(36)
   error_message              String?   @db.Text
   recording_url              String?   @db.VarChar(500)
   recording_duration_seconds Int?
@@ -1413,10 +1423,10 @@ model lead {
   lost_at                 DateTime?
 
   // SMS Opt-Out Management (TCPA Compliance - Sprint 1)
-  sms_opt_out             Boolean   @default(false)
-  sms_opt_out_at          DateTime?
-  sms_opt_in_at           DateTime?
-  sms_opt_out_reason      String?   @db.VarChar(255)
+  sms_opt_out        Boolean   @default(false)
+  sms_opt_out_at     DateTime?
+  sms_opt_in_at      DateTime?
+  sms_opt_out_reason String?   @db.VarChar(255)
 
   tenant           tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   created_by_user  user?             @relation("lead_created_by_user", fields: [created_by_user_id], references: [id], onDelete: SetNull)
@@ -1429,6 +1439,7 @@ model lead {
   quotes           quote[]           @relation("quote_lead")
   call_records     call_record[]     @relation("lead_call_records")
   voice_call_logs  voice_call_log[]
+  appointments     appointment[]
 
   @@index([tenant_id, status])
   @@index([tenant_id, created_at(sort: Desc)])
@@ -1508,6 +1519,7 @@ model service_request {
   tenant       tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   lead         lead          @relation(fields: [lead_id], references: [id], onDelete: Cascade)
   lead_address lead_address? @relation(fields: [lead_address_id], references: [id], onDelete: SetNull)
+  appointments appointment[]
 
   @@index([tenant_id, lead_id])
   @@index([tenant_id, status])
@@ -1567,6 +1579,226 @@ model webhook_api_key {
   @@index([api_key])
   @@index([tenant_id, is_active])
   @@map("webhook_api_key")
+}
+
+// ============================================================================
+// CALENDAR & SCHEDULING MODULE - Appointment Management
+// ============================================================================
+
+model appointment_type {
+  id                    String   @id @default(uuid()) @db.VarChar(36)
+  tenant_id             String   @db.VarChar(36)
+  name                  String   @db.VarChar(100)
+  description           String?  @db.VarChar(500)
+  slot_duration_minutes Int      @default(60)
+  max_lookahead_weeks   Int      @default(8)
+  reminder_24h_enabled  Boolean  @default(true)
+  reminder_1h_enabled   Boolean  @default(true)
+  is_active             Boolean  @default(true)
+  is_default            Boolean  @default(false)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+  created_by_user_id    String?  @db.VarChar(36)
+
+  // Relations
+  tenant     tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by user?  @relation("AppointmentTypeCreatedBy", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+
+  // Child relations
+  schedules    appointment_type_schedule[]
+  appointments appointment[]
+
+  // Indexes
+  @@index([tenant_id, is_active])
+  @@index([tenant_id, is_default])
+  @@index([tenant_id, created_at])
+  @@map("appointment_type")
+}
+
+model appointment_type_schedule {
+  id                  String   @id @default(uuid()) @db.VarChar(36)
+  appointment_type_id String   @db.VarChar(36)
+  day_of_week         Int
+  is_available        Boolean  @default(false)
+  window1_start       String?  @db.VarChar(5)
+  window1_end         String?  @db.VarChar(5)
+  window2_start       String?  @db.VarChar(5)
+  window2_end         String?  @db.VarChar(5)
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  // Relations
+  appointment_type appointment_type @relation(fields: [appointment_type_id], references: [id], onDelete: Cascade)
+
+  // Constraints
+  @@unique([appointment_type_id, day_of_week])
+  @@index([appointment_type_id])
+  @@map("appointment_type_schedule")
+}
+
+model appointment {
+  id                  String  @id @default(uuid()) @db.VarChar(36)
+  tenant_id           String  @db.VarChar(36)
+  appointment_type_id String  @db.VarChar(36)
+  lead_id             String  @db.VarChar(36)
+  service_request_id  String? @db.VarChar(36)
+
+  // Date and Time (local + UTC)
+  scheduled_date     String   @db.VarChar(10)
+  start_time         String   @db.VarChar(5)
+  end_time           String   @db.VarChar(5)
+  start_datetime_utc DateTime
+  end_datetime_utc   DateTime
+
+  // Status and Lifecycle
+  status              String  @default("scheduled") @db.VarChar(20)
+  cancellation_reason String? @db.VarChar(30)
+  cancellation_notes  String? @db.Text
+  notes               String? @db.Text
+
+  // Metadata
+  source                     String    @default("manual") @db.VarChar(20)
+  external_calendar_event_id String?   @db.VarChar(255)
+  rescheduled_from_id        String?   @db.VarChar(36)
+  assigned_user_id           String?   @db.VarChar(36)
+  acknowledged_at            DateTime?
+
+  // Timestamps and Audit
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+  created_by_user_id   String?   @db.VarChar(36)
+  cancelled_at         DateTime?
+  cancelled_by_user_id String?   @db.VarChar(36)
+  completed_at         DateTime?
+
+  // Relations
+  tenant           tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  appointment_type appointment_type    @relation(fields: [appointment_type_id], references: [id], onDelete: Restrict)
+  lead             lead                @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  service_request  service_request?    @relation(fields: [service_request_id], references: [id], onDelete: SetNull)
+  assigned_user    user?               @relation("AppointmentAssignedTo", fields: [assigned_user_id], references: [id], onDelete: SetNull)
+  created_by       user?               @relation("AppointmentCreatedBy", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  cancelled_by     user?               @relation("AppointmentCancelledBy", fields: [cancelled_by_user_id], references: [id], onDelete: SetNull)
+  rescheduled_from appointment?        @relation("AppointmentRescheduleChain", fields: [rescheduled_from_id], references: [id], onDelete: SetNull)
+  rescheduled_to   appointment[]       @relation("AppointmentRescheduleChain")
+  sync_logs        calendar_sync_log[]
+
+  // Indexes
+  @@index([tenant_id, scheduled_date, status])
+  @@index([tenant_id, status, start_datetime_utc])
+  @@index([tenant_id, lead_id, status])
+  @@index([tenant_id, appointment_type_id, scheduled_date])
+  @@index([tenant_id, created_at(sort: Desc)])
+  @@index([external_calendar_event_id])
+  @@index([rescheduled_from_id])
+  @@index([acknowledged_at])
+  @@map("appointment")
+}
+
+// ============================================================================
+// CALENDAR INTEGRATION TABLES - Google Calendar Sync
+// ============================================================================
+
+model calendar_provider_connection {
+  id            String @id @default(uuid()) @db.VarChar(36)
+  tenant_id     String @unique @db.VarChar(36)
+  provider_type String @db.VarChar(30)
+
+  // OAuth Tokens (MUST BE ENCRYPTED)
+  access_token     String   @db.Text
+  refresh_token    String   @db.Text
+  token_expires_at DateTime
+
+  // Connected Calendar
+  connected_calendar_id   String  @db.VarChar(255)
+  connected_calendar_name String? @db.VarChar(255)
+
+  // Google Push Notifications (Webhooks)
+  webhook_channel_id    String?   @db.VarChar(255)
+  webhook_resource_id   String?   @db.VarChar(255)
+  webhook_channel_token String?   @db.VarChar(255)
+  webhook_expiration    DateTime?
+
+  // Sync Status
+  sync_status     String    @default("active") @db.VarChar(20)
+  last_sync_at    DateTime?
+  last_sync_token String?   @db.Text
+  error_message   String?   @db.Text
+
+  is_active            Boolean  @default(true)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+  connected_by_user_id String?  @db.VarChar(36)
+
+  // Relations
+  tenant       tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  connected_by user?  @relation(fields: [connected_by_user_id], references: [id], onDelete: SetNull)
+
+  // Child relations
+  sync_logs       calendar_sync_log[]
+  external_blocks calendar_external_block[]
+
+  // Indexes
+  @@unique([tenant_id, provider_type])
+  @@index([tenant_id, is_active])
+  @@index([sync_status])
+  @@index([webhook_expiration])
+}
+
+model calendar_sync_log {
+  id            String @id @default(uuid()) @db.VarChar(36)
+  tenant_id     String @db.VarChar(36)
+  connection_id String @db.VarChar(36)
+
+  // Sync Details
+  direction         String  @db.VarChar(10)
+  action            String  @db.VarChar(20)
+  appointment_id    String? @db.VarChar(36)
+  external_event_id String? @db.VarChar(255)
+
+  status        String  @db.VarChar(10)
+  error_message String? @db.Text
+  metadata      Json?
+
+  created_at DateTime @default(now())
+
+  // Relations
+  tenant      tenant                       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  connection  calendar_provider_connection @relation(fields: [connection_id], references: [id], onDelete: Cascade)
+  appointment appointment?                 @relation(fields: [appointment_id], references: [id], onDelete: SetNull)
+
+  // Indexes
+  @@index([tenant_id, created_at(sort: Desc)])
+  @@index([tenant_id, status])
+  @@index([connection_id])
+  @@index([appointment_id])
+}
+
+model calendar_external_block {
+  id            String @id @default(uuid()) @db.VarChar(36)
+  tenant_id     String @db.VarChar(36)
+  connection_id String @db.VarChar(36)
+
+  // External Event Reference
+  external_event_id String @db.VarChar(255)
+
+  // Time Block (ONLY - no personal details)
+  start_datetime_utc DateTime
+  end_datetime_utc   DateTime
+  is_all_day         Boolean  @default(false)
+
+  source     String   @db.VarChar(30)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relations
+  tenant     tenant                       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  connection calendar_provider_connection @relation(fields: [connection_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, external_event_id])
+  // Indexes
+  @@index([tenant_id, start_datetime_utc, end_datetime_utc])
+  @@index([connection_id])
 }
 
 // ============================================================================
@@ -1761,13 +1993,13 @@ model webhook_event {
 }
 
 model webhook_config {
-  id                      String    @id @db.VarChar(36)
-  base_url                String    @db.VarChar(255)
-  webhook_secret          String    @db.Text
-  signature_verification  Boolean   @default(true)
-  last_rotated            DateTime?
-  created_at              DateTime  @default(now())
-  updated_at              DateTime  @default(now()) @updatedAt
+  id                     String    @id @db.VarChar(36)
+  base_url               String    @db.VarChar(255)
+  webhook_secret         String    @db.Text
+  signature_verification Boolean   @default(true)
+  last_rotated           DateTime?
+  created_at             DateTime  @default(now())
+  updated_at             DateTime  @default(now()) @updatedAt
 
   @@map("webhook_config")
 }
@@ -1943,7 +2175,7 @@ model admin_alert {
   created_at DateTime @default(now())
 
   acknowledged_by_user user? @relation("alert_acknowledged_by", fields: [acknowledged_by], references: [id], onDelete: SetNull)
-  resolved_by_user user? @relation("alert_resolved_by", fields: [resolved_by], references: [id], onDelete: SetNull)
+  resolved_by_user     user? @relation("alert_resolved_by", fields: [resolved_by], references: [id], onDelete: SetNull)
 
   @@index([severity, acknowledged, created_at(sort: Desc)])
   @@index([type, severity, created_at(sort: Desc)])

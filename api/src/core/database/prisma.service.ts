@@ -100,6 +100,13 @@ export class PrismaService
       'TenantVoiceTransferNumber',
       'VoiceCallLog',
       'VoiceUsageRecord',
+      // Calendar Module Models
+      'AppointmentType',
+      'AppointmentTypeSchedule',
+      'Appointment',
+      'CalendarProviderConnection',
+      'CalendarExternalBlock',
+      'CalendarSyncLog',
     ];
 
     // Models exempt from tenant_id check (admin/system tables)

@@ -121,6 +121,7 @@ export interface CreateLeadResult {
   success: boolean;
   lead_id?: string;
   message?: string;
+  lead_exists?: boolean;
   error?: string;
 }
 
@@ -129,7 +130,20 @@ export interface FindLeadResult {
   success: boolean;
   found: boolean;
   lead_id?: string;
-  lead_name?: string;
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
+  email?: string;
+  phone_number?: string;
+  status?: string;
+  address?: {
+    address_line1: string;
+    address_line2: string | null;
+    city: string;
+    state: string;
+    zip_code: string;
+    country: string;
+  };
   error?: string;
 }
 

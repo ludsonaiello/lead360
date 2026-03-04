@@ -7,6 +7,7 @@ import { PrometheusModule } from '@willsoto/nestjs-prometheus';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './core/database';
 import { FileStorageModule } from './core/file-storage';
+import { RedisClientModule } from './core/redis/redis.module';
 import { SharedModule } from './shared/shared.module';
 import { AuthModule, JwtAuthGuard } from './modules/auth';
 import { TenantModule } from './modules/tenant/tenant.module';
@@ -19,6 +20,8 @@ import { LeadsModule } from './modules/leads/leads.module';
 import { CommunicationModule } from './modules/communication/communication.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { VoiceAiModule } from './modules/voice-ai/voice-ai.module';
+import { CalendarModule } from './modules/calendar/calendar.module';
+import { CalendarIntegrationModule } from './modules/calendar-integration/calendar-integration.module';
 import { PuppeteerProcessManagerModule } from './core/puppeteer/puppeteer-process-manager.module';
 
 @Module({
@@ -71,6 +74,7 @@ import { PuppeteerProcessManagerModule } from './core/puppeteer/puppeteer-proces
       }),
       inject: [ConfigService],
     }),
+    RedisClientModule, // Redis client for session storage (OAuth flows)
     SharedModule, // Shared services (template variables, etc.) - available globally
     PuppeteerProcessManagerModule, // Puppeteer browser management with orphan cleanup
     PrismaModule,
@@ -86,6 +90,8 @@ import { PuppeteerProcessManagerModule } from './core/puppeteer/puppeteer-proces
     CommunicationModule, // Multi-provider communication (Email, SMS, WhatsApp)
     QuotesModule, // Quote management with vendors, bundles, templates, and settings
     VoiceAiModule, // Voice AI module — AI provider registry + agent infrastructure
+    CalendarModule, // Calendar & Scheduling - Appointment types and scheduling
+    CalendarIntegrationModule, // Calendar Integration - Google Calendar OAuth & Sync
   ],
   controllers: [HealthController],
   providers: [

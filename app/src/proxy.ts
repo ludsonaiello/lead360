@@ -59,8 +59,8 @@ export default function proxy(request: NextRequest) {
   // If user is not authenticated and trying to access protected route
   if (!isAuthenticated && !isPublicRoute && pathname !== '/') {
     console.log('[PROXY] Unauthenticated user on protected route - redirecting to login');
-    // Redirect to login with return URL (maintain current host/subdomain)
-    const loginUrl = new URL('/login', request.url);
+    // Redirect to login with return URL (use production URL, not localhost)
+    const loginUrl = new URL('/login', process.env.NEXT_PUBLIC_APP_URL || request.url);
     loginUrl.searchParams.set('from', pathname);
     return NextResponse.redirect(loginUrl);
   }

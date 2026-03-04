@@ -384,6 +384,7 @@ import { WebhookRetryProcessor } from './processors/webhook-retry.processor';
     SmsSenderService,
     WhatsAppSenderService,
     SmsKeywordDetectionService,
+    SmsSendingService, // Sprint 20: Export for AppointmentReminderProcessor
     WebhookVerificationService,
     PlatformEmailConfigService,
     TenantEmailConfigService,

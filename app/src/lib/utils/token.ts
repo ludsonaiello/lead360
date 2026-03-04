@@ -14,7 +14,7 @@ const TOKEN_EXPIRY_KEY = 'token_expiry';
  */
 const cookieOptions: Cookies.CookieAttributes = {
   secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-  sameSite: 'strict', // CSRF protection
+  sameSite: 'lax', // CSRF protection (allows OAuth redirects)
   path: '/', // Available across all paths
 };
 

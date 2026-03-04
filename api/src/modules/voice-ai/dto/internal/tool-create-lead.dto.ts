@@ -71,6 +71,9 @@ export class CreateLeadToolResponseDto {
   @ApiPropertyOptional()
   message?: string;
 
+  @ApiPropertyOptional({ description: 'True if lead already existed, false if newly created' })
+  lead_exists?: boolean;
+
   @ApiPropertyOptional()
   error?: string;
 }

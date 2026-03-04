@@ -5,7 +5,10 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { RedisClientService } from './core/redis/redis.client';
 import * as bodyParser from 'body-parser';
+import session from 'express-session';
+import RedisStore from 'connect-redis';
 
 const logger = new Logger('Bootstrap');
 
@@ -17,8 +20,43 @@ async function bootstrap() {
   const expressApp = app.getHttpAdapter().getInstance();
   expressApp.set('trust proxy', true);
 
+  // ============================================
+  // SESSION MIDDLEWARE (Sprint 11: Google OAuth Fix)
+  // ============================================
+  // Get Redis client from DI container
+  const redisClientService = app.get(RedisClientService);
+  const redisClient = redisClientService.getClient();
+
+  // Configure Redis session store
+  const redisStore = new RedisStore({
+    client: redisClient,
+    prefix: 'sess:', // Key prefix for session data
+    ttl: 600, // 10 minutes (OAuth flow timeout)
+  });
+
+  // Configure session middleware (MUST be before body parser)
+  app.use(
+    session({
+      store: redisStore,
+      secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || 'fallback-secret-change-in-production', // Fallback to JWT secret
+      resave: false, // Don't save session if unmodified
+      saveUninitialized: false, // Don't create session until something stored
+      name: 'lead360.sid', // Custom cookie name
+      cookie: {
+        httpOnly: true, // Prevent XSS attacks
+        secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+        sameSite: 'lax', // CSRF protection (allows OAuth redirects)
+        maxAge: 600000, // 10 minutes (600,000 ms)
+        domain: process.env.NODE_ENV === 'production' ? '.lead360.app' : undefined, // Cross-subdomain
+        path: '/', // Available on all routes
+      },
+    }),
+  );
+
+  logger.log('Session middleware configured with Redis store');
+
   // Add raw body parsing middleware for webhook signature verification
-  // This must be added BEFORE the JSON body parser
+  // This must be added AFTER session middleware
   app.use(
     bodyParser.json({
       verify: (req: any, res, buf, encoding) => {

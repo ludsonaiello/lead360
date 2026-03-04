@@ -26,6 +26,9 @@ import { FindLeadToolDto, FindLeadToolResponseDto } from '../../dto/internal/too
 import { CheckServiceAreaToolDto, CheckServiceAreaToolResponseDto } from '../../dto/internal/tool-check-service-area.dto';
 import { TransferCallToolDto, TransferCallToolResponseDto } from '../../dto/internal/tool-transfer-call.dto';
 import { FindLeadByPhoneDto, FindLeadByPhoneResponseDto } from '../../dto/internal/find-lead-by-phone.dto';
+import { BookAppointmentToolDto, BookAppointmentToolResponseDto } from '../../dto/internal/tool-book-appointment.dto';
+import { RescheduleAppointmentToolDto, RescheduleAppointmentToolResponseDto } from '../../dto/internal/tool-reschedule-appointment.dto';
+import { CancelAppointmentToolDto, CancelAppointmentToolResponseDto } from '../../dto/internal/tool-cancel-appointment.dto';
 
 /**
  * VoiceAiInternalController — Sprint B06a + B06b + VAB-05
@@ -49,10 +52,17 @@ import { FindLeadByPhoneDto, FindLeadByPhoneResponseDto } from '../../dto/intern
  *   POST /calls/:callSid/complete   — finalise call log + persist usage records
  *
  * Sprint VAB-05 endpoints (agent tools):
- *   POST /tenant/:tenantId/tools/create_lead         — create lead from call info
- *   POST /tenant/:tenantId/tools/find_lead           — find existing lead by phone
- *   POST /tenant/:tenantId/tools/check_service_area  — verify service area coverage
- *   POST /tenant/:tenantId/tools/transfer_call       — get transfer number for handoff
+ *   POST /tenant/:tenantId/tools/create_lead              — create lead from call info
+ *   POST /tenant/:tenantId/tools/find_lead                — find existing lead by phone
+ *   POST /tenant/:tenantId/tools/check_service_area       — verify service area coverage
+ *   POST /tenant/:tenantId/tools/transfer_call            — get transfer number for handoff
+ *
+ * Sprint 18 endpoints (calendar tools):
+ *   POST /tenant/:tenantId/tools/book_appointment         — book appointment (real booking, not placeholder)
+ *
+ * Sprint 19 endpoints (calendar management):
+ *   POST /tenant/:tenantId/tools/reschedule_appointment   — reschedule existing appointment
+ *   POST /tenant/:tenantId/tools/cancel_appointment       — cancel existing appointment
  */
 @ApiTags('Internal — Voice Agent')
 @ApiHeader({
@@ -430,6 +440,101 @@ export class VoiceAiInternalController {
     @Body() dto: TransferCallToolDto,
   ): Promise<TransferCallToolResponseDto> {
     return this.internalService.toolTransferCall(tenantId, dto);
+  }
+
+  /**
+   * POST /api/v1/internal/voice-ai/tenant/:tenantId/tools/book_appointment
+   *
+   * Books an appointment for a quote visit via Voice AI.
+   * Sprint 18: Upgraded from placeholder to real appointment booking.
+   *
+   * Two modes:
+   * 1. SEARCH MODE: Only lead_id provided → returns available slots
+   * 2. CONFIRM MODE: lead_id + confirmed_date + confirmed_start_time → creates appointment
+   */
+  @Post('tenant/:tenantId/tools/book_appointment')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Tool: Book Appointment (Sprint 18)',
+    description:
+      'Books appointments for quote visits. ' +
+      'SEARCH MODE: Returns available slots for next 14 days (expands to max_lookahead_weeks if needed). ' +
+      'CONFIRM MODE: Creates the actual appointment with source=voice_ai.',
+  })
+  @ApiParam({ name: 'tenantId', description: 'UUID of the tenant', type: String })
+  @ApiBody({ type: BookAppointmentToolDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Appointment booking result (availability or confirmation)',
+    type: BookAppointmentToolResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Validation error — invalid request body' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  bookAppointment(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: BookAppointmentToolDto,
+  ): Promise<BookAppointmentToolResponseDto> {
+    return this.internalService.toolBookAppointment(tenantId, dto);
+  }
+
+  /**
+   * POST /api/v1/internal/voice-ai/tenant/:tenantId/tools/reschedule_appointment
+   *
+   * Reschedules an existing appointment to a new date/time.
+   * Sprint 19: Voice AI reschedule tool with identity verification.
+   */
+  @Post('tenant/:tenantId/tools/reschedule_appointment')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Tool: Reschedule Appointment (Sprint 19)',
+    description:
+      'Reschedules an existing appointment. ' +
+      'Verifies caller identity before allowing reschedule.',
+  })
+  @ApiParam({ name: 'tenantId', description: 'UUID of the tenant', type: String })
+  @ApiBody({ type: RescheduleAppointmentToolDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Reschedule result',
+    type: RescheduleAppointmentToolResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Validation error — invalid request body' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  rescheduleAppointment(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: RescheduleAppointmentToolDto,
+  ): Promise<RescheduleAppointmentToolResponseDto> {
+    return this.internalService.toolRescheduleAppointment(tenantId, dto);
+  }
+
+  /**
+   * POST /api/v1/internal/voice-ai/tenant/:tenantId/tools/cancel_appointment
+   *
+   * Cancels an existing appointment.
+   * Sprint 19: Voice AI cancel tool with identity verification.
+   */
+  @Post('tenant/:tenantId/tools/cancel_appointment')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Tool: Cancel Appointment (Sprint 19)',
+    description:
+      'Cancels an existing appointment. ' +
+      'Verifies caller identity before allowing cancellation.',
+  })
+  @ApiParam({ name: 'tenantId', description: 'UUID of the tenant', type: String })
+  @ApiBody({ type: CancelAppointmentToolDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Cancellation result',
+    type: CancelAppointmentToolResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Validation error — invalid request body' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  cancelAppointment(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: CancelAppointmentToolDto,
+  ): Promise<CancelAppointmentToolResponseDto> {
+    return this.internalService.toolCancelAppointment(tenantId, dto);
   }
 
   // ---------------------------------------------------------------------------

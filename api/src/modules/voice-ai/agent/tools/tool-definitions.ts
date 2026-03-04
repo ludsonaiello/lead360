@@ -45,7 +45,7 @@ export const AGENT_TOOLS: LlmToolDefinition[] = [
     type: 'function',
     function: {
       name: 'find_lead',
-      description: 'Find an existing lead by their phone number. Call to check if the caller is already in the system.',
+      description: 'Find an existing lead by their phone number. Call to check if the caller is already in the system. Returns full lead information including name, email, phone, address, and status if found.',
       parameters: {
         type: 'object',
         properties: {
@@ -59,7 +59,7 @@ export const AGENT_TOOLS: LlmToolDefinition[] = [
     type: 'function',
     function: {
       name: 'create_lead',
-      description: 'Create a new lead record. Only call after confirming name, phone, and address.',
+      description: 'Create a new lead record. Only call after confirming name, phone, and address. If a lead with this phone number already exists, returns the existing lead information instead of creating a duplicate (check the lead_exists field in response).',
       parameters: {
         type: 'object',
         properties: {
@@ -112,6 +112,59 @@ export const AGENT_TOOLS: LlmToolDefinition[] = [
           },
         },
         required: ['reason'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'book_appointment',
+      description: 'Book an appointment for a quote visit. Call after lead is created or found. Use this to schedule a specific date/time for the appointment. If the caller has a preferred date, search availability for that date first. If no availability on preferred date or no preference given, offer next available slots.',
+      parameters: {
+        type: 'object',
+        properties: {
+          lead_id: { type: 'string', description: 'Lead ID (from create_lead or find_lead tool)' },
+          preferred_date: { type: 'string', description: 'Preferred date in YYYY-MM-DD format (optional)' },
+          confirmed_date: { type: 'string', description: 'Confirmed appointment date in YYYY-MM-DD format (when caller selects a slot)' },
+          confirmed_start_time: { type: 'string', description: 'Confirmed start time in HH:MM format (when caller selects a slot)' },
+          notes: { type: 'string', description: 'Any additional notes about the appointment (optional)' },
+        },
+        required: ['lead_id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'reschedule_appointment',
+      description: 'Reschedule an existing appointment to a new date/time. Verifies caller identity before allowing reschedule. Call with lead_id first to get current appointment and available slots, then call again with appointment_id, new_date, and new_time to confirm the reschedule.',
+      parameters: {
+        type: 'object',
+        properties: {
+          call_log_id: { type: 'string', description: 'The UUID of the current call log (required for identity verification)' },
+          lead_id: { type: 'string', description: 'The UUID of the lead requesting reschedule' },
+          appointment_id: { type: 'string', description: 'The UUID of the appointment to reschedule (provide when caller confirms new time)' },
+          new_date: { type: 'string', description: 'New date in YYYY-MM-DD format (provide when caller confirms new time)' },
+          new_time: { type: 'string', description: 'New start time in HH:MM format (provide when caller confirms new time)' },
+        },
+        required: ['call_log_id', 'lead_id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'cancel_appointment',
+      description: 'Cancel an existing appointment. Verifies caller identity before allowing cancellation. Call with lead_id first to get active appointments, then call again with appointment_id to confirm the cancellation.',
+      parameters: {
+        type: 'object',
+        properties: {
+          call_log_id: { type: 'string', description: 'The UUID of the current call log (required for identity verification)' },
+          lead_id: { type: 'string', description: 'The UUID of the lead requesting cancellation' },
+          appointment_id: { type: 'string', description: 'The UUID of the appointment to cancel (provide when caller confirms cancellation)' },
+          reason: { type: 'string', description: 'Reason for cancellation (optional - defaults to customer_cancelled)' },
+        },
+        required: ['call_log_id', 'lead_id'],
       },
     },
   },

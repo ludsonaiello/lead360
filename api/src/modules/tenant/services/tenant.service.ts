@@ -315,6 +315,45 @@ export class TenantService {
         } as any,
       });
 
+      // Create default "Quote Visit" appointment type
+      const appointmentType = await tx.appointment_type.create({
+        data: {
+          tenant_id: newTenant.id,
+          name: 'Quote Visit',
+          description:
+            'Schedule a quote visit with the customer to assess the job',
+          slot_duration_minutes: 60,
+          max_lookahead_weeks: 8,
+          reminder_24h_enabled: true,
+          reminder_1h_enabled: true,
+          is_active: true,
+          is_default: true,
+          created_by_user_id: null,
+        } as any,
+      });
+
+      // Create 7 schedule rows (Sun-Sat)
+      const scheduleRows = [
+        { day_of_week: 0, is_available: false, window1_start: null, window1_end: null },
+        { day_of_week: 1, is_available: true, window1_start: '09:00', window1_end: '17:00' },
+        { day_of_week: 2, is_available: true, window1_start: '09:00', window1_end: '17:00' },
+        { day_of_week: 3, is_available: true, window1_start: '09:00', window1_end: '17:00' },
+        { day_of_week: 4, is_available: true, window1_start: '09:00', window1_end: '17:00' },
+        { day_of_week: 5, is_available: true, window1_start: '09:00', window1_end: '17:00' },
+        { day_of_week: 6, is_available: false, window1_start: null, window1_end: null },
+      ];
+
+      const schedulePromises = scheduleRows.map((schedule) =>
+        tx.appointment_type_schedule.create({
+          data: {
+            appointment_type_id: appointmentType.id,
+            ...schedule,
+          } as any,
+        }),
+      );
+
+      await Promise.all(schedulePromises);
+
       return newTenant;
     });
 

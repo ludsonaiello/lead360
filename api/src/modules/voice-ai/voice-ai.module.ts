@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { PrismaModule } from '../../core/database/prisma.module';
 import { EncryptionModule } from '../../core/encryption/encryption.module';
 import { LeadsModule } from '../leads/leads.module';
+import { CalendarModule } from '../calendar/calendar.module'; // Sprint 18: book_appointment tool
 
 // Processors — Sprint B10
 import { VoiceAiQuotaResetProcessor } from './processors/voice-ai-quota-reset.processor';
@@ -77,6 +78,7 @@ import { VoiceAgentService } from './agent/voice-agent.service';
     PrismaModule,
     EncryptionModule,
     LeadsModule, // Sprint BAS24: Required for LeadsService and LeadPhonesService (agent tools)
+    CalendarModule, // Sprint 18: Required for book_appointment tool (SlotCalculationService, AppointmentsService, AppointmentTypesService)
     // BullMQ queues for background jobs (Sprint B10 + stuck call cleanup)
     BullModule.registerQueue(
       { name: 'voice-ai-quota-reset' },

@@ -1140,6 +1140,101 @@ unknown unknown
     }
   
 
+  "appointment_type" {
+    String id "🗝️"
+    String name 
+    String description "❓"
+    Int slot_duration_minutes 
+    Int max_lookahead_weeks 
+    Boolean reminder_24h_enabled 
+    Boolean reminder_1h_enabled 
+    Boolean is_active 
+    Boolean is_default 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "appointment_type_schedule" {
+    String id "🗝️"
+    Int day_of_week 
+    Boolean is_available 
+    String window1_start "❓"
+    String window1_end "❓"
+    String window2_start "❓"
+    String window2_end "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "appointment" {
+    String id "🗝️"
+    String scheduled_date 
+    String start_time 
+    String end_time 
+    DateTime start_datetime_utc 
+    DateTime end_datetime_utc 
+    String status 
+    String cancellation_reason "❓"
+    String cancellation_notes "❓"
+    String notes "❓"
+    String source 
+    String external_calendar_event_id "❓"
+    DateTime acknowledged_at "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    DateTime cancelled_at "❓"
+    DateTime completed_at "❓"
+    }
+  
+
+  "calendar_provider_connection" {
+    String id "🗝️"
+    String provider_type 
+    String access_token 
+    String refresh_token 
+    DateTime token_expires_at 
+    String connected_calendar_id 
+    String connected_calendar_name "❓"
+    String webhook_channel_id "❓"
+    String webhook_resource_id "❓"
+    String webhook_channel_token "❓"
+    DateTime webhook_expiration "❓"
+    String sync_status 
+    DateTime last_sync_at "❓"
+    String last_sync_token "❓"
+    String error_message "❓"
+    Boolean is_active 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "calendar_sync_log" {
+    String id "🗝️"
+    String direction 
+    String action 
+    String external_event_id "❓"
+    String status 
+    String error_message "❓"
+    Json metadata "❓"
+    DateTime created_at 
+    }
+  
+
+  "calendar_external_block" {
+    String id "🗝️"
+    String external_event_id 
+    DateTime start_datetime_utc 
+    DateTime end_datetime_utc 
+    Boolean is_all_day 
+    String source 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
   "communication_provider" {
     String id "🗝️"
     String provider_key 
@@ -1802,6 +1897,24 @@ unknown unknown
     "lead_activity" }o--|o "user" : "user"
     "webhook_api_key" }o--|| "tenant" : "tenant"
     "webhook_api_key" }o--|| "user" : "created_by_user"
+    "appointment_type" }o--|| "tenant" : "tenant"
+    "appointment_type" }o--|o "user" : "created_by"
+    "appointment_type_schedule" }o--|| appointment_type : "appointment_type"
+    "appointment" }o--|| "tenant" : "tenant"
+    "appointment" }o--|| appointment_type : "appointment_type"
+    "appointment" }o--|| lead : "lead"
+    "appointment" }o--|o service_request : "service_request"
+    "appointment" }o--|o "user" : "assigned_user"
+    "appointment" }o--|o "user" : "created_by"
+    "appointment" }o--|o "user" : "cancelled_by"
+    "appointment" |o--|o appointment : "rescheduled_from"
+    "calendar_provider_connection" }o--|| "tenant" : "tenant"
+    "calendar_provider_connection" }o--|o "user" : "connected_by"
+    "calendar_sync_log" }o--|| "tenant" : "tenant"
+    "calendar_sync_log" }o--|| "calendar_provider_connection" : "connection"
+    "calendar_sync_log" }o--|o appointment : "appointment"
+    "calendar_external_block" }o--|| "tenant" : "tenant"
+    "calendar_external_block" }o--|| "calendar_provider_connection" : "connection"
     "communication_provider" |o--|| "communication_provider_type" : "enum:provider_type"
     "platform_email_config" }o--|| communication_provider : "provider"
     "tenant_email_config" }o--|| "tenant" : "tenant"

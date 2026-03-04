@@ -14,9 +14,17 @@ import { FindLeadToolDto, FindLeadToolResponseDto } from '../dto/internal/tool-f
 import { CheckServiceAreaToolDto, CheckServiceAreaToolResponseDto } from '../dto/internal/tool-check-service-area.dto';
 import { TransferCallToolDto, TransferCallToolResponseDto } from '../dto/internal/tool-transfer-call.dto';
 import { FindLeadByPhoneDto, FindLeadByPhoneResponseDto } from '../dto/internal/find-lead-by-phone.dto';
+import { BookAppointmentToolDto, BookAppointmentToolResponseDto } from '../dto/internal/tool-book-appointment.dto';
+import { RescheduleAppointmentToolDto, RescheduleAppointmentToolResponseDto } from '../dto/internal/tool-reschedule-appointment.dto';
+import { CancelAppointmentToolDto, CancelAppointmentToolResponseDto } from '../dto/internal/tool-cancel-appointment.dto';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { LeadsService } from '../../leads/services/leads.service';
+import { SlotCalculationService } from '../../calendar/services/slot-calculation.service';
+import { AppointmentsService } from '../../calendar/services/appointments.service';
+import { AppointmentTypesService } from '../../calendar/services/appointment-types.service';
+import { AppointmentLifecycleService } from '../../calendar/services/appointment-lifecycle.service';
 import { generatePhoneVariations } from '../utils/phone-normalizer.util';
+import { addDays, format } from 'date-fns';
 
 /**
  * Access check result returned by checkAccess().
@@ -52,6 +60,10 @@ export class VoiceAiInternalService {
     private readonly prisma: PrismaService,
     private readonly leadsService: LeadsService,
     private readonly transferNumbersService: VoiceTransferNumbersService,
+    private readonly slotCalculationService: SlotCalculationService,
+    private readonly appointmentsService: AppointmentsService,
+    private readonly appointmentTypesService: AppointmentTypesService,
+    private readonly appointmentLifecycleService: AppointmentLifecycleService,
   ) {}
 
   /**
@@ -282,6 +294,36 @@ export class VoiceAiInternalService {
     this.logger.log(`[Tool] Creating lead for tenant: ${tenantId}`);
 
     try {
+      // Check if lead already exists with this phone number (tenant-scoped)
+      const sanitizedPhone = dto.phone_number.replace(/\D/g, '');
+      this.logger.log(`[Tool] Checking for existing lead with phone: ${sanitizedPhone}`);
+
+      const existingLeadPhone = await this.prisma.lead_phone.findFirst({
+        where: {
+          phone: sanitizedPhone,
+          lead: { tenant_id: tenantId },
+        },
+        include: {
+          lead: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+            },
+          },
+        },
+      });
+
+      if (existingLeadPhone?.lead) {
+        this.logger.log(`[Tool] Lead already exists: ${existingLeadPhone.lead.first_name} ${existingLeadPhone.lead.last_name}`);
+        return {
+          success: true,
+          lead_id: existingLeadPhone.lead.id,
+          message: `Lead already exists for ${existingLeadPhone.lead.first_name} ${existingLeadPhone.lead.last_name}`,
+          lead_exists: true,
+        };
+      }
+
       // Build CreateLeadDto matching the exact structure from leads module
       const createLeadDto = {
         first_name: dto.first_name,
@@ -319,10 +361,12 @@ export class VoiceAiInternalService {
       // Call LeadsService.create() with tenant_id and null userId (system action)
       const lead = await this.leadsService.create(tenantId, null, createLeadDto as any);
 
+      this.logger.log(`[Tool] Lead created successfully: ${lead.id}`);
       return {
         success: true,
         lead_id: lead.id,
         message: `Lead created for ${dto.first_name} ${dto.last_name}`,
+        lead_exists: false,
       };
     } catch (error) {
       this.logger.error(`[Tool] Error creating lead: ${error.message}`, error.stack);
@@ -374,7 +418,29 @@ export class VoiceAiInternalService {
         },
         include: {
           lead: {
-            select: { id: true, first_name: true, last_name: true, status: true },
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              status: true,
+              emails: {
+                where: { is_primary: true },
+                take: 1,
+                select: { email: true },
+              },
+              addresses: {
+                where: { is_primary: true },
+                take: 1,
+                select: {
+                  address_line1: true,
+                  address_line2: true,
+                  city: true,
+                  state: true,
+                  zip_code: true,
+                  country: true,
+                },
+              },
+            },
           },
         },
       });
@@ -386,11 +452,28 @@ export class VoiceAiInternalService {
         };
       }
 
+      const lead = leadPhone.lead;
+      const primaryEmail = lead.emails?.[0]?.email || undefined;
+      const primaryAddress = lead.addresses?.[0] || undefined;
+
       return {
         success: true,
         found: true,
-        lead_id: leadPhone.lead.id,
-        lead_name: `${leadPhone.lead.first_name} ${leadPhone.lead.last_name}`,
+        lead_id: lead.id,
+        first_name: lead.first_name,
+        last_name: lead.last_name,
+        full_name: `${lead.first_name} ${lead.last_name}`,
+        email: primaryEmail,
+        phone_number: leadPhone.phone,
+        status: lead.status,
+        address: primaryAddress ? {
+          address_line1: primaryAddress.address_line1,
+          address_line2: primaryAddress.address_line2,
+          city: primaryAddress.city,
+          state: primaryAddress.state,
+          zip_code: primaryAddress.zip_code,
+          country: primaryAddress.country,
+        } : undefined,
       };
     } catch (error) {
       this.logger.error(`[Tool] Error finding lead: ${error.message}`, error.stack);
@@ -548,6 +631,643 @@ export class VoiceAiInternalService {
       return {
         success: false,
         error: error.message || 'Could not retrieve transfer number',
+      };
+    }
+  }
+
+  /**
+   * Tool: Book Appointment — Sprint 18 (voice_ai_book_upgrade)
+   *
+   * Books appointments for quote visits via Voice AI.
+   * Replaces the placeholder that created lead_note with real appointment booking.
+   *
+   * Two modes of operation:
+   * 1. SEARCH MODE: Only lead_id provided (+ optional preferred_date)
+   *    - Returns available slots for next 14 days (or from preferred_date)
+   *    - Expands to max_lookahead_weeks if no slots in 14 days
+   *    - Returns no_availability if no slots found in max range
+   *
+   * 2. CONFIRM MODE: lead_id + confirmed_date + confirmed_start_time provided
+   *    - Creates the actual appointment
+   *    - Returns appointment details
+   *
+   * CRITICAL:
+   *   - Enforces tenant_id isolation
+   *   - Uses default appointment type for tenant
+   *   - Validates lead belongs to tenant
+   *   - Source set to 'voice_ai'
+   *   - userId is null (system action)
+   *
+   * @param tenantId UUID of the tenant
+   * @param dto BookAppointmentToolDto with booking parameters
+   * @returns BookAppointmentToolResponseDto with slots or appointment confirmation
+   */
+  async toolBookAppointment(tenantId: string, dto: BookAppointmentToolDto): Promise<BookAppointmentToolResponseDto> {
+    this.logger.log(`[Tool] Booking appointment for tenant: ${tenantId}, lead: ${dto.lead_id}`);
+
+    try {
+      // Step 1: Validate lead exists and belongs to tenant
+      const lead = await this.prisma.lead.findFirst({
+        where: {
+          id: dto.lead_id,
+          tenant_id: tenantId,
+        },
+        select: {
+          id: true,
+          first_name: true,
+          last_name: true,
+        },
+      });
+
+      if (!lead) {
+        this.logger.error(`[Tool] Lead ${dto.lead_id} not found or access denied for tenant ${tenantId}`);
+        return {
+          status: 'error',
+          error: 'Lead not found or access denied',
+        };
+      }
+
+      // Step 2: Get default appointment type for tenant
+      const appointmentTypes = await this.appointmentTypesService.findAll(tenantId, {
+        is_active: true,
+      });
+
+      const defaultType = appointmentTypes.items?.find((t: any) => t.is_default) || appointmentTypes.items?.[0];
+
+      if (!defaultType) {
+        this.logger.error(`[Tool] No active appointment type found for tenant ${tenantId}`);
+        return {
+          status: 'error',
+          error: 'No appointment type configured. Please contact support.',
+        };
+      }
+
+      this.logger.log(`[Tool] Using appointment type: ${defaultType.name} (${defaultType.id})`);
+
+      // MODE DETECTION: Confirm mode vs Search mode
+      const isConfirmMode = !!(dto.confirmed_date && dto.confirmed_start_time);
+
+      if (isConfirmMode) {
+        // ========== CONFIRM MODE: Create appointment ==========
+        this.logger.log(`[Tool] CONFIRM MODE: Booking appointment for ${dto.confirmed_date} at ${dto.confirmed_start_time}`);
+
+        // Calculate end_time based on slot_duration_minutes
+        const [hours, minutes] = dto.confirmed_start_time!.split(':').map(Number);
+        const totalMinutes = hours * 60 + minutes + defaultType.slot_duration_minutes;
+        const endHours = Math.floor(totalMinutes / 60) % 24;
+        const endMinutes = totalMinutes % 60;
+        const end_time = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
+
+        // Create appointment using AppointmentsService
+        const appointment = await this.appointmentsService.create(
+          tenantId,
+          null, // Voice AI is a system actor (no userId)
+          {
+            appointment_type_id: defaultType.id,
+            lead_id: dto.lead_id,
+            scheduled_date: dto.confirmed_date!,
+            start_time: dto.confirmed_start_time!,
+            end_time: end_time,
+            notes: dto.notes,
+            source: 'voice_ai', // CRITICAL: Mark as Voice AI booking
+          },
+        );
+
+        this.logger.log(`[Tool] Appointment created: ${appointment.id}`);
+
+        return {
+          status: 'appointment_booked',
+          message: `Appointment confirmed for ${lead.first_name} ${lead.last_name} on ${dto.confirmed_date} at ${dto.confirmed_start_time}`,
+          appointment_id: appointment.id,
+          appointment: {
+            id: appointment.id,
+            appointment_type: defaultType.name,
+            scheduled_date: appointment.scheduled_date,
+            start_time: appointment.start_time,
+            end_time: appointment.end_time,
+            lead_name: `${lead.first_name} ${lead.last_name}`,
+          },
+        };
+      } else {
+        // ========== SEARCH MODE: Find available slots ==========
+        this.logger.log(`[Tool] SEARCH MODE: Finding available slots`);
+
+        // Determine search date range
+        const today = new Date();
+        const searchStartDate = dto.preferred_date
+          ? new Date(dto.preferred_date)
+          : today;
+
+        // Initial search: next 14 days from search start
+        const initialSearchEnd = addDays(searchStartDate, 14);
+        const dateFrom = format(searchStartDate, 'yyyy-MM-dd');
+        const dateTo = format(initialSearchEnd, 'yyyy-MM-dd');
+
+        this.logger.log(`[Tool] Initial search range: ${dateFrom} to ${dateTo}`);
+
+        // Query slot availability
+        let slotsResult = await this.slotCalculationService.getAvailableSlots(
+          tenantId,
+          defaultType.id,
+          dateFrom,
+          dateTo,
+        );
+
+        // If no slots in initial 14 days, expand to max_lookahead_weeks
+        if (slotsResult.total_available_slots === 0) {
+          this.logger.log(`[Tool] No slots in initial 14 days, expanding to ${defaultType.max_lookahead_weeks} weeks`);
+
+          const expandedSearchEnd = addDays(searchStartDate, defaultType.max_lookahead_weeks * 7);
+          const expandedDateTo = format(expandedSearchEnd, 'yyyy-MM-dd');
+
+          slotsResult = await this.slotCalculationService.getAvailableSlots(
+            tenantId,
+            defaultType.id,
+            dateFrom,
+            expandedDateTo,
+          );
+        }
+
+        // No availability found
+        if (slotsResult.total_available_slots === 0) {
+          this.logger.warn(`[Tool] No availability found for tenant ${tenantId} within ${defaultType.max_lookahead_weeks} weeks`);
+
+          return {
+            status: 'no_availability',
+            message: `Unfortunately, we don't have any available appointment slots in the next ${defaultType.max_lookahead_weeks} weeks. I'll have someone from our team call you back to schedule a time that works for you.`,
+            total_slots: 0,
+          };
+        }
+
+        // Flatten available slots for Voice AI (easier to present conversationally)
+        const flatSlots: Array<{
+          date: string;
+          day_name: string;
+          start_time: string;
+          end_time: string;
+        }> = [];
+
+        for (const dateEntry of slotsResult.available_dates) {
+          for (const slot of dateEntry.slots) {
+            flatSlots.push({
+              date: dateEntry.date,
+              day_name: dateEntry.day_name,
+              start_time: slot.start_time,
+              end_time: slot.end_time,
+            });
+          }
+        }
+
+        this.logger.log(`[Tool] Found ${flatSlots.length} available slots`);
+
+        return {
+          status: 'availability_found',
+          message: `I found ${flatSlots.length} available appointment slots. Let me share some options with you.`,
+          available_slots: flatSlots,
+          total_slots: flatSlots.length,
+        };
+      }
+    } catch (error) {
+      this.logger.error(`[Tool] Error booking appointment: ${error.message}`, error.stack);
+      return {
+        status: 'error',
+        error: error.message || 'Could not book appointment',
+      };
+    }
+  }
+
+  /**
+   * Tool: Reschedule Appointment — Sprint 19 (voice_ai_reschedule_cancel)
+   *
+   * Reschedules an existing appointment with identity verification.
+   * Two modes of operation:
+   * 1. INITIAL MODE: Only call_log_id + lead_id provided
+   *    - Verifies caller phone matches lead phone
+   *    - Returns current appointment + available slots for rescheduling
+   *    - If multiple appointments, asks caller to choose one
+   *
+   * 2. CONFIRM MODE: call_log_id + lead_id + appointment_id + new_date + new_time provided
+   *    - Executes the reschedule
+   *    - Returns new appointment details
+   *
+   * CRITICAL:
+   *   - Identity verification: caller phone from call_log must match lead phone
+   *   - Enforces tenant_id isolation
+   *   - Only appointments with status 'scheduled' or 'confirmed' can be rescheduled
+   *   - userId is null (Voice AI is system actor)
+   *
+   * @param tenantId UUID of the tenant
+   * @param dto RescheduleAppointmentToolDto with reschedule parameters
+   * @returns RescheduleAppointmentToolResponseDto with verification/slots/confirmation
+   */
+  async toolRescheduleAppointment(tenantId: string, dto: RescheduleAppointmentToolDto): Promise<RescheduleAppointmentToolResponseDto> {
+    this.logger.log(`[Tool] Rescheduling appointment for tenant: ${tenantId}, lead: ${dto.lead_id}`);
+
+    try {
+      // Step 1: Verify caller identity (phone match)
+      const callLog = await this.prisma.voice_call_log.findFirst({
+        where: {
+          id: dto.call_log_id,
+          tenant_id: tenantId,
+        },
+        select: {
+          from_number: true,
+        },
+      });
+
+      if (!callLog) {
+        this.logger.error(`[Tool] Call log ${dto.call_log_id} not found for tenant ${tenantId}`);
+        return {
+          status: 'error',
+          error: 'Call log not found',
+        };
+      }
+
+      // Get lead and verify phone match
+      const phoneVariations = generatePhoneVariations(callLog.from_number);
+      const lead = await this.prisma.lead.findFirst({
+        where: {
+          id: dto.lead_id,
+          tenant_id: tenantId,
+        },
+        include: {
+          phones: true,
+        },
+      });
+
+      if (!lead) {
+        this.logger.error(`[Tool] Lead ${dto.lead_id} not found for tenant ${tenantId}`);
+        return {
+          status: 'error',
+          error: 'Lead not found',
+        };
+      }
+
+      // Verify phone number matches
+      const phoneMatch = lead.phones.some(phone =>
+        phoneVariations.includes(phone.phone)
+      );
+
+      if (!phoneMatch) {
+        this.logger.warn(`[Tool] Phone verification failed for lead ${dto.lead_id}. Caller: ${callLog.from_number}, Lead phones: ${lead.phones.map(p => p.phone).join(', ')}`);
+        return {
+          status: 'verification_failed',
+          message: 'Phone number does not match our records.',
+          action: 'Voice AI should ask for name + appointment date for manual verification',
+        };
+      }
+
+      this.logger.log(`[Tool] Phone verification passed for lead ${dto.lead_id}`);
+
+      // Step 2: Find active appointments for this lead
+      const activeAppointments = await this.prisma.appointment.findMany({
+        where: {
+          tenant_id: tenantId,
+          lead_id: dto.lead_id,
+          status: {
+            in: ['scheduled', 'confirmed'],
+          },
+        },
+        include: {
+          appointment_type: {
+            select: {
+              id: true,
+              name: true,
+              slot_duration_minutes: true,
+              max_lookahead_weeks: true,
+            },
+          },
+        },
+        orderBy: {
+          start_datetime_utc: 'asc',
+        },
+      });
+
+      if (activeAppointments.length === 0) {
+        this.logger.log(`[Tool] No active appointments found for lead ${dto.lead_id}`);
+        return {
+          status: 'no_appointment_found',
+          message: 'No active appointments found for this lead.',
+          action: 'Voice AI should offer to book a new appointment',
+        };
+      }
+
+      // MODE DETECTION: Confirm mode vs Initial mode
+      const isConfirmMode = !!(dto.appointment_id && dto.new_date && dto.new_time);
+
+      if (isConfirmMode) {
+        // ========== CONFIRM MODE: Execute reschedule ==========
+        this.logger.log(`[Tool] CONFIRM MODE: Rescheduling appointment ${dto.appointment_id} to ${dto.new_date} at ${dto.new_time}`);
+
+        // Verify the appointment_id belongs to this lead
+        const appointmentToReschedule = activeAppointments.find(apt => apt.id === dto.appointment_id);
+
+        if (!appointmentToReschedule) {
+          this.logger.error(`[Tool] Appointment ${dto.appointment_id} not found in active appointments for lead ${dto.lead_id}`);
+          return {
+            status: 'error',
+            error: 'Appointment not found or cannot be rescheduled',
+          };
+        }
+
+        // Execute reschedule using AppointmentLifecycleService
+        const result = await this.appointmentLifecycleService.rescheduleAppointment(
+          tenantId,
+          dto.appointment_id!, // Non-null assertion: validated in CONFIRM MODE check
+          null, // Voice AI is system actor (no userId)
+          {
+            new_scheduled_date: dto.new_date!,
+            new_start_time: dto.new_time!,
+          },
+        );
+
+        this.logger.log(`[Tool] Appointment rescheduled successfully. New appointment: ${result.newAppointment.id}`);
+
+        return {
+          status: 'rescheduled',
+          new_appointment_id: result.newAppointment.id,
+          old_appointment_id: dto.appointment_id!,
+          message: `Your appointment has been rescheduled to ${dto.new_date} at ${dto.new_time}`,
+          confirmation_sent: true,
+        };
+      } else {
+        // ========== INITIAL MODE: Return appointments + available slots ==========
+        this.logger.log(`[Tool] INITIAL MODE: Returning active appointments and available slots`);
+
+        // If multiple appointments, ask caller to choose one
+        if (activeAppointments.length > 1) {
+          return {
+            status: 'multiple_appointments',
+            appointments: activeAppointments.map(apt => ({
+              id: apt.id,
+              date: apt.scheduled_date,
+              time: apt.start_time,
+              type: apt.appointment_type.name,
+            })),
+            message: 'You have multiple appointments. Which one would you like to reschedule?',
+            action: 'Voice AI should read appointments and ask caller to choose one',
+          };
+        }
+
+        // Single appointment - return current appointment + available slots
+        const currentAppointment = activeAppointments[0];
+        const appointmentType = currentAppointment.appointment_type;
+
+        this.logger.log(`[Tool] Current appointment: ${currentAppointment.scheduled_date} at ${currentAppointment.start_time}`);
+
+        // Get available slots for next 14 days (expand to max_lookahead_weeks if needed)
+        const today = new Date();
+        const searchStartDate = today;
+        const initialSearchEnd = addDays(searchStartDate, 14);
+        const dateFrom = format(searchStartDate, 'yyyy-MM-dd');
+        const dateTo = format(initialSearchEnd, 'yyyy-MM-dd');
+
+        this.logger.log(`[Tool] Searching slots from ${dateFrom} to ${dateTo}`);
+
+        let slotsResult = await this.slotCalculationService.getAvailableSlots(
+          tenantId,
+          appointmentType.id,
+          dateFrom,
+          dateTo,
+        );
+
+        // If no slots in initial 14 days, expand to max_lookahead_weeks
+        if (slotsResult.total_available_slots === 0) {
+          this.logger.log(`[Tool] No slots in 14 days, expanding to ${appointmentType.max_lookahead_weeks} weeks`);
+          const expandedSearchEnd = addDays(searchStartDate, appointmentType.max_lookahead_weeks * 7);
+          const expandedDateTo = format(expandedSearchEnd, 'yyyy-MM-dd');
+
+          slotsResult = await this.slotCalculationService.getAvailableSlots(
+            tenantId,
+            appointmentType.id,
+            dateFrom,
+            expandedDateTo,
+          );
+        }
+
+        if (slotsResult.total_available_slots === 0) {
+          this.logger.warn(`[Tool] No availability for rescheduling`);
+          return {
+            status: 'error',
+            error: 'No available slots found for rescheduling',
+          };
+        }
+
+        return {
+          status: 'slots_available',
+          current_appointment: {
+            id: currentAppointment.id,
+            date: currentAppointment.scheduled_date,
+            time: currentAppointment.start_time,
+            type: appointmentType.name,
+          },
+          available_slots: slotsResult.available_dates,
+          message: `Your current appointment is ${currentAppointment.scheduled_date} at ${currentAppointment.start_time}. Next available times are...`,
+          action: 'Voice AI should present slots conversationally and ask caller to choose',
+        };
+      }
+    } catch (error) {
+      this.logger.error(`[Tool] Error rescheduling appointment: ${error.message}`, error.stack);
+      return {
+        status: 'error',
+        error: error.message || 'Could not reschedule appointment',
+      };
+    }
+  }
+
+  /**
+   * Tool: Cancel Appointment — Sprint 19 (voice_ai_reschedule_cancel)
+   *
+   * Cancels an existing appointment with identity verification.
+   * Two modes of operation:
+   * 1. INITIAL MODE: Only call_log_id + lead_id provided
+   *    - Verifies caller phone matches lead phone
+   *    - Returns active appointments
+   *    - If multiple appointments, asks caller to choose one
+   *
+   * 2. CONFIRM MODE: call_log_id + lead_id + appointment_id + reason provided
+   *    - Executes the cancellation
+   *    - Returns cancellation confirmation
+   *
+   * CRITICAL:
+   *   - Identity verification: caller phone from call_log must match lead phone
+   *   - Enforces tenant_id isolation
+   *   - Only appointments with status 'scheduled' or 'confirmed' can be cancelled
+   *   - userId is null (Voice AI is system actor)
+   *
+   * @param tenantId UUID of the tenant
+   * @param dto CancelAppointmentToolDto with cancellation parameters
+   * @returns CancelAppointmentToolResponseDto with verification/confirmation
+   */
+  async toolCancelAppointment(tenantId: string, dto: CancelAppointmentToolDto): Promise<CancelAppointmentToolResponseDto> {
+    this.logger.log(`[Tool] Cancelling appointment for tenant: ${tenantId}, lead: ${dto.lead_id}`);
+
+    try {
+      // Step 1: Verify caller identity (phone match)
+      const callLog = await this.prisma.voice_call_log.findFirst({
+        where: {
+          id: dto.call_log_id,
+          tenant_id: tenantId,
+        },
+        select: {
+          from_number: true,
+        },
+      });
+
+      if (!callLog) {
+        this.logger.error(`[Tool] Call log ${dto.call_log_id} not found for tenant ${tenantId}`);
+        return {
+          status: 'error',
+          error: 'Call log not found',
+        };
+      }
+
+      // Get lead and verify phone match
+      const phoneVariations = generatePhoneVariations(callLog.from_number);
+      const lead = await this.prisma.lead.findFirst({
+        where: {
+          id: dto.lead_id,
+          tenant_id: tenantId,
+        },
+        include: {
+          phones: true,
+        },
+      });
+
+      if (!lead) {
+        this.logger.error(`[Tool] Lead ${dto.lead_id} not found for tenant ${tenantId}`);
+        return {
+          status: 'error',
+          error: 'Lead not found',
+        };
+      }
+
+      // Verify phone number matches
+      const phoneMatch = lead.phones.some(phone =>
+        phoneVariations.includes(phone.phone)
+      );
+
+      if (!phoneMatch) {
+        this.logger.warn(`[Tool] Phone verification failed for lead ${dto.lead_id}. Caller: ${callLog.from_number}, Lead phones: ${lead.phones.map(p => p.phone).join(', ')}`);
+        return {
+          status: 'verification_failed',
+          message: 'Phone number does not match our records.',
+          action: 'Voice AI should ask for name + appointment date for manual verification',
+        };
+      }
+
+      this.logger.log(`[Tool] Phone verification passed for lead ${dto.lead_id}`);
+
+      // Step 2: Find active appointments for this lead
+      const activeAppointments = await this.prisma.appointment.findMany({
+        where: {
+          tenant_id: tenantId,
+          lead_id: dto.lead_id,
+          status: {
+            in: ['scheduled', 'confirmed'],
+          },
+        },
+        include: {
+          appointment_type: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          start_datetime_utc: 'asc',
+        },
+      });
+
+      if (activeAppointments.length === 0) {
+        this.logger.log(`[Tool] No active appointments found for lead ${dto.lead_id}`);
+        return {
+          status: 'no_appointment_found',
+          message: 'No active appointments found for this lead.',
+          action: 'Voice AI should inform caller and offer to book a new appointment',
+        };
+      }
+
+      // MODE DETECTION: Confirm mode vs Initial mode
+      const isConfirmMode = !!dto.appointment_id;
+
+      if (isConfirmMode) {
+        // ========== CONFIRM MODE: Execute cancellation ==========
+        this.logger.log(`[Tool] CONFIRM MODE: Cancelling appointment ${dto.appointment_id}`);
+
+        // Verify the appointment_id belongs to this lead
+        const appointmentToCancel = activeAppointments.find(apt => apt.id === dto.appointment_id);
+
+        if (!appointmentToCancel) {
+          this.logger.error(`[Tool] Appointment ${dto.appointment_id} not found in active appointments for lead ${dto.lead_id}`);
+          return {
+            status: 'error',
+            error: 'Appointment not found or cannot be cancelled',
+          };
+        }
+
+        // Execute cancellation using AppointmentLifecycleService
+        const cancellationReason = dto.reason || 'customer_cancelled';
+        await this.appointmentLifecycleService.cancelAppointment(
+          tenantId,
+          dto.appointment_id!, // Non-null assertion: validated in CONFIRM MODE check
+          null, // Voice AI is system actor (no userId)
+          {
+            cancellation_reason: cancellationReason as any,
+            cancellation_notes: undefined,
+          },
+        );
+
+        this.logger.log(`[Tool] Appointment cancelled successfully: ${dto.appointment_id!}`);
+
+        return {
+          status: 'cancelled',
+          appointment_id: dto.appointment_id,
+          appointment_date: appointmentToCancel.scheduled_date,
+          appointment_time: appointmentToCancel.start_time,
+          cancellation_reason: cancellationReason,
+          message: `Your appointment on ${appointmentToCancel.scheduled_date} at ${appointmentToCancel.start_time} has been cancelled.`,
+          confirmation_sent: true,
+        };
+      } else {
+        // ========== INITIAL MODE: Return active appointments ==========
+        this.logger.log(`[Tool] INITIAL MODE: Returning active appointments`);
+
+        // If multiple appointments, ask caller to choose one
+        if (activeAppointments.length > 1) {
+          return {
+            status: 'multiple_appointments',
+            appointments: activeAppointments.map(apt => ({
+              id: apt.id,
+              date: apt.scheduled_date,
+              time: apt.start_time,
+              type: apt.appointment_type.name,
+            })),
+            message: 'You have multiple appointments. Which one would you like to cancel?',
+            action: 'Voice AI should read appointments and ask caller to choose one',
+          };
+        }
+
+        // Single appointment - confirm cancellation
+        const appointment = activeAppointments[0];
+        return {
+          status: 'multiple_appointments', // Reuse same status to trigger confirmation flow
+          appointments: [{
+            id: appointment.id,
+            date: appointment.scheduled_date,
+            time: appointment.start_time,
+            type: appointment.appointment_type.name,
+          }],
+          message: `I found your appointment on ${appointment.scheduled_date} at ${appointment.start_time}. Would you like to cancel this appointment?`,
+          action: 'Voice AI should confirm cancellation before proceeding',
+        };
+      }
+    } catch (error) {
+      this.logger.error(`[Tool] Error cancelling appointment: ${error.message}`, error.stack);
+      return {
+        status: 'error',
+        error: error.message || 'Could not cancel appointment',
       };
     }
   }

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { PendingApprovalsWidget } from '@/components/quotes/PendingApprovalsWidget';
+import { CalendarDashboardWidget } from '@/components/calendar/CalendarDashboardWidget';
 import { QuoteStatusBadge } from '@/components/quotes/QuoteStatusBadge';
 import { getDashboardOverview, getRecentQuotes, formatMoney, formatPercentageChange, getCustomerName, getLocation, type DashboardOverview, type RecentQuote } from '@/lib/api/quotes-dashboard';
 
@@ -327,6 +328,9 @@ export default function DashboardPage() {
 
           {/* Pending Approvals Widget - Sprint 4 */}
           <PendingApprovalsWidget autoRefreshInterval={30000} />
+
+          {/* Calendar Dashboard Widget - Sprint 40 */}
+          <CalendarDashboardWidget autoRefreshInterval={30000} />
 
           {/* Quick Actions */}
           <Card>
