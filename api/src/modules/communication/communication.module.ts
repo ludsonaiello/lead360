@@ -157,7 +157,7 @@ import { WebhookRetryProcessor } from './processors/webhook-retry.processor';
     EncryptionModule,
     FilesModule,
     AuditModule,
-    VoiceAiModule,  // B08: exposes VoiceAiSipService for IVR voice_ai action routing
+    VoiceAiModule, // B08: exposes VoiceAiSipService for IVR voice_ai action routing
 
     // Rate limiting configuration
     ThrottlerModule.forRoot([

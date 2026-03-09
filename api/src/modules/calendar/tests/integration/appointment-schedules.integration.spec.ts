@@ -32,7 +32,9 @@ describe('Appointment Schedules Integration Tests', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     app.setGlobalPrefix('api/v1');
 
     await app.init();
@@ -130,7 +132,9 @@ describe('Appointment Schedules Integration Tests', () => {
 
     it('should return 404 for non-existent appointment type', async () => {
       await request(app.getHttpServer())
-        .get('/api/v1/calendar/appointment-types/00000000-0000-0000-0000-000000000000/schedule')
+        .get(
+          '/api/v1/calendar/appointment-types/00000000-0000-0000-0000-000000000000/schedule',
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(404);
     });
@@ -274,7 +278,9 @@ describe('Appointment Schedules Integration Tests', () => {
   describe('PATCH /api/v1/calendar/appointment-types/:typeId/schedule/:dayOfWeek', () => {
     it('should update a single day schedule', async () => {
       const response = await request(app.getHttpServer())
-        .patch(`/api/v1/calendar/appointment-types/${appointmentTypeId}/schedule/1`)
+        .patch(
+          `/api/v1/calendar/appointment-types/${appointmentTypeId}/schedule/1`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           is_available: true,
@@ -297,7 +303,9 @@ describe('Appointment Schedules Integration Tests', () => {
 
     it('should mark a day as unavailable', async () => {
       const response = await request(app.getHttpServer())
-        .patch(`/api/v1/calendar/appointment-types/${appointmentTypeId}/schedule/2`)
+        .patch(
+          `/api/v1/calendar/appointment-types/${appointmentTypeId}/schedule/2`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           is_available: false,
@@ -314,7 +322,9 @@ describe('Appointment Schedules Integration Tests', () => {
 
     it('should update to single window (no second window)', async () => {
       const response = await request(app.getHttpServer())
-        .patch(`/api/v1/calendar/appointment-types/${appointmentTypeId}/schedule/3`)
+        .patch(
+          `/api/v1/calendar/appointment-types/${appointmentTypeId}/schedule/3`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           is_available: true,
@@ -336,7 +346,9 @@ describe('Appointment Schedules Integration Tests', () => {
 
     it('should reject invalid day_of_week (> 6)', async () => {
       await request(app.getHttpServer())
-        .patch(`/api/v1/calendar/appointment-types/${appointmentTypeId}/schedule/7`)
+        .patch(
+          `/api/v1/calendar/appointment-types/${appointmentTypeId}/schedule/7`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           is_available: true,
@@ -348,7 +360,9 @@ describe('Appointment Schedules Integration Tests', () => {
 
     it('should reject invalid day_of_week (< 0)', async () => {
       await request(app.getHttpServer())
-        .patch(`/api/v1/calendar/appointment-types/${appointmentTypeId}/schedule/-1`)
+        .patch(
+          `/api/v1/calendar/appointment-types/${appointmentTypeId}/schedule/-1`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           is_available: true,
@@ -360,7 +374,9 @@ describe('Appointment Schedules Integration Tests', () => {
 
     it('should reject invalid time format', async () => {
       await request(app.getHttpServer())
-        .patch(`/api/v1/calendar/appointment-types/${appointmentTypeId}/schedule/4`)
+        .patch(
+          `/api/v1/calendar/appointment-types/${appointmentTypeId}/schedule/4`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           is_available: true,
@@ -379,14 +395,20 @@ describe('Appointment Schedules Integration Tests', () => {
         .expect(200);
 
       // Verify all schedules belong to the correct appointment type
-      expect(response.body.every((s: any) => s.appointment_type_id === appointmentTypeId)).toBe(true);
+      expect(
+        response.body.every(
+          (s: any) => s.appointment_type_id === appointmentTypeId,
+        ),
+      ).toBe(true);
     });
   });
 
   describe('Time Window Validation', () => {
     it('should accept two time windows for a day', async () => {
       const response = await request(app.getHttpServer())
-        .patch(`/api/v1/calendar/appointment-types/${appointmentTypeId}/schedule/5`)
+        .patch(
+          `/api/v1/calendar/appointment-types/${appointmentTypeId}/schedule/5`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           is_available: true,
@@ -407,7 +429,9 @@ describe('Appointment Schedules Integration Tests', () => {
 
     it('should accept only first window with second window null', async () => {
       const response = await request(app.getHttpServer())
-        .patch(`/api/v1/calendar/appointment-types/${appointmentTypeId}/schedule/6`)
+        .patch(
+          `/api/v1/calendar/appointment-types/${appointmentTypeId}/schedule/6`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           is_available: true,

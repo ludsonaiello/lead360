@@ -45,7 +45,9 @@ describe('Google Calendar OAuth Integration Tests', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     app.setGlobalPrefix('api/v1');
 
     await app.init();
@@ -65,15 +67,27 @@ describe('Google Calendar OAuth Integration Tests', () => {
     userId = loginResponse.body.user.id;
 
     // Clean up any existing calendar connections
-    await prisma.calendar_external_block.deleteMany({ where: { tenant_id: tenantId } });
-    await prisma.calendar_sync_log.deleteMany({ where: { tenant_id: tenantId } });
-    await prisma.calendar_provider_connection.deleteMany({ where: { tenant_id: tenantId } });
+    await prisma.calendar_external_block.deleteMany({
+      where: { tenant_id: tenantId },
+    });
+    await prisma.calendar_sync_log.deleteMany({
+      where: { tenant_id: tenantId },
+    });
+    await prisma.calendar_provider_connection.deleteMany({
+      where: { tenant_id: tenantId },
+    });
   });
 
   afterAll(async () => {
-    await prisma.calendar_external_block.deleteMany({ where: { tenant_id: tenantId } });
-    await prisma.calendar_sync_log.deleteMany({ where: { tenant_id: tenantId } });
-    await prisma.calendar_provider_connection.deleteMany({ where: { tenant_id: tenantId } });
+    await prisma.calendar_external_block.deleteMany({
+      where: { tenant_id: tenantId },
+    });
+    await prisma.calendar_sync_log.deleteMany({
+      where: { tenant_id: tenantId },
+    });
+    await prisma.calendar_provider_connection.deleteMany({
+      where: { tenant_id: tenantId },
+    });
     await prisma.$disconnect();
     await app.close();
   });
@@ -86,7 +100,9 @@ describe('Google Calendar OAuth Integration Tests', () => {
         .expect(200);
 
       expect(response.body.authUrl).toBeDefined();
-      expect(response.body.authUrl).toContain('https://accounts.google.com/o/oauth2/v2/auth');
+      expect(response.body.authUrl).toContain(
+        'https://accounts.google.com/o/oauth2/v2/auth',
+      );
       expect(response.body.authUrl).toContain('scope=');
       expect(response.body.authUrl).toContain('calendar');
       expect(response.body.state).toBeDefined();
@@ -235,7 +251,9 @@ describe('Google Calendar OAuth Integration Tests', () => {
         .expect(200);
 
       if (response.body.items.length > 0) {
-        expect(response.body.items.every((log: any) => log.status === 'success')).toBe(true);
+        expect(
+          response.body.items.every((log: any) => log.status === 'success'),
+        ).toBe(true);
       }
     });
 
@@ -246,7 +264,9 @@ describe('Google Calendar OAuth Integration Tests', () => {
         .expect(200);
 
       if (response.body.items.length > 0) {
-        expect(response.body.items.every((log: any) => log.direction === 'outbound')).toBe(true);
+        expect(
+          response.body.items.every((log: any) => log.direction === 'outbound'),
+        ).toBe(true);
       }
     });
 
@@ -303,9 +323,11 @@ describe('Google Calendar OAuth Integration Tests', () => {
 
       // Response should only show data for authenticated tenant
       if (response.body.connected) {
-        const connection = await prisma.calendar_provider_connection.findUnique({
-          where: { tenant_id: tenantId },
-        });
+        const connection = await prisma.calendar_provider_connection.findUnique(
+          {
+            where: { tenant_id: tenantId },
+          },
+        );
         expect(connection).toBeDefined();
         expect(connection.tenant_id).toBe(tenantId);
       }

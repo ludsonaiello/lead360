@@ -30,6 +30,11 @@ const planVoiceConfigSchema = z.object({
     .min(0, 'Overage rate must be at least 0')
     .optional()
     .nullable(),
+  voice_ai_max_agent_profiles: z
+    .number()
+    .int('Must be a whole number')
+    .min(1, 'Must be at least 1')
+    .max(50, 'Cannot exceed 50'),
   block_overage: z.boolean(), // Helper field for UI toggle
 });
 
@@ -60,6 +65,7 @@ export default function PlanVoiceConfigForm({
       voice_ai_minutes_included: plan.voice_ai_minutes_included,
       voice_ai_overage_rate:
         plan.voice_ai_overage_rate !== null ? parseFloat(plan.voice_ai_overage_rate) : 0,
+      voice_ai_max_agent_profiles: plan.voice_ai_max_agent_profiles || 1,
       block_overage: plan.voice_ai_overage_rate === null,
     },
   });
@@ -76,6 +82,7 @@ export default function PlanVoiceConfigForm({
       voice_ai_enabled: data.voice_ai_enabled,
       voice_ai_minutes_included: data.voice_ai_minutes_included,
       voice_ai_overage_rate: data.block_overage ? null : data.voice_ai_overage_rate,
+      voice_ai_max_agent_profiles: data.voice_ai_max_agent_profiles,
     };
 
     await onSubmit(submitData);
@@ -121,6 +128,29 @@ export default function PlanVoiceConfigForm({
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Number of Voice AI minutes included in the monthly subscription (0 = no included minutes)
+            </p>
+          </div>
+
+          {/* Max Agent Profiles */}
+          <div>
+            <label
+              htmlFor="voice_ai_max_agent_profiles"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
+              Max Agent Profiles <span className="text-red-500">*</span>
+            </label>
+            <Input
+              id="voice_ai_max_agent_profiles"
+              type="number"
+              min="1"
+              max="50"
+              step="1"
+              {...register('voice_ai_max_agent_profiles', { valueAsNumber: true })}
+              placeholder="e.g., 5"
+              error={errors.voice_ai_max_agent_profiles?.message}
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Maximum number of voice agent profiles tenants on this plan can create (1-50). Profiles enable multilingual support.
             </p>
           </div>
 

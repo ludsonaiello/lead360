@@ -38,7 +38,9 @@ describe('Appointments Integration Tests', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     app.setGlobalPrefix('api/v1');
 
     await app.init();
@@ -97,10 +99,16 @@ describe('Appointments Integration Tests', () => {
 
   afterAll(async () => {
     await prisma.appointment.deleteMany({ where: { tenant_id: tenantId } });
-    await prisma.service_request.deleteMany({ where: { id: serviceRequestId } });
+    await prisma.service_request.deleteMany({
+      where: { id: serviceRequestId },
+    });
     await prisma.lead.deleteMany({ where: { id: leadId } });
-    await prisma.appointment_type_schedule.deleteMany({ where: { appointment_type_id: appointmentTypeId } });
-    await prisma.appointment_type.deleteMany({ where: { id: appointmentTypeId } });
+    await prisma.appointment_type_schedule.deleteMany({
+      where: { appointment_type_id: appointmentTypeId },
+    });
+    await prisma.appointment_type.deleteMany({
+      where: { id: appointmentTypeId },
+    });
     await prisma.$disconnect();
     await app.close();
   });
@@ -216,7 +224,9 @@ describe('Appointments Integration Tests', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
-      expect(response.body.items.every((a: any) => a.status === 'scheduled')).toBe(true);
+      expect(
+        response.body.items.every((a: any) => a.status === 'scheduled'),
+      ).toBe(true);
     });
 
     it('should filter by lead_id', async () => {
@@ -225,12 +235,16 @@ describe('Appointments Integration Tests', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
-      expect(response.body.items.every((a: any) => a.lead.id === leadId)).toBe(true);
+      expect(response.body.items.every((a: any) => a.lead.id === leadId)).toBe(
+        true,
+      );
     });
 
     it('should filter by date range', async () => {
       const response = await request(app.getHttpServer())
-        .get('/api/v1/calendar/appointments?date_from=2026-03-15&date_to=2026-03-16')
+        .get(
+          '/api/v1/calendar/appointments?date_from=2026-03-15&date_to=2026-03-16',
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
@@ -249,7 +263,9 @@ describe('Appointments Integration Tests', () => {
 
     it('should sort by scheduled_date', async () => {
       const response = await request(app.getHttpServer())
-        .get('/api/v1/calendar/appointments?sort_by=scheduled_date&sort_order=asc')
+        .get(
+          '/api/v1/calendar/appointments?sort_by=scheduled_date&sort_order=asc',
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
@@ -277,7 +293,9 @@ describe('Appointments Integration Tests', () => {
 
     it('should return 404 for non-existent appointment', async () => {
       await request(app.getHttpServer())
-        .get('/api/v1/calendar/appointments/00000000-0000-0000-0000-000000000000')
+        .get(
+          '/api/v1/calendar/appointments/00000000-0000-0000-0000-000000000000',
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(404);
     });
@@ -310,7 +328,9 @@ describe('Appointments Integration Tests', () => {
 
     it('should return 404 for non-existent appointment', async () => {
       await request(app.getHttpServer())
-        .patch('/api/v1/calendar/appointments/00000000-0000-0000-0000-000000000000')
+        .patch(
+          '/api/v1/calendar/appointments/00000000-0000-0000-0000-000000000000',
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           notes: 'Test',
@@ -326,7 +346,9 @@ describe('Appointments Integration Tests', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
-      expect(response.body.items.every((a: any) => a.tenant_id === tenantId)).toBe(true);
+      expect(
+        response.body.items.every((a: any) => a.tenant_id === tenantId),
+      ).toBe(true);
     });
   });
 });

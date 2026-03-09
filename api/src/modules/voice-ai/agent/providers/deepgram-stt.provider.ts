@@ -45,17 +45,25 @@ export class DeepgramSttProvider implements SttProvider {
       sendAudio: (audioChunk: Buffer) => {
         // Send the buffer's underlying ArrayBuffer, sliced to the actual data portion
         // Buffer.buffer may be a pooled ArrayBuffer larger than the actual data
-        connection.send(audioChunk.buffer.slice(audioChunk.byteOffset, audioChunk.byteOffset + audioChunk.byteLength));
+        connection.send(
+          audioChunk.buffer.slice(
+            audioChunk.byteOffset,
+            audioChunk.byteOffset + audioChunk.byteLength,
+          ),
+        );
       },
       on: (event, handler) => {
         if (event === 'transcript') {
-          connection.on(LiveTranscriptionEvents.Transcript, (data: LiveTranscriptionEvent) => {
-            const transcript = data.channel?.alternatives?.[0]?.transcript;
-            if (transcript) {
-              const isFinal = data.is_final || false;
-              handler(transcript, isFinal);
-            }
-          });
+          connection.on(
+            LiveTranscriptionEvents.Transcript,
+            (data: LiveTranscriptionEvent) => {
+              const transcript = data.channel?.alternatives?.[0]?.transcript;
+              if (transcript) {
+                const isFinal = data.is_final || false;
+                handler(transcript, isFinal);
+              }
+            },
+          );
         }
         if (event === 'error') {
           connection.on(LiveTranscriptionEvents.Error, handler);

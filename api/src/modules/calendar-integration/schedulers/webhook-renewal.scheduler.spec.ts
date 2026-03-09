@@ -123,7 +123,9 @@ describe('WebhookRenewalScheduler', () => {
       ]);
       connectionService.needsTokenRefresh.mockReturnValue(false);
       googleCalendarService.stopWatchChannel.mockResolvedValue(undefined);
-      googleCalendarService.createWatchChannel.mockResolvedValue(mockNewChannel);
+      googleCalendarService.createWatchChannel.mockResolvedValue(
+        mockNewChannel,
+      );
       connectionService.updateWebhookChannel.mockResolvedValue(undefined);
       syncLogService.logSync.mockResolvedValue(undefined);
 
@@ -204,7 +206,9 @@ describe('WebhookRenewalScheduler', () => {
       );
       connectionService.updateAccessToken.mockResolvedValue(undefined);
       googleCalendarService.stopWatchChannel.mockResolvedValue(undefined);
-      googleCalendarService.createWatchChannel.mockResolvedValue(mockNewChannel);
+      googleCalendarService.createWatchChannel.mockResolvedValue(
+        mockNewChannel,
+      );
       connectionService.updateWebhookChannel.mockResolvedValue(undefined);
       syncLogService.logSync.mockResolvedValue(undefined);
 
@@ -263,7 +267,9 @@ describe('WebhookRenewalScheduler', () => {
       ]);
       connectionService.needsTokenRefresh.mockReturnValue(false);
       googleCalendarService.stopWatchChannel.mockRejectedValue(error404);
-      googleCalendarService.createWatchChannel.mockResolvedValue(mockNewChannel);
+      googleCalendarService.createWatchChannel.mockResolvedValue(
+        mockNewChannel,
+      );
       connectionService.updateWebhookChannel.mockResolvedValue(undefined);
       syncLogService.logSync.mockResolvedValue(undefined);
 
@@ -321,7 +327,9 @@ describe('WebhookRenewalScheduler', () => {
         direction: 'inbound',
         action: 'webhook_renewed',
         status: 'failed',
-        errorMessage: expect.stringContaining('Failed to create webhook channel'),
+        errorMessage: expect.stringContaining(
+          'Failed to create webhook channel',
+        ),
         metadata: expect.objectContaining({
           scheduledRenewal: true,
         }),

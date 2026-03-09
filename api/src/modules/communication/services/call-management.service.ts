@@ -520,7 +520,9 @@ export class CallManagementService {
     });
 
     // If not found in call_record, try voice_call_log (Voice AI calls)
-    let voice_call_log: Awaited<ReturnType<typeof this.prisma.voice_call_log.findUnique>> = null;
+    let voice_call_log: Awaited<
+      ReturnType<typeof this.prisma.voice_call_log.findUnique>
+    > = null;
     let isVoiceAiCall = false;
 
     if (!call_record) {
@@ -537,7 +539,9 @@ export class CallManagementService {
 
     // If call not found in either table, log error and return
     if (!call_record && !voice_call_log) {
-      this.logger.error(`❌ Call not found in call_record or voice_call_log for CallSid: ${callSid}`);
+      this.logger.error(
+        `❌ Call not found in call_record or voice_call_log for CallSid: ${callSid}`,
+      );
       return;
     }
 
@@ -550,7 +554,9 @@ export class CallManagementService {
       return;
     }
 
-    this.logger.log(`🎙️  Recording ready for ${callType} call ${callSid}. Downloading...`);
+    this.logger.log(
+      `🎙️  Recording ready for ${callType} call ${callSid}. Downloading...`,
+    );
 
     try {
       // 1. Download recording from Twilio
@@ -623,14 +629,18 @@ export class CallManagementService {
         });
       }
 
-      this.logger.log(`✅ Recording stored for ${callType} call ${callSid}: ${publicUrl}`);
+      this.logger.log(
+        `✅ Recording stored for ${callType} call ${callSid}: ${publicUrl}`,
+      );
 
       // Auto-queue transcription job (only for IVR calls)
       // Voice AI calls already have real-time transcription via STT
       if (this.transcriptionJobService && !isVoiceAiCall) {
         try {
           await this.transcriptionJobService.queueTranscription(callRecord.id);
-          this.logger.log(`🎤 Transcription queued for ${callType} call ${callSid}`);
+          this.logger.log(
+            `🎤 Transcription queued for ${callType} call ${callSid}`,
+          );
         } catch (error) {
           this.logger.error(
             `⚠️  Failed to queue transcription for ${callSid}: ${error.message}`,
@@ -638,7 +648,9 @@ export class CallManagementService {
           // Don't throw - recording is still successful even if transcription fails to queue
         }
       } else if (isVoiceAiCall) {
-        this.logger.log(`🤖 Voice AI call already has real-time transcription, skipping recording transcription`);
+        this.logger.log(
+          `🤖 Voice AI call already has real-time transcription, skipping recording transcription`,
+        );
       }
     } catch (error) {
       this.logger.error(

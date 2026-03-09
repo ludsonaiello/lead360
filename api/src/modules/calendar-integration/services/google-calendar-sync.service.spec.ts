@@ -264,7 +264,9 @@ describe('GoogleCalendarSyncService', () => {
       (prisma.appointment.findUnique as jest.Mock).mockResolvedValue(
         mockAppointment,
       );
-      (connectionService.getActiveConnection as jest.Mock).mockResolvedValue(null);
+      (connectionService.getActiveConnection as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       const result = await service.processCreateEvent('appt-1');
 
@@ -410,7 +412,10 @@ describe('GoogleCalendarSyncService', () => {
       (connectionService.needsTokenRefresh as jest.Mock).mockReturnValue(false);
       (googleCalendar.deleteEvent as jest.Mock).mockResolvedValue(undefined);
 
-      const result = await service.processDeleteEvent('appt-1', 'gcal-event-123');
+      const result = await service.processDeleteEvent(
+        'appt-1',
+        'gcal-event-123',
+      );
 
       expect(result.success).toBe(true);
 
@@ -433,9 +438,14 @@ describe('GoogleCalendarSyncService', () => {
       (prisma.appointment.findUnique as jest.Mock).mockResolvedValue({
         tenant_id: 'tenant-1',
       });
-      (connectionService.getActiveConnection as jest.Mock).mockResolvedValue(null);
+      (connectionService.getActiveConnection as jest.Mock).mockResolvedValue(
+        null,
+      );
 
-      const result = await service.processDeleteEvent('appt-1', 'gcal-event-123');
+      const result = await service.processDeleteEvent(
+        'appt-1',
+        'gcal-event-123',
+      );
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('No active calendar connection');
@@ -473,17 +483,14 @@ describe('GoogleCalendarSyncService', () => {
       (prisma.appointment.findMany as jest.Mock).mockResolvedValue([]);
 
       // No existing external blocks (all new)
-      (prisma.calendar_external_block.findUnique as jest.Mock).mockResolvedValue(
-        null,
-      );
+      (
+        prisma.calendar_external_block.findUnique as jest.Mock
+      ).mockResolvedValue(null);
       (prisma.calendar_external_block.create as jest.Mock).mockResolvedValue({
         id: 'block-1',
       });
 
-      const result = await service.processIncrementalSync(
-        'tenant-1',
-        'conn-1',
-      );
+      const result = await service.processIncrementalSync('tenant-1', 'conn-1');
 
       expect(result.success).toBe(true);
       expect(result.eventsProcessed).toBe(2);
@@ -548,7 +555,9 @@ describe('GoogleCalendarSyncService', () => {
       (prisma.appointment.findMany as jest.Mock).mockResolvedValue([]);
 
       // Existing block found
-      (prisma.calendar_external_block.findUnique as jest.Mock).mockResolvedValue({
+      (
+        prisma.calendar_external_block.findUnique as jest.Mock
+      ).mockResolvedValue({
         id: 'existing-block-1',
         external_event_id: 'external-event-1',
       });
@@ -556,10 +565,7 @@ describe('GoogleCalendarSyncService', () => {
         id: 'existing-block-1',
       });
 
-      const result = await service.processIncrementalSync(
-        'tenant-1',
-        'conn-1',
-      );
+      const result = await service.processIncrementalSync('tenant-1', 'conn-1');
 
       expect(result.success).toBe(true);
       expect(result.eventsProcessed).toBe(1);
@@ -603,14 +609,13 @@ describe('GoogleCalendarSyncService', () => {
         nextSyncToken: 'sync-token-new-789',
       });
       (prisma.appointment.findMany as jest.Mock).mockResolvedValue([]);
-      (prisma.calendar_external_block.deleteMany as jest.Mock).mockResolvedValue({
+      (
+        prisma.calendar_external_block.deleteMany as jest.Mock
+      ).mockResolvedValue({
         count: 1,
       });
 
-      const result = await service.processIncrementalSync(
-        'tenant-1',
-        'conn-1',
-      );
+      const result = await service.processIncrementalSync('tenant-1', 'conn-1');
 
       expect(result.success).toBe(true);
       expect(result.eventsProcessed).toBe(1);
@@ -652,17 +657,14 @@ describe('GoogleCalendarSyncService', () => {
         },
       ]);
 
-      (prisma.calendar_external_block.findUnique as jest.Mock).mockResolvedValue(
-        null,
-      );
+      (
+        prisma.calendar_external_block.findUnique as jest.Mock
+      ).mockResolvedValue(null);
       (prisma.calendar_external_block.create as jest.Mock).mockResolvedValue({
         id: 'block-2',
       });
 
-      const result = await service.processIncrementalSync(
-        'tenant-1',
-        'conn-1',
-      );
+      const result = await service.processIncrementalSync('tenant-1', 'conn-1');
 
       expect(result.success).toBe(true);
       expect(result.eventsProcessed).toBe(2);
@@ -699,17 +701,14 @@ describe('GoogleCalendarSyncService', () => {
         nextSyncToken: 'sync-token-all-day',
       });
       (prisma.appointment.findMany as jest.Mock).mockResolvedValue([]);
-      (prisma.calendar_external_block.findUnique as jest.Mock).mockResolvedValue(
-        null,
-      );
+      (
+        prisma.calendar_external_block.findUnique as jest.Mock
+      ).mockResolvedValue(null);
       (prisma.calendar_external_block.create as jest.Mock).mockResolvedValue({
         id: 'block-all-day',
       });
 
-      const result = await service.processIncrementalSync(
-        'tenant-1',
-        'conn-1',
-      );
+      const result = await service.processIncrementalSync('tenant-1', 'conn-1');
 
       expect(result.success).toBe(true);
       expect(result.blocksCreated).toBe(1);
@@ -740,10 +739,7 @@ describe('GoogleCalendarSyncService', () => {
       });
       (prisma.appointment.findMany as jest.Mock).mockResolvedValue([]);
 
-      const result = await service.processIncrementalSync(
-        'tenant-1',
-        'conn-1',
-      );
+      const result = await service.processIncrementalSync('tenant-1', 'conn-1');
 
       expect(result.success).toBe(true);
 
@@ -781,17 +777,14 @@ describe('GoogleCalendarSyncService', () => {
         nextSyncToken: 'sync-token-invalid',
       });
       (prisma.appointment.findMany as jest.Mock).mockResolvedValue([]);
-      (prisma.calendar_external_block.findUnique as jest.Mock).mockResolvedValue(
-        null,
-      );
+      (
+        prisma.calendar_external_block.findUnique as jest.Mock
+      ).mockResolvedValue(null);
       (prisma.calendar_external_block.create as jest.Mock).mockResolvedValue({
         id: 'block-valid',
       });
 
-      const result = await service.processIncrementalSync(
-        'tenant-1',
-        'conn-1',
-      );
+      const result = await service.processIncrementalSync('tenant-1', 'conn-1');
 
       expect(result.success).toBe(true);
       expect(result.eventsProcessed).toBe(2);
@@ -802,12 +795,11 @@ describe('GoogleCalendarSyncService', () => {
     });
 
     it('should handle no active connection error', async () => {
-      (connectionService.getActiveConnection as jest.Mock).mockResolvedValue(null);
-
-      const result = await service.processIncrementalSync(
-        'tenant-1',
-        'conn-1',
+      (connectionService.getActiveConnection as jest.Mock).mockResolvedValue(
+        null,
       );
+
+      const result = await service.processIncrementalSync('tenant-1', 'conn-1');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('No active calendar connection');
@@ -829,10 +821,7 @@ describe('GoogleCalendarSyncService', () => {
         new Error('Google API rate limit exceeded'),
       );
 
-      const result = await service.processIncrementalSync(
-        'tenant-1',
-        'conn-1',
-      );
+      const result = await service.processIncrementalSync('tenant-1', 'conn-1');
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('Google API rate limit exceeded');
@@ -857,10 +846,7 @@ describe('GoogleCalendarSyncService', () => {
         new Error('Failed to refresh access token - user revoked access'),
       );
 
-      const result = await service.processIncrementalSync(
-        'tenant-1',
-        'conn-1',
-      );
+      const result = await service.processIncrementalSync('tenant-1', 'conn-1');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('refresh');
@@ -889,10 +875,7 @@ describe('GoogleCalendarSyncService', () => {
       });
       (prisma.appointment.findMany as jest.Mock).mockResolvedValue([]);
 
-      const result = await service.processIncrementalSync(
-        'tenant-1',
-        'conn-1',
-      );
+      const result = await service.processIncrementalSync('tenant-1', 'conn-1');
 
       expect(result.success).toBe(true);
 

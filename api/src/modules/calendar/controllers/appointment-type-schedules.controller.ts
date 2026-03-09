@@ -23,19 +23,14 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { AppointmentTypeSchedulesService } from '../services/appointment-type-schedules.service';
-import {
-  BulkUpdateScheduleDto,
-  UpdateSingleDayScheduleDto,
-} from '../dto';
+import { BulkUpdateScheduleDto, UpdateSingleDayScheduleDto } from '../dto';
 
 @ApiTags('Calendar - Appointment Type Schedules')
 @ApiBearerAuth()
 @Controller('calendar/appointment-types/:typeId/schedule')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AppointmentTypeSchedulesController {
-  private readonly logger = new Logger(
-    AppointmentTypeSchedulesController.name,
-  );
+  private readonly logger = new Logger(AppointmentTypeSchedulesController.name);
 
   constructor(
     private readonly schedulesService: AppointmentTypeSchedulesService,
@@ -85,10 +80,7 @@ export class AppointmentTypeSchedulesController {
     status: 404,
     description: 'Appointment type not found',
   })
-  async getSchedules(
-    @Request() req,
-    @Param('typeId') typeId: string,
-  ) {
+  async getSchedules(@Request() req, @Param('typeId') typeId: string) {
     return this.schedulesService.findSchedules(req.user.tenant_id, typeId);
   }
 

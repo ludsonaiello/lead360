@@ -8,11 +8,11 @@ import { Room, RemoteParticipant, ParticipantKind } from '@livekit/rtc-node';
  * SIP Participant attributes provided by LiveKit
  */
 export interface SipAttributes {
-  callSid: string | null;           // sip.twilio.callSid
-  trunkPhoneNumber: string | null;  // X-Called-Number custom header (actual Twilio number called)
+  callSid: string | null; // sip.twilio.callSid
+  trunkPhoneNumber: string | null; // X-Called-Number custom header (actual Twilio number called)
   callerPhoneNumber: string | null; // sip.phoneNumber (caller's number)
-  callStatus: string | null;        // sip.callStatus
-  trunkId: string | null;           // sip.trunkID
+  callStatus: string | null; // sip.callStatus
+  trunkId: string | null; // sip.trunkID
 }
 
 /**
@@ -24,7 +24,7 @@ export interface SipAttributes {
  */
 export async function waitForSipParticipant(
   room: Room,
-  timeoutMs: number = 30000
+  timeoutMs: number = 30000,
 ): Promise<RemoteParticipant | null> {
   const startTime = Date.now();
 
@@ -40,7 +40,7 @@ export async function waitForSipParticipant(
     }
 
     // Wait a bit before checking again
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 200));
   }
 
   console.error('[SIP] Timeout waiting for SIP participant');
@@ -55,31 +55,45 @@ export async function waitForSipParticipant(
  * (Cannot use X-Twilio-* prefix - reserved by Twilio and silently dropped)
  * LiveKit exposes custom SIP headers/query params with specific attribute keys.
  */
-export function extractSipAttributes(participant: RemoteParticipant): SipAttributes {
+export function extractSipAttributes(
+  participant: RemoteParticipant,
+): SipAttributes {
   const attrs = participant.attributes || {};
 
   // ✅ DIAGNOSTIC: Log ALL attributes to identify correct key for X-Called-Number
-  console.log('====================================================================');
+  console.log(
+    '====================================================================',
+  );
   console.log('  🔍 DIAGNOSTIC: ALL SIP PARTICIPANT ATTRIBUTES');
-  console.log('====================================================================');
+  console.log(
+    '====================================================================',
+  );
   console.log(JSON.stringify(attrs, null, 2));
-  console.log('====================================================================');
+  console.log(
+    '====================================================================',
+  );
 
   // Try multiple possible keys for X-Called-Number header/query param
   // LiveKit may expose it with different prefixes depending on how it's passed
   // IMPORTANT: Using X-Called-Number (not X-Twilio-Number which is reserved by Twilio)
   const calledNumber =
-    attrs['sip.h.X-Called-Number'] ||      // LiveKit header prefix pattern (.h.)
-    attrs['sip.X-Called-Number'] ||        // Direct SIP attribute pattern
-    attrs['X-Called-Number'] ||            // Query param pattern (no prefix)
-    attrs['sip.h.x-called-number'] ||      // Lowercase variant
-    attrs['sip.x-called-number'] ||        // Lowercase without .h.
+    attrs['sip.h.X-Called-Number'] || // LiveKit header prefix pattern (.h.)
+    attrs['sip.X-Called-Number'] || // Direct SIP attribute pattern
+    attrs['X-Called-Number'] || // Query param pattern (no prefix)
+    attrs['sip.h.x-called-number'] || // Lowercase variant
+    attrs['sip.x-called-number'] || // Lowercase without .h.
     null;
 
-  console.log(`[SIP] X-Called-Number lookup result: ${calledNumber || 'NOT FOUND'}`);
+  console.log(
+    `[SIP] X-Called-Number lookup result: ${calledNumber || 'NOT FOUND'}`,
+  );
   if (!calledNumber) {
-    console.error('[SIP] ⚠️  X-Called-Number NOT found in any expected attribute key!');
-    console.error('[SIP] Will fallback to sip.trunkPhoneNumber (trunk identifier "voice-ai")');
+    console.error(
+      '[SIP] ⚠️  X-Called-Number NOT found in any expected attribute key!',
+    );
+    console.error(
+      '[SIP] Will fallback to sip.trunkPhoneNumber (trunk identifier "voice-ai")',
+    );
   }
 
   const sipAttrs: SipAttributes = {

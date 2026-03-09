@@ -50,9 +50,7 @@ import {
 export class CalendarDashboardController {
   private readonly logger = new Logger(CalendarDashboardController.name);
 
-  constructor(
-    private readonly dashboardService: CalendarDashboardService,
-  ) {}
+  constructor(private readonly dashboardService: CalendarDashboardService) {}
 
   /**
    * GET /calendar/dashboard/upcoming
@@ -105,10 +103,7 @@ export class CalendarDashboardController {
       `GET /calendar/dashboard/upcoming - tenant: ${tenantId}, limit: ${limit}`,
     );
 
-    return await this.dashboardService.getUpcomingAppointments(
-      tenantId,
-      limit,
-    );
+    return await this.dashboardService.getUpcomingAppointments(tenantId, limit);
   }
 
   /**

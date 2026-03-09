@@ -12,11 +12,12 @@ export interface PlanWithVoiceConfig {
   name: string;
   description: string | null;
   monthly_price: unknown; // Decimal — serialized as string by Prisma
-  annual_price: unknown;  // Decimal — serialized as string by Prisma
+  annual_price: unknown; // Decimal — serialized as string by Prisma
   is_active: boolean;
   voice_ai_enabled: boolean;
   voice_ai_minutes_included: number;
   voice_ai_overage_rate: unknown; // Decimal | null
+  voice_ai_max_agent_profiles: number;
 }
 
 /**
@@ -45,6 +46,7 @@ export class VoiceAiPlanConfigService {
         voice_ai_enabled: true,
         voice_ai_minutes_included: true,
         voice_ai_overage_rate: true,
+        voice_ai_max_agent_profiles: true,
       },
       orderBy: { name: 'asc' },
     });
@@ -79,6 +81,7 @@ export class VoiceAiPlanConfigService {
       voice_ai_enabled?: boolean;
       voice_ai_minutes_included?: number;
       voice_ai_overage_rate?: number | null;
+      voice_ai_max_agent_profiles?: number;
     } = { updated_at: new Date() };
 
     if (dto.voice_ai_enabled !== undefined)
@@ -89,6 +92,9 @@ export class VoiceAiPlanConfigService {
 
     if (dto.voice_ai_overage_rate !== undefined)
       updateData.voice_ai_overage_rate = dto.voice_ai_overage_rate;
+
+    if (dto.voice_ai_max_agent_profiles !== undefined)
+      updateData.voice_ai_max_agent_profiles = dto.voice_ai_max_agent_profiles;
 
     return this.prisma.subscription_plan.update({
       where: { id: planId },

@@ -393,8 +393,7 @@ export class AppointmentLifecycleService {
           status: AppointmentStatus.SCHEDULED,
           source: oldAppointment.source,
           rescheduled_from_id: appointmentId,
-          external_calendar_event_id:
-            oldAppointment.external_calendar_event_id, // Inherit for Google Calendar update
+          external_calendar_event_id: oldAppointment.external_calendar_event_id, // Inherit for Google Calendar update
         },
         include: this.getAppointmentIncludes(),
       });
@@ -402,7 +401,9 @@ export class AppointmentLifecycleService {
       return { oldAppointment: updatedOldAppointment, newAppointment };
     });
 
-    this.logger.log(`[RESCHEDULE DEBUG] Transaction result: has oldAppointment=${!!result.oldAppointment}, has newAppointment=${!!result.newAppointment}`);
+    this.logger.log(
+      `[RESCHEDULE DEBUG] Transaction result: has oldAppointment=${!!result.oldAppointment}, has newAppointment=${!!result.newAppointment}`,
+    );
 
     // Audit log for old appointment
     await this.auditLogger.logTenantChange({
@@ -440,7 +441,9 @@ export class AppointmentLifecycleService {
     // This updates the existing Google Calendar event with new date/time
     if (result.newAppointment.external_calendar_event_id) {
       try {
-        await this.googleCalendarSync.queueUpdateEvent(result.newAppointment.id);
+        await this.googleCalendarSync.queueUpdateEvent(
+          result.newAppointment.id,
+        );
       } catch (error) {
         // Log but don't fail reschedule if sync queueing fails
         this.logger.error(
@@ -503,13 +506,15 @@ export class AppointmentLifecycleService {
     this.logger.log(
       `Appointment rescheduled: Old ${appointmentId} → New ${result.newAppointment.id}`,
     );
-    this.logger.log(`[RESCHEDULE DEBUG] Final result structure: ${JSON.stringify({
-      hasOldAppointment: !!result.oldAppointment,
-      hasNewAppointment: !!result.newAppointment,
-      oldId: result.oldAppointment?.id,
-      newId: result.newAppointment?.id,
-      resultKeys: Object.keys(result)
-    })}`);
+    this.logger.log(
+      `[RESCHEDULE DEBUG] Final result structure: ${JSON.stringify({
+        hasOldAppointment: !!result.oldAppointment,
+        hasNewAppointment: !!result.newAppointment,
+        oldId: result.oldAppointment?.id,
+        newId: result.newAppointment?.id,
+        resultKeys: Object.keys(result),
+      })}`,
+    );
     return result; // Return both old and new appointments
   }
 

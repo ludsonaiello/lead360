@@ -23,7 +23,10 @@ export function getApiConfig(): ApiConfig {
     return cachedConfig;
   }
 
-  const baseUrl = process.env.LEAD360_API_URL || process.env.API_URL || 'http://localhost:8000';
+  const baseUrl =
+    process.env.LEAD360_API_URL ||
+    process.env.API_URL ||
+    'http://localhost:8000';
   const agentKey = process.env.VOICE_AGENT_API_KEY || '';
   const timeoutMs = parseInt(process.env.VOICE_AGENT_TIMEOUT_MS || '10000', 10);
   const maxRetries = parseInt(process.env.VOICE_AGENT_MAX_RETRIES || '2', 10);
@@ -39,7 +42,9 @@ export function getApiConfig(): ApiConfig {
     maxRetries,
   };
 
-  console.log(`[API Client] Configured: baseUrl=${cachedConfig.baseUrl}, timeout=${cachedConfig.timeoutMs}ms`);
+  console.log(
+    `[API Client] Configured: baseUrl=${cachedConfig.baseUrl}, timeout=${cachedConfig.timeoutMs}ms`,
+  );
 
   return cachedConfig;
 }

@@ -35,7 +35,9 @@ describe('Voice AI Booking Integration Tests', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     app.setGlobalPrefix('api/v1');
 
     await app.init();
@@ -98,8 +100,12 @@ describe('Voice AI Booking Integration Tests', () => {
   afterAll(async () => {
     await prisma.appointment.deleteMany({ where: { lead_id: leadId } });
     await prisma.lead.deleteMany({ where: { id: leadId } });
-    await prisma.appointment_type_schedule.deleteMany({ where: { appointment_type_id: appointmentTypeId } });
-    await prisma.appointment_type.deleteMany({ where: { id: appointmentTypeId } });
+    await prisma.appointment_type_schedule.deleteMany({
+      where: { appointment_type_id: appointmentTypeId },
+    });
+    await prisma.appointment_type.deleteMany({
+      where: { id: appointmentTypeId },
+    });
     await prisma.$disconnect();
     await app.close();
   });
@@ -181,7 +187,9 @@ describe('Voice AI Booking Integration Tests', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
-      const voiceAiAppointments = response.body.items.filter((a: any) => a.source === 'voice_ai');
+      const voiceAiAppointments = response.body.items.filter(
+        (a: any) => a.source === 'voice_ai',
+      );
       expect(voiceAiAppointments.length).toBeGreaterThanOrEqual(1);
     });
 
@@ -230,7 +238,9 @@ describe('Voice AI Booking Integration Tests', () => {
       const authToken = loginResponse.body.access_token;
 
       const response = await request(app.getHttpServer())
-        .get(`/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-24&date_to=2026-03-28`)
+        .get(
+          `/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-24&date_to=2026-03-28`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 

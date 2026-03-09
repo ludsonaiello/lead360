@@ -5,7 +5,18 @@ import { createLlmProvider } from './providers/llm-factory';
 import { createTtsProvider } from './providers/tts-factory';
 import { AgentTool } from './tools/tool.interface';
 import { LlmMessage, LlmToolCall } from './providers/llm.interface';
-import { Room, RemoteTrack, RemoteAudioTrack, AudioStream, AudioSource, LocalAudioTrack, AudioFrame, TrackKind, TrackPublishOptions, LocalTrackPublication } from '@livekit/rtc-node';
+import {
+  Room,
+  RemoteTrack,
+  RemoteAudioTrack,
+  AudioStream,
+  AudioSource,
+  LocalAudioTrack,
+  AudioFrame,
+  TrackKind,
+  TrackPublishOptions,
+  LocalTrackPublication,
+} from '@livekit/rtc-node';
 import { ParticipantKind } from '@livekit/rtc-node';
 import { SipClient } from 'livekit-server-sdk';
 import { VoiceAILogger } from '../utils/voice-ai-logger.util';
@@ -13,7 +24,7 @@ import { CartesiaWebSocketTtsProvider } from './providers/cartesia-websocket-tts
 
 //BACKGROUND AUDIO
 import { voice } from '@livekit/agents';
-import { ReadableStream  } from 'stream/web';
+import { ReadableStream } from 'stream/web';
 
 /**
  * VoiceAgentSession — Sprint BAS24
@@ -56,7 +67,8 @@ export class VoiceAgentSession {
    * when validating if audio can be streamed.
    */
   private audioPublication: LocalTrackPublication | null = null;
-  private audioStreamReader: ReadableStreamDefaultReader<AudioFrame> | null = null;
+  private audioStreamReader: ReadableStreamDefaultReader<AudioFrame> | null =
+    null;
   private actionsTaken: string[] = [];
 
   // Sprint BAS-TTS: WebSocket streaming TTS for ultra-low latency
@@ -73,14 +85,26 @@ export class VoiceAgentSession {
   private accumulatedLlmTokens = 0;
 
   // Sprint 2: Call outcome tracking for end_call tool
-  private callOutcome: 'lead_created' | 'transferred' | 'not_interested' | 'information_provided' | 'service_unavailable' | 'abandoned' | 'other' | null = null;
+  private callOutcome:
+    | 'lead_created'
+    | 'transferred'
+    | 'not_interested'
+    | 'information_provided'
+    | 'service_unavailable'
+    | 'abandoned'
+    | 'other'
+    | null = null;
   private startTime: number = 0;
 
   constructor(
     private readonly context: VoiceAiContext,
     private readonly tools: AgentTool[],
     private readonly room: Room,
-    private readonly livekitConfig: { url: string; apiKey: string; apiSecret: string },
+    private readonly livekitConfig: {
+      url: string;
+      apiKey: string;
+      apiSecret: string;
+    },
     private readonly voiceLogger?: VoiceAILogger,
   ) {}
 
@@ -100,7 +124,9 @@ export class VoiceAgentSession {
   async start(): Promise<void> {
     try {
       this.startTime = Date.now(); // Sprint 2: Track session start time for duration logging
-      this.logger.log(`Starting voice session for tenant: ${this.context.tenant.id}`);
+      this.logger.log(
+        `Starting voice session for tenant: ${this.context.tenant.id}`,
+      );
       this.voiceLogger?.logSessionEvent('session_started', {
         tenant_id: this.context.tenant.id,
         company_name: this.context.tenant.company_name,
@@ -118,26 +144,44 @@ export class VoiceAgentSession {
       }
 
       // Initialize providers
-      this.voiceLogger?.logProviderInit('STT', this.context.providers.stt.provider_key, {
-        provider_id: this.context.providers.stt.provider_id,
-        language: this.context.behavior.language,
-        config: this.context.providers.stt.config,
-      });
-      const sttProvider = createSttProvider(this.context.providers.stt.provider_key);
+      this.voiceLogger?.logProviderInit(
+        'STT',
+        this.context.providers.stt.provider_key,
+        {
+          provider_id: this.context.providers.stt.provider_id,
+          language: this.context.behavior.language,
+          config: this.context.providers.stt.config,
+        },
+      );
+      const sttProvider = createSttProvider(
+        this.context.providers.stt.provider_key,
+      );
 
-      this.voiceLogger?.logProviderInit('LLM', this.context.providers.llm.provider_key, {
-        provider_id: this.context.providers.llm.provider_id,
-        model: this.context.providers.llm.config?.model,
-      });
-      const llmProvider = createLlmProvider(this.context.providers.llm.provider_key);
+      this.voiceLogger?.logProviderInit(
+        'LLM',
+        this.context.providers.llm.provider_key,
+        {
+          provider_id: this.context.providers.llm.provider_id,
+          model: this.context.providers.llm.config?.model,
+        },
+      );
+      const llmProvider = createLlmProvider(
+        this.context.providers.llm.provider_key,
+      );
 
-      this.voiceLogger?.logProviderInit('TTS', this.context.providers.tts.provider_key, {
-        provider_id: this.context.providers.tts.provider_id,
-        voice_id: this.context.providers.tts.voice_id,
-        language: this.context.behavior.language,
-        config: this.context.providers.tts.config,
-      });
-      const ttsProvider = createTtsProvider(this.context.providers.tts.provider_key);
+      this.voiceLogger?.logProviderInit(
+        'TTS',
+        this.context.providers.tts.provider_key,
+        {
+          provider_id: this.context.providers.tts.provider_id,
+          voice_id: this.context.providers.tts.voice_id,
+          language: this.context.behavior.language,
+          config: this.context.providers.tts.config,
+        },
+      );
+      const ttsProvider = createTtsProvider(
+        this.context.providers.tts.provider_key,
+      );
 
       // Initialize conversation with system prompt
       // Sprint 4: Add lead context if available (agent_sprint_fixes_feb27_4)
@@ -166,7 +210,9 @@ IMPORTANT:
           systemPrompt += `\nPrevious Notes: ${lead.notes}`;
         }
 
-        this.logger.log(`✅ Lead context added to system prompt: ${lead.full_name}`);
+        this.logger.log(
+          `✅ Lead context added to system prompt: ${lead.full_name}`,
+        );
         this.voiceLogger?.logSessionEvent('lead_context_added_to_prompt', {
           lead_id: lead.id,
           lead_name: lead.full_name,
@@ -176,9 +222,7 @@ IMPORTANT:
         this.logger.log('ℹ️  No lead context available - new caller');
       }
 
-      this.conversationHistory = [
-        { role: 'system', content: systemPrompt },
-      ];
+      this.conversationHistory = [{ role: 'system', content: systemPrompt }];
 
       this.voiceLogger?.logSessionEvent('system_prompt_loaded', {
         prompt_length: systemPrompt.length,
@@ -189,32 +233,43 @@ IMPORTANT:
       // Gap 2: Create and publish audio track for TTS output
       // Create audio source for TTS output (16kHz mono, matching Cartesia output)
       this.audioSource = new AudioSource(16000, 1);
-      this.audioTrack = LocalAudioTrack.createAudioTrack('agent-voice', this.audioSource);
+      this.audioTrack = LocalAudioTrack.createAudioTrack(
+        'agent-voice',
+        this.audioSource,
+      );
 
       // Publish the audio track to the room
       if (this.room.localParticipant) {
         this.audioPublication = await this.room.localParticipant.publishTrack(
           this.audioTrack,
-          new TrackPublishOptions()
+          new TrackPublishOptions(),
         );
-        this.logger.log(`✅ Published audio track to room with SID: ${this.audioPublication.sid}`);
+        this.logger.log(
+          `✅ Published audio track to room with SID: ${this.audioPublication.sid}`,
+        );
 
         // ====================================================================================
         // Wait for SIP participant to subscribe to our audio track
         // This ensures they're ready to receive audio before we start speaking
         // ====================================================================================
-        this.logger.log(`⏳ Waiting for SIP participant to subscribe to agent audio...`);
+        this.logger.log(
+          `⏳ Waiting for SIP participant to subscribe to agent audio...`,
+        );
 
         try {
           await Promise.race([
             this.audioPublication.waitForSubscription(),
             new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Subscription timeout')), 5000)
-            )
+              setTimeout(() => reject(new Error('Subscription timeout')), 5000),
+            ),
           ]);
-          this.logger.log(`✅ SIP participant subscribed - ready to stream audio`);
+          this.logger.log(
+            `✅ SIP participant subscribed - ready to stream audio`,
+          );
         } catch (error) {
-          this.logger.warn(`⚠️  Subscription wait timeout after 5s - proceeding anyway`);
+          this.logger.warn(
+            `⚠️  Subscription wait timeout after 5s - proceeding anyway`,
+          );
         }
 
         // Log audio publication details (not just track)
@@ -244,14 +299,18 @@ IMPORTANT:
             if (publication.sid === this.audioPublication.sid) {
               subscriberCount++;
               subscribers.push(`${participant.identity} (${participant.kind})`);
-              this.logger.log(`  📌 Subscriber detected: ${participant.identity} (kind: ${participant.kind})`);
+              this.logger.log(
+                `  📌 Subscriber detected: ${participant.identity} (kind: ${participant.kind})`,
+              );
             }
           }
         }
 
         this.logger.log(`📊 Audio track subscribers: ${subscriberCount}`);
         if (subscriberCount === 0) {
-          this.logger.warn(`⚠️  No subscribers yet - this is normal immediately after publishing`);
+          this.logger.warn(
+            `⚠️  No subscribers yet - this is normal immediately after publishing`,
+          );
         }
 
         // VoiceAI structured logging
@@ -284,13 +343,19 @@ IMPORTANT:
           this.logger.log(`  - Identity: ${participant.identity}`);
           this.logger.log(`  - Name: ${participant.name || 'N/A'}`);
           this.logger.log(`  - Kind: ${participant.kind}`);
-          this.logger.log(`  - Tracks published: ${participant.trackPublications.size}`);
+          this.logger.log(
+            `  - Tracks published: ${participant.trackPublications.size}`,
+          );
 
           // Log all tracks published by SIP participant
           let audioTrackCount = 0;
           for (const publication of participant.trackPublications.values()) {
-            const trackKind = publication.kind === TrackKind.KIND_AUDIO ? 'AUDIO' :
-                              publication.kind === TrackKind.KIND_VIDEO ? 'VIDEO' : 'UNKNOWN';
+            const trackKind =
+              publication.kind === TrackKind.KIND_AUDIO
+                ? 'AUDIO'
+                : publication.kind === TrackKind.KIND_VIDEO
+                  ? 'VIDEO'
+                  : 'UNKNOWN';
 
             this.logger.log(`  📡 Track: ${trackKind}`);
             this.logger.log(`    - SID: ${publication.sid}`);
@@ -304,13 +369,19 @@ IMPORTANT:
             }
           }
 
-          this.logger.log(`  ✅ SIP participant audio tracks published: ${audioTrackCount}`);
+          this.logger.log(
+            `  ✅ SIP participant audio tracks published: ${audioTrackCount}`,
+          );
 
           // Check if SIP participant is subscribed to OUR (agent's) audio track
           // Note: This might not be possible to check directly - we can only see their published tracks
           // and our own track subscriptions, not who is subscribed to our tracks.
-          this.logger.log(`  📊 Checking if SIP participant can receive our audio...`);
-          this.logger.log(`    Agent audio publication SID: ${this.audioPublication?.sid || 'unknown'}`);
+          this.logger.log(
+            `  📊 Checking if SIP participant can receive our audio...`,
+          );
+          this.logger.log(
+            `    Agent audio publication SID: ${this.audioPublication?.sid || 'unknown'}`,
+          );
 
           // VoiceAI structured logging
           this.voiceLogger?.logSessionEvent('sip_participant_check', {
@@ -331,12 +402,16 @@ IMPORTANT:
       }
 
       if (sipParticipantFound && !sipParticipantAudioPublished) {
-        this.logger.warn(`⚠️  SIP participant found but has NOT published audio track yet`);
+        this.logger.warn(
+          `⚠️  SIP participant found but has NOT published audio track yet`,
+        );
         this.voiceLogger?.logSessionEvent('sip_participant_no_audio', {});
       }
 
       if (sipParticipantFound && sipParticipantAudioPublished) {
-        this.logger.log(`✅ SIP participant is ready (has published audio track)`);
+        this.logger.log(
+          `✅ SIP participant is ready (has published audio track)`,
+        );
         this.voiceLogger?.logSessionEvent('sip_participant_ready', {});
       }
 
@@ -348,7 +423,9 @@ IMPORTANT:
       // The SIP participant needs time to subscribe to our audio track.
       // If we start playing before they're subscribed, they won't hear anything.
       // ====================================================================================
-      this.logger.log(`⏳ Waiting for SIP participant to be ready to receive audio...`);
+      this.logger.log(
+        `⏳ Waiting for SIP participant to be ready to receive audio...`,
+      );
 
       const maxSubscriberWaitMs = 5000;
       const subscriberWaitStart = Date.now();
@@ -359,20 +436,26 @@ IMPORTANT:
         // LiveKit auto-subscribes by default, so presence of participant usually means they'll subscribe
         if (this.room.remoteParticipants.size > 0) {
           sipParticipantReady = true;
-          this.logger.log(`✅ SIP participant ready to receive audio (${this.room.remoteParticipants.size} participants in room)`);
+          this.logger.log(
+            `✅ SIP participant ready to receive audio (${this.room.remoteParticipants.size} participants in room)`,
+          );
           break;
         }
 
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise((r) => setTimeout(r, 200));
       }
 
       if (!sipParticipantReady) {
-        this.logger.warn(`⚠️  No SIP participant found after ${maxSubscriberWaitMs}ms - proceeding anyway`);
+        this.logger.warn(
+          `⚠️  No SIP participant found after ${maxSubscriberWaitMs}ms - proceeding anyway`,
+        );
       }
 
       // Additional safety: Small delay to ensure audio track subscription is fully established
-      this.logger.log(`⏳ Waiting additional 500ms for audio subscription to stabilize...`);
-      await new Promise(r => setTimeout(r, 500));
+      this.logger.log(
+        `⏳ Waiting additional 500ms for audio subscription to stabilize...`,
+      );
+      await new Promise((r) => setTimeout(r, 500));
 
       // ====================================================================================
       // Sprint BAS-TTS-02: Initialize WebSocket streaming TTS for ultra-low latency
@@ -383,12 +466,17 @@ IMPORTANT:
 
       // Build streaming TTS config from context (dynamic configuration)
       const streamingTtsConfig = {
-        apiKey: this.context.providers.tts!.api_key,
-        voiceId: this.context.providers.tts!.voice_id || '',
-        model: (this.context.providers.tts!.config?.model as string) || 'sonic-3',
+        apiKey: this.context.providers.tts.api_key,
+        voiceId: this.context.providers.tts.voice_id || '',
+        model:
+          (this.context.providers.tts.config?.model as string) || 'sonic-3',
         language: this.context.behavior.language,
-        sampleRate: (this.context.providers.tts!.config?.outputFormat as any)?.sampleRate || 16000,
-        encoding: (this.context.providers.tts!.config?.outputFormat as any)?.encoding || 'pcm_s16le',
+        sampleRate:
+          (this.context.providers.tts.config?.outputFormat as any)
+            ?.sampleRate || 16000,
+        encoding:
+          (this.context.providers.tts.config?.outputFormat as any)?.encoding ||
+          'pcm_s16le',
       };
 
       await this.streamingTtsProvider.connect(streamingTtsConfig);
@@ -398,7 +486,8 @@ IMPORTANT:
         // Sprint Voice-UX-01: Support background contexts (filler, longwait) in addition to main context
         // Sprint 04: Removed && this.isAgentSpeaking check - audio should play even if it arrives after timeout
         const isMainContext = contextId === this.currentTtsContextId;
-        const isBackgroundContext = contextId.startsWith('longwait-') || contextId.startsWith('filler-');
+        const isBackgroundContext =
+          contextId.startsWith('longwait-') || contextId.startsWith('filler-');
 
         // Process audio for current main context OR background contexts
         // Audio will play even if it arrives after timeout (isAgentSpeaking = false)
@@ -407,8 +496,10 @@ IMPORTANT:
           this.audioChunkQueue.push(audioData);
 
           // Start processing queue if not already processing
-          this.processAudioChunkQueue().catch(error => {
-            this.logger.error(`Error in audio queue processor: ${error.message}`);
+          this.processAudioChunkQueue().catch((error) => {
+            this.logger.error(
+              `Error in audio queue processor: ${error.message}`,
+            );
             this.logger.error(`  Context: ${contextId}`);
           });
         }
@@ -433,10 +524,12 @@ IMPORTANT:
         this.currentTtsContextId = `greeting-${Date.now()}`;
         this.isAgentSpeaking = true;
 
-        this.logger.log(`🎙️  Playing greeting via streaming TTS (context: ${this.currentTtsContextId})`);
+        this.logger.log(
+          `🎙️  Playing greeting via streaming TTS (context: ${this.currentTtsContextId})`,
+        );
 
         // Stream greeting to TTS (send entire greeting at once, mark as final)
-        this.streamingTtsProvider!.streamText(
+        this.streamingTtsProvider.streamText(
           this.context.behavior.greeting,
           this.currentTtsContextId,
           true, // isFinal = true (flush audio immediately)
@@ -449,7 +542,7 @@ IMPORTANT:
         }, 10000);
 
         while (this.isAgentSpeaking) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
 
         clearTimeout(greetingTimeout);
@@ -468,51 +561,58 @@ IMPORTANT:
 
       // Handle transcripts
       let currentUtterance = '';
-      this.sttSession.on('transcript', async (text: string, isFinal: boolean) => {
-        if (!this.isActive) return;
+      this.sttSession.on(
+        'transcript',
+        async (text: string, isFinal: boolean) => {
+          if (!this.isActive) return;
 
-        currentUtterance = text;
+          currentUtterance = text;
 
-        // Log all transcripts (interim and final)
-        this.voiceLogger?.logSTT(text, isFinal);
+          // Log all transcripts (interim and final)
+          this.voiceLogger?.logSTT(text, isFinal);
 
-        if (isFinal && text.trim()) {
-          // ====================================================================================
-          // Sprint Voice-UX-01: Filter out invalid/noise transcripts
-          // ====================================================================================
-          if (!this.isValidTranscript(text)) {
-            this.logger.debug(`Filtering out invalid transcript: "${text}"`);
-            currentUtterance = '';
-            return;
-          }
-
-          // ====================================================================================
-          // Sprint BAS-TTS-03: Barge-in detection
-          // If user speaks while agent is talking, cancel current TTS generation
-          // ====================================================================================
-          if (this.isAgentSpeaking) {
-            this.logger.log(`🛑 Barge-in detected: User interrupted with "${text}"`);
-
-            // Cancel current TTS generation
-            if (this.currentTtsContextId && this.streamingTtsProvider) {
-              this.streamingTtsProvider.cancelContext(this.currentTtsContextId);
-              this.currentTtsContextId = null;
+          if (isFinal && text.trim()) {
+            // ====================================================================================
+            // Sprint Voice-UX-01: Filter out invalid/noise transcripts
+            // ====================================================================================
+            if (!this.isValidTranscript(text)) {
+              this.logger.debug(`Filtering out invalid transcript: "${text}"`);
+              currentUtterance = '';
+              return;
             }
 
-            // Stop agent speaking state (audio callback will ignore future chunks)
-            this.isAgentSpeaking = false;
+            // ====================================================================================
+            // Sprint BAS-TTS-03: Barge-in detection
+            // If user speaks while agent is talking, cancel current TTS generation
+            // ====================================================================================
+            if (this.isAgentSpeaking) {
+              this.logger.log(
+                `🛑 Barge-in detected: User interrupted with "${text}"`,
+              );
 
-            this.voiceLogger?.logSessionEvent('barge_in_detected', {
-              user_text: text,
-              cancelled_context: this.currentTtsContextId,
-            });
+              // Cancel current TTS generation
+              if (this.currentTtsContextId && this.streamingTtsProvider) {
+                this.streamingTtsProvider.cancelContext(
+                  this.currentTtsContextId,
+                );
+                this.currentTtsContextId = null;
+              }
+
+              // Stop agent speaking state (audio callback will ignore future chunks)
+              this.isAgentSpeaking = false;
+
+              this.voiceLogger?.logSessionEvent('barge_in_detected', {
+                user_text: text,
+                cancelled_context: this.currentTtsContextId,
+              });
+            }
+
+            this.logger.log(`User said: ${text}`);
+            await this.handleUtterance(text, llmProvider, ttsProvider);
+            currentUtterance = '';
           }
-
-          this.logger.log(`User said: ${text}`);
-          await this.handleUtterance(text, llmProvider, ttsProvider);
-          currentUtterance = '';
-        }
-      });
+        },
+      );
 
       this.sttSession.on('error', (error: Error) => {
         this.logger.error(`STT error: ${error.message}`, error.stack);
@@ -521,33 +621,49 @@ IMPORTANT:
 
       // Subscribe to caller audio from LiveKit room
       // Gap 1: Pipe incoming audio to STT
-      this.room.on('trackSubscribed', async (track: RemoteTrack, publication, participant) => {
-        if (track.kind === TrackKind.KIND_AUDIO) {
-          this.logger.log(`Subscribed to audio track from participant: ${participant.identity}`);
-          this.voiceLogger?.logSessionEvent('audio_track_subscribed', {
-            participant_identity: participant.identity,
-            participant_name: participant.name,
-            track_sid: track.sid,
-          });
+      this.room.on(
+        'trackSubscribed',
+        async (track: RemoteTrack, publication, participant) => {
+          if (track.kind === TrackKind.KIND_AUDIO) {
+            this.logger.log(
+              `Subscribed to audio track from participant: ${participant.identity}`,
+            );
+            this.voiceLogger?.logSessionEvent('audio_track_subscribed', {
+              participant_identity: participant.identity,
+              participant_name: participant.name,
+              track_sid: track.sid,
+            });
 
-          this.setupAudioPipeline(track as RemoteAudioTrack, this.sttSession);
-        }
-      });
+            this.setupAudioPipeline(track as RemoteAudioTrack, this.sttSession);
+          }
+        },
+      );
 
       // Check for already-subscribed tracks (fixes race condition where SIP participant
       // audio track is already subscribed before event listener is attached)
       for (const participant of this.room.remoteParticipants.values()) {
         if (participant.kind === ParticipantKind.SIP) {
           for (const publication of participant.trackPublications.values()) {
-            if (publication.track && publication.track.kind === TrackKind.KIND_AUDIO) {
-              this.logger.log(`Found already-subscribed audio track from: ${participant.identity}`);
-              this.voiceLogger?.logSessionEvent('audio_track_already_subscribed', {
-                participant_identity: participant.identity,
-                participant_name: participant.name,
-                track_sid: publication.track.sid,
-              });
+            if (
+              publication.track &&
+              publication.track.kind === TrackKind.KIND_AUDIO
+            ) {
+              this.logger.log(
+                `Found already-subscribed audio track from: ${participant.identity}`,
+              );
+              this.voiceLogger?.logSessionEvent(
+                'audio_track_already_subscribed',
+                {
+                  participant_identity: participant.identity,
+                  participant_name: participant.name,
+                  track_sid: publication.track.sid,
+                },
+              );
 
-              this.setupAudioPipeline(publication.track as RemoteAudioTrack, this.sttSession);
+              this.setupAudioPipeline(
+                publication.track as RemoteAudioTrack,
+                this.sttSession,
+              );
             }
           }
         }
@@ -570,7 +686,6 @@ IMPORTANT:
       this.voiceLogger?.logSessionEvent('session_ended', {
         actions_taken: this.actionsTaken,
       });
-
     } catch (error) {
       this.logger.error(`Voice session error: ${error.message}`, error.stack);
       this.voiceLogger?.logError(error, 'Voice session');
@@ -599,15 +714,19 @@ IMPORTANT:
       this.conversationHistory.push({ role: 'user', content: text });
 
       // Build tool definitions for LLM
-      const toolDefinitions = this.tools.map(t => t.definition);
+      const toolDefinitions = this.tools.map((t) => t.definition);
 
       // Log LLM request
-      this.voiceLogger?.logLLMRequest(this.conversationHistory, (this.context.providers.llm!.config?.model as string) || 'gpt-4o');
+      this.voiceLogger?.logLLMRequest(
+        this.conversationHistory,
+        (this.context.providers.llm!.config?.model as string) || 'gpt-4o',
+      );
 
       // Call LLM
       const llmSession = await llmProvider.chat({
         apiKey: this.context.providers.llm!.api_key,
-        model: (this.context.providers.llm!.config?.model as string) || 'gpt-4o',
+        model:
+          (this.context.providers.llm!.config?.model as string) || 'gpt-4o',
         messages: this.conversationHistory,
         tools: toolDefinitions,
         maxTokens: 200,
@@ -621,7 +740,10 @@ IMPORTANT:
 
         // Log response with tool calls
         const responseText = await llmSession.getText();
-        this.voiceLogger?.logLLMResponse(responseText || '[tool calls only]', toolCalls);
+        this.voiceLogger?.logLLMResponse(
+          responseText || '[tool calls only]',
+          toolCalls,
+        );
 
         // ═══════════════════════════════════════════════════════════════════════════
         // FIX: Add assistant message WITH tool_calls to history BEFORE adding tool results
@@ -629,8 +751,8 @@ IMPORTANT:
         // ═══════════════════════════════════════════════════════════════════════════
         this.conversationHistory.push({
           role: 'assistant',
-          content: responseText || '',  // May be empty when only tool calls
-          tool_calls: toolCalls,        // Include the tool_calls array
+          content: responseText || '', // May be empty when only tool calls
+          tool_calls: toolCalls, // Include the tool_calls array
         });
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -655,7 +777,9 @@ IMPORTANT:
 
             // Sprint 2: Check if end_call was invoked
             if (toolCall.function.name === 'end_call') {
-              this.logger.log('🔚 end_call detected - will end session after final response');
+              this.logger.log(
+                '🔚 end_call detected - will end session after final response',
+              );
               // Don't return here - let the LLM speak the final goodbye message first
               // Session will end naturally when isActive = false
             }
@@ -666,11 +790,15 @@ IMPORTANT:
         }
 
         // Get follow-up response after tool execution
-        this.voiceLogger?.logLLMRequest(this.conversationHistory, (this.context.providers.llm!.config?.model as string) || 'gpt-4o');
+        this.voiceLogger?.logLLMRequest(
+          this.conversationHistory,
+          (this.context.providers.llm!.config?.model as string) || 'gpt-4o',
+        );
 
         const followUpSession = await llmProvider.chat({
           apiKey: this.context.providers.llm!.api_key,
-          model: (this.context.providers.llm!.config?.model as string) || 'gpt-4o',
+          model:
+            (this.context.providers.llm!.config?.model as string) || 'gpt-4o',
           messages: this.conversationHistory,
           maxTokens: 200,
         });
@@ -683,36 +811,47 @@ IMPORTANT:
         let followUpText = '';
 
         try {
-          this.logger.log(`🎙️  Streaming follow-up response to TTS (context: ${this.currentTtsContextId})`);
+          this.logger.log(
+            `🎙️  Streaming follow-up response to TTS (context: ${this.currentTtsContextId})`,
+          );
 
           // Stream LLM tokens directly to TTS
           for await (const token of followUpSession.stream()) {
             followUpText += token;
-            this.streamingTtsProvider!.streamText(token, this.currentTtsContextId, false);
+            this.streamingTtsProvider!.streamText(
+              token,
+              this.currentTtsContextId,
+              false,
+            );
           }
 
           // Signal end of text (flush final audio)
-          this.streamingTtsProvider!.streamText('', this.currentTtsContextId, true);
+          this.streamingTtsProvider!.streamText(
+            '',
+            this.currentTtsContextId,
+            true,
+          );
 
           this.voiceLogger?.logLLMResponse(followUpText, []);
-          this.conversationHistory.push({ role: 'assistant', content: followUpText });
+          this.conversationHistory.push({
+            role: 'assistant',
+            content: followUpText,
+          });
           this.logger.log(`Assistant: ${followUpText}`);
 
           // Accumulate LLM token usage
           const usage = followUpSession.getUsage();
           this.accumulatedLlmTokens += usage.totalTokens;
-
         } finally {
           // Wait for TTS to complete before continuing
           while (this.isAgentSpeaking) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
           }
         }
 
         // Accumulate LLM token usage from initial session (with tool calls)
         const initialUsage = llmSession.getUsage();
         this.accumulatedLlmTokens += initialUsage.totalTokens;
-
       } else {
         // ====================================================================================
         // Sprint BAS-TTS-02: Stream response to WebSocket TTS (ultra-low latency)
@@ -723,35 +862,49 @@ IMPORTANT:
         let responseText = '';
 
         try {
-          this.logger.log(`🎙️  Streaming response to TTS (context: ${this.currentTtsContextId})`);
+          this.logger.log(
+            `🎙️  Streaming response to TTS (context: ${this.currentTtsContextId})`,
+          );
 
           // Stream LLM tokens directly to TTS
           for await (const token of llmSession.stream()) {
             responseText += token;
-            this.streamingTtsProvider!.streamText(token, this.currentTtsContextId, false);
+            this.streamingTtsProvider!.streamText(
+              token,
+              this.currentTtsContextId,
+              false,
+            );
           }
 
           // Signal end of text (flush final audio)
-          this.streamingTtsProvider!.streamText('', this.currentTtsContextId, true);
+          this.streamingTtsProvider!.streamText(
+            '',
+            this.currentTtsContextId,
+            true,
+          );
 
           this.voiceLogger?.logLLMResponse(responseText, []);
-          this.conversationHistory.push({ role: 'assistant', content: responseText });
+          this.conversationHistory.push({
+            role: 'assistant',
+            content: responseText,
+          });
           this.logger.log(`Assistant: ${responseText}`);
 
           // Accumulate LLM token usage
           const usage = llmSession.getUsage();
           this.accumulatedLlmTokens += usage.totalTokens;
-
         } finally {
           // Wait for TTS to complete before continuing
           while (this.isAgentSpeaking) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
           }
         }
       }
-
     } catch (error) {
-      this.logger.error(`Error handling utterance: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error handling utterance: ${error.message}`,
+        error.stack,
+      );
       this.voiceLogger?.logError(error, 'Handling utterance');
 
       // Sprint Voice-UX-01: Categorize error and use appropriate message
@@ -762,7 +915,9 @@ IMPORTANT:
       try {
         await this.speak(ttsProvider, errorMessage);
       } catch (speakError) {
-        this.logger.error(`Failed to speak error message: ${speakError.message}`);
+        this.logger.error(
+          `Failed to speak error message: ${speakError.message}`,
+        );
         this.voiceLogger?.logError(speakError, 'Speaking error message');
       }
     }
@@ -772,11 +927,18 @@ IMPORTANT:
    * Execute a tool call requested by the LLM.
    */
   private async executeToolCall(toolCall: LlmToolCall): Promise<void> {
-    const tool = this.tools.find(t => t.definition.function.name === toolCall.function.name);
+    const tool = this.tools.find(
+      (t) => t.definition.function.name === toolCall.function.name,
+    );
 
     if (!tool) {
       this.logger.warn(`Unknown tool requested: ${toolCall.function.name}`);
-      this.voiceLogger?.logToolCall(toolCall.function.name, JSON.parse(toolCall.function.arguments || '{}'), undefined, { error: 'Tool not found' });
+      this.voiceLogger?.logToolCall(
+        toolCall.function.name,
+        JSON.parse(toolCall.function.arguments || '{}'),
+        undefined,
+        { error: 'Tool not found' },
+      );
 
       this.conversationHistory.push({
         role: 'tool',
@@ -788,7 +950,9 @@ IMPORTANT:
 
     try {
       const args = JSON.parse(toolCall.function.arguments);
-      this.logger.log(`Executing tool: ${toolCall.function.name} with args: ${JSON.stringify(args)}`);
+      this.logger.log(
+        `Executing tool: ${toolCall.function.name} with args: ${JSON.stringify(args)}`,
+      );
 
       const result = await tool.execute(args, {
         tenant_id: this.context.tenant.id,
@@ -797,10 +961,16 @@ IMPORTANT:
       });
 
       // Log successful tool execution
-      this.voiceLogger?.logToolCall(toolCall.function.name, args, JSON.parse(result));
+      this.voiceLogger?.logToolCall(
+        toolCall.function.name,
+        args,
+        JSON.parse(result),
+      );
 
       // Track action
-      this.actionsTaken.push(`${toolCall.function.name}: ${JSON.stringify(args)}`);
+      this.actionsTaken.push(
+        `${toolCall.function.name}: ${JSON.stringify(args)}`,
+      );
 
       // Add tool result to conversation history
       this.conversationHistory.push({
@@ -818,7 +988,10 @@ IMPORTANT:
             this.transferNumber = parsed.transfer_to;
             this.transferReason = args.reason || 'User requested transfer';
 
-            this.voiceLogger?.logTransferRequest(this.transferReason || 'User requested transfer', args.department);
+            this.voiceLogger?.logTransferRequest(
+              this.transferReason || 'User requested transfer',
+              args.department,
+            );
           }
         } catch (e) {
           // Not a valid transfer response
@@ -865,15 +1038,21 @@ IMPORTANT:
           this.logger.error(`Error processing end_call result: ${e.message}`);
         }
       }
-
     } catch (error) {
       this.logger.error(`Tool execution error: ${error.message}`, error.stack);
-      this.voiceLogger?.logToolCall(toolCall.function.name, JSON.parse(toolCall.function.arguments || '{}'), undefined, error);
+      this.voiceLogger?.logToolCall(
+        toolCall.function.name,
+        JSON.parse(toolCall.function.arguments || '{}'),
+        undefined,
+        error,
+      );
 
       this.conversationHistory.push({
         role: 'tool',
         tool_call_id: toolCall.id,
-        content: JSON.stringify({ error: error.message || 'Tool execution failed' }),
+        content: JSON.stringify({
+          error: error.message || 'Tool execution failed',
+        }),
       });
     }
   }
@@ -885,10 +1064,15 @@ IMPORTANT:
     if (!text.trim()) return;
 
     try {
-      this.logger.log(`🗣️  Speaking: "${text.substring(0, 100)}..." (${text.length} chars)`);
+      this.logger.log(
+        `🗣️  Speaking: "${text.substring(0, 100)}..." (${text.length} chars)`,
+      );
 
       // VoiceAI structured logging
-      this.voiceLogger?.logTTS(text, this.context.providers.tts!.voice_id || 'default');
+      this.voiceLogger?.logTTS(
+        text,
+        this.context.providers.tts!.voice_id || 'default',
+      );
       this.voiceLogger?.logSessionEvent('tts_synthesis_start', {
         text_length: text.length,
         text_preview: text.substring(0, 100),
@@ -897,7 +1081,9 @@ IMPORTANT:
 
       // Log TTS request
       this.logger.log(`📤 Requesting TTS synthesis...`);
-      this.logger.debug(`  API Key: ${this.context.providers.tts!.api_key ? 'SET (length: ' + this.context.providers.tts!.api_key.length + ')' : 'MISSING'}`);
+      this.logger.debug(
+        `  API Key: ${this.context.providers.tts!.api_key ? 'SET (length: ' + this.context.providers.tts!.api_key.length + ')' : 'MISSING'}`,
+      );
       this.logger.debug(`  Voice ID: ${this.context.providers.tts!.voice_id}`);
       this.logger.debug(`  Language: ${this.context.behavior.language}`);
 
@@ -916,15 +1102,19 @@ IMPORTANT:
       this.logger.log(`✅ ✅ ✅ TTS AUDIO RECEIVED FROM PROVIDER ✅ ✅ ✅`);
       this.logger.log(`  Buffer length: ${audioBuffer.length} bytes`);
       this.logger.log(`  Expected format: PCM s16le, 16kHz, mono`);
-      this.logger.log(`  Sample count: ${audioBuffer.length / 2} samples (2 bytes per sample)`);
-      this.logger.log(`  Expected duration: ${((audioBuffer.length / 2) / 16000 * 1000).toFixed(0)}ms`);
+      this.logger.log(
+        `  Sample count: ${audioBuffer.length / 2} samples (2 bytes per sample)`,
+      );
+      this.logger.log(
+        `  Expected duration: ${((audioBuffer.length / 2 / 16000) * 1000).toFixed(0)}ms`,
+      );
 
       // VoiceAI structured logging
       this.voiceLogger?.logSessionEvent('tts_audio_received', {
         audio_bytes: audioBuffer.length,
         text_length: text.length,
         sample_count: audioBuffer.length / 2,
-        expected_duration_ms: (audioBuffer.length / 2) / 16000 * 1000,
+        expected_duration_ms: (audioBuffer.length / 2 / 16000) * 1000,
       });
 
       // Validate buffer is not empty
@@ -966,7 +1156,9 @@ IMPORTANT:
       const samplesPerFrame = (sampleRate * frameSizeMs) / 1000;
       const totalFrames = Math.ceil(samplesPerChannel / samplesPerFrame);
 
-      this.logger.log(`  Frame size: ${frameSizeMs}ms (${samplesPerFrame} samples/frame)`);
+      this.logger.log(
+        `  Frame size: ${frameSizeMs}ms (${samplesPerFrame} samples/frame)`,
+      );
       this.logger.log(`  Total frames to send: ${totalFrames}`);
 
       // VoiceAI structured logging
@@ -985,11 +1177,18 @@ IMPORTANT:
         const frameData = int16Array.slice(i, i + frameLength);
         const frameNumber = Math.floor(i / samplesPerFrame) + 1;
 
-        const audioFrame = new AudioFrame(frameData, sampleRate, numChannels, frameLength);
+        const audioFrame = new AudioFrame(
+          frameData,
+          sampleRate,
+          numChannels,
+          frameLength,
+        );
 
         // Log every 50th frame to avoid spam
         if (frameNumber % 50 === 0 || frameNumber === 1) {
-          this.logger.log(`📡 Sending frame ${frameNumber}/${totalFrames} (${frameLength} samples)`);
+          this.logger.log(
+            `📡 Sending frame ${frameNumber}/${totalFrames} (${frameLength} samples)`,
+          );
         }
 
         try {
@@ -1001,7 +1200,6 @@ IMPORTANT:
           if (frameNumber <= 5) {
             this.logger.debug(`✅ Frame ${frameNumber} captured successfully`);
           }
-
         } catch (error) {
           framesFailed++;
           this.logger.error(`❌ ❌ ❌ FRAME CAPTURE FAILED ❌ ❌ ❌`);
@@ -1023,7 +1221,9 @@ IMPORTANT:
       this.logger.log(`✅ ✅ ✅ ALL FRAMES SENT TO LIVEKIT ✅ ✅ ✅`);
       this.logger.log(`  Frames sent: ${framesSent}/${totalFrames}`);
       this.logger.log(`  Frames failed: ${framesFailed}`);
-      this.logger.log(`  Audio duration: ${(samplesPerChannel / sampleRate * 1000).toFixed(0)}ms`);
+      this.logger.log(
+        `  Audio duration: ${((samplesPerChannel / sampleRate) * 1000).toFixed(0)}ms`,
+      );
       this.logger.log(`  Total samples: ${samplesPerChannel}`);
 
       // VoiceAI structured logging
@@ -1033,7 +1233,6 @@ IMPORTANT:
         duration_ms: (samplesPerChannel / sampleRate) * 1000,
         total_samples: samplesPerChannel,
       });
-
     } catch (error) {
       this.logger.error(`❌ ❌ ❌ TTS/AUDIO PIPELINE ERROR ❌ ❌ ❌`);
       this.logger.error(`  Error message: ${error.message}`);
@@ -1053,8 +1252,12 @@ IMPORTANT:
 
       // Log pipeline state at time of error
       this.logger.error(`📊 Pipeline State at Error:`);
-      this.logger.error(`  - Audio source: ${this.audioSource ? 'initialized' : 'null/closed'}`);
-      this.logger.error(`  - Audio track: ${this.audioTrack ? 'initialized' : 'null/closed'}`);
+      this.logger.error(
+        `  - Audio source: ${this.audioSource ? 'initialized' : 'null/closed'}`,
+      );
+      this.logger.error(
+        `  - Audio track: ${this.audioTrack ? 'initialized' : 'null/closed'}`,
+      );
 
       if (this.audioSource) {
         try {
@@ -1067,8 +1270,12 @@ IMPORTANT:
 
       if (this.audioPublication) {
         try {
-          this.logger.error(`  - Audio publication SID: ${this.audioPublication.sid}`);
-          this.logger.error(`  - Audio publication muted: ${this.audioPublication.muted}`);
+          this.logger.error(
+            `  - Audio publication SID: ${this.audioPublication.sid}`,
+          );
+          this.logger.error(
+            `  - Audio publication muted: ${this.audioPublication.muted}`,
+          );
         } catch (e) {
           this.logger.error(`  - Could not read audio publication properties`);
         }
@@ -1088,8 +1295,12 @@ IMPORTANT:
       this.logger.error(`📝 Context:`);
       this.logger.error(`  - Text length: ${text.length} characters`);
       this.logger.error(`  - Text preview: "${text.substring(0, 100)}..."`);
-      this.logger.error(`  - Voice ID: ${this.context.providers.tts!.voice_id || 'not set'}`);
-      this.logger.error(`  - TTS provider: ${this.context.providers.tts!.provider_key}`);
+      this.logger.error(
+        `  - Voice ID: ${this.context.providers.tts!.voice_id || 'not set'}`,
+      );
+      this.logger.error(
+        `  - TTS provider: ${this.context.providers.tts!.provider_key}`,
+      );
 
       // VoiceAI structured logging
       this.voiceLogger?.logError(error, 'TTS synthesis or audio publishing');
@@ -1115,11 +1326,17 @@ IMPORTANT:
    *   2. Mark session as inactive
    *   3. Signal LiveKit to transfer the SIP call
    */
-  private async handleTransfer(phoneNumber: string, ttsProvider: any): Promise<void> {
+  private async handleTransfer(
+    phoneNumber: string,
+    ttsProvider: any,
+  ): Promise<void> {
     this.logger.log(`Transferring call to: ${phoneNumber}`);
 
     try {
-      await this.speak(ttsProvider, 'Let me transfer you to a team member right away.');
+      await this.speak(
+        ttsProvider,
+        'Let me transfer you to a team member right away.',
+      );
       this.isActive = false;
 
       // Gap 3: Execute SIP transfer
@@ -1132,13 +1349,18 @@ IMPORTANT:
 
       // Find the SIP participant in the room
       // The caller is a remote participant (not the agent)
-      const sipParticipant = Array.from(this.room.remoteParticipants.values()).find(
+      const sipParticipant = Array.from(
+        this.room.remoteParticipants.values(),
+      ).find(
         (p) => p.kind === ParticipantKind.STANDARD, // SIP participants are standard participants (kind = 0)
       );
 
       if (!sipParticipant) {
         this.logger.error('No SIP participant found in room - cannot transfer');
-        this.voiceLogger?.logError(new Error('No SIP participant found'), 'Transfer execution');
+        this.voiceLogger?.logError(
+          new Error('No SIP participant found'),
+          'Transfer execution',
+        );
         return;
       }
 
@@ -1150,17 +1372,13 @@ IMPORTANT:
       );
 
       // Log detailed transfer execution
-      this.voiceLogger?.logTransferExecution(
-        phoneNumber,
-        participantIdentity,
-        {
-          room_name: roomName,
-          participant_identity: participantIdentity,
-          participant_name: sipParticipant.name,
-          play_dialtone: true,
-          livekit_url: this.livekitConfig.url,
-        },
-      );
+      this.voiceLogger?.logTransferExecution(phoneNumber, participantIdentity, {
+        room_name: roomName,
+        participant_identity: participantIdentity,
+        participant_name: sipParticipant.name,
+        play_dialtone: true,
+        livekit_url: this.livekitConfig.url,
+      });
 
       // Execute transfer via LiveKit SIP API
       await sipClient.transferSipParticipant(
@@ -1180,17 +1398,24 @@ IMPORTANT:
 
       // Track transfer action
       this.actionsTaken.push(`Transfer to ${phoneNumber}`);
-
     } catch (error) {
       this.logger.error(`Transfer error: ${error.message}`, error.stack);
       this.voiceLogger?.logError(error, 'Transfer execution failed');
 
       // Try to inform the caller
       try {
-        await this.speak(ttsProvider, "I'm sorry, I couldn't complete the transfer. Please try calling back.");
+        await this.speak(
+          ttsProvider,
+          "I'm sorry, I couldn't complete the transfer. Please try calling back.",
+        );
       } catch (speakError) {
-        this.logger.error(`Failed to speak transfer error message: ${speakError.message}`);
-        this.voiceLogger?.logError(speakError, 'Speaking transfer error message');
+        this.logger.error(
+          `Failed to speak transfer error message: ${speakError.message}`,
+        );
+        this.voiceLogger?.logError(
+          speakError,
+          'Speaking transfer error message',
+        );
       }
     }
   }
@@ -1239,8 +1464,14 @@ IMPORTANT:
     // Safety check: Verify publication exists and has valid SID before capturing frames
     // If track is not properly published, captureFrame() will throw InvalidState error
     // ====================================================================================
-    if (!this.audioPublication || !this.audioPublication.sid || this.audioPublication.sid === 'TR_unknown') {
-      this.logger.warn(`Audio publication not ready (SID: ${this.audioPublication?.sid || 'null'}) - dropping chunk`);
+    if (
+      !this.audioPublication ||
+      !this.audioPublication.sid ||
+      this.audioPublication.sid === 'TR_unknown'
+    ) {
+      this.logger.warn(
+        `Audio publication not ready (SID: ${this.audioPublication?.sid || 'null'}) - dropping chunk`,
+      );
       return;
     }
 
@@ -1270,22 +1501,30 @@ IMPORTANT:
         const frameData = int16Array.slice(i, i + frameLength);
 
         // Create audio frame (10ms of audio)
-        const audioFrame = new AudioFrame(frameData, sampleRate, numChannels, frameLength);
+        const audioFrame = new AudioFrame(
+          frameData,
+          sampleRate,
+          numChannels,
+          frameLength,
+        );
 
         // Send frame sequentially - await provides natural pacing for smooth playback
         try {
           await this.audioSource.captureFrame(audioFrame);
         } catch (error) {
-          this.logger.error(`Failed to capture audio frame (offset ${i}/${samplesPerChannel} samples): ${error.message}`);
+          this.logger.error(
+            `Failed to capture audio frame (offset ${i}/${samplesPerChannel} samples): ${error.message}`,
+          );
           this.logger.error(`  Publication SID: ${this.audioPublication?.sid}`);
           this.logger.error(`  Frame samples: ${frameLength}`);
           this.logger.error(`  Total chunk samples: ${samplesPerChannel}`);
           throw error; // Stop processing on frame error
         }
       }
-
     } catch (error) {
-      this.logger.error(`Error streaming audio chunk to LiveKit: ${error.message}`);
+      this.logger.error(
+        `Error streaming audio chunk to LiveKit: ${error.message}`,
+      );
       this.logger.error(`  Publication SID: ${this.audioPublication?.sid}`);
       this.logger.error(`  Buffer length: ${audioData.length} bytes`);
       this.logger.error(`  Samples: ${audioData.length / 2}`);
@@ -1358,7 +1597,9 @@ IMPORTANT:
 
       // Sprint 05: Clear audio chunk queue
       if (this.audioChunkQueue.length > 0) {
-        this.logger.log(`Clearing ${this.audioChunkQueue.length} pending audio chunks from queue`);
+        this.logger.log(
+          `Clearing ${this.audioChunkQueue.length} pending audio chunks from queue`,
+        );
         this.audioChunkQueue = [];
       }
       this.isProcessingAudioQueue = false;
@@ -1507,7 +1748,7 @@ IMPORTANT:
     try {
       const audioStream = new AudioStream(track, {
         sampleRate: 16000, // Match Deepgram's expected sample rate
-        numChannels: 1,    // Mono audio
+        numChannels: 1, // Mono audio
       });
 
       // Read audio frames and send to STT
@@ -1515,12 +1756,17 @@ IMPORTANT:
 
       // Start reading frames in background
       this.pipeAudioToStt(this.audioStreamReader, sttSession).catch((error) => {
-        this.logger.error(`Error piping audio to STT: ${error.message}`, error.stack);
+        this.logger.error(
+          `Error piping audio to STT: ${error.message}`,
+          error.stack,
+        );
         this.voiceLogger?.logError(error, 'Audio piping to STT');
       });
-
     } catch (error) {
-      this.logger.error(`Error setting up audio stream: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error setting up audio stream: ${error.message}`,
+        error.stack,
+      );
       this.voiceLogger?.logError(error, 'Audio stream setup');
     }
   }
@@ -1546,14 +1792,21 @@ IMPORTANT:
         if (value) {
           // Convert AudioFrame to Buffer
           // AudioFrame.data is Int16Array, need to convert to Buffer
-          const buffer = Buffer.from(value.data.buffer, value.data.byteOffset, value.data.byteLength);
+          const buffer = Buffer.from(
+            value.data.buffer,
+            value.data.byteOffset,
+            value.data.byteLength,
+          );
 
           // Send to STT
           sttSession.sendAudio(buffer);
         }
       }
     } catch (error) {
-      this.logger.error(`Error reading audio stream: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error reading audio stream: ${error.message}`,
+        error.stack,
+      );
     } finally {
       try {
         reader.releaseLock();
@@ -1569,7 +1822,7 @@ IMPORTANT:
   private async waitUntilStopped(): Promise<void> {
     // Poll every 100ms until inactive
     while (this.isActive) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
 
@@ -1583,22 +1836,25 @@ IMPORTANT:
    */
   private categorizeError(error: Error): 'stt' | 'llm' | 'tool' | 'system' {
     // STT errors
-    if (error.name?.includes('Deepgram') ||
-        error.message?.includes('transcription') ||
-        error.message?.includes('STT')) {
+    if (
+      error.name?.includes('Deepgram') ||
+      error.message?.includes('transcription') ||
+      error.message?.includes('STT')
+    ) {
       return 'stt';
     }
 
     // LLM errors
-    if (error.message?.includes('OpenAI') ||
-        error.message?.includes('completion') ||
-        error.message?.includes('LLM')) {
+    if (
+      error.message?.includes('OpenAI') ||
+      error.message?.includes('completion') ||
+      error.message?.includes('LLM')
+    ) {
       return 'llm';
     }
 
     // Tool execution errors
-    if (error.message?.includes('tool') ||
-        error.message?.includes('execute')) {
+    if (error.message?.includes('tool') || error.message?.includes('execute')) {
       return 'tool';
     }
 
@@ -1631,7 +1887,7 @@ IMPORTANT:
   private getRandomPhrase(phrases: string[]): string {
     if (!phrases || phrases.length === 0) {
       // Fallback if admin deleted all phrases
-      return "Sorry, could you repeat that?";
+      return 'Sorry, could you repeat that?';
     }
     return phrases[Math.floor(Math.random() * phrases.length)];
   }
@@ -1679,7 +1935,7 @@ IMPORTANT:
     }
 
     const fillerPhrase = this.getRandomPhrase(
-      this.context.conversational_phrases.filler_phrases
+      this.context.conversational_phrases.filler_phrases,
     );
 
     this.logger.log(`🗣️  Speaking filler: "${fillerPhrase}"`);
@@ -1694,17 +1950,18 @@ IMPORTANT:
 
       // Wait for playback with timeout
       const startTime = Date.now();
-      const maxWaitMs = 5000;  // Filler should be short
+      const maxWaitMs = 5000; // Filler should be short
 
-      while (this.isAgentSpeaking && (Date.now() - startTime) < maxWaitMs) {
-        await new Promise(r => setTimeout(r, 100));
+      while (this.isAgentSpeaking && Date.now() - startTime < maxWaitMs) {
+        await new Promise((r) => setTimeout(r, 100));
       }
 
       if (this.isAgentSpeaking) {
-        this.logger.warn('Filler phrase timeout - proceeding with tool execution');
+        this.logger.warn(
+          'Filler phrase timeout - proceeding with tool execution',
+        );
         this.isAgentSpeaking = false;
       }
-
     } catch (error) {
       this.logger.error(`Failed to speak filler phrase: ${error.message}`);
       this.isAgentSpeaking = false;
@@ -1718,8 +1975,8 @@ IMPORTANT:
    * Sprint: Voice-UX-01
    */
   private startLongWaitMonitor(): { stop: () => void } {
-    const LONG_WAIT_THRESHOLD_MS = 20000;  // 20 seconds (user preference)
-    const PERIODIC_UPDATE_MS = 15000;       // Every 15 seconds after threshold
+    const LONG_WAIT_THRESHOLD_MS = 20000; // 20 seconds (user preference)
+    const PERIODIC_UPDATE_MS = 15000; // Every 15 seconds after threshold
 
     let isStopped = false;
     let timerId: NodeJS.Timeout | null = null;
@@ -1733,7 +1990,9 @@ IMPORTANT:
       if (isStopped) return;
 
       const elapsed = Date.now() - startTime;
-      this.logger.log(`⏱️  Long wait detected (${elapsed}ms) - speaking update message`);
+      this.logger.log(
+        `⏱️  Long wait detected (${elapsed}ms) - speaking update message`,
+      );
 
       await this.speakLongWaitMessage();
 
@@ -1742,7 +2001,6 @@ IMPORTANT:
         if (isStopped) return;
         await this.speakLongWaitMessage();
       }, PERIODIC_UPDATE_MS);
-
     }, LONG_WAIT_THRESHOLD_MS);
 
     // Return controller
@@ -1752,7 +2010,7 @@ IMPORTANT:
         if (timerId) clearTimeout(timerId);
         if (periodicTimerId) clearInterval(periodicTimerId);
         this.logger.log('⏱️  Long-wait monitor stopped');
-      }
+      },
     };
   }
 
@@ -1764,7 +2022,7 @@ IMPORTANT:
     if (!this.streamingTtsProvider) return;
 
     const message = this.getRandomPhrase(
-      this.context.conversational_phrases.long_wait_messages
+      this.context.conversational_phrases.long_wait_messages,
     );
 
     this.logger.log(`🗣️  Speaking long-wait message: "${message}"`);

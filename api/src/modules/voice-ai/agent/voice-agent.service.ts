@@ -1,5 +1,15 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
-import { AgentServer, ServerOptions, JobRequest, initializeLogger } from '@livekit/agents';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
+import {
+  AgentServer,
+  ServerOptions,
+  JobRequest,
+  initializeLogger,
+} from '@livekit/agents';
 import { ParticipantKind } from '@livekit/rtc-node';
 import { join } from 'path';
 import { VoiceAiGlobalConfigService } from '../services/voice-ai-global-config.service';
@@ -16,7 +26,12 @@ import { CheckServiceAreaTool } from './tools/check-service-area.tool';
 import { TransferCallTool } from './tools/transfer-call.tool';
 // REMOVED: setAgentServiceRegistry - no longer needed (VAB-04)
 // Agent now uses HTTP API instead of service registry
-import { createVoiceAILogger, VoiceAILogCategory, VoiceAILogger, VoiceAILogLevel } from '../utils/voice-ai-logger.util';
+import {
+  createVoiceAILogger,
+  VoiceAILogCategory,
+  VoiceAILogger,
+  VoiceAILogLevel,
+} from '../utils/voice-ai-logger.util';
 
 /**
  * VoiceAgentService
@@ -72,14 +87,19 @@ export class VoiceAgentService implements OnModuleInit, OnModuleDestroy {
 
       const livekitConfig = await this.globalConfigService.getLiveKitConfig();
 
-      if (!livekitConfig.url || !livekitConfig.apiKey || !livekitConfig.apiSecret) {
-        this.logger.warn('LiveKit credentials not configured — voice agent not started');
+      if (
+        !livekitConfig.url ||
+        !livekitConfig.apiKey ||
+        !livekitConfig.apiSecret
+      ) {
+        this.logger.warn(
+          'LiveKit credentials not configured — voice agent not started',
+        );
         return;
       }
 
       await this.startWorker(livekitConfig);
       this.logger.log('Voice AI agent worker started successfully');
-
     } catch (error) {
       // CRITICAL: Never crash the NestJS API if voice agent fails to start
       this.logger.error(
@@ -110,7 +130,11 @@ export class VoiceAgentService implements OnModuleInit, OnModuleDestroy {
    *
    * @param config Decrypted LiveKit connection details
    */
-  private async startWorker(config: { url: string; apiKey: string; apiSecret: string }): Promise<void> {
+  private async startWorker(config: {
+    url: string;
+    apiKey: string;
+    apiSecret: string;
+  }): Promise<void> {
     this.logger.log(`Starting LiveKit AgentServer: ${config.url}`);
 
     // Initialize LiveKit's internal logger (required before AgentServer creation)
@@ -137,7 +161,10 @@ export class VoiceAgentService implements OnModuleInit, OnModuleDestroy {
     // At runtime, __dirname is: /var/www/lead360.app/api/dist/src/modules/voice-ai/agent/
     // We need to reach: /var/www/lead360.app/api/src/modules/voice-ai/agent/voice-agent-entrypoint.mjs
     // Go up 5 levels (agent/ -> voice-ai/ -> modules/ -> src/ -> dist/ -> api/) then into src/
-    const entrypointPath = join(__dirname, '../../../../../src/modules/voice-ai/agent/voice-agent-entrypoint.mjs');
+    const entrypointPath = join(
+      __dirname,
+      '../../../../../src/modules/voice-ai/agent/voice-agent-entrypoint.mjs',
+    );
 
     this.logger.log(`Using voice agent entrypoint: ${entrypointPath}`);
 
@@ -160,7 +187,10 @@ export class VoiceAgentService implements OnModuleInit, OnModuleDestroy {
     // Run worker in background without blocking NestJS initialization
     // .run() is a long-running process that never resolves
     this.worker.run().catch((error) => {
-      this.logger.error(`LiveKit AgentServer error: ${error.message}`, error.stack);
+      this.logger.error(
+        `LiveKit AgentServer error: ${error.message}`,
+        error.stack,
+      );
     });
 
     this.logger.log('LiveKit AgentServer started and listening for jobs');
@@ -193,7 +223,9 @@ export class VoiceAgentService implements OnModuleInit, OnModuleDestroy {
   private async vetJobRequest(jobRequest: JobRequest): Promise<void> {
     try {
       this.logger.log(`🔍 Vetting job request: ${jobRequest.id}`);
-      this.logger.log(`✅ Accepting all SIP jobs immediately (tenant lookup happens after room connection)`);
+      this.logger.log(
+        `✅ Accepting all SIP jobs immediately (tenant lookup happens after room connection)`,
+      );
 
       // Accept the job immediately
       // Tenant/quota validation will happen in the entrypoint after we can read SIP participant attributes
@@ -204,9 +236,11 @@ export class VoiceAgentService implements OnModuleInit, OnModuleDestroy {
       );
 
       this.logger.log(`✅ Job accepted: ${jobRequest.id}`);
-
     } catch (error) {
-      this.logger.error(`❌ Error accepting job request: ${error.message}`, error.stack);
+      this.logger.error(
+        `❌ Error accepting job request: ${error.message}`,
+        error.stack,
+      );
       await jobRequest.reject();
     }
   }
@@ -241,7 +275,7 @@ export class VoiceAgentService implements OnModuleInit, OnModuleDestroy {
       }
 
       // Wait before checking again
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
     }
 
     this.logger.warn('Timeout waiting for SIP participant');

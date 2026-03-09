@@ -125,7 +125,9 @@ describe('GoogleCalendarSyncProcessor', () => {
       const result = await processor.process(job);
 
       expect(result.success).toBe(false);
-      expect(result.reason).toBe('Appointment has no external_calendar_event_id');
+      expect(result.reason).toBe(
+        'Appointment has no external_calendar_event_id',
+      );
     });
   });
 

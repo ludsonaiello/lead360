@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsOptional,
   Min,
+  Max,
   ValidateIf,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
@@ -16,7 +17,8 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
  */
 export class UpdatePlanVoiceConfigDto {
   @ApiPropertyOptional({
-    description: 'Enable or disable Voice AI feature for this subscription tier',
+    description:
+      'Enable or disable Voice AI feature for this subscription tier',
   })
   @IsOptional()
   @IsBoolean()
@@ -45,4 +47,16 @@ export class UpdatePlanVoiceConfigDto {
   @IsNumber()
   @Min(0)
   voice_ai_overage_rate?: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Maximum number of voice agent profiles allowed for this plan',
+    example: 3,
+    minimum: 1,
+    maximum: 50,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  voice_ai_max_agent_profiles?: number;
 }

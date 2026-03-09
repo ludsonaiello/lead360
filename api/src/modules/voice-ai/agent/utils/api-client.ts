@@ -24,7 +24,7 @@ export interface ApiResponse<T> {
  * Delay utility for retries
  */
 function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -34,7 +34,10 @@ function delay(ms: number): Promise<void> {
  * @param body Request body (will be JSON stringified)
  * @returns ApiResponse with typed data or error
  */
-export async function apiPost<T>(path: string, body: object): Promise<ApiResponse<T>> {
+export async function apiPost<T>(
+  path: string,
+  body: object,
+): Promise<ApiResponse<T>> {
   const config = getApiConfig();
   const url = `${config.baseUrl}${path}`;
 
@@ -65,7 +68,10 @@ export async function apiPost<T>(path: string, body: object): Promise<ApiRespons
       const responseData = await response.json();
 
       if (!response.ok) {
-        console.error(`[API Client] POST ${path} failed: ${response.status}`, responseData);
+        console.error(
+          `[API Client] POST ${path} failed: ${response.status}`,
+          responseData,
+        );
         return {
           success: false,
           error: responseData.message || `HTTP ${response.status}`,
@@ -78,12 +84,13 @@ export async function apiPost<T>(path: string, body: object): Promise<ApiRespons
         data: responseData as T,
         statusCode: response.status,
       };
-
     } catch (error: any) {
       lastError = error;
 
       if (error.name === 'AbortError') {
-        console.error(`[API Client] POST ${path} timed out after ${config.timeoutMs}ms`);
+        console.error(
+          `[API Client] POST ${path} timed out after ${config.timeoutMs}ms`,
+        );
       } else {
         console.error(`[API Client] POST ${path} error:`, error.message);
       }
@@ -137,7 +144,10 @@ export async function apiGet<T>(path: string): Promise<ApiResponse<T>> {
       const responseData = await response.json();
 
       if (!response.ok) {
-        console.error(`[API Client] GET ${path} failed: ${response.status}`, responseData);
+        console.error(
+          `[API Client] GET ${path} failed: ${response.status}`,
+          responseData,
+        );
         return {
           success: false,
           error: responseData.message || `HTTP ${response.status}`,
@@ -150,12 +160,13 @@ export async function apiGet<T>(path: string): Promise<ApiResponse<T>> {
         data: responseData as T,
         statusCode: response.status,
       };
-
     } catch (error: any) {
       lastError = error;
 
       if (error.name === 'AbortError') {
-        console.error(`[API Client] GET ${path} timed out after ${config.timeoutMs}ms`);
+        console.error(
+          `[API Client] GET ${path} timed out after ${config.timeoutMs}ms`,
+        );
       } else {
         console.error(`[API Client] GET ${path} error:`, error.message);
       }

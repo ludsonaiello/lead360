@@ -126,7 +126,8 @@ export class VoiceUsageService {
 
     const minutesIncluded =
       settings?.monthly_minutes_override ??
-      (tenant?.subscription_plan?.voice_ai_minutes_included ?? 0);
+      tenant?.subscription_plan?.voice_ai_minutes_included ??
+      0;
 
     const overageRate =
       tenant?.subscription_plan?.voice_ai_overage_rate != null
@@ -146,7 +147,8 @@ export class VoiceUsageService {
     const totalSeconds = Number(sttUsage._sum.usage_quantity ?? 0);
     const minutesUsed = Math.ceil(totalSeconds / 60);
     const minutesRemaining = Math.max(0, minutesIncluded - minutesUsed);
-    const quotaExceeded = minutesUsed >= minutesIncluded && overageRate === null;
+    const quotaExceeded =
+      minutesUsed >= minutesIncluded && overageRate === null;
 
     return {
       minutes_included: minutesIncluded,
@@ -240,7 +242,9 @@ export class VoiceUsageService {
           })
         : [];
 
-    const providerNameMap = new Map(providers.map((p) => [p.id, p.display_name]));
+    const providerNameMap = new Map(
+      providers.map((p) => [p.id, p.display_name]),
+    );
 
     // 4. Build provider breakdown
     const byProvider: ProviderUsageSummary[] = grouped.map((g) => ({
@@ -289,7 +293,10 @@ export class VoiceUsageService {
    * @param year   Year to query (e.g. 2026)
    * @param month  Month to query (1–12)
    */
-  async getAdminUsageReport(year: number, month: number): Promise<AdminUsageReport> {
+  async getAdminUsageReport(
+    year: number,
+    month: number,
+  ): Promise<AdminUsageReport> {
     const monthStart = new Date(year, month - 1, 1);
     const monthEnd = new Date(year, month, 1);
 
@@ -367,7 +374,10 @@ export class VoiceUsageService {
 
     // 7. Build by_tenant array — include all tenants that appear in either dataset
     const byTenant = tenantIds.map((tid) => {
-      const agg = tenantAggMap.get(tid) ?? { stt_seconds: 0, estimated_cost: 0 };
+      const agg = tenantAggMap.get(tid) ?? {
+        stt_seconds: 0,
+        estimated_cost: 0,
+      };
       return {
         tenant_id: tid,
         tenant_name: tenantNameMap.get(tid) ?? tid,
@@ -708,7 +718,8 @@ export class VoiceUsageService {
     // CRITICAL: Check monthly_minutes_override first, fall back to plan's included minutes
     const minutesIncluded =
       settings?.monthly_minutes_override ??
-      (tenant?.subscription_plan?.voice_ai_minutes_included ?? 0);
+      tenant?.subscription_plan?.voice_ai_minutes_included ??
+      0;
 
     const overageRate =
       tenant?.subscription_plan?.voice_ai_overage_rate != null

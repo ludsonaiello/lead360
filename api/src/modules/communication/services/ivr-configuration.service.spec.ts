@@ -160,7 +160,9 @@ describe('IvrConfigurationService - Multi-Level Navigation', () => {
         '1',
       );
 
-      expect(result.greeting).toBe('Welcome to Sales. Please select an option.');
+      expect(result.greeting).toBe(
+        'Welcome to Sales. Please select an option.',
+      );
       expect(result.options).toHaveLength(2);
       expect(result.options[0].digit).toBe('1');
       expect(result.options[1].digit).toBe('2');
@@ -185,67 +187,39 @@ describe('IvrConfigurationService - Multi-Level Navigation', () => {
 
     it('should throw NotFoundException for invalid digit in path (digit does not exist)', () => {
       expect(() =>
-        service['navigateToMenuLevel'](
-          mockMultiLevelMenu,
-          'Welcome',
-          '9',
-        ),
+        service['navigateToMenuLevel'](mockMultiLevelMenu, 'Welcome', '9'),
       ).toThrow(NotFoundException);
 
       expect(() =>
-        service['navigateToMenuLevel'](
-          mockMultiLevelMenu,
-          'Welcome',
-          '9',
-        ),
+        service['navigateToMenuLevel'](mockMultiLevelMenu, 'Welcome', '9'),
       ).toThrow('Invalid menu path: digit "9" not found at level 1');
     });
 
     it('should throw NotFoundException for invalid digit in nested path', () => {
       expect(() =>
-        service['navigateToMenuLevel'](
-          mockMultiLevelMenu,
-          'Welcome',
-          '1.9',
-        ),
+        service['navigateToMenuLevel'](mockMultiLevelMenu, 'Welcome', '1.9'),
       ).toThrow(NotFoundException);
 
       expect(() =>
-        service['navigateToMenuLevel'](
-          mockMultiLevelMenu,
-          'Welcome',
-          '1.9',
-        ),
+        service['navigateToMenuLevel'](mockMultiLevelMenu, 'Welcome', '1.9'),
       ).toThrow('Invalid menu path: digit "9" not found at level 2');
     });
 
     it('should throw BadRequestException when path points to non-submenu option', () => {
       // Digit "2" at root is "Support" (route_to_number), not a submenu
       expect(() =>
-        service['navigateToMenuLevel'](
-          mockMultiLevelMenu,
-          'Welcome',
-          '2',
-        ),
+        service['navigateToMenuLevel'](mockMultiLevelMenu, 'Welcome', '2'),
       ).toThrow(BadRequestException);
 
       expect(() =>
-        service['navigateToMenuLevel'](
-          mockMultiLevelMenu,
-          'Welcome',
-          '2',
-        ),
+        service['navigateToMenuLevel'](mockMultiLevelMenu, 'Welcome', '2'),
       ).toThrow('is not a submenu');
     });
 
     it('should throw BadRequestException when nested path points to terminal action', () => {
       // Path "1.2" points to "Sales Manager" (route_to_number), cannot go deeper
       expect(() =>
-        service['navigateToMenuLevel'](
-          mockMultiLevelMenu,
-          'Welcome',
-          '1.2.1',
-        ),
+        service['navigateToMenuLevel'](mockMultiLevelMenu, 'Welcome', '1.2.1'),
       ).toThrow(BadRequestException);
     });
 
@@ -291,8 +265,12 @@ describe('IvrConfigurationService - Multi-Level Navigation', () => {
     };
 
     beforeEach(() => {
-      jest.spyOn(prisma.ivr_configuration, 'findUnique').mockResolvedValue(mockConfig as any);
-      jest.spyOn(prisma.tenant, 'findUnique').mockResolvedValue(mockTenant as any);
+      jest
+        .spyOn(prisma.ivr_configuration, 'findUnique')
+        .mockResolvedValue(mockConfig as any);
+      jest
+        .spyOn(prisma.tenant, 'findUnique')
+        .mockResolvedValue(mockTenant as any);
     });
 
     it('should generate root level TwiML with consent message (no path)', async () => {
@@ -310,7 +288,9 @@ describe('IvrConfigurationService - Multi-Level Navigation', () => {
       expect(twiml).toContain('Press 3 for Leave a Message');
 
       // Action URL should NOT include path parameter
-      expect(twiml).toContain('https://testcompany.lead360.app/api/v1/twilio/ivr/input');
+      expect(twiml).toContain(
+        'https://testcompany.lead360.app/api/v1/twilio/ivr/input',
+      );
       expect(twiml).not.toContain('?path=');
 
       // Should use config default timeout (10 seconds)
@@ -331,7 +311,9 @@ describe('IvrConfigurationService - Multi-Level Navigation', () => {
       expect(twiml).toContain('Press 2 for Sales Manager');
 
       // Action URL should include path parameter
-      expect(twiml).toContain('https://testcompany.lead360.app/api/v1/twilio/ivr/input?path=1');
+      expect(twiml).toContain(
+        'https://testcompany.lead360.app/api/v1/twilio/ivr/input?path=1',
+      );
 
       // Should use submenu timeout override (15 seconds)
       expect(twiml).toContain('timeout="15"');
@@ -351,7 +333,9 @@ describe('IvrConfigurationService - Multi-Level Navigation', () => {
       expect(twiml).toContain('Press 2 for Existing Customer');
 
       // Action URL should include path parameter
-      expect(twiml).toContain('https://testcompany.lead360.app/api/v1/twilio/ivr/input?path=1.1');
+      expect(twiml).toContain(
+        'https://testcompany.lead360.app/api/v1/twilio/ivr/input?path=1.1',
+      );
 
       // Should use config default timeout (no override at this level)
       expect(twiml).toContain('timeout="10"');
@@ -389,8 +373,12 @@ describe('IvrConfigurationService - Multi-Level Navigation', () => {
     };
 
     beforeEach(() => {
-      jest.spyOn(prisma.ivr_configuration, 'findUnique').mockResolvedValue(mockConfig as any);
-      jest.spyOn(prisma.tenant, 'findUnique').mockResolvedValue(mockTenant as any);
+      jest
+        .spyOn(prisma.ivr_configuration, 'findUnique')
+        .mockResolvedValue(mockConfig as any);
+      jest
+        .spyOn(prisma.tenant, 'findUnique')
+        .mockResolvedValue(mockTenant as any);
     });
 
     it('should handle submenu action at root level and redirect with new path', async () => {
@@ -403,7 +391,9 @@ describe('IvrConfigurationService - Multi-Level Navigation', () => {
 
       // Should generate redirect TwiML to submenu
       expect(twiml).toContain('<Redirect');
-      expect(twiml).toContain('https://testcompany.lead360.app/api/v1/twilio/ivr/menu?path=1');
+      expect(twiml).toContain(
+        'https://testcompany.lead360.app/api/v1/twilio/ivr/menu?path=1',
+      );
     });
 
     it('should handle submenu action at nested level and accumulate path', async () => {
@@ -416,7 +406,9 @@ describe('IvrConfigurationService - Multi-Level Navigation', () => {
 
       // Should generate redirect TwiML to deeper submenu
       expect(twiml).toContain('<Redirect');
-      expect(twiml).toContain('https://testcompany.lead360.app/api/v1/twilio/ivr/menu?path=1.1');
+      expect(twiml).toContain(
+        'https://testcompany.lead360.app/api/v1/twilio/ivr/menu?path=1.1',
+      );
     });
 
     it('should handle terminal action at any level', async () => {
@@ -445,7 +437,9 @@ describe('IvrConfigurationService - Multi-Level Navigation', () => {
 
       // Should redirect back to current menu level with path preserved
       expect(twiml).toContain('<Redirect');
-      expect(twiml).toContain('https://testcompany.lead360.app/api/v1/twilio/ivr/menu?path=1');
+      expect(twiml).toContain(
+        'https://testcompany.lead360.app/api/v1/twilio/ivr/menu?path=1',
+      );
     });
 
     it('should handle invalid digit at root level', async () => {
@@ -461,7 +455,9 @@ describe('IvrConfigurationService - Multi-Level Navigation', () => {
 
       // Should redirect back to root menu (no path)
       expect(twiml).toContain('<Redirect');
-      expect(twiml).toContain('https://testcompany.lead360.app/api/v1/twilio/ivr/menu');
+      expect(twiml).toContain(
+        'https://testcompany.lead360.app/api/v1/twilio/ivr/menu',
+      );
       expect(twiml).not.toContain('?path=');
     });
   });

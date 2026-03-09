@@ -30,16 +30,16 @@ export class GoogleCalendarSyncProcessor extends WorkerHost {
 
   constructor(private readonly syncService: GoogleCalendarSyncService) {
     super();
-    this.logger.log('🚀 GoogleCalendarSyncProcessor worker initialized and ready');
+    this.logger.log(
+      '🚀 GoogleCalendarSyncProcessor worker initialized and ready',
+    );
   }
 
   async process(job: Job): Promise<any> {
     const jobId = job.id as string;
     const jobName = job.name;
 
-    this.logger.log(
-      `🔄 PROCESSING: Calendar sync job ${jobId} (${jobName})`,
-    );
+    this.logger.log(`🔄 PROCESSING: Calendar sync job ${jobId} (${jobName})`);
 
     try {
       switch (jobName) {

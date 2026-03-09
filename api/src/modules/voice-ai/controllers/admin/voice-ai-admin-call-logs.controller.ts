@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -63,13 +58,45 @@ export class VoiceAiAdminCallLogsController {
       'Optionally filtered by tenantId, date range, and outcome. ' +
       'Platform Admin access required.',
   })
-  @ApiQuery({ name: 'tenantId', required: false, description: 'Filter by tenant UUID' })
-  @ApiQuery({ name: 'from', required: false, description: 'Start date (ISO 8601)', example: '2026-02-01' })
-  @ApiQuery({ name: 'to', required: false, description: 'End date (ISO 8601)', example: '2026-02-28' })
-  @ApiQuery({ name: 'outcome', required: false, description: 'Filter by call outcome', enum: ['lead_created', 'transferred', 'abandoned'] })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number (default: 1)', example: 1 })
-  @ApiQuery({ name: 'limit', required: false, description: 'Records per page (default: 20, max: 100)', example: 20 })
-  @ApiResponse({ status: 200, description: 'Cross-tenant paginated call log list with meta' })
+  @ApiQuery({
+    name: 'tenantId',
+    required: false,
+    description: 'Filter by tenant UUID',
+  })
+  @ApiQuery({
+    name: 'from',
+    required: false,
+    description: 'Start date (ISO 8601)',
+    example: '2026-02-01',
+  })
+  @ApiQuery({
+    name: 'to',
+    required: false,
+    description: 'End date (ISO 8601)',
+    example: '2026-02-28',
+  })
+  @ApiQuery({
+    name: 'outcome',
+    required: false,
+    description: 'Filter by call outcome',
+    enum: ['lead_created', 'transferred', 'abandoned'],
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    description: 'Page number (default: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Records per page (default: 20, max: 100)',
+    example: 20,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Cross-tenant paginated call log list with meta',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   findAllCallLogs(
@@ -111,19 +138,30 @@ export class VoiceAiAdminCallLogsController {
       'Includes total calls, STT seconds, estimated cost, and a per-tenant breakdown. ' +
       'Platform Admin access required.',
   })
-  @ApiQuery({ name: 'year', required: false, description: 'Year (default: current year)', example: 2026 })
-  @ApiQuery({ name: 'month', required: false, description: 'Month 1–12 (default: current month)', example: 2 })
+  @ApiQuery({
+    name: 'year',
+    required: false,
+    description: 'Year (default: current year)',
+    example: 2026,
+  })
+  @ApiQuery({
+    name: 'month',
+    required: false,
+    description: 'Month 1–12 (default: current month)',
+    example: 2,
+  })
   @ApiResponse({ status: 200, description: 'Platform usage report returned' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
-  getUsageReport(
-    @Query('year') year?: string,
-    @Query('month') month?: string,
-  ) {
+  getUsageReport(@Query('year') year?: string, @Query('month') month?: string) {
     const now = new Date();
     // Use || so NaN (from parseInt("abc")) falls back to the current date component
-    const resolvedYear = year ? (parseInt(year, 10) || now.getFullYear()) : now.getFullYear();
-    const resolvedMonth = month ? (parseInt(month, 10) || (now.getMonth() + 1)) : now.getMonth() + 1;
+    const resolvedYear = year
+      ? parseInt(year, 10) || now.getFullYear()
+      : now.getFullYear();
+    const resolvedMonth = month
+      ? parseInt(month, 10) || now.getMonth() + 1
+      : now.getMonth() + 1;
 
     return this.usageService.getAdminUsageReport(resolvedYear, resolvedMonth);
   }

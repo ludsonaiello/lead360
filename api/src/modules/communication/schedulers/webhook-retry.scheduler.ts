@@ -87,9 +87,7 @@ export class WebhookRetryScheduler {
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
-      this.logger.debug(
-        `✅ Webhook retry scheduler completed in ${duration}s`,
-      );
+      this.logger.debug(`✅ Webhook retry scheduler completed in ${duration}s`);
     } catch (error) {
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 

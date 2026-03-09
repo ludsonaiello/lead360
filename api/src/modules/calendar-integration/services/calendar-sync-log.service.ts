@@ -61,7 +61,9 @@ export class CalendarSyncLogService {
         external_event_id: data.externalEventId || null,
         status: data.status,
         error_message: data.errorMessage || null,
-        metadata: data.metadata ? (data.metadata as Prisma.InputJsonValue) : Prisma.DbNull,
+        metadata: data.metadata
+          ? (data.metadata as Prisma.InputJsonValue)
+          : Prisma.DbNull,
       },
     });
 
@@ -176,9 +178,7 @@ export class CalendarSyncLogService {
    * @param appointmentId - Appointment ID
    * @returns List of sync logs for this appointment
    */
-  async getLogsForAppointment(
-    appointmentId: string,
-  ): Promise<
+  async getLogsForAppointment(appointmentId: string): Promise<
     Array<{
       id: string;
       direction: string;

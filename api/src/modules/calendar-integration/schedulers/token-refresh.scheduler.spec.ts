@@ -67,7 +67,9 @@ describe('TokenRefreshScheduler', () => {
       await scheduler.handleTokenRefresh();
 
       // Assert
-      expect(connectionService.getConnectionsNeedingTokenRefresh).toHaveBeenCalledWith(30);
+      expect(
+        connectionService.getConnectionsNeedingTokenRefresh,
+      ).toHaveBeenCalledWith(30);
       expect(googleCalendarService.refreshAccessToken).not.toHaveBeenCalled();
       expect(connectionService.updateAccessToken).not.toHaveBeenCalled();
     });
@@ -103,7 +105,9 @@ describe('TokenRefreshScheduler', () => {
       await scheduler.handleTokenRefresh();
 
       // Assert
-      expect(connectionService.getConnectionsNeedingTokenRefresh).toHaveBeenCalledWith(30);
+      expect(
+        connectionService.getConnectionsNeedingTokenRefresh,
+      ).toHaveBeenCalledWith(30);
       expect(googleCalendarService.refreshAccessToken).toHaveBeenCalledWith(
         'refresh-token',
       );
@@ -185,7 +189,9 @@ describe('TokenRefreshScheduler', () => {
         mockConnection,
       ]);
       googleCalendarService.refreshAccessToken.mockRejectedValue(
-        new Error('Failed to refresh access token. User may have revoked access.'),
+        new Error(
+          'Failed to refresh access token. User may have revoked access.',
+        ),
       );
       syncLogService.logSync.mockResolvedValue(undefined);
       connectionService.updateSyncStatus.mockResolvedValue(undefined);

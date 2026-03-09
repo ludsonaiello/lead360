@@ -250,7 +250,9 @@ export class VoiceCallLogService {
     this.logger.log(`  - Duration: ${data.durationSeconds ?? 'N/A'}s`);
     this.logger.log(`  - Outcome: ${data.outcome ?? 'N/A'}`);
     if (data.usageRecords && data.usageRecords.length > 0) {
-      this.logger.log(`  - Usage records: ${data.usageRecords.length} providers`);
+      this.logger.log(
+        `  - Usage records: ${data.usageRecords.length} providers`,
+      );
     }
 
     try {
@@ -267,7 +269,9 @@ export class VoiceCallLogService {
               outcome: data.outcome ?? null,
               transcript_summary: data.transcriptSummary ?? null,
               full_transcript: data.fullTranscript ?? null,
-              actions_taken: data.actionsTaken ? JSON.stringify(data.actionsTaken) : null,
+              actions_taken: data.actionsTaken
+                ? JSON.stringify(data.actionsTaken)
+                : null,
               lead_id: data.leadId ?? null,
               transferred_to: data.transferredTo ?? null,
               error_message: data.errorMessage ?? null,
@@ -281,18 +285,24 @@ export class VoiceCallLogService {
         } catch (err: unknown) {
           const prismaError = err as { code?: string };
           if (prismaError.code === 'P2025') {
-            this.logger.error(`❌ Call log not found for call_sid: ${data.callSid}`);
+            this.logger.error(
+              `❌ Call log not found for call_sid: ${data.callSid}`,
+            );
             throw new NotFoundException(
               `Call log not found for call_sid: ${data.callSid}`,
             );
           }
-          this.logger.error(`❌ Database error while updating call log: ${(err as Error).message}`);
+          this.logger.error(
+            `❌ Database error while updating call log: ${(err as Error).message}`,
+          );
           throw err;
         }
 
         // 2. Create per-provider usage records (1–3 rows: STT, LLM, TTS)
         if (data.usageRecords?.length) {
-          this.logger.log(`  - Creating ${data.usageRecords.length} usage record(s)...`);
+          this.logger.log(
+            `  - Creating ${data.usageRecords.length} usage record(s)...`,
+          );
           await this.usageService.createUsageRecords(
             tx,
             callLog.tenant_id,
@@ -303,13 +313,17 @@ export class VoiceCallLogService {
         }
       });
 
-      this.logger.log(`✅ Call completion transaction committed for call_sid: ${data.callSid}`);
+      this.logger.log(
+        `✅ Call completion transaction committed for call_sid: ${data.callSid}`,
+      );
     } catch (error: unknown) {
       // Error already logged above, but ensure it's caught and re-thrown
       if (error instanceof NotFoundException) {
         throw error; // NotFoundException already logged
       }
-      this.logger.error(`❌ Failed to complete call log for call_sid: ${data.callSid}`);
+      this.logger.error(
+        `❌ Failed to complete call log for call_sid: ${data.callSid}`,
+      );
       this.logger.error(`  - Error: ${(error as Error).message}`);
       throw error;
     }
@@ -515,7 +529,9 @@ export class VoiceCallLogService {
     // Build where clause for usage records
     const usageWhere = {
       ...(filters.tenant_id ? { tenant_id: filters.tenant_id } : {}),
-      ...(filters.provider_type ? { provider_type: filters.provider_type } : {}),
+      ...(filters.provider_type
+        ? { provider_type: filters.provider_type }
+        : {}),
       call_log: {
         ...(filters.from || filters.to
           ? {

@@ -54,7 +54,8 @@ export class HealthController {
     const health = await this.puppeteerManager.getProcessHealth();
 
     return {
-      status: health.browser_alive && health.browser_connected ? 'ok' : 'degraded',
+      status:
+        health.browser_alive && health.browser_connected ? 'ok' : 'degraded',
       ...health,
       ts: new Date().toISOString(),
     };

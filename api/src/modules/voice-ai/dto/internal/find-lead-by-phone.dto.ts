@@ -7,7 +7,10 @@ export class FindLeadByPhoneDto {
   @IsNotEmpty()
   tenant_id: string;
 
-  @ApiProperty({ example: '+19788968047', description: 'Phone number in E.164 format' })
+  @ApiProperty({
+    example: '+19788968047',
+    description: 'Phone number in E.164 format',
+  })
   @IsString()
   @IsNotEmpty()
   phone_number: string;

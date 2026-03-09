@@ -102,6 +102,9 @@ export class IvrConfigurationService {
       // 2. Validate default action
       this.validateAction(dto.default_action);
 
+      // NEW: Validate agent_profile_id references (after menu options validation)
+      await this.validateAgentProfileReferences(tenantId, dto);
+
       // 3. Check if config exists
       const existing = await this.prisma.ivr_configuration.findUnique({
         where: { tenant_id: tenantId },
@@ -360,7 +363,9 @@ export class IvrConfigurationService {
     );
 
     // Find selected option at current level
-    const selectedOption = currentMenu.options.find((opt) => opt.digit === digit);
+    const selectedOption = currentMenu.options.find(
+      (opt) => opt.digit === digit,
+    );
 
     const twiml = new twilio.twiml.VoiceResponse();
 
@@ -432,7 +437,12 @@ export class IvrConfigurationService {
 
     // Handle voice_ai action (special routing)
     if (selectedOption.action === 'voice_ai') {
-      return this.executeVoiceAiAction(tenantId, callSid ?? '', selectedOption, toNumber);
+      return this.executeVoiceAiAction(
+        tenantId,
+        callSid ?? '',
+        selectedOption,
+        toNumber,
+      );
     }
 
     // Execute terminal action (route_to_number, voicemail, webhook, etc.)
@@ -509,6 +519,9 @@ export class IvrConfigurationService {
       `Executing voice_ai IVR action for tenant ${tenantId}, callSid=${callSid}`,
     );
 
+    // NEW: Extract agent_profile_id from config
+    const agentProfileId = action.config?.agent_profile_id;
+
     // Create voice AI logger for this call
     const voiceLogger = createVoiceAILogger(tenantId, callSid);
 
@@ -519,6 +532,7 @@ export class IvrConfigurationService {
       {
         action_type: 'voice_ai',
         action_config: action.config,
+        agent_profile_id: agentProfileId,
       },
     );
 
@@ -535,7 +549,13 @@ export class IvrConfigurationService {
         'SESSION' as any,
         '✅ Quota check passed, routing to LiveKit SIP',
       );
-      return this.voiceAiSipService.buildSipTwiml(tenantId, callSid, toNumber);
+      // NEW: Pass agentProfileId to buildSipTwiml (will fix signature in Sprint 6)
+      return this.voiceAiSipService.buildSipTwiml(
+        tenantId,
+        callSid,
+        toNumber,
+        agentProfileId, // NEW PARAMETER
+      );
     }
 
     // Fallback: determine transfer number and message
@@ -878,7 +898,11 @@ export class IvrConfigurationService {
       // Validate submenu configuration
       if (option.action === 'submenu') {
         // Submenu action MUST have submenu config
-        if (!option.submenu || !option.submenu.options || option.submenu.options.length === 0) {
+        if (
+          !option.submenu ||
+          !option.submenu.options ||
+          option.submenu.options.length === 0
+        ) {
           throw new BadRequestException(
             `Option '${option.label}' (digit ${option.digit}) is set to 'submenu' action but has no submenu configuration or empty options array.`,
           );
@@ -915,7 +939,10 @@ export class IvrConfigurationService {
    * @param maxNodes - Maximum allowed nodes (default 100)
    * @throws BadRequestException if exceeds limit
    */
-  private validateTotalNodeCount(totalNodes: number, maxNodes: number = 100): void {
+  private validateTotalNodeCount(
+    totalNodes: number,
+    maxNodes: number = 100,
+  ): void {
     if (totalNodes > maxNodes) {
       throw new BadRequestException(
         `Total menu options (${totalNodes}) exceeds maximum of ${maxNodes} across entire tree. Please simplify your menu structure.`,
@@ -1126,9 +1153,21 @@ export class IvrConfigurationService {
         break;
 
       case 'voice_ai':
-        // No additional config required — routing parameters are resolved at call time
-        // from tenant_voice_ai_settings and voice_ai_global_config.
-        // Optional: phone_number may be used as fallback transfer number.
+        // NEW: Validate agent_profile_id if provided
+        if (config.agent_profile_id !== undefined) {
+          const uuidRegex =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+          if (
+            typeof config.agent_profile_id !== 'string' ||
+            !uuidRegex.test(config.agent_profile_id)
+          ) {
+            throw new BadRequestException(
+              `${position}: voice_ai action: agent_profile_id must be a valid UUID`,
+            );
+          }
+        }
+        // No other config required for voice_ai
         break;
 
       case 'submenu':
@@ -1175,5 +1214,85 @@ export class IvrConfigurationService {
 
     // Validate action-specific config
     this.validateActionConfig(position, defaultAction);
+  }
+
+  /**
+   * Validate agent_profile_id references (Sprint 18: Updated Architecture)
+   *
+   * Ensures all agent_profile_id values in IVR config:
+   * - Exist in voice_ai_agent_profile table (GLOBAL profiles, not tenant overrides)
+   * - Are active (is_active = true)
+   *
+   * Architecture Change (Sprint 18):
+   * - IVR config now references GLOBAL profile IDs (voice_ai_agent_profile.id)
+   * - Tenant customizations (greeting/instructions) are applied at runtime via tenant_voice_agent_profile_override
+   * - This validation ensures IVR only references valid, active global profiles
+   *
+   * @param tenantId - Tenant UUID (not used for validation, but kept for future compatibility)
+   * @param dto - IVR configuration DTO
+   * @throws BadRequestException if any profile is invalid or inactive
+   */
+  private async validateAgentProfileReferences(
+    tenantId: string,
+    dto: CreateIvrConfigDto,
+  ): Promise<void> {
+    // Collect all agent_profile_id values from menu_options and default_action
+    const profileIds: string[] = [];
+
+    // Check menu_options
+    this.collectProfileIds(dto.menu_options, profileIds);
+
+    // Check default_action
+    if (dto.default_action?.config?.agent_profile_id) {
+      profileIds.push(dto.default_action.config.agent_profile_id);
+    }
+
+    // Remove duplicates
+    const uniqueProfileIds = [...new Set(profileIds)];
+
+    // Validate: All profile IDs must reference GLOBAL profiles (not tenant overrides)
+    if (uniqueProfileIds.length > 0) {
+      const globalProfiles = await this.prisma.voice_ai_agent_profile.findMany({
+        where: {
+          id: { in: uniqueProfileIds },
+          is_active: true,
+        },
+      });
+
+      if (globalProfiles.length !== uniqueProfileIds.length) {
+        const foundIds = globalProfiles.map((p) => p.id);
+        const missingIds = uniqueProfileIds.filter((id) => !foundIds.includes(id));
+        throw new BadRequestException(
+          `Invalid voice agent profile ID(s): ${missingIds.join(', ')}. ` +
+            `Profile must be a valid active global profile. ` +
+            `To see available profiles, use GET /api/v1/voice-ai/available-profiles`,
+        );
+      }
+    }
+  }
+
+  /**
+   * NEW METHOD: Recursive helper to collect profile IDs from menu tree
+   *
+   * Traverses the entire IVR menu tree (including nested submenus)
+   * and collects all agent_profile_id values where action === 'voice_ai'
+   *
+   * @param menuOptions - Array of menu options to scan
+   * @param profileIds - Array to accumulate profile IDs (mutated)
+   */
+  private collectProfileIds(menuOptions: any[], profileIds: string[]): void {
+    if (!Array.isArray(menuOptions)) return;
+
+    for (const option of menuOptions) {
+      // Check this option's config
+      if (option.action === 'voice_ai' && option.config?.agent_profile_id) {
+        profileIds.push(option.config.agent_profile_id);
+      }
+
+      // Recursively check submenu
+      if (option.submenu?.options) {
+        this.collectProfileIds(option.submenu.options, profileIds);
+      }
+    }
   }
 }

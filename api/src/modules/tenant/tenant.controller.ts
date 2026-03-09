@@ -843,7 +843,10 @@ export class TenantController {
     type: Boolean,
     description: 'Only return active industries',
   })
-  @ApiResponse({ status: 200, description: 'Industries retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Industries retrieved successfully',
+  })
   async getAvailableIndustries(@Query('active_only') activeOnly?: string) {
     // Call industry service to get all industries
     // activeOnly === 'true' ? only active : all

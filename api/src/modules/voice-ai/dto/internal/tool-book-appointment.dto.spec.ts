@@ -101,7 +101,7 @@ describe('BookAppointmentToolDto', () => {
 
       const errors = await validate(dto);
       expect(errors.length).toBeGreaterThan(0);
-      expect(errors.some(e => e.property === 'lead_id')).toBe(true);
+      expect(errors.some((e) => e.property === 'lead_id')).toBe(true);
     });
 
     it('should allow optional fields to be omitted', async () => {

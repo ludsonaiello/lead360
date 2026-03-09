@@ -39,9 +39,7 @@ import { UpsertCredentialDto } from '../../dto/upsert-credential.dto';
 @Controller('system/voice-ai/credentials')
 @UseGuards(JwtAuthGuard, PlatformAdminGuard)
 export class VoiceAiCredentialsController {
-  constructor(
-    private readonly credentialsService: VoiceAiCredentialsService,
-  ) {}
+  constructor(private readonly credentialsService: VoiceAiCredentialsService) {}
 
   /**
    * GET /api/v1/system/voice-ai/credentials
@@ -78,7 +76,10 @@ export class VoiceAiCredentialsController {
     status: 200,
     description: 'Credential upserted — masked key returned',
   })
-  @ApiResponse({ status: 400, description: 'Validation error (api_key < 10 chars)' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error (api_key < 10 chars)',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   @ApiResponse({ status: 404, description: 'Provider not found' })

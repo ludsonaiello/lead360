@@ -10,12 +10,18 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
  * 2. Confirm mode: lead_id + confirmed_date + confirmed_start_time → creates appointment
  */
 export class BookAppointmentToolDto {
-  @ApiProperty({ example: 'uuid', description: 'Lead ID from create_lead or find_lead tool' })
+  @ApiProperty({
+    example: 'uuid',
+    description: 'Lead ID from create_lead or find_lead tool',
+  })
   @IsString()
   @IsNotEmpty()
   lead_id: string;
 
-  @ApiPropertyOptional({ example: '2026-03-15', description: 'Preferred date (YYYY-MM-DD) - tool searches this date first' })
+  @ApiPropertyOptional({
+    example: '2026-03-15',
+    description: 'Preferred date (YYYY-MM-DD) - tool searches this date first',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, {
@@ -23,7 +29,10 @@ export class BookAppointmentToolDto {
   })
   preferred_date?: string;
 
-  @ApiPropertyOptional({ example: '2026-03-15', description: 'Confirmed date (YYYY-MM-DD) when caller selects a slot' })
+  @ApiPropertyOptional({
+    example: '2026-03-15',
+    description: 'Confirmed date (YYYY-MM-DD) when caller selects a slot',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, {
@@ -31,7 +40,10 @@ export class BookAppointmentToolDto {
   })
   confirmed_date?: string;
 
-  @ApiPropertyOptional({ example: '09:00', description: 'Confirmed start time (HH:MM) when caller selects a slot' })
+  @ApiPropertyOptional({
+    example: '09:00',
+    description: 'Confirmed start time (HH:MM) when caller selects a slot',
+  })
   @IsString()
   @IsOptional()
   @Matches(/^\d{2}:\d{2}$/, {
@@ -39,7 +51,10 @@ export class BookAppointmentToolDto {
   })
   confirmed_start_time?: string;
 
-  @ApiPropertyOptional({ example: 'Customer mentioned they need exterior painting', description: 'Additional notes' })
+  @ApiPropertyOptional({
+    example: 'Customer mentioned they need exterior painting',
+    description: 'Additional notes',
+  })
   @IsString()
   @IsOptional()
   notes?: string;
@@ -53,13 +68,30 @@ export class BookAppointmentToolDto {
  * 2. Confirm mode (status: 'appointment_booked')
  */
 export class BookAppointmentToolResponseDto {
-  @ApiProperty({ description: 'Response status', enum: ['availability_found', 'no_availability', 'appointment_booked', 'error'] })
-  status: 'availability_found' | 'no_availability' | 'appointment_booked' | 'error';
+  @ApiProperty({
+    description: 'Response status',
+    enum: [
+      'availability_found',
+      'no_availability',
+      'appointment_booked',
+      'error',
+    ],
+  })
+  status:
+    | 'availability_found'
+    | 'no_availability'
+    | 'appointment_booked'
+    | 'error';
 
-  @ApiPropertyOptional({ description: 'Human-readable message for Voice AI to convey to caller' })
+  @ApiPropertyOptional({
+    description: 'Human-readable message for Voice AI to convey to caller',
+  })
   message?: string;
 
-  @ApiPropertyOptional({ description: 'Available slots (search mode)', type: 'array' })
+  @ApiPropertyOptional({
+    description: 'Available slots (search mode)',
+    type: 'array',
+  })
   available_slots?: Array<{
     date: string;
     day_name: string;

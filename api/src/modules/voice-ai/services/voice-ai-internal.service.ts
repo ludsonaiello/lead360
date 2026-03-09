@@ -9,14 +9,38 @@ import { VoiceTransferNumbersService } from './voice-transfer-numbers.service';
 import { StartCallDto } from '../dto/start-call.dto';
 import { CompleteCallDto } from '../dto/complete-call.dto';
 import { LookupTenantResponseDto } from '../dto/internal/lookup-tenant.dto';
-import { CreateLeadToolDto, CreateLeadToolResponseDto } from '../dto/internal/tool-create-lead.dto';
-import { FindLeadToolDto, FindLeadToolResponseDto } from '../dto/internal/tool-find-lead.dto';
-import { CheckServiceAreaToolDto, CheckServiceAreaToolResponseDto } from '../dto/internal/tool-check-service-area.dto';
-import { TransferCallToolDto, TransferCallToolResponseDto } from '../dto/internal/tool-transfer-call.dto';
-import { FindLeadByPhoneDto, FindLeadByPhoneResponseDto } from '../dto/internal/find-lead-by-phone.dto';
-import { BookAppointmentToolDto, BookAppointmentToolResponseDto } from '../dto/internal/tool-book-appointment.dto';
-import { RescheduleAppointmentToolDto, RescheduleAppointmentToolResponseDto } from '../dto/internal/tool-reschedule-appointment.dto';
-import { CancelAppointmentToolDto, CancelAppointmentToolResponseDto } from '../dto/internal/tool-cancel-appointment.dto';
+import {
+  CreateLeadToolDto,
+  CreateLeadToolResponseDto,
+} from '../dto/internal/tool-create-lead.dto';
+import {
+  FindLeadToolDto,
+  FindLeadToolResponseDto,
+} from '../dto/internal/tool-find-lead.dto';
+import {
+  CheckServiceAreaToolDto,
+  CheckServiceAreaToolResponseDto,
+} from '../dto/internal/tool-check-service-area.dto';
+import {
+  TransferCallToolDto,
+  TransferCallToolResponseDto,
+} from '../dto/internal/tool-transfer-call.dto';
+import {
+  FindLeadByPhoneDto,
+  FindLeadByPhoneResponseDto,
+} from '../dto/internal/find-lead-by-phone.dto';
+import {
+  BookAppointmentToolDto,
+  BookAppointmentToolResponseDto,
+} from '../dto/internal/tool-book-appointment.dto';
+import {
+  RescheduleAppointmentToolDto,
+  RescheduleAppointmentToolResponseDto,
+} from '../dto/internal/tool-reschedule-appointment.dto';
+import {
+  CancelAppointmentToolDto,
+  CancelAppointmentToolResponseDto,
+} from '../dto/internal/tool-cancel-appointment.dto';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { LeadsService } from '../../leads/services/leads.service';
 import { SlotCalculationService } from '../../calendar/services/slot-calculation.service';
@@ -113,19 +137,29 @@ export class VoiceAiInternalService {
   }
 
   /**
-   * Full context fetch — API-022
+   * Full context fetch — API-022 + Sprint 8
    *
    * Called once per call after routing to the agent.
    * Returns the complete FullVoiceAiContext with decrypted provider credentials.
    *
+   * Sprint 8: Now accepts optional callSid and agentProfileId parameters.
+   * The agentProfileId is extracted from X-Agent-Profile-Id SIP header by the agent worker
+   * and enables multi-language voice agent support.
+   *
    * SECURITY: The returned object contains decrypted API keys.
    *   This response must NEVER be cached, stored, or logged by the agent.
    *
-   * @param tenantId  UUID of the tenant — sourced from call routing params
+   * @param tenantId        UUID of the tenant — sourced from call routing params
+   * @param callSid         Optional Twilio call SID for call identification tracking
+   * @param agentProfileId  Optional voice agent profile ID for language/voice selection (Sprint 8)
    * @throws NotFoundException if tenant does not exist
    */
-  async getContext(tenantId: string): Promise<FullVoiceAiContext> {
-    return this.contextBuilder.buildContext(tenantId);
+  async getContext(
+    tenantId: string,
+    callSid?: string,
+    agentProfileId?: string,
+  ): Promise<FullVoiceAiContext> {
+    return this.contextBuilder.buildContext(tenantId, callSid, agentProfileId);
   }
 
   /**
@@ -142,7 +176,9 @@ export class VoiceAiInternalService {
    * @param phoneNumber E.164 format phone number (+1XXXXXXXXXX)
    * @returns LookupTenantResponseDto with found status and tenant info
    */
-  async lookupTenantByPhoneNumber(phoneNumber: string): Promise<LookupTenantResponseDto> {
+  async lookupTenantByPhoneNumber(
+    phoneNumber: string,
+  ): Promise<LookupTenantResponseDto> {
     this.logger.log(`Looking up tenant for phone number: ${phoneNumber}`);
 
     try {
@@ -166,7 +202,9 @@ export class VoiceAiInternalService {
       });
 
       if (smsConfig && smsConfig.tenant) {
-        this.logger.log(`Tenant found: ${smsConfig.tenant.company_name} (${smsConfig.tenant.id})`);
+        this.logger.log(
+          `Tenant found: ${smsConfig.tenant.company_name} (${smsConfig.tenant.id})`,
+        );
         return {
           found: true,
           tenant_id: smsConfig.tenant.id,
@@ -182,7 +220,10 @@ export class VoiceAiInternalService {
         phone_number: normalizedPhone,
       };
     } catch (error) {
-      this.logger.error(`Error looking up tenant by phone: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error looking up tenant by phone: ${error.message}`,
+        error.stack,
+      );
       return {
         found: false,
         error: 'Internal error during tenant lookup',
@@ -258,11 +299,15 @@ export class VoiceAiInternalService {
    * @returns        { status: string, ended_at: Date | null }
    * @throws NotFoundException if no call log exists for callSid
    */
-  async getCallStatus(callSid: string): Promise<{ status: string; ended_at: Date | null }> {
+  async getCallStatus(
+    callSid: string,
+  ): Promise<{ status: string; ended_at: Date | null }> {
     const callLog = await this.callLogService.findByCallSid(callSid);
 
     if (!callLog) {
-      throw new NotFoundException(`Call log not found for call_sid: ${callSid}`);
+      throw new NotFoundException(
+        `Call log not found for call_sid: ${callSid}`,
+      );
     }
 
     return {
@@ -290,13 +335,18 @@ export class VoiceAiInternalService {
    * @param dto      CreateLeadToolDto with lead information
    * @returns        CreateLeadToolResponseDto with success/error status
    */
-  async toolCreateLead(tenantId: string, dto: CreateLeadToolDto): Promise<CreateLeadToolResponseDto> {
+  async toolCreateLead(
+    tenantId: string,
+    dto: CreateLeadToolDto,
+  ): Promise<CreateLeadToolResponseDto> {
     this.logger.log(`[Tool] Creating lead for tenant: ${tenantId}`);
 
     try {
       // Check if lead already exists with this phone number (tenant-scoped)
       const sanitizedPhone = dto.phone_number.replace(/\D/g, '');
-      this.logger.log(`[Tool] Checking for existing lead with phone: ${sanitizedPhone}`);
+      this.logger.log(
+        `[Tool] Checking for existing lead with phone: ${sanitizedPhone}`,
+      );
 
       const existingLeadPhone = await this.prisma.lead_phone.findFirst({
         where: {
@@ -315,7 +365,9 @@ export class VoiceAiInternalService {
       });
 
       if (existingLeadPhone?.lead) {
-        this.logger.log(`[Tool] Lead already exists: ${existingLeadPhone.lead.first_name} ${existingLeadPhone.lead.last_name}`);
+        this.logger.log(
+          `[Tool] Lead already exists: ${existingLeadPhone.lead.first_name} ${existingLeadPhone.lead.last_name}`,
+        );
         return {
           success: true,
           lead_id: existingLeadPhone.lead.id,
@@ -332,34 +384,48 @@ export class VoiceAiInternalService {
         language_spoken: dto.language ? dto.language.toUpperCase() : 'EN',
         accept_sms: false,
         preferred_communication: 'phone',
-        phones: [{
-          phone: dto.phone_number,
-          phone_type: 'mobile',
-          is_primary: true,
-        }],
-        emails: dto.email ? [{
-          email: dto.email,
-          email_type: 'personal',
-          is_primary: true,
-        }] : [],
-        addresses: [{
-          address_line1: dto.address,
-          city: dto.city,
-          state: dto.state,
-          zip_code: dto.zip_code,
-          country: 'US',
-          address_type: 'service',
-          is_primary: true,
-        }],
-        service_request: dto.service_description ? {
-          service_name: 'Voice AI Call',
-          service_description: dto.service_description,
-          urgency: 'medium',
-        } : undefined,
+        phones: [
+          {
+            phone: dto.phone_number,
+            phone_type: 'mobile',
+            is_primary: true,
+          },
+        ],
+        emails: dto.email
+          ? [
+              {
+                email: dto.email,
+                email_type: 'personal',
+                is_primary: true,
+              },
+            ]
+          : [],
+        addresses: [
+          {
+            address_line1: dto.address,
+            city: dto.city,
+            state: dto.state,
+            zip_code: dto.zip_code,
+            country: 'US',
+            address_type: 'service',
+            is_primary: true,
+          },
+        ],
+        service_request: dto.service_description
+          ? {
+              service_name: 'Voice AI Call',
+              service_description: dto.service_description,
+              urgency: 'medium',
+            }
+          : undefined,
       };
 
       // Call LeadsService.create() with tenant_id and null userId (system action)
-      const lead = await this.leadsService.create(tenantId, null, createLeadDto as any);
+      const lead = await this.leadsService.create(
+        tenantId,
+        null,
+        createLeadDto as any,
+      );
 
       this.logger.log(`[Tool] Lead created successfully: ${lead.id}`);
       return {
@@ -369,7 +435,10 @@ export class VoiceAiInternalService {
         lead_exists: false,
       };
     } catch (error) {
-      this.logger.error(`[Tool] Error creating lead: ${error.message}`, error.stack);
+      this.logger.error(
+        `[Tool] Error creating lead: ${error.message}`,
+        error.stack,
+      );
       return {
         success: false,
         error: error.message || 'Could not create lead',
@@ -391,13 +460,18 @@ export class VoiceAiInternalService {
    * @param dto      FindLeadToolDto with phone number
    * @returns        FindLeadToolResponseDto with found status and lead info
    */
-  async toolFindLead(tenantId: string, dto: FindLeadToolDto): Promise<FindLeadToolResponseDto> {
+  async toolFindLead(
+    tenantId: string,
+    dto: FindLeadToolDto,
+  ): Promise<FindLeadToolResponseDto> {
     this.logger.log(`[Tool] Finding lead for phone: ${dto.phone_number}`);
 
     try {
       // Generate all possible phone number variations for lookup
       const phoneVariations = generatePhoneVariations(dto.phone_number);
-      this.logger.log(`[Tool] Checking phone variations: ${phoneVariations.join(', ')}`);
+      this.logger.log(
+        `[Tool] Checking phone variations: ${phoneVariations.join(', ')}`,
+      );
 
       // Query lead_phone table with tenant isolation
       // Uses OR to check all variations, AND to enforce tenant isolation
@@ -406,8 +480,8 @@ export class VoiceAiInternalService {
           AND: [
             {
               // CRITICAL: Try all phone variations with OR
-              OR: phoneVariations.map(variant => ({
-                phone: variant,  // Exact match (not contains)
+              OR: phoneVariations.map((variant) => ({
+                phone: variant, // Exact match (not contains)
               })),
             },
             {
@@ -466,17 +540,22 @@ export class VoiceAiInternalService {
         email: primaryEmail,
         phone_number: leadPhone.phone,
         status: lead.status,
-        address: primaryAddress ? {
-          address_line1: primaryAddress.address_line1,
-          address_line2: primaryAddress.address_line2,
-          city: primaryAddress.city,
-          state: primaryAddress.state,
-          zip_code: primaryAddress.zip_code,
-          country: primaryAddress.country,
-        } : undefined,
+        address: primaryAddress
+          ? {
+              address_line1: primaryAddress.address_line1,
+              address_line2: primaryAddress.address_line2,
+              city: primaryAddress.city,
+              state: primaryAddress.state,
+              zip_code: primaryAddress.zip_code,
+              country: primaryAddress.country,
+            }
+          : undefined,
       };
     } catch (error) {
-      this.logger.error(`[Tool] Error finding lead: ${error.message}`, error.stack);
+      this.logger.error(
+        `[Tool] Error finding lead: ${error.message}`,
+        error.stack,
+      );
       return {
         success: false,
         found: false,
@@ -499,7 +578,10 @@ export class VoiceAiInternalService {
    * @param dto      CheckServiceAreaToolDto with location information
    * @returns        CheckServiceAreaToolResponseDto with coverage status
    */
-  async toolCheckServiceArea(tenantId: string, dto: CheckServiceAreaToolDto): Promise<CheckServiceAreaToolResponseDto> {
+  async toolCheckServiceArea(
+    tenantId: string,
+    dto: CheckServiceAreaToolDto,
+  ): Promise<CheckServiceAreaToolResponseDto> {
     this.logger.log(`[Tool] Checking service area for ZIP: ${dto.zip_code}`);
 
     try {
@@ -579,7 +661,10 @@ export class VoiceAiInternalService {
         message: 'This location is outside our service area',
       };
     } catch (error) {
-      this.logger.error(`[Tool] Error checking service area: ${error.message}`, error.stack);
+      this.logger.error(
+        `[Tool] Error checking service area: ${error.message}`,
+        error.stack,
+      );
       return {
         success: false,
         in_service_area: false,
@@ -602,7 +687,10 @@ export class VoiceAiInternalService {
    * @param dto      TransferCallToolDto with reason and optional destination
    * @returns        TransferCallToolResponseDto with transfer number and action
    */
-  async toolTransferCall(tenantId: string, dto: TransferCallToolDto): Promise<TransferCallToolResponseDto> {
+  async toolTransferCall(
+    tenantId: string,
+    dto: TransferCallToolDto,
+  ): Promise<TransferCallToolResponseDto> {
     this.logger.log(`[Tool] Getting transfer number, reason: ${dto.reason}`);
 
     try {
@@ -610,7 +698,7 @@ export class VoiceAiInternalService {
       const numbers = await this.transferNumbersService.findAll(tenantId);
 
       // Find default number, or use first available
-      const defaultNumber = numbers.find(n => n.is_default) || numbers[0];
+      const defaultNumber = numbers.find((n) => n.is_default) || numbers[0];
 
       if (!defaultNumber) {
         return {
@@ -627,7 +715,10 @@ export class VoiceAiInternalService {
         action: 'TRANSFER',
       };
     } catch (error) {
-      this.logger.error(`[Tool] Error getting transfer number: ${error.message}`, error.stack);
+      this.logger.error(
+        `[Tool] Error getting transfer number: ${error.message}`,
+        error.stack,
+      );
       return {
         success: false,
         error: error.message || 'Could not retrieve transfer number',
@@ -662,8 +753,13 @@ export class VoiceAiInternalService {
    * @param dto BookAppointmentToolDto with booking parameters
    * @returns BookAppointmentToolResponseDto with slots or appointment confirmation
    */
-  async toolBookAppointment(tenantId: string, dto: BookAppointmentToolDto): Promise<BookAppointmentToolResponseDto> {
-    this.logger.log(`[Tool] Booking appointment for tenant: ${tenantId}, lead: ${dto.lead_id}`);
+  async toolBookAppointment(
+    tenantId: string,
+    dto: BookAppointmentToolDto,
+  ): Promise<BookAppointmentToolResponseDto> {
+    this.logger.log(
+      `[Tool] Booking appointment for tenant: ${tenantId}, lead: ${dto.lead_id}`,
+    );
 
     try {
       // Step 1: Validate lead exists and belongs to tenant
@@ -680,7 +776,9 @@ export class VoiceAiInternalService {
       });
 
       if (!lead) {
-        this.logger.error(`[Tool] Lead ${dto.lead_id} not found or access denied for tenant ${tenantId}`);
+        this.logger.error(
+          `[Tool] Lead ${dto.lead_id} not found or access denied for tenant ${tenantId}`,
+        );
         return {
           status: 'error',
           error: 'Lead not found or access denied',
@@ -688,32 +786,46 @@ export class VoiceAiInternalService {
       }
 
       // Step 2: Get default appointment type for tenant
-      const appointmentTypes = await this.appointmentTypesService.findAll(tenantId, {
-        is_active: true,
-      });
+      const appointmentTypes = await this.appointmentTypesService.findAll(
+        tenantId,
+        {
+          is_active: true,
+        },
+      );
 
-      const defaultType = appointmentTypes.items?.find((t: any) => t.is_default) || appointmentTypes.items?.[0];
+      const defaultType =
+        appointmentTypes.items?.find((t: any) => t.is_default) ||
+        appointmentTypes.items?.[0];
 
       if (!defaultType) {
-        this.logger.error(`[Tool] No active appointment type found for tenant ${tenantId}`);
+        this.logger.error(
+          `[Tool] No active appointment type found for tenant ${tenantId}`,
+        );
         return {
           status: 'error',
           error: 'No appointment type configured. Please contact support.',
         };
       }
 
-      this.logger.log(`[Tool] Using appointment type: ${defaultType.name} (${defaultType.id})`);
+      this.logger.log(
+        `[Tool] Using appointment type: ${defaultType.name} (${defaultType.id})`,
+      );
 
       // MODE DETECTION: Confirm mode vs Search mode
       const isConfirmMode = !!(dto.confirmed_date && dto.confirmed_start_time);
 
       if (isConfirmMode) {
         // ========== CONFIRM MODE: Create appointment ==========
-        this.logger.log(`[Tool] CONFIRM MODE: Booking appointment for ${dto.confirmed_date} at ${dto.confirmed_start_time}`);
+        this.logger.log(
+          `[Tool] CONFIRM MODE: Booking appointment for ${dto.confirmed_date} at ${dto.confirmed_start_time}`,
+        );
 
         // Calculate end_time based on slot_duration_minutes
-        const [hours, minutes] = dto.confirmed_start_time!.split(':').map(Number);
-        const totalMinutes = hours * 60 + minutes + defaultType.slot_duration_minutes;
+        const [hours, minutes] = dto
+          .confirmed_start_time!.split(':')
+          .map(Number);
+        const totalMinutes =
+          hours * 60 + minutes + defaultType.slot_duration_minutes;
         const endHours = Math.floor(totalMinutes / 60) % 24;
         const endMinutes = totalMinutes % 60;
         const end_time = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
@@ -763,7 +875,9 @@ export class VoiceAiInternalService {
         const dateFrom = format(searchStartDate, 'yyyy-MM-dd');
         const dateTo = format(initialSearchEnd, 'yyyy-MM-dd');
 
-        this.logger.log(`[Tool] Initial search range: ${dateFrom} to ${dateTo}`);
+        this.logger.log(
+          `[Tool] Initial search range: ${dateFrom} to ${dateTo}`,
+        );
 
         // Query slot availability
         let slotsResult = await this.slotCalculationService.getAvailableSlots(
@@ -775,9 +889,14 @@ export class VoiceAiInternalService {
 
         // If no slots in initial 14 days, expand to max_lookahead_weeks
         if (slotsResult.total_available_slots === 0) {
-          this.logger.log(`[Tool] No slots in initial 14 days, expanding to ${defaultType.max_lookahead_weeks} weeks`);
+          this.logger.log(
+            `[Tool] No slots in initial 14 days, expanding to ${defaultType.max_lookahead_weeks} weeks`,
+          );
 
-          const expandedSearchEnd = addDays(searchStartDate, defaultType.max_lookahead_weeks * 7);
+          const expandedSearchEnd = addDays(
+            searchStartDate,
+            defaultType.max_lookahead_weeks * 7,
+          );
           const expandedDateTo = format(expandedSearchEnd, 'yyyy-MM-dd');
 
           slotsResult = await this.slotCalculationService.getAvailableSlots(
@@ -790,7 +909,9 @@ export class VoiceAiInternalService {
 
         // No availability found
         if (slotsResult.total_available_slots === 0) {
-          this.logger.warn(`[Tool] No availability found for tenant ${tenantId} within ${defaultType.max_lookahead_weeks} weeks`);
+          this.logger.warn(
+            `[Tool] No availability found for tenant ${tenantId} within ${defaultType.max_lookahead_weeks} weeks`,
+          );
 
           return {
             status: 'no_availability',
@@ -828,7 +949,10 @@ export class VoiceAiInternalService {
         };
       }
     } catch (error) {
-      this.logger.error(`[Tool] Error booking appointment: ${error.message}`, error.stack);
+      this.logger.error(
+        `[Tool] Error booking appointment: ${error.message}`,
+        error.stack,
+      );
       return {
         status: 'error',
         error: error.message || 'Could not book appointment',
@@ -860,8 +984,13 @@ export class VoiceAiInternalService {
    * @param dto RescheduleAppointmentToolDto with reschedule parameters
    * @returns RescheduleAppointmentToolResponseDto with verification/slots/confirmation
    */
-  async toolRescheduleAppointment(tenantId: string, dto: RescheduleAppointmentToolDto): Promise<RescheduleAppointmentToolResponseDto> {
-    this.logger.log(`[Tool] Rescheduling appointment for tenant: ${tenantId}, lead: ${dto.lead_id}`);
+  async toolRescheduleAppointment(
+    tenantId: string,
+    dto: RescheduleAppointmentToolDto,
+  ): Promise<RescheduleAppointmentToolResponseDto> {
+    this.logger.log(
+      `[Tool] Rescheduling appointment for tenant: ${tenantId}, lead: ${dto.lead_id}`,
+    );
 
     try {
       // Step 1: Verify caller identity (phone match)
@@ -876,7 +1005,9 @@ export class VoiceAiInternalService {
       });
 
       if (!callLog) {
-        this.logger.error(`[Tool] Call log ${dto.call_log_id} not found for tenant ${tenantId}`);
+        this.logger.error(
+          `[Tool] Call log ${dto.call_log_id} not found for tenant ${tenantId}`,
+        );
         return {
           status: 'error',
           error: 'Call log not found',
@@ -896,7 +1027,9 @@ export class VoiceAiInternalService {
       });
 
       if (!lead) {
-        this.logger.error(`[Tool] Lead ${dto.lead_id} not found for tenant ${tenantId}`);
+        this.logger.error(
+          `[Tool] Lead ${dto.lead_id} not found for tenant ${tenantId}`,
+        );
         return {
           status: 'error',
           error: 'Lead not found',
@@ -904,20 +1037,25 @@ export class VoiceAiInternalService {
       }
 
       // Verify phone number matches
-      const phoneMatch = lead.phones.some(phone =>
-        phoneVariations.includes(phone.phone)
+      const phoneMatch = lead.phones.some((phone) =>
+        phoneVariations.includes(phone.phone),
       );
 
       if (!phoneMatch) {
-        this.logger.warn(`[Tool] Phone verification failed for lead ${dto.lead_id}. Caller: ${callLog.from_number}, Lead phones: ${lead.phones.map(p => p.phone).join(', ')}`);
+        this.logger.warn(
+          `[Tool] Phone verification failed for lead ${dto.lead_id}. Caller: ${callLog.from_number}, Lead phones: ${lead.phones.map((p) => p.phone).join(', ')}`,
+        );
         return {
           status: 'verification_failed',
           message: 'Phone number does not match our records.',
-          action: 'Voice AI should ask for name + appointment date for manual verification',
+          action:
+            'Voice AI should ask for name + appointment date for manual verification',
         };
       }
 
-      this.logger.log(`[Tool] Phone verification passed for lead ${dto.lead_id}`);
+      this.logger.log(
+        `[Tool] Phone verification passed for lead ${dto.lead_id}`,
+      );
 
       // Step 2: Find active appointments for this lead
       const activeAppointments = await this.prisma.appointment.findMany({
@@ -944,7 +1082,9 @@ export class VoiceAiInternalService {
       });
 
       if (activeAppointments.length === 0) {
-        this.logger.log(`[Tool] No active appointments found for lead ${dto.lead_id}`);
+        this.logger.log(
+          `[Tool] No active appointments found for lead ${dto.lead_id}`,
+        );
         return {
           status: 'no_appointment_found',
           message: 'No active appointments found for this lead.',
@@ -953,17 +1093,27 @@ export class VoiceAiInternalService {
       }
 
       // MODE DETECTION: Confirm mode vs Initial mode
-      const isConfirmMode = !!(dto.appointment_id && dto.new_date && dto.new_time);
+      const isConfirmMode = !!(
+        dto.appointment_id &&
+        dto.new_date &&
+        dto.new_time
+      );
 
       if (isConfirmMode) {
         // ========== CONFIRM MODE: Execute reschedule ==========
-        this.logger.log(`[Tool] CONFIRM MODE: Rescheduling appointment ${dto.appointment_id} to ${dto.new_date} at ${dto.new_time}`);
+        this.logger.log(
+          `[Tool] CONFIRM MODE: Rescheduling appointment ${dto.appointment_id} to ${dto.new_date} at ${dto.new_time}`,
+        );
 
         // Verify the appointment_id belongs to this lead
-        const appointmentToReschedule = activeAppointments.find(apt => apt.id === dto.appointment_id);
+        const appointmentToReschedule = activeAppointments.find(
+          (apt) => apt.id === dto.appointment_id,
+        );
 
         if (!appointmentToReschedule) {
-          this.logger.error(`[Tool] Appointment ${dto.appointment_id} not found in active appointments for lead ${dto.lead_id}`);
+          this.logger.error(
+            `[Tool] Appointment ${dto.appointment_id} not found in active appointments for lead ${dto.lead_id}`,
+          );
           return {
             status: 'error',
             error: 'Appointment not found or cannot be rescheduled',
@@ -971,17 +1121,20 @@ export class VoiceAiInternalService {
         }
 
         // Execute reschedule using AppointmentLifecycleService
-        const result = await this.appointmentLifecycleService.rescheduleAppointment(
-          tenantId,
-          dto.appointment_id!, // Non-null assertion: validated in CONFIRM MODE check
-          null, // Voice AI is system actor (no userId)
-          {
-            new_scheduled_date: dto.new_date!,
-            new_start_time: dto.new_time!,
-          },
-        );
+        const result =
+          await this.appointmentLifecycleService.rescheduleAppointment(
+            tenantId,
+            dto.appointment_id!, // Non-null assertion: validated in CONFIRM MODE check
+            null, // Voice AI is system actor (no userId)
+            {
+              new_scheduled_date: dto.new_date!,
+              new_start_time: dto.new_time!,
+            },
+          );
 
-        this.logger.log(`[Tool] Appointment rescheduled successfully. New appointment: ${result.newAppointment.id}`);
+        this.logger.log(
+          `[Tool] Appointment rescheduled successfully. New appointment: ${result.newAppointment.id}`,
+        );
 
         return {
           status: 'rescheduled',
@@ -992,20 +1145,24 @@ export class VoiceAiInternalService {
         };
       } else {
         // ========== INITIAL MODE: Return appointments + available slots ==========
-        this.logger.log(`[Tool] INITIAL MODE: Returning active appointments and available slots`);
+        this.logger.log(
+          `[Tool] INITIAL MODE: Returning active appointments and available slots`,
+        );
 
         // If multiple appointments, ask caller to choose one
         if (activeAppointments.length > 1) {
           return {
             status: 'multiple_appointments',
-            appointments: activeAppointments.map(apt => ({
+            appointments: activeAppointments.map((apt) => ({
               id: apt.id,
               date: apt.scheduled_date,
               time: apt.start_time,
               type: apt.appointment_type.name,
             })),
-            message: 'You have multiple appointments. Which one would you like to reschedule?',
-            action: 'Voice AI should read appointments and ask caller to choose one',
+            message:
+              'You have multiple appointments. Which one would you like to reschedule?',
+            action:
+              'Voice AI should read appointments and ask caller to choose one',
           };
         }
 
@@ -1013,7 +1170,9 @@ export class VoiceAiInternalService {
         const currentAppointment = activeAppointments[0];
         const appointmentType = currentAppointment.appointment_type;
 
-        this.logger.log(`[Tool] Current appointment: ${currentAppointment.scheduled_date} at ${currentAppointment.start_time}`);
+        this.logger.log(
+          `[Tool] Current appointment: ${currentAppointment.scheduled_date} at ${currentAppointment.start_time}`,
+        );
 
         // Get available slots for next 14 days (expand to max_lookahead_weeks if needed)
         const today = new Date();
@@ -1033,8 +1192,13 @@ export class VoiceAiInternalService {
 
         // If no slots in initial 14 days, expand to max_lookahead_weeks
         if (slotsResult.total_available_slots === 0) {
-          this.logger.log(`[Tool] No slots in 14 days, expanding to ${appointmentType.max_lookahead_weeks} weeks`);
-          const expandedSearchEnd = addDays(searchStartDate, appointmentType.max_lookahead_weeks * 7);
+          this.logger.log(
+            `[Tool] No slots in 14 days, expanding to ${appointmentType.max_lookahead_weeks} weeks`,
+          );
+          const expandedSearchEnd = addDays(
+            searchStartDate,
+            appointmentType.max_lookahead_weeks * 7,
+          );
           const expandedDateTo = format(expandedSearchEnd, 'yyyy-MM-dd');
 
           slotsResult = await this.slotCalculationService.getAvailableSlots(
@@ -1063,11 +1227,15 @@ export class VoiceAiInternalService {
           },
           available_slots: slotsResult.available_dates,
           message: `Your current appointment is ${currentAppointment.scheduled_date} at ${currentAppointment.start_time}. Next available times are...`,
-          action: 'Voice AI should present slots conversationally and ask caller to choose',
+          action:
+            'Voice AI should present slots conversationally and ask caller to choose',
         };
       }
     } catch (error) {
-      this.logger.error(`[Tool] Error rescheduling appointment: ${error.message}`, error.stack);
+      this.logger.error(
+        `[Tool] Error rescheduling appointment: ${error.message}`,
+        error.stack,
+      );
       return {
         status: 'error',
         error: error.message || 'Could not reschedule appointment',
@@ -1099,8 +1267,13 @@ export class VoiceAiInternalService {
    * @param dto CancelAppointmentToolDto with cancellation parameters
    * @returns CancelAppointmentToolResponseDto with verification/confirmation
    */
-  async toolCancelAppointment(tenantId: string, dto: CancelAppointmentToolDto): Promise<CancelAppointmentToolResponseDto> {
-    this.logger.log(`[Tool] Cancelling appointment for tenant: ${tenantId}, lead: ${dto.lead_id}`);
+  async toolCancelAppointment(
+    tenantId: string,
+    dto: CancelAppointmentToolDto,
+  ): Promise<CancelAppointmentToolResponseDto> {
+    this.logger.log(
+      `[Tool] Cancelling appointment for tenant: ${tenantId}, lead: ${dto.lead_id}`,
+    );
 
     try {
       // Step 1: Verify caller identity (phone match)
@@ -1115,7 +1288,9 @@ export class VoiceAiInternalService {
       });
 
       if (!callLog) {
-        this.logger.error(`[Tool] Call log ${dto.call_log_id} not found for tenant ${tenantId}`);
+        this.logger.error(
+          `[Tool] Call log ${dto.call_log_id} not found for tenant ${tenantId}`,
+        );
         return {
           status: 'error',
           error: 'Call log not found',
@@ -1135,7 +1310,9 @@ export class VoiceAiInternalService {
       });
 
       if (!lead) {
-        this.logger.error(`[Tool] Lead ${dto.lead_id} not found for tenant ${tenantId}`);
+        this.logger.error(
+          `[Tool] Lead ${dto.lead_id} not found for tenant ${tenantId}`,
+        );
         return {
           status: 'error',
           error: 'Lead not found',
@@ -1143,20 +1320,25 @@ export class VoiceAiInternalService {
       }
 
       // Verify phone number matches
-      const phoneMatch = lead.phones.some(phone =>
-        phoneVariations.includes(phone.phone)
+      const phoneMatch = lead.phones.some((phone) =>
+        phoneVariations.includes(phone.phone),
       );
 
       if (!phoneMatch) {
-        this.logger.warn(`[Tool] Phone verification failed for lead ${dto.lead_id}. Caller: ${callLog.from_number}, Lead phones: ${lead.phones.map(p => p.phone).join(', ')}`);
+        this.logger.warn(
+          `[Tool] Phone verification failed for lead ${dto.lead_id}. Caller: ${callLog.from_number}, Lead phones: ${lead.phones.map((p) => p.phone).join(', ')}`,
+        );
         return {
           status: 'verification_failed',
           message: 'Phone number does not match our records.',
-          action: 'Voice AI should ask for name + appointment date for manual verification',
+          action:
+            'Voice AI should ask for name + appointment date for manual verification',
         };
       }
 
-      this.logger.log(`[Tool] Phone verification passed for lead ${dto.lead_id}`);
+      this.logger.log(
+        `[Tool] Phone verification passed for lead ${dto.lead_id}`,
+      );
 
       // Step 2: Find active appointments for this lead
       const activeAppointments = await this.prisma.appointment.findMany({
@@ -1181,11 +1363,14 @@ export class VoiceAiInternalService {
       });
 
       if (activeAppointments.length === 0) {
-        this.logger.log(`[Tool] No active appointments found for lead ${dto.lead_id}`);
+        this.logger.log(
+          `[Tool] No active appointments found for lead ${dto.lead_id}`,
+        );
         return {
           status: 'no_appointment_found',
           message: 'No active appointments found for this lead.',
-          action: 'Voice AI should inform caller and offer to book a new appointment',
+          action:
+            'Voice AI should inform caller and offer to book a new appointment',
         };
       }
 
@@ -1194,13 +1379,19 @@ export class VoiceAiInternalService {
 
       if (isConfirmMode) {
         // ========== CONFIRM MODE: Execute cancellation ==========
-        this.logger.log(`[Tool] CONFIRM MODE: Cancelling appointment ${dto.appointment_id}`);
+        this.logger.log(
+          `[Tool] CONFIRM MODE: Cancelling appointment ${dto.appointment_id}`,
+        );
 
         // Verify the appointment_id belongs to this lead
-        const appointmentToCancel = activeAppointments.find(apt => apt.id === dto.appointment_id);
+        const appointmentToCancel = activeAppointments.find(
+          (apt) => apt.id === dto.appointment_id,
+        );
 
         if (!appointmentToCancel) {
-          this.logger.error(`[Tool] Appointment ${dto.appointment_id} not found in active appointments for lead ${dto.lead_id}`);
+          this.logger.error(
+            `[Tool] Appointment ${dto.appointment_id} not found in active appointments for lead ${dto.lead_id}`,
+          );
           return {
             status: 'error',
             error: 'Appointment not found or cannot be cancelled',
@@ -1219,7 +1410,9 @@ export class VoiceAiInternalService {
           },
         );
 
-        this.logger.log(`[Tool] Appointment cancelled successfully: ${dto.appointment_id!}`);
+        this.logger.log(
+          `[Tool] Appointment cancelled successfully: ${dto.appointment_id!}`,
+        );
 
         return {
           status: 'cancelled',
@@ -1238,14 +1431,16 @@ export class VoiceAiInternalService {
         if (activeAppointments.length > 1) {
           return {
             status: 'multiple_appointments',
-            appointments: activeAppointments.map(apt => ({
+            appointments: activeAppointments.map((apt) => ({
               id: apt.id,
               date: apt.scheduled_date,
               time: apt.start_time,
               type: apt.appointment_type.name,
             })),
-            message: 'You have multiple appointments. Which one would you like to cancel?',
-            action: 'Voice AI should read appointments and ask caller to choose one',
+            message:
+              'You have multiple appointments. Which one would you like to cancel?',
+            action:
+              'Voice AI should read appointments and ask caller to choose one',
           };
         }
 
@@ -1253,18 +1448,23 @@ export class VoiceAiInternalService {
         const appointment = activeAppointments[0];
         return {
           status: 'multiple_appointments', // Reuse same status to trigger confirmation flow
-          appointments: [{
-            id: appointment.id,
-            date: appointment.scheduled_date,
-            time: appointment.start_time,
-            type: appointment.appointment_type.name,
-          }],
+          appointments: [
+            {
+              id: appointment.id,
+              date: appointment.scheduled_date,
+              time: appointment.start_time,
+              type: appointment.appointment_type.name,
+            },
+          ],
           message: `I found your appointment on ${appointment.scheduled_date} at ${appointment.start_time}. Would you like to cancel this appointment?`,
           action: 'Voice AI should confirm cancellation before proceeding',
         };
       }
     } catch (error) {
-      this.logger.error(`[Tool] Error cancelling appointment: ${error.message}`, error.stack);
+      this.logger.error(
+        `[Tool] Error cancelling appointment: ${error.message}`,
+        error.stack,
+      );
       return {
         status: 'error',
         error: error.message || 'Could not cancel appointment',
@@ -1286,13 +1486,20 @@ export class VoiceAiInternalService {
    * @param phoneNumber Phone number in E.164 format (+1XXXXXXXXXX)
    * @returns FindLeadByPhoneResponseDto with found status and lead info
    */
-  async findLeadByPhone(tenantId: string, phoneNumber: string): Promise<FindLeadByPhoneResponseDto> {
-    this.logger.log(`🔍 Looking up lead for phone: ${phoneNumber}, tenant: ${tenantId}`);
+  async findLeadByPhone(
+    tenantId: string,
+    phoneNumber: string,
+  ): Promise<FindLeadByPhoneResponseDto> {
+    this.logger.log(
+      `🔍 Looking up lead for phone: ${phoneNumber}, tenant: ${tenantId}`,
+    );
 
     try {
       // Generate all possible phone number variations for lookup
       const phoneVariations = generatePhoneVariations(phoneNumber);
-      this.logger.log(`🔍 Checking phone variations: ${phoneVariations.join(', ')}`);
+      this.logger.log(
+        `🔍 Checking phone variations: ${phoneVariations.join(', ')}`,
+      );
 
       // Query lead_phone table with CRITICAL tenant isolation
       // Uses OR to check all variations, AND to enforce tenant isolation
@@ -1301,8 +1508,8 @@ export class VoiceAiInternalService {
           AND: [
             {
               // CRITICAL: Try all phone variations with OR
-              OR: phoneVariations.map(variant => ({
-                phone: variant,  // Exact match (not contains)
+              OR: phoneVariations.map((variant) => ({
+                phone: variant, // Exact match (not contains)
               })),
             },
             {
@@ -1345,7 +1552,9 @@ export class VoiceAiInternalService {
       });
 
       if (!leadPhone?.lead) {
-        this.logger.log(`ℹ️  No lead found for phone ${phoneNumber} (tried: ${phoneVariations.join(', ')})`);
+        this.logger.log(
+          `ℹ️  No lead found for phone ${phoneNumber} (tried: ${phoneVariations.join(', ')})`,
+        );
         return { found: false, lead: null };
       }
 
@@ -1369,7 +1578,9 @@ export class VoiceAiInternalService {
       this.logger.log(`✅ Known caller detected: ${fullName} (${lead.id})`);
       this.logger.log(`  - Status: ${lead.status}`);
       this.logger.log(`  - Total contacts: ${totalContacts}`);
-      this.logger.log(`  - Last contact: ${lastContactDate ? new Date(lastContactDate).toLocaleDateString() : 'N/A'}`);
+      this.logger.log(
+        `  - Last contact: ${lastContactDate ? new Date(lastContactDate).toLocaleDateString() : 'N/A'}`,
+      );
 
       return {
         found: true,
@@ -1387,7 +1598,10 @@ export class VoiceAiInternalService {
         },
       };
     } catch (error) {
-      this.logger.error(`❌ Error finding lead by phone: ${error.message}`, error.stack);
+      this.logger.error(
+        `❌ Error finding lead by phone: ${error.message}`,
+        error.stack,
+      );
       // Fail gracefully - return not found instead of throwing
       // This prevents the call from crashing if lead lookup fails
       return { found: false, lead: null };

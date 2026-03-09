@@ -1,10 +1,10 @@
+import { Controller, Get, UseGuards, Logger } from '@nestjs/common';
 import {
-  Controller,
-  Get,
-  UseGuards,
-  Logger,
-} from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -19,7 +19,9 @@ import { CalendarConnectionStatusDto } from '../dto';
 @ApiTags('Calendar Integration')
 @Controller('calendar/integration')
 export class CalendarIntegrationStatusController {
-  private readonly logger = new Logger(CalendarIntegrationStatusController.name);
+  private readonly logger = new Logger(
+    CalendarIntegrationStatusController.name,
+  );
 
   constructor(
     private readonly connectionService: CalendarProviderConnectionService,
@@ -43,13 +45,17 @@ export class CalendarIntegrationStatusController {
     description: 'Connection status retrieved successfully',
     type: CalendarConnectionStatusDto,
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized - JWT missing or invalid' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - JWT missing or invalid',
+  })
   async getConnectionStatus(
     @TenantId() tenantId: string,
   ): Promise<CalendarConnectionStatusDto> {
     this.logger.log(`Fetching connection status for tenant ${tenantId}`);
 
-    const connection = await this.connectionService.getActiveConnection(tenantId);
+    const connection =
+      await this.connectionService.getActiveConnection(tenantId);
 
     if (!connection) {
       return {

@@ -1,7 +1,12 @@
 import { Logger } from '@nestjs/common';
 import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
-import { LlmProvider, LlmChatConfig, LlmSession, LlmToolCall } from './llm.interface';
+import {
+  LlmProvider,
+  LlmChatConfig,
+  LlmSession,
+  LlmToolCall,
+} from './llm.interface';
 
 export class OpenAiLlmProvider implements LlmProvider {
   private readonly logger = new Logger(OpenAiLlmProvider.name);
@@ -11,7 +16,7 @@ export class OpenAiLlmProvider implements LlmProvider {
 
     const messages: ChatCompletionMessageParam[] = [
       { role: 'system' as const, content: config.systemPrompt || '' },
-      ...config.messages as ChatCompletionMessageParam[],
+      ...(config.messages as ChatCompletionMessageParam[]),
     ];
 
     // Create streaming chat completion
@@ -64,7 +69,8 @@ export class OpenAiLlmProvider implements LlmProvider {
               const existing = toolCallsMap.get(index);
               if (tc.id) existing.id = tc.id;
               if (tc.function?.name) existing.function.name += tc.function.name;
-              if (tc.function?.arguments) existing.function.arguments += tc.function.arguments;
+              if (tc.function?.arguments)
+                existing.function.arguments += tc.function.arguments;
             }
           }
 
@@ -138,8 +144,10 @@ export class OpenAiLlmProvider implements LlmProvider {
 
                   const existing = toolCallsMap.get(index);
                   if (tc.id) existing.id = tc.id;
-                  if (tc.function?.name) existing.function.name += tc.function.name;
-                  if (tc.function?.arguments) existing.function.arguments += tc.function.arguments;
+                  if (tc.function?.name)
+                    existing.function.name += tc.function.name;
+                  if (tc.function?.arguments)
+                    existing.function.arguments += tc.function.arguments;
                 }
               }
 

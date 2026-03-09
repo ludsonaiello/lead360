@@ -45,9 +45,9 @@ export function generatePhoneVariations(phoneNumber: string): string[] {
 
   // 3. Generate variations (prioritize most common format first)
   const variations = [
-    normalized10Digit,                    // Primary: 9788968047 (DB standard - most common)
-    `1${normalized10Digit}`,              // With country code: 19788968047 (common alternative)
-    `+1${normalized10Digit}`,             // E.164 format: +19788968047 (Twilio/SIP format)
+    normalized10Digit, // Primary: 9788968047 (DB standard - most common)
+    `1${normalized10Digit}`, // With country code: 19788968047 (common alternative)
+    `+1${normalized10Digit}`, // E.164 format: +19788968047 (Twilio/SIP format)
   ];
 
   // 4. Remove duplicates (in case input was already in one of these formats)
@@ -85,7 +85,7 @@ export function normalizeToTenDigit(phoneNumber: string): string {
 
   // Invalid format - throw error
   throw new Error(
-    `Invalid phone number: ${phoneNumber}. Must be 10 or 11 digits (got ${digitsOnly.length}).`
+    `Invalid phone number: ${phoneNumber}. Must be 10 or 11 digits (got ${digitsOnly.length}).`,
   );
 }
 

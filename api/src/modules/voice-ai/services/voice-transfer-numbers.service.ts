@@ -33,9 +33,7 @@ export class VoiceTransferNumbersService {
   /**
    * List all active transfer numbers for a tenant, ordered by display_order ASC then created_at ASC.
    */
-  async findAll(
-    tenantId: string,
-  ): Promise<tenant_voice_transfer_number[]> {
+  async findAll(tenantId: string): Promise<tenant_voice_transfer_number[]> {
     return this.prisma.tenant_voice_transfer_number.findMany({
       where: { tenant_id: tenantId, is_active: true },
       orderBy: [{ display_order: 'asc' }, { created_at: 'asc' }],
@@ -222,9 +220,7 @@ export class VoiceTransferNumbersService {
     });
 
     if (!record) {
-      throw new NotFoundException(
-        `Transfer number with ID "${id}" not found.`,
-      );
+      throw new NotFoundException(`Transfer number with ID "${id}" not found.`);
     }
 
     return record;

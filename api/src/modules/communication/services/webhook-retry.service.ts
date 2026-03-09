@@ -81,7 +81,9 @@ export class WebhookRetryService {
    * ```
    */
   async queueRetry(webhookEventId: string): Promise<void> {
-    this.logger.debug(`Checking retry eligibility for webhook ${webhookEventId}`);
+    this.logger.debug(
+      `Checking retry eligibility for webhook ${webhookEventId}`,
+    );
 
     // Get current webhook event state
     const event = await this.prisma.webhook_event.findUnique({

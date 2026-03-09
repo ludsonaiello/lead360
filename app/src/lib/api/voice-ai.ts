@@ -36,6 +36,9 @@ import type {
   CreateTransferNumberRequest,
   UpdateTransferNumberRequest,
   ReorderTransferNumbersRequest,
+  VoiceAgentProfile,
+  CreateVoiceAgentProfileRequest,
+  UpdateVoiceAgentProfileRequest,
 } from '../types/voice-ai';
 
 // ============================================================================
@@ -467,6 +470,23 @@ export const updateTenantOverride = async (
   overrides: TenantOverrideDto
 ): Promise<void> => {
   await apiClient.patch(`/system/voice-ai/tenants/${tenantId}/override`, overrides);
+};
+
+/**
+ * Get voice agent profiles for a specific tenant (Admin only)
+ * Returns all profiles owned by the tenant
+ *
+ * @param tenantId - Tenant ID (UUID)
+ * @returns Promise<VoiceAgentProfile[]>
+ *
+ * @example
+ * const profiles = await voiceAiApi.getTenantAgentProfiles('tenant-id-123');
+ */
+export const getTenantAgentProfiles = async (
+  tenantId: string
+): Promise<VoiceAgentProfile[]> => {
+  const { data } = await apiClient.get(`/system/voice-ai/tenants/${tenantId}/profiles`);
+  return data;
 };
 
 // ============================================================================
@@ -907,6 +927,139 @@ export const getTenantUsage = async (
 };
 
 // ============================================================================
+// Voice Agent Profiles (Tenant) - Multilingual Feature
+// Base path: /api/v1/voice-ai/agent-profiles
+// ============================================================================
+
+/**
+ * Get all voice agent profiles for authenticated tenant
+ * Sorted by display_order ASC, then created_at ASC
+ *
+ * @param activeOnly - If true, returns only profiles where is_active = true
+ * @returns Promise<VoiceAgentProfile[]>
+ *
+ * @example
+ * // Get all profiles
+ * const profiles = await voiceAiApi.getAllAgentProfiles();
+ *
+ * @example
+ * // Get only active profiles
+ * const activeProfiles = await voiceAiApi.getAllAgentProfiles(true);
+ */
+export const getAllAgentProfiles = async (
+  activeOnly?: boolean
+): Promise<VoiceAgentProfile[]> => {
+  const params: Record<string, string> = {};
+
+  if (activeOnly !== undefined) {
+    params.active_only = activeOnly.toString();
+  }
+
+  const { data } = await apiClient.get('/voice-ai/agent-profiles', { params });
+  return data;
+};
+
+/**
+ * Get a single voice agent profile by ID
+ *
+ * @param id - Profile ID (UUID)
+ * @returns Promise<VoiceAgentProfile>
+ *
+ * @example
+ * const profile = await voiceAiApi.getAgentProfileById('profile-id-123');
+ */
+export const getAgentProfileById = async (id: string): Promise<VoiceAgentProfile> => {
+  const { data } = await apiClient.get(`/voice-ai/agent-profiles/${id}`);
+  return data;
+};
+
+/**
+ * Create a new voice agent profile
+ * Subject to subscription plan limits (voice_ai_max_agent_profiles)
+ *
+ * @param profileData - Profile creation data
+ * @returns Promise<VoiceAgentProfile>
+ *
+ * @example
+ * // Minimal profile (required fields only)
+ * const profile = await voiceAiApi.createAgentProfile({
+ *   title: 'English Sales Agent',
+ *   language_code: 'en',
+ *   voice_id: '694f9389-aac1-45b6-b726-9d9369183238'
+ * });
+ *
+ * @example
+ * // Complete profile (all fields)
+ * const profile = await voiceAiApi.createAgentProfile({
+ *   title: 'Spanish Support',
+ *   language_code: 'es',
+ *   voice_id: 'a0e99841-438c-4a64-b679-ae501e7d6091',
+ *   custom_greeting: '¡Hola! ¿Cómo puedo ayudarle?',
+ *   custom_instructions: 'You are speaking with Spanish-speaking customers.',
+ *   is_active: true,
+ *   display_order: 1
+ * });
+ *
+ * @throws 403 - Plan limit reached or Voice AI not enabled
+ * @throws 409 - Duplicate (language_code + title) combination
+ */
+export const createAgentProfile = async (
+  profileData: CreateVoiceAgentProfileRequest
+): Promise<VoiceAgentProfile> => {
+  const { data } = await apiClient.post('/voice-ai/agent-profiles', profileData);
+  return data;
+};
+
+/**
+ * Update a voice agent profile (partial update)
+ * PATCH semantics - only provided fields are updated
+ *
+ * @param id - Profile ID (UUID)
+ * @param updates - Fields to update
+ * @returns Promise<VoiceAgentProfile>
+ *
+ * @example
+ * // Update single field
+ * const profile = await voiceAiApi.updateAgentProfile('profile-id-123', {
+ *   is_active: false
+ * });
+ *
+ * @example
+ * // Update multiple fields
+ * const profile = await voiceAiApi.updateAgentProfile('profile-id-123', {
+ *   title: 'Updated Title',
+ *   custom_greeting: 'New greeting message'
+ * });
+ *
+ * @throws 404 - Profile not found or belongs to different tenant
+ * @throws 409 - Duplicate after update
+ */
+export const updateAgentProfile = async (
+  id: string,
+  updates: UpdateVoiceAgentProfileRequest
+): Promise<VoiceAgentProfile> => {
+  const { data } = await apiClient.patch(`/voice-ai/agent-profiles/${id}`, updates);
+  return data;
+};
+
+/**
+ * Delete a voice agent profile
+ * Hard delete - not allowed if profile is referenced in active IVR configuration
+ *
+ * @param id - Profile ID (UUID)
+ * @returns Promise<void> (204 No Content on success)
+ *
+ * @example
+ * await voiceAiApi.deleteAgentProfile('profile-id-123');
+ *
+ * @throws 404 - Profile not found
+ * @throws 409 - Profile in use by IVR configuration
+ */
+export const deleteAgentProfile = async (id: string): Promise<void> => {
+  await apiClient.delete(`/voice-ai/agent-profiles/${id}`);
+};
+
+// ============================================================================
 // Export all as voiceAiApi object
 // ============================================================================
 
@@ -928,6 +1081,7 @@ const voiceAiApi = {
   getAllTenants,
   getTenantOverride,
   updateTenantOverride,
+  getTenantAgentProfiles,
   getAgentStatus,
   getActiveRooms,
   forceEndCall,
@@ -944,6 +1098,11 @@ const voiceAiApi = {
   getTenantCallLogs,
   getTenantCallLogById,
   getTenantUsage,
+  getAllAgentProfiles,
+  getAgentProfileById,
+  createAgentProfile,
+  updateAgentProfile,
+  deleteAgentProfile,
 };
 
 export default voiceAiApi;

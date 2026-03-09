@@ -464,10 +464,14 @@ describe('TemplateMergeService', () => {
     };
 
     beforeEach(() => {
-      jest.spyOn(prisma.tenant, 'findUnique').mockResolvedValue(mockTenant as any);
+      jest
+        .spyOn(prisma.tenant, 'findUnique')
+        .mockResolvedValue(mockTenant as any);
       jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockUser as any);
       jest.spyOn(prisma.lead, 'findFirst').mockResolvedValue(mockLead as any);
-      jest.spyOn(prisma.appointment, 'findFirst').mockResolvedValue(mockAppointment as any);
+      jest
+        .spyOn(prisma.appointment, 'findFirst')
+        .mockResolvedValue(mockAppointment as any);
     });
 
     it('should load tenant data', async () => {
@@ -606,7 +610,9 @@ describe('TemplateMergeService', () => {
       );
 
       // Time should be formatted as "H:MM AM/PM" or "HH:MM AM/PM"
-      expect(result.appointment?.appointment_time).toMatch(/^\d{1,2}:\d{2} [AP]M$/);
+      expect(result.appointment?.appointment_time).toMatch(
+        /^\d{1,2}:\d{2} [AP]M$/,
+      );
     });
 
     it('should format appointment status correctly', async () => {

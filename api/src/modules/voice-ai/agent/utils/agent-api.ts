@@ -22,27 +22,40 @@ import {
 /**
  * Look up tenant by Twilio phone number
  */
-export async function lookupTenant(phoneNumber: string): Promise<ApiResponse<LookupTenantResponse>> {
+export async function lookupTenant(
+  phoneNumber: string,
+): Promise<ApiResponse<LookupTenantResponse>> {
   console.log(`[Agent API] Looking up tenant for phone: ${phoneNumber}`);
-  return apiPost<LookupTenantResponse>('/api/v1/internal/voice-ai/lookup-tenant', {
-    phone_number: phoneNumber,
-  });
+  return apiPost<LookupTenantResponse>(
+    '/api/v1/internal/voice-ai/lookup-tenant',
+    {
+      phone_number: phoneNumber,
+    },
+  );
 }
 
 /**
  * Check if tenant has access (quota/enabled)
  */
-export async function checkAccess(tenantId: string): Promise<ApiResponse<AccessCheckResponse>> {
+export async function checkAccess(
+  tenantId: string,
+): Promise<ApiResponse<AccessCheckResponse>> {
   console.log(`[Agent API] Checking access for tenant: ${tenantId}`);
-  return apiGet<AccessCheckResponse>(`/api/v1/internal/voice-ai/tenant/${tenantId}/access`);
+  return apiGet<AccessCheckResponse>(
+    `/api/v1/internal/voice-ai/tenant/${tenantId}/access`,
+  );
 }
 
 /**
  * Get full context for agent
  */
-export async function getContext(tenantId: string): Promise<ApiResponse<VoiceAiContext>> {
+export async function getContext(
+  tenantId: string,
+): Promise<ApiResponse<VoiceAiContext>> {
   console.log(`[Agent API] Loading context for tenant: ${tenantId}`);
-  return apiGet<VoiceAiContext>(`/api/v1/internal/voice-ai/tenant/${tenantId}/context`);
+  return apiGet<VoiceAiContext>(
+    `/api/v1/internal/voice-ai/tenant/${tenantId}/context`,
+  );
 }
 
 /**
@@ -57,7 +70,10 @@ export async function startCallLog(data: {
   direction?: string;
 }): Promise<ApiResponse<StartCallResponse>> {
   console.log(`[Agent API] Starting call log for call: ${data.call_sid}`);
-  return apiPost<StartCallResponse>('/api/v1/internal/voice-ai/calls/start', data);
+  return apiPost<StartCallResponse>(
+    '/api/v1/internal/voice-ai/calls/start',
+    data,
+  );
 }
 
 /**
@@ -82,41 +98,58 @@ export async function completeCallLog(
       usage_unit: 'seconds' | 'tokens' | 'characters';
       estimated_cost?: number;
     }>;
-  }
+  },
 ): Promise<ApiResponse<CompleteCallResponse>> {
-  console.log(`[Agent API] 📝 Attempting to complete call log for call_sid: ${callSid}`);
+  console.log(
+    `[Agent API] 📝 Attempting to complete call log for call_sid: ${callSid}`,
+  );
   console.log(`[Agent API]   - Duration: ${data.duration_seconds}s`);
   console.log(`[Agent API]   - Status: ${data.status || 'completed'}`);
   console.log(`[Agent API]   - Outcome: ${data.outcome}`);
   if (data.usage_records && data.usage_records.length > 0) {
-    console.log(`[Agent API]   - Usage records: ${data.usage_records.length} providers`);
+    console.log(
+      `[Agent API]   - Usage records: ${data.usage_records.length} providers`,
+    );
   }
 
   try {
     // DTO requires call_sid in body (even though it's in the URL path)
-    const response = await apiPost<CompleteCallResponse>(`/api/v1/internal/voice-ai/calls/${callSid}/complete`, {
-      call_sid: callSid,
-      ...data,
-    });
+    const response = await apiPost<CompleteCallResponse>(
+      `/api/v1/internal/voice-ai/calls/${callSid}/complete`,
+      {
+        call_sid: callSid,
+        ...data,
+      },
+    );
 
     if (response.success) {
-      console.log(`[Agent API] ✅ Call log completion successful for call_sid: ${callSid}`);
+      console.log(
+        `[Agent API] ✅ Call log completion successful for call_sid: ${callSid}`,
+      );
     } else {
-      console.error(`[Agent API] ❌ Call log completion failed for call_sid: ${callSid}`);
-      console.error(`[Agent API]   - Error: ${response.error || 'Unknown error'}`);
+      console.error(
+        `[Agent API] ❌ Call log completion failed for call_sid: ${callSid}`,
+      );
+      console.error(
+        `[Agent API]   - Error: ${response.error || 'Unknown error'}`,
+      );
     }
 
     return response;
   } catch (error: any) {
     // Log detailed error information but DO NOT throw
     // The call should be marked as ended even if the update fails
-    console.error(`[Agent API] ❌ Exception while completing call log for call_sid: ${callSid}`);
+    console.error(
+      `[Agent API] ❌ Exception while completing call log for call_sid: ${callSid}`,
+    );
     console.error(`[Agent API]   - Error message: ${error.message}`);
     console.error(`[Agent API]   - Error stack: ${error.stack}`);
 
     if (error.response) {
       console.error(`[Agent API]   - HTTP status: ${error.response.status}`);
-      console.error(`[Agent API]   - Response body: ${JSON.stringify(error.response.data)}`);
+      console.error(
+        `[Agent API]   - Response body: ${JSON.stringify(error.response.data)}`,
+      );
     }
 
     // Return error response instead of throwing
@@ -148,12 +181,12 @@ export async function toolCreateLead(
     zip_code: string;
     service_description?: string;
     language?: string;
-  }
+  },
 ): Promise<ApiResponse<CreateLeadResult>> {
   console.log(`[Agent API] Creating lead for tenant: ${tenantId}`);
   return apiPost<CreateLeadResult>(
     `/api/v1/internal/voice-ai/tenant/${tenantId}/tools/create_lead`,
-    data
+    data,
   );
 }
 
@@ -162,12 +195,12 @@ export async function toolCreateLead(
  */
 export async function toolFindLead(
   tenantId: string,
-  phoneNumber: string
+  phoneNumber: string,
 ): Promise<ApiResponse<FindLeadResult>> {
   console.log(`[Agent API] Finding lead for phone: ${phoneNumber}`);
   return apiPost<FindLeadResult>(
     `/api/v1/internal/voice-ai/tenant/${tenantId}/tools/find_lead`,
-    { phone_number: phoneNumber }
+    { phone_number: phoneNumber },
   );
 }
 
@@ -180,12 +213,12 @@ export async function toolCheckServiceArea(
     zip_code: string;
     city?: string;
     state?: string;
-  }
+  },
 ): Promise<ApiResponse<CheckServiceAreaResult>> {
   console.log(`[Agent API] Checking service area for ZIP: ${data.zip_code}`);
   return apiPost<CheckServiceAreaResult>(
     `/api/v1/internal/voice-ai/tenant/${tenantId}/tools/check_service_area`,
-    data
+    data,
   );
 }
 
@@ -195,12 +228,12 @@ export async function toolCheckServiceArea(
 export async function toolTransferCall(
   tenantId: string,
   reason: string,
-  destination?: string
+  destination?: string,
 ): Promise<ApiResponse<TransferCallResult>> {
   console.log(`[Agent API] Getting transfer number, reason: ${reason}`);
   return apiPost<TransferCallResult>(
     `/api/v1/internal/voice-ai/tenant/${tenantId}/tools/transfer_call`,
-    { reason, destination }
+    { reason, destination },
   );
 }
 
@@ -225,7 +258,7 @@ export async function toolTransferCall(
  */
 export async function findLeadByPhone(
   tenantId: string,
-  phoneNumber: string
+  phoneNumber: string,
 ): Promise<ApiResponse<FindLeadByPhoneResponse>> {
   console.log(`[Agent API] 🔍 Looking up lead for phone: ${phoneNumber}`);
 
@@ -235,11 +268,13 @@ export async function findLeadByPhone(
       {
         tenant_id: tenantId,
         phone_number: phoneNumber,
-      }
+      },
     );
 
     if (response.success && response.data?.found) {
-      console.log(`[Agent API] ✅ Known caller detected: ${response.data.lead?.full_name}`);
+      console.log(
+        `[Agent API] ✅ Known caller detected: ${response.data.lead?.full_name}`,
+      );
     } else {
       console.log('[Agent API] ℹ️  New caller (no existing lead found)');
     }

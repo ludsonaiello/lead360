@@ -101,8 +101,7 @@ export class VoiceAiGlobalConfigService {
       updateData.default_llm_config = dto.default_llm_config;
     if (dto.default_tts_config !== undefined)
       updateData.default_tts_config = dto.default_tts_config;
-    if (dto.livekit_url !== undefined)
-      updateData.livekit_url = dto.livekit_url;
+    if (dto.livekit_url !== undefined) updateData.livekit_url = dto.livekit_url;
     if (dto.livekit_sip_trunk_url !== undefined)
       updateData.livekit_sip_trunk_url = dto.livekit_sip_trunk_url;
     if (dto.max_concurrent_calls !== undefined)

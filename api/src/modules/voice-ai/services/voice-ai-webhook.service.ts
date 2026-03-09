@@ -66,9 +66,7 @@ export class VoiceAiWebhookService {
    * the room metadata. If it does not exist, creates one as a fallback so that
    * room_finished can later finalise it correctly.
    */
-  private async handleRoomStarted(
-    event: LiveKitWebhookEvent,
-  ): Promise<void> {
+  private async handleRoomStarted(event: LiveKitWebhookEvent): Promise<void> {
     const meta = this.parseRoomMetadata(event.room?.metadata);
     if (!meta?.callSid || !meta?.tenantId) {
       this.logger.debug(
@@ -103,9 +101,7 @@ export class VoiceAiWebhookService {
    * Only acts if the call log status is still 'in_progress'. Calls already
    * finalised by the agent are left untouched (idempotent).
    */
-  private async handleRoomFinished(
-    event: LiveKitWebhookEvent,
-  ): Promise<void> {
+  private async handleRoomFinished(event: LiveKitWebhookEvent): Promise<void> {
     const meta = this.parseRoomMetadata(event.room?.metadata);
     if (!meta?.callSid) {
       this.logger.debug(

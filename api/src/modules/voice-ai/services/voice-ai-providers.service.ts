@@ -95,10 +95,7 @@ export class VoiceAiProvidersService {
    * Throws NotFoundException if not found.
    * Throws ConflictException if the new provider_key is already taken.
    */
-  async update(
-    id: string,
-    dto: UpdateProviderDto,
-  ): Promise<voice_ai_provider> {
+  async update(id: string, dto: UpdateProviderDto): Promise<voice_ai_provider> {
     await this.findById(id); // throws NotFoundException if not found
     try {
       return await this.prisma.voice_ai_provider.update({

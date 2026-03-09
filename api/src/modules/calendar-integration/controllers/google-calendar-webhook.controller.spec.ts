@@ -79,9 +79,9 @@ describe('GoogleCalendarWebhookController', () => {
     controller = module.get<GoogleCalendarWebhookController>(
       GoogleCalendarWebhookController,
     );
-    connectionService = module.get(CalendarProviderConnectionService) as any;
-    syncLogService = module.get(CalendarSyncLogService) as any;
-    syncQueue = module.get('BullQueue_calendar-sync') as any;
+    connectionService = module.get(CalendarProviderConnectionService);
+    syncLogService = module.get(CalendarSyncLogService);
+    syncQueue = module.get('BullQueue_calendar-sync');
   });
 
   it('should be defined', () => {
@@ -91,12 +91,22 @@ describe('GoogleCalendarWebhookController', () => {
   describe('handleWebhook', () => {
     it('should reject webhook with missing headers', async () => {
       await expect(
-        controller.handleWebhook(null as any, null as any, null as any, null as any, null as any, null as any),
+        controller.handleWebhook(
+          null as any,
+          null as any,
+          null as any,
+          null as any,
+          null as any,
+          null as any,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should reject webhook with invalid channel ID', async () => {
-      (connectionService.prisma.calendar_provider_connection.findFirst as jest.Mock).mockResolvedValue(null);
+      (
+        connectionService.prisma.calendar_provider_connection
+          .findFirst as jest.Mock
+      ).mockResolvedValue(null);
 
       await expect(
         controller.handleWebhook(
@@ -111,7 +121,10 @@ describe('GoogleCalendarWebhookController', () => {
     });
 
     it('should reject webhook with invalid channel token', async () => {
-      (connectionService.prisma.calendar_provider_connection.findFirst as jest.Mock).mockResolvedValue({
+      (
+        connectionService.prisma.calendar_provider_connection
+          .findFirst as jest.Mock
+      ).mockResolvedValue({
         ...mockConnection,
         webhook_channel_id: 'channel-123',
         webhook_channel_token: 'token-123',
@@ -142,7 +155,10 @@ describe('GoogleCalendarWebhookController', () => {
     });
 
     it('should reject webhook with invalid resource ID', async () => {
-      (connectionService.prisma.calendar_provider_connection.findFirst as jest.Mock).mockResolvedValue({
+      (
+        connectionService.prisma.calendar_provider_connection
+          .findFirst as jest.Mock
+      ).mockResolvedValue({
         ...mockConnection,
         webhook_channel_id: 'channel-123',
         webhook_channel_token: 'token-123',
@@ -173,7 +189,10 @@ describe('GoogleCalendarWebhookController', () => {
     });
 
     it('should handle sync notification successfully', async () => {
-      (connectionService.prisma.calendar_provider_connection.findFirst as jest.Mock).mockResolvedValue({
+      (
+        connectionService.prisma.calendar_provider_connection
+          .findFirst as jest.Mock
+      ).mockResolvedValue({
         ...mockConnection,
         webhook_channel_id: 'channel-123',
         webhook_channel_token: 'token-123',
@@ -208,7 +227,10 @@ describe('GoogleCalendarWebhookController', () => {
     });
 
     it('should queue incremental sync on exists notification', async () => {
-      (connectionService.prisma.calendar_provider_connection.findFirst as jest.Mock).mockResolvedValue({
+      (
+        connectionService.prisma.calendar_provider_connection
+          .findFirst as jest.Mock
+      ).mockResolvedValue({
         ...mockConnection,
         id: 'conn-123',
         webhook_channel_id: 'channel-123',
@@ -255,7 +277,10 @@ describe('GoogleCalendarWebhookController', () => {
     });
 
     it('should handle not_exists notification by marking connection as error', async () => {
-      (connectionService.prisma.calendar_provider_connection.findFirst as jest.Mock).mockResolvedValue({
+      (
+        connectionService.prisma.calendar_provider_connection
+          .findFirst as jest.Mock
+      ).mockResolvedValue({
         ...mockConnection,
         id: 'conn-123',
         webhook_channel_id: 'channel-123',

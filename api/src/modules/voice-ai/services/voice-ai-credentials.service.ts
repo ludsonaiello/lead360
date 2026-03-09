@@ -38,7 +38,9 @@ export class VoiceAiCredentialsService {
    * Returns null if no credential set yet.
    * Returns only masked key — no decryption performed.
    */
-  async findByProviderId(providerId: string): Promise<SafeCredentialDto | null> {
+  async findByProviderId(
+    providerId: string,
+  ): Promise<SafeCredentialDto | null> {
     const cred = await this.prisma.voice_ai_credentials.findUnique({
       where: { provider_id: providerId },
     });
@@ -133,7 +135,9 @@ export class VoiceAiCredentialsService {
    * @param providerId UUID of the voice_ai_provider row
    * @returns Object with success status and descriptive message
    */
-  async testConnection(providerId: string): Promise<{ success: boolean; message: string }> {
+  async testConnection(
+    providerId: string,
+  ): Promise<{ success: boolean; message: string }> {
     // Get the provider to determine which API to test
     const provider = await this.prisma.voice_ai_provider.findUnique({
       where: { id: providerId },
@@ -178,7 +182,8 @@ export class VoiceAiCredentialsService {
         message: `Successfully validated ${provider.display_name} API key`,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,
         message: `Failed to validate ${provider.display_name} API key: ${errorMessage}`,

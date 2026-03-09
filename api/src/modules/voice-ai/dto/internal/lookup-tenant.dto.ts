@@ -11,7 +11,9 @@ export class LookupTenantDto {
   })
   @IsNotEmpty()
   @IsString()
-  @Matches(/^\+1\d{10}$/, { message: 'Phone number must be E.164 format (+1XXXXXXXXXX)' })
+  @Matches(/^\+1\d{10}$/, {
+    message: 'Phone number must be E.164 format (+1XXXXXXXXXX)',
+  })
   phone_number: string;
 }
 
@@ -31,9 +33,15 @@ export class LookupTenantResponseDto {
   @ApiProperty({ description: 'Tenant business name', required: false })
   tenant_name?: string;
 
-  @ApiProperty({ description: 'The phone number that was looked up', required: false })
+  @ApiProperty({
+    description: 'The phone number that was looked up',
+    required: false,
+  })
   phone_number?: string;
 
-  @ApiProperty({ description: 'Error message if lookup failed', required: false })
+  @ApiProperty({
+    description: 'Error message if lookup failed',
+    required: false,
+  })
   error?: string;
 }

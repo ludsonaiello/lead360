@@ -341,6 +341,7 @@ unknown unknown
     Boolean voice_ai_enabled 
     Int voice_ai_minutes_included 
     Decimal voice_ai_overage_rate "❓"
+    Int voice_ai_max_agent_profiles 
     }
   
 
@@ -920,6 +921,36 @@ unknown unknown
     String available_hours "❓"
     DateTime created_at 
     DateTime updated_at 
+    }
+  
+
+  "voice_ai_agent_profile" {
+    String id "🗝️"
+    String language_code 
+    String language_name 
+    String voice_id 
+    String voice_provider_type 
+    String default_greeting "❓"
+    String default_instructions "❓"
+    String display_name 
+    String description "❓"
+    Boolean is_active 
+    Int display_order 
+    DateTime created_at 
+    DateTime updated_at 
+    String updated_by "❓"
+    }
+  
+
+  "tenant_voice_agent_profile_override" {
+    String id "🗝️"
+    String custom_greeting "❓"
+    String custom_instructions "❓"
+    Boolean is_active 
+    Int display_order 
+    DateTime created_at 
+    DateTime updated_at 
+    String updated_by "❓"
     }
   
 
@@ -1875,6 +1906,8 @@ unknown unknown
     "tenant_voice_ai_settings" |o--|| "tenant" : "tenant"
     "tenant_voice_ai_settings" }o--|o tenant_voice_transfer_number : "default_transfer_number_rel"
     "tenant_voice_transfer_number" }o--|| "tenant" : "tenant"
+    "tenant_voice_agent_profile_override" }o--|| "tenant" : "tenant"
+    "tenant_voice_agent_profile_override" }o--|| voice_ai_agent_profile : "agent_profile"
     "voice_call_log" }o--|| "tenant" : "tenant"
     "voice_call_log" }o--|o lead : "lead"
     "voice_usage_record" }o--|| "tenant" : "tenant"

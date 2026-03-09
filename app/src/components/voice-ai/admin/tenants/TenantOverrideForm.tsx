@@ -13,7 +13,7 @@ import { z } from 'zod';
 import { Save, X, AlertCircle, Loader2 } from 'lucide-react';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
-import type { VoiceAIProvider, TenantOverrideDto } from '@/lib/types/voice-ai';
+import type { VoiceAIProvider, TenantOverrideDto, VoiceAgentProfile } from '@/lib/types/voice-ai';
 import * as voiceAiApi from '@/lib/api/voice-ai';
 import toast from 'react-hot-toast';
 
@@ -38,6 +38,7 @@ const overrideFormSchema = z.object({
   stt_provider_override_id: z.string().optional().nullable(),
   llm_provider_override_id: z.string().optional().nullable(),
   tts_provider_override_id: z.string().optional().nullable(),
+  default_agent_profile_id: z.string().optional().nullable(), // Sprint 12: Default profile
   admin_notes: z.string().optional().nullable(),
 });
 
@@ -54,6 +55,8 @@ export default function TenantOverrideForm({
 }: TenantOverrideFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [profiles, setProfiles] = useState<VoiceAgentProfile[]>([]);
+  const [profilesLoading, setProfilesLoading] = useState(true);
 
   // Filter providers by type
   const sttProviders = providers.filter((p) => p.provider_type === 'STT');
@@ -75,9 +78,31 @@ export default function TenantOverrideForm({
       stt_provider_override_id: '',
       llm_provider_override_id: '',
       tts_provider_override_id: '',
+      default_agent_profile_id: '',
       admin_notes: '',
     },
   });
+
+  /**
+   * Fetch tenant's voice agent profiles (Admin endpoint)
+   */
+  useEffect(() => {
+    const fetchTenantProfiles = async () => {
+      try {
+        setProfilesLoading(true);
+        const tenantProfiles = await voiceAiApi.getTenantAgentProfiles(tenantId);
+        setProfiles(tenantProfiles);
+      } catch (err: any) {
+        console.error('[TenantOverrideForm] Failed to fetch tenant profiles:', err);
+        toast.error('Failed to load tenant profiles');
+        setProfiles([]);
+      } finally {
+        setProfilesLoading(false);
+      }
+    };
+
+    fetchTenantProfiles();
+  }, [tenantId]);
 
   /**
    * Fetch current override values on mount
@@ -101,6 +126,7 @@ export default function TenantOverrideForm({
           stt_provider_override_id: overrides.stt_provider_override_id || '',
           llm_provider_override_id: overrides.llm_provider_override_id || '',
           tts_provider_override_id: overrides.tts_provider_override_id || '',
+          default_agent_profile_id: overrides.default_agent_profile_id || '',
           admin_notes: overrides.admin_notes || '',
         };
 
@@ -145,6 +171,9 @@ export default function TenantOverrideForm({
       payload.stt_provider_override_id = data.stt_provider_override_id || null;
       payload.llm_provider_override_id = data.llm_provider_override_id || null;
       payload.tts_provider_override_id = data.tts_provider_override_id || null;
+
+      // Default agent profile: empty string -> null (remove override)
+      payload.default_agent_profile_id = data.default_agent_profile_id || null;
 
       // Admin notes: empty string -> null
       payload.admin_notes = data.admin_notes?.trim() || null;
@@ -295,6 +324,35 @@ export default function TenantOverrideForm({
           </select>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Override Text-to-Speech provider for this tenant
+          </p>
+        </div>
+
+        {/* Default Agent Profile */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Default Agent Profile
+          </label>
+          <select
+            {...register('default_agent_profile_id')}
+            className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            disabled={profilesLoading}
+          >
+            <option value="">No default (use tenant settings)</option>
+            {profiles.length === 0 && !profilesLoading ? (
+              <option value="" disabled>
+                No profiles available for this tenant
+              </option>
+            ) : (
+              profiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.title} ({profile.language_code.toUpperCase()})
+                  {!profile.is_active ? ' - INACTIVE' : ''}
+                </option>
+              ))
+            )}
+          </select>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Profile used when IVR voice_ai action has no profile specified. Only profiles owned by this tenant can be selected.
           </p>
         </div>
       </div>

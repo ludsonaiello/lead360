@@ -46,7 +46,9 @@ export class VoiceAiStuckCallCleanupProcessor extends WorkerHost {
     this.logger.log(`Processing stuck call cleanup job [${job.id}]`);
 
     const now = new Date();
-    const thresholdTime = new Date(now.getTime() - this.STUCK_THRESHOLD_SECONDS * 1000);
+    const thresholdTime = new Date(
+      now.getTime() - this.STUCK_THRESHOLD_SECONDS * 1000,
+    );
 
     try {
       // Find calls stuck in 'in_progress' status for > 2 hours

@@ -6,6 +6,7 @@ import {
   HttpStatus,
   MessageEvent,
   Param,
+  ParseBoolPipe,
   Patch,
   Post,
   Query,
@@ -354,6 +355,68 @@ export class VoiceAiMonitoringController {
   @ApiResponse({ status: 404, description: 'Tenant not found' })
   getTenantOverride(@Param('tenantId') tenantId: string) {
     return this.monitoringService.getTenantOverride(tenantId);
+  }
+
+  /**
+   * GET /api/v1/system/voice-ai/tenants/:tenantId/profiles
+   *
+   * DEPRECATED: Returns voice agent profiles for a tenant.
+   * NOTE: This endpoint needs reimplementation for new schema (Sprint 15+).
+   */
+  @Get('tenants/:tenantId/profiles')
+  @ApiOperation({
+    summary: 'List all voice agent profiles for a specific tenant',
+    description:
+      'Admin-only: Returns voice agent profiles for the specified tenant. ' +
+      'Used to populate the profile dropdown in the admin override form. ' +
+      'Platform Admin access required.',
+  })
+  @ApiParam({
+    name: 'tenantId',
+    description: 'Target tenant UUID',
+    example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+  })
+  @ApiQuery({
+    name: 'active_only',
+    required: false,
+    type: Boolean,
+    description: 'If true, returns only is_active=true profiles',
+    example: false,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of voice agent profiles for the tenant',
+    schema: {
+      example: [
+        {
+          id: 'uuid-1',
+          tenant_id: 'tenant-uuid',
+          title: 'Main Agent',
+          language_code: 'en',
+          voice_id: 'voice-id-1',
+          custom_greeting: null,
+          custom_instructions: null,
+          is_active: true,
+          display_order: 0,
+          created_at: '2026-03-04T12:00:00.000Z',
+          updated_at: '2026-03-04T12:00:00.000Z',
+          updated_by: null,
+        },
+      ],
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Platform Admin access required' })
+  @ApiResponse({ status: 404, description: 'Tenant not found' })
+  getTenantProfiles(
+    @Param('tenantId') tenantId: string,
+    @Query('active_only', new ParseBoolPipe({ optional: true }))
+    activeOnly?: boolean,
+  ) {
+    return this.monitoringService.getTenantProfiles(
+      tenantId,
+      activeOnly || false,
+    );
   }
 
   /**

@@ -4,6 +4,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Min,
   ValidateIf,
 } from 'class-validator';
@@ -39,7 +40,9 @@ export class AdminOverrideTenantVoiceDto {
     example: 1000,
   })
   @IsOptional()
-  @ValidateIf((o: AdminOverrideTenantVoiceDto) => o.monthly_minutes_override !== null)
+  @ValidateIf(
+    (o: AdminOverrideTenantVoiceDto) => o.monthly_minutes_override !== null,
+  )
   @IsInt()
   @Min(0)
   monthly_minutes_override?: number | null;
@@ -52,7 +55,9 @@ export class AdminOverrideTenantVoiceDto {
     example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
   })
   @IsOptional()
-  @ValidateIf((o: AdminOverrideTenantVoiceDto) => o.stt_provider_override_id !== null)
+  @ValidateIf(
+    (o: AdminOverrideTenantVoiceDto) => o.stt_provider_override_id !== null,
+  )
   @IsString()
   stt_provider_override_id?: string | null;
 
@@ -64,7 +69,9 @@ export class AdminOverrideTenantVoiceDto {
     example: 'f47ac10b-58cc-4372-a567-0e02b2c3d480',
   })
   @IsOptional()
-  @ValidateIf((o: AdminOverrideTenantVoiceDto) => o.llm_provider_override_id !== null)
+  @ValidateIf(
+    (o: AdminOverrideTenantVoiceDto) => o.llm_provider_override_id !== null,
+  )
   @IsString()
   llm_provider_override_id?: string | null;
 
@@ -76,7 +83,9 @@ export class AdminOverrideTenantVoiceDto {
     example: 'f47ac10b-58cc-4372-a567-0e02b2c3d481',
   })
   @IsOptional()
-  @ValidateIf((o: AdminOverrideTenantVoiceDto) => o.tts_provider_override_id !== null)
+  @ValidateIf(
+    (o: AdminOverrideTenantVoiceDto) => o.tts_provider_override_id !== null,
+  )
   @IsString()
   tts_provider_override_id?: string | null;
 
@@ -91,4 +100,8 @@ export class AdminOverrideTenantVoiceDto {
   @ValidateIf((o: AdminOverrideTenantVoiceDto) => o.admin_notes !== null)
   @IsString()
   admin_notes?: string | null;
+
+  // NOTE: default_agent_profile_id field removed in Sprint 14
+  // New schema uses voice_ai_agent_profile + tenant_voice_agent_profile_override
+  // Default profile selection mechanism to be reimplemented in future sprint
 }

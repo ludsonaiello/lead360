@@ -21,7 +21,8 @@ export class ReorderItemDto {
   id: string;
 
   @ApiProperty({
-    description: 'New display order position (0-based, lower = higher priority)',
+    description:
+      'New display order position (0-based, lower = higher priority)',
     minimum: 0,
     example: 0,
   })

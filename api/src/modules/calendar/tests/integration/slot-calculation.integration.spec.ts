@@ -36,7 +36,9 @@ describe('Slot Calculation Integration Tests', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     app.setGlobalPrefix('api/v1');
 
     await app.init();
@@ -102,8 +104,12 @@ describe('Slot Calculation Integration Tests', () => {
   afterAll(async () => {
     await prisma.appointment.deleteMany({ where: { tenant_id: tenantId } });
     await prisma.lead.deleteMany({ where: { id: leadId } });
-    await prisma.appointment_type_schedule.deleteMany({ where: { appointment_type_id: appointmentTypeId } });
-    await prisma.appointment_type.deleteMany({ where: { id: appointmentTypeId } });
+    await prisma.appointment_type_schedule.deleteMany({
+      where: { appointment_type_id: appointmentTypeId },
+    });
+    await prisma.appointment_type.deleteMany({
+      where: { id: appointmentTypeId },
+    });
     await prisma.$disconnect();
     await app.close();
   });
@@ -111,7 +117,9 @@ describe('Slot Calculation Integration Tests', () => {
   describe('GET /api/v1/calendar/availability', () => {
     it('should return available slots for date range', async () => {
       const response = await request(app.getHttpServer())
-        .get(`/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-02&date_to=2026-03-06`)
+        .get(
+          `/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-02&date_to=2026-03-06`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
@@ -123,7 +131,9 @@ describe('Slot Calculation Integration Tests', () => {
 
     it('should exclude weekends from availability', async () => {
       const response = await request(app.getHttpServer())
-        .get(`/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-07&date_to=2026-03-08`)
+        .get(
+          `/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-07&date_to=2026-03-08`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
@@ -134,7 +144,9 @@ describe('Slot Calculation Integration Tests', () => {
     it('should reduce available slots when appointment exists', async () => {
       // Get availability before creating appointment
       const beforeResponse = await request(app.getHttpServer())
-        .get(`/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-16&date_to=2026-03-16`)
+        .get(
+          `/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-16&date_to=2026-03-16`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
@@ -159,7 +171,9 @@ describe('Slot Calculation Integration Tests', () => {
 
       // Get availability after creating appointment
       const afterResponse = await request(app.getHttpServer())
-        .get(`/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-16&date_to=2026-03-16`)
+        .get(
+          `/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-16&date_to=2026-03-16`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
@@ -170,21 +184,27 @@ describe('Slot Calculation Integration Tests', () => {
 
     it('should require appointment_type_id parameter', async () => {
       await request(app.getHttpServer())
-        .get('/api/v1/calendar/availability?date_from=2026-03-10&date_to=2026-03-14')
+        .get(
+          '/api/v1/calendar/availability?date_from=2026-03-10&date_to=2026-03-14',
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(400);
     });
 
     it('should validate date format', async () => {
       await request(app.getHttpServer())
-        .get(`/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-10&date_to=invalid`)
+        .get(
+          `/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-10&date_to=invalid`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(400);
     });
 
     it('should respect max_lookahead_weeks', async () => {
       const response = await request(app.getHttpServer())
-        .get(`/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-10&date_to=2026-06-10`)
+        .get(
+          `/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-10&date_to=2026-06-10`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(400);
 
@@ -240,7 +260,11 @@ describe('Slot Calculation Integration Tests', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
-      expect(response.body.items.every((a: any) => ['scheduled', 'confirmed'].includes(a.status))).toBe(true);
+      expect(
+        response.body.items.every((a: any) =>
+          ['scheduled', 'confirmed'].includes(a.status),
+        ),
+      ).toBe(true);
     });
   });
 
@@ -276,7 +300,9 @@ describe('Slot Calculation Integration Tests', () => {
 
       expect(response.body.items).toBeInstanceOf(Array);
       expect(response.body.count).toBeGreaterThanOrEqual(1);
-      expect(response.body.items.every((a: any) => a.acknowledged_at === null)).toBe(true);
+      expect(
+        response.body.items.every((a: any) => a.acknowledged_at === null),
+      ).toBe(true);
     });
 
     it('should prioritize Voice AI appointments', async () => {
@@ -285,7 +311,9 @@ describe('Slot Calculation Integration Tests', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
-      const voiceAiAppointments = response.body.items.filter((a: any) => a.source === 'voice_ai');
+      const voiceAiAppointments = response.body.items.filter(
+        (a: any) => a.source === 'voice_ai',
+      );
       expect(voiceAiAppointments.length).toBeGreaterThanOrEqual(1);
     });
   });
@@ -315,7 +343,9 @@ describe('Slot Calculation Integration Tests', () => {
 
     it('should acknowledge appointment', async () => {
       const response = await request(app.getHttpServer())
-        .patch(`/api/v1/calendar/dashboard/new/${unacknowledgedAppointmentId}/acknowledge`)
+        .patch(
+          `/api/v1/calendar/dashboard/new/${unacknowledgedAppointmentId}/acknowledge`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
@@ -329,7 +359,9 @@ describe('Slot Calculation Integration Tests', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
-      const acknowledged = response.body.items.find((a: any) => a.id === unacknowledgedAppointmentId);
+      const acknowledged = response.body.items.find(
+        (a: any) => a.id === unacknowledgedAppointmentId,
+      );
       expect(acknowledged).toBeUndefined();
     });
   });
@@ -337,7 +369,9 @@ describe('Slot Calculation Integration Tests', () => {
   describe('Multi-Tenant Isolation', () => {
     it('should only calculate availability for tenant appointment types', async () => {
       const response = await request(app.getHttpServer())
-        .get(`/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-20&date_to=2026-03-21`)
+        .get(
+          `/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-20&date_to=2026-03-21`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 

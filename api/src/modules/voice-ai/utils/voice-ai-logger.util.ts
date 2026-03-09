@@ -104,7 +104,10 @@ function formatLogEntry(entry: VoiceAILogEntry): string {
 
   // Data (pretty-printed JSON)
   if (entry.data) {
-    parts.push('\n  Data: ' + JSON.stringify(entry.data, null, 2).split('\n').join('\n  '));
+    parts.push(
+      '\n  Data: ' +
+        JSON.stringify(entry.data, null, 2).split('\n').join('\n  '),
+    );
   }
 
   return parts.join(' ');
@@ -219,7 +222,10 @@ export class VoiceAILogger {
   /**
    * Log agent initialization
    */
-  logAgentInit(providers: { stt: string; llm: string; tts: string }, tools: string[]): void {
+  logAgentInit(
+    providers: { stt: string; llm: string; tts: string },
+    tools: string[],
+  ): void {
     writeLog({
       timestamp: new Date().toISOString(),
       level: VoiceAILogLevel.INFO,
@@ -285,11 +291,13 @@ export class VoiceAILogger {
       data: {
         model,
         message_count: messages.length,
-        messages: messages.map(m => ({
+        messages: messages.map((m) => ({
           role: m.role,
-          content: typeof m.content === 'string'
-            ? m.content.substring(0, 200) + (m.content.length > 200 ? '...' : '')
-            : '[complex content]',
+          content:
+            typeof m.content === 'string'
+              ? m.content.substring(0, 200) +
+                (m.content.length > 200 ? '...' : '')
+              : '[complex content]',
         })),
       },
     });
@@ -306,7 +314,7 @@ export class VoiceAILogger {
       data: {
         response_length: response.length,
         has_tool_calls: !!toolCalls && toolCalls.length > 0,
-        tool_calls: toolCalls?.map(tc => ({
+        tool_calls: toolCalls?.map((tc) => ({
           name: tc.function?.name,
           arguments: tc.function?.arguments,
         })),
@@ -335,7 +343,12 @@ export class VoiceAILogger {
   /**
    * Log tool calls (functions the agent executes)
    */
-  logToolCall(toolName: string, parameters: any, result?: any, error?: any): void {
+  logToolCall(
+    toolName: string,
+    parameters: any,
+    result?: any,
+    error?: any,
+  ): void {
     writeLog({
       timestamp: new Date().toISOString(),
       level: error ? VoiceAILogLevel.ERROR : VoiceAILogLevel.INFO,
@@ -370,7 +383,11 @@ export class VoiceAILogger {
     });
   }
 
-  logTransferExecution(toNumber: string, fromNumber: string, settings: any): void {
+  logTransferExecution(
+    toNumber: string,
+    fromNumber: string,
+    settings: any,
+  ): void {
     writeLog({
       timestamp: new Date().toISOString(),
       level: VoiceAILogLevel.SUCCESS,
@@ -472,7 +489,11 @@ export class VoiceAILogger {
   /**
    * Log provider initialization
    */
-  logProviderInit(providerType: 'STT' | 'LLM' | 'TTS', providerName: string, config: any): void {
+  logProviderInit(
+    providerType: 'STT' | 'LLM' | 'TTS',
+    providerName: string,
+    config: any,
+  ): void {
     writeLog({
       timestamp: new Date().toISOString(),
       level: VoiceAILogLevel.DEBUG,
@@ -491,7 +512,12 @@ export class VoiceAILogger {
   /**
    * Generic log method
    */
-  log(level: VoiceAILogLevel, category: VoiceAILogCategory, message: string, data?: any): void {
+  log(
+    level: VoiceAILogLevel,
+    category: VoiceAILogCategory,
+    message: string,
+    data?: any,
+  ): void {
     writeLog({
       timestamp: new Date().toISOString(),
       level,
@@ -507,7 +533,10 @@ export class VoiceAILogger {
 /**
  * Create a logger instance for a specific call
  */
-export function createVoiceAILogger(tenantId?: string, callSid?: string): VoiceAILogger {
+export function createVoiceAILogger(
+  tenantId?: string,
+  callSid?: string,
+): VoiceAILogger {
   return new VoiceAILogger(tenantId, callSid);
 }
 
@@ -516,9 +545,7 @@ export function createVoiceAILogger(tenantId?: string, callSid?: string): VoiceA
  */
 export function logSeparator(label?: string): void {
   const line = '='.repeat(100);
-  const logLine = label
-    ? `\n${line}\n  ${label}\n${line}\n`
-    : `\n${line}\n`;
+  const logLine = label ? `\n${line}\n  ${label}\n${line}\n` : `\n${line}\n`;
 
   fs.appendFileSync(LOG_FILE_PATH, logLine, 'utf-8');
   console.log(logLine);

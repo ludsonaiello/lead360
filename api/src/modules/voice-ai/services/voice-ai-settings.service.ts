@@ -1,5 +1,6 @@
 import {
   Injectable,
+  BadRequestException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
@@ -38,7 +39,10 @@ export class VoiceAiSettingsService {
     try {
       const parsed = JSON.parse(jsonString);
       // Validate that it's an array of strings
-      if (Array.isArray(parsed) && parsed.every((item) => typeof item === 'string')) {
+      if (
+        Array.isArray(parsed) &&
+        parsed.every((item) => typeof item === 'string')
+      ) {
         return parsed;
       }
       return ['en'];
@@ -202,7 +206,9 @@ export class VoiceAiSettingsService {
     }
 
     // Parse enabled_languages from JSON safely
-    const enabledLanguages = this.parseEnabledLanguages(settings.enabled_languages);
+    const enabledLanguages = this.parseEnabledLanguages(
+      settings.enabled_languages,
+    );
 
     // Build response with plan entitlement info
     return {
@@ -336,6 +342,7 @@ export class VoiceAiSettingsService {
     if (dto.admin_notes !== undefined) {
       updateData.admin_notes = dto.admin_notes;
     }
+    // NOTE: default_agent_profile_id removed in Sprint 14 - no longer in schema
 
     // Upsert the settings
     const settings = await this.prisma.tenant_voice_ai_settings.upsert({
@@ -355,7 +362,9 @@ export class VoiceAiSettingsService {
     });
 
     // Parse enabled_languages from JSON safely
-    const enabledLanguages = this.parseEnabledLanguages(settings.enabled_languages);
+    const enabledLanguages = this.parseEnabledLanguages(
+      settings.enabled_languages,
+    );
 
     // Build response with plan entitlement info
     return {

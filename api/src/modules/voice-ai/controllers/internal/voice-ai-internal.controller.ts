@@ -6,6 +6,7 @@ import {
   Body,
   HttpCode,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -14,21 +15,49 @@ import {
   ApiHeader,
   ApiParam,
   ApiBody,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { Public } from '../../../auth/decorators/public.decorator';
 import { VoiceAgentKeyGuard } from '../../guards/voice-agent-key.guard';
 import { VoiceAiInternalService } from '../../services/voice-ai-internal.service';
 import { StartCallDto } from '../../dto/start-call.dto';
 import { CompleteCallDto } from '../../dto/complete-call.dto';
-import { LookupTenantDto, LookupTenantResponseDto } from '../../dto/internal/lookup-tenant.dto';
-import { CreateLeadToolDto, CreateLeadToolResponseDto } from '../../dto/internal/tool-create-lead.dto';
-import { FindLeadToolDto, FindLeadToolResponseDto } from '../../dto/internal/tool-find-lead.dto';
-import { CheckServiceAreaToolDto, CheckServiceAreaToolResponseDto } from '../../dto/internal/tool-check-service-area.dto';
-import { TransferCallToolDto, TransferCallToolResponseDto } from '../../dto/internal/tool-transfer-call.dto';
-import { FindLeadByPhoneDto, FindLeadByPhoneResponseDto } from '../../dto/internal/find-lead-by-phone.dto';
-import { BookAppointmentToolDto, BookAppointmentToolResponseDto } from '../../dto/internal/tool-book-appointment.dto';
-import { RescheduleAppointmentToolDto, RescheduleAppointmentToolResponseDto } from '../../dto/internal/tool-reschedule-appointment.dto';
-import { CancelAppointmentToolDto, CancelAppointmentToolResponseDto } from '../../dto/internal/tool-cancel-appointment.dto';
+import {
+  LookupTenantDto,
+  LookupTenantResponseDto,
+} from '../../dto/internal/lookup-tenant.dto';
+import {
+  CreateLeadToolDto,
+  CreateLeadToolResponseDto,
+} from '../../dto/internal/tool-create-lead.dto';
+import {
+  FindLeadToolDto,
+  FindLeadToolResponseDto,
+} from '../../dto/internal/tool-find-lead.dto';
+import {
+  CheckServiceAreaToolDto,
+  CheckServiceAreaToolResponseDto,
+} from '../../dto/internal/tool-check-service-area.dto';
+import {
+  TransferCallToolDto,
+  TransferCallToolResponseDto,
+} from '../../dto/internal/tool-transfer-call.dto';
+import {
+  FindLeadByPhoneDto,
+  FindLeadByPhoneResponseDto,
+} from '../../dto/internal/find-lead-by-phone.dto';
+import {
+  BookAppointmentToolDto,
+  BookAppointmentToolResponseDto,
+} from '../../dto/internal/tool-book-appointment.dto';
+import {
+  RescheduleAppointmentToolDto,
+  RescheduleAppointmentToolResponseDto,
+} from '../../dto/internal/tool-reschedule-appointment.dto';
+import {
+  CancelAppointmentToolDto,
+  CancelAppointmentToolResponseDto,
+} from '../../dto/internal/tool-cancel-appointment.dto';
 
 /**
  * VoiceAiInternalController — Sprint B06a + B06b + VAB-05
@@ -67,7 +96,8 @@ import { CancelAppointmentToolDto, CancelAppointmentToolResponseDto } from '../.
 @ApiTags('Internal — Voice Agent')
 @ApiHeader({
   name: 'X-Voice-Agent-Key',
-  description: 'Secret key issued by platform admin for Python voice agent authentication',
+  description:
+    'Secret key issued by platform admin for Python voice agent authentication',
   required: true,
 })
 @Public()
@@ -108,8 +138,13 @@ export class VoiceAiInternalController {
     description: 'Lookup result (found or not found)',
     type: LookupTenantResponseDto,
   })
-  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
-  async lookupTenant(@Body() dto: LookupTenantDto): Promise<LookupTenantResponseDto> {
+  @ApiResponse({
+    status: 401,
+    description: 'Missing or invalid X-Voice-Agent-Key',
+  })
+  async lookupTenant(
+    @Body() dto: LookupTenantDto,
+  ): Promise<LookupTenantResponseDto> {
     return this.internalService.lookupTenantByPhoneNumber(dto.phone_number);
   }
 
@@ -138,7 +173,11 @@ export class VoiceAiInternalController {
       'enabled for the tenant and whether the tenant has remaining quota. ' +
       'Returns has_access: false with a reason string when the agent should reject the call.',
   })
-  @ApiParam({ name: 'tenantId', description: 'UUID of the tenant', type: String })
+  @ApiParam({
+    name: 'tenantId',
+    description: 'UUID of the tenant',
+    type: String,
+  })
   @ApiResponse({
     status: 200,
     description: 'Access check result',
@@ -156,7 +195,10 @@ export class VoiceAiInternalController {
       },
     },
   })
-  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  @ApiResponse({
+    status: 401,
+    description: 'Missing or invalid X-Voice-Agent-Key',
+  })
   checkAccess(@Param('tenantId') tenantId: string) {
     return this.internalService.checkAccess(tenantId);
   }
@@ -167,6 +209,8 @@ export class VoiceAiInternalController {
    * Returns the complete FullVoiceAiContext for the tenant.
    * Called once per call after routing to the agent room.
    * Includes decrypted provider credentials (STT, LLM, TTS API keys).
+   *
+   * Sprint 8: Now accepts optional agent_profile_id query parameter for multi-language support.
    *
    * SECURITY: Response contains plaintext API keys.
    *   The agent MUST NOT cache, log, or persist this response.
@@ -179,15 +223,41 @@ export class VoiceAiInternalController {
       'Called once per call after routing. ' +
       'SECURITY: Response contains plaintext API keys — do not cache or log.',
   })
-  @ApiParam({ name: 'tenantId', description: 'UUID of the tenant', type: String })
+  @ApiParam({
+    name: 'tenantId',
+    description: 'UUID of the tenant',
+    type: String,
+  })
+  @ApiQuery({
+    name: 'call_sid',
+    required: false,
+    description: 'Twilio call SID for call identification tracking',
+    example: 'CA1234567890abcdef',
+  })
+  @ApiQuery({
+    name: 'agent_profile_id',
+    required: false,
+    description:
+      'Voice agent profile ID for language/voice selection. ' +
+      'Extracted from X-Agent-Profile-Id SIP header by agent worker. ' +
+      'Sprint 8: Multi-language voice agent support.',
+    example: 'uuid-of-profile',
+  })
   @ApiResponse({
     status: 200,
     description: 'Full FullVoiceAiContext object with decrypted keys',
   })
-  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  @ApiResponse({
+    status: 401,
+    description: 'Missing or invalid X-Voice-Agent-Key',
+  })
   @ApiResponse({ status: 404, description: 'Tenant not found' })
-  getContext(@Param('tenantId') tenantId: string) {
-    return this.internalService.getContext(tenantId);
+  getContext(
+    @Param('tenantId') tenantId: string,
+    @Query('call_sid') callSid?: string,
+    @Query('agent_profile_id') agentProfileId?: string,
+  ) {
+    return this.internalService.getContext(tenantId, callSid, agentProfileId);
   }
 
   // ---------------------------------------------------------------------------
@@ -226,8 +296,14 @@ export class VoiceAiInternalController {
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'Validation error — invalid request body' })
-  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error — invalid request body',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Missing or invalid X-Voice-Agent-Key',
+  })
   startCall(@Body() dto: StartCallDto): Promise<{ call_log_id: string }> {
     return this.internalService.startCall(dto);
   }
@@ -266,9 +342,18 @@ export class VoiceAiInternalController {
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'Validation error — invalid request body' })
-  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
-  @ApiResponse({ status: 404, description: 'Call log not found for the given callSid' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error — invalid request body',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Missing or invalid X-Voice-Agent-Key',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Call log not found for the given callSid',
+  })
   async completeCall(
     @Param('callSid') callSid: string,
     @Body() dto: CompleteCallDto,
@@ -306,8 +391,14 @@ export class VoiceAiInternalController {
       },
     },
   })
-  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
-  @ApiResponse({ status: 404, description: 'Call log not found for the given callSid' })
+  @ApiResponse({
+    status: 401,
+    description: 'Missing or invalid X-Voice-Agent-Key',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Call log not found for the given callSid',
+  })
   async getCallStatus(
     @Param('callSid') callSid: string,
   ): Promise<{ status: string; ended_at: Date | null }> {
@@ -335,15 +426,25 @@ export class VoiceAiInternalController {
       'Creates a new lead from call information. ' +
       'Called by the agent when the LLM decides to create a lead after collecting caller info.',
   })
-  @ApiParam({ name: 'tenantId', description: 'UUID of the tenant', type: String })
+  @ApiParam({
+    name: 'tenantId',
+    description: 'UUID of the tenant',
+    type: String,
+  })
   @ApiBody({ type: CreateLeadToolDto })
   @ApiResponse({
     status: 200,
     description: 'Lead creation result',
     type: CreateLeadToolResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Validation error — invalid request body' })
-  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error — invalid request body',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Missing or invalid X-Voice-Agent-Key',
+  })
   createLead(
     @Param('tenantId') tenantId: string,
     @Body() dto: CreateLeadToolDto,
@@ -366,15 +467,25 @@ export class VoiceAiInternalController {
       'Finds an existing lead by phone number. ' +
       'Called by the agent at the start of a call to check if the caller is already a customer.',
   })
-  @ApiParam({ name: 'tenantId', description: 'UUID of the tenant', type: String })
+  @ApiParam({
+    name: 'tenantId',
+    description: 'UUID of the tenant',
+    type: String,
+  })
   @ApiBody({ type: FindLeadToolDto })
   @ApiResponse({
     status: 200,
     description: 'Lead search result',
     type: FindLeadToolResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Validation error — invalid request body' })
-  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error — invalid request body',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Missing or invalid X-Voice-Agent-Key',
+  })
   findLead(
     @Param('tenantId') tenantId: string,
     @Body() dto: FindLeadToolDto,
@@ -396,15 +507,25 @@ export class VoiceAiInternalController {
       'Checks if a location (ZIP, city, state) is within the service area. ' +
       'Called by the agent before creating a lead to confirm coverage.',
   })
-  @ApiParam({ name: 'tenantId', description: 'UUID of the tenant', type: String })
+  @ApiParam({
+    name: 'tenantId',
+    description: 'UUID of the tenant',
+    type: String,
+  })
   @ApiBody({ type: CheckServiceAreaToolDto })
   @ApiResponse({
     status: 200,
     description: 'Service area check result',
     type: CheckServiceAreaToolResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Validation error — invalid request body' })
-  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error — invalid request body',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Missing or invalid X-Voice-Agent-Key',
+  })
   checkServiceArea(
     @Param('tenantId') tenantId: string,
     @Body() dto: CheckServiceAreaToolDto,
@@ -426,15 +547,25 @@ export class VoiceAiInternalController {
       'Gets the transfer number for call handoff to a human. ' +
       'Called by the agent when the caller requests to speak with a person or for complex issues.',
   })
-  @ApiParam({ name: 'tenantId', description: 'UUID of the tenant', type: String })
+  @ApiParam({
+    name: 'tenantId',
+    description: 'UUID of the tenant',
+    type: String,
+  })
   @ApiBody({ type: TransferCallToolDto })
   @ApiResponse({
     status: 200,
     description: 'Transfer call result',
     type: TransferCallToolResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Validation error — invalid request body' })
-  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error — invalid request body',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Missing or invalid X-Voice-Agent-Key',
+  })
   transferCall(
     @Param('tenantId') tenantId: string,
     @Body() dto: TransferCallToolDto,
@@ -461,15 +592,25 @@ export class VoiceAiInternalController {
       'SEARCH MODE: Returns available slots for next 14 days (expands to max_lookahead_weeks if needed). ' +
       'CONFIRM MODE: Creates the actual appointment with source=voice_ai.',
   })
-  @ApiParam({ name: 'tenantId', description: 'UUID of the tenant', type: String })
+  @ApiParam({
+    name: 'tenantId',
+    description: 'UUID of the tenant',
+    type: String,
+  })
   @ApiBody({ type: BookAppointmentToolDto })
   @ApiResponse({
     status: 200,
     description: 'Appointment booking result (availability or confirmation)',
     type: BookAppointmentToolResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Validation error — invalid request body' })
-  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error — invalid request body',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Missing or invalid X-Voice-Agent-Key',
+  })
   bookAppointment(
     @Param('tenantId') tenantId: string,
     @Body() dto: BookAppointmentToolDto,
@@ -491,15 +632,25 @@ export class VoiceAiInternalController {
       'Reschedules an existing appointment. ' +
       'Verifies caller identity before allowing reschedule.',
   })
-  @ApiParam({ name: 'tenantId', description: 'UUID of the tenant', type: String })
+  @ApiParam({
+    name: 'tenantId',
+    description: 'UUID of the tenant',
+    type: String,
+  })
   @ApiBody({ type: RescheduleAppointmentToolDto })
   @ApiResponse({
     status: 200,
     description: 'Reschedule result',
     type: RescheduleAppointmentToolResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Validation error — invalid request body' })
-  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error — invalid request body',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Missing or invalid X-Voice-Agent-Key',
+  })
   rescheduleAppointment(
     @Param('tenantId') tenantId: string,
     @Body() dto: RescheduleAppointmentToolDto,
@@ -521,15 +672,25 @@ export class VoiceAiInternalController {
       'Cancels an existing appointment. ' +
       'Verifies caller identity before allowing cancellation.',
   })
-  @ApiParam({ name: 'tenantId', description: 'UUID of the tenant', type: String })
+  @ApiParam({
+    name: 'tenantId',
+    description: 'UUID of the tenant',
+    type: String,
+  })
   @ApiBody({ type: CancelAppointmentToolDto })
   @ApiResponse({
     status: 200,
     description: 'Cancellation result',
     type: CancelAppointmentToolResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Validation error — invalid request body' })
-  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error — invalid request body',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Missing or invalid X-Voice-Agent-Key',
+  })
   cancelAppointment(
     @Param('tenantId') tenantId: string,
     @Body() dto: CancelAppointmentToolDto,
@@ -570,8 +731,16 @@ export class VoiceAiInternalController {
     description: 'Lead lookup result (found or not found)',
     type: FindLeadByPhoneResponseDto,
   })
-  @ApiResponse({ status: 401, description: 'Missing or invalid X-Voice-Agent-Key' })
-  findLeadByPhone(@Body() dto: FindLeadByPhoneDto): Promise<FindLeadByPhoneResponseDto> {
-    return this.internalService.findLeadByPhone(dto.tenant_id, dto.phone_number);
+  @ApiResponse({
+    status: 401,
+    description: 'Missing or invalid X-Voice-Agent-Key',
+  })
+  findLeadByPhone(
+    @Body() dto: FindLeadByPhoneDto,
+  ): Promise<FindLeadByPhoneResponseDto> {
+    return this.internalService.findLeadByPhone(
+      dto.tenant_id,
+      dto.phone_number,
+    );
   }
 }

@@ -3,6 +3,17 @@
  * These mirror the DTOs/interfaces from the NestJS side
  */
 
+/**
+ * Active agent profile metadata included in context when a profile is resolved.
+ * Used by the agent worker for call logs and debug traces.
+ * Sprint: Voice Multilingual - Sprint 7 (Context Builder)
+ */
+export interface ActiveAgentProfile {
+  id: string;
+  title: string;
+  language_code: string;
+}
+
 // Tenant lookup response
 export interface LookupTenantResponse {
   found: boolean;
@@ -103,6 +114,19 @@ export interface VoiceAiContext {
     is_default: boolean;
     available_hours: string | null;
   }>;
+  conversational_phrases?: {
+    recovery_messages: string[];
+    filler_phrases: string[];
+    long_wait_messages: string[];
+    system_error_messages: string[];
+  };
+
+  /**
+   * Active agent profile metadata (Sprint 7: Voice Multilingual)
+   * Populated when language/voice is resolved from a voice agent profile.
+   * Null when using fallback behavior (no profile resolved).
+   */
+  active_agent_profile?: ActiveAgentProfile | null;
 }
 
 interface ProviderConfig {
@@ -161,7 +185,7 @@ export interface TransferCallResult {
   transfer_to?: string;
   label?: string;
   reason?: string;
-  action?: string;  // 'TRANSFER'
+  action?: string; // 'TRANSFER'
   error?: string;
 }
 

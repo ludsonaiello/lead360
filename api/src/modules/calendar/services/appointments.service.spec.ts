@@ -122,11 +122,20 @@ describe('AppointmentsService', () => {
     service = module.get<AppointmentsService>(AppointmentsService);
     prisma = module.get<PrismaService>(PrismaService);
     auditLogger = module.get<AuditLoggerService>(AuditLoggerService);
-    dateTimeConverter = module.get<DateTimeConverterService>(DateTimeConverterService);
-    googleCalendarSync = module.get<GoogleCalendarSyncService>(GoogleCalendarSyncService);
-    leadActivitiesService = module.get<LeadActivitiesService>(LeadActivitiesService);
-    appointmentReminderService = module.get<AppointmentReminderService>(AppointmentReminderService);
-    notificationsService = module.get<NotificationsService>(NotificationsService);
+    dateTimeConverter = module.get<DateTimeConverterService>(
+      DateTimeConverterService,
+    );
+    googleCalendarSync = module.get<GoogleCalendarSyncService>(
+      GoogleCalendarSyncService,
+    );
+    leadActivitiesService = module.get<LeadActivitiesService>(
+      LeadActivitiesService,
+    );
+    appointmentReminderService = module.get<AppointmentReminderService>(
+      AppointmentReminderService,
+    );
+    notificationsService =
+      module.get<NotificationsService>(NotificationsService);
 
     // Clear all mocks before each test
     jest.clearAllMocks();
@@ -150,15 +159,31 @@ describe('AppointmentsService', () => {
     };
 
     const mockTenant = { id: tenantId, timezone: 'America/New_York' };
-    const mockLead = { id: 'lead-123', tenant_id: tenantId, first_name: 'John', last_name: 'Doe' };
-    const mockAppointmentType = { id: 'apt-type-123', tenant_id: tenantId, name: 'Quote Visit' };
-    const mockUser = { id: 'user-456', tenant_id: tenantId, first_name: 'Jane', last_name: 'Smith' };
+    const mockLead = {
+      id: 'lead-123',
+      tenant_id: tenantId,
+      first_name: 'John',
+      last_name: 'Doe',
+    };
+    const mockAppointmentType = {
+      id: 'apt-type-123',
+      tenant_id: tenantId,
+      name: 'Quote Visit',
+    };
+    const mockUser = {
+      id: 'user-456',
+      tenant_id: tenantId,
+      first_name: 'Jane',
+      last_name: 'Smith',
+    };
 
     beforeEach(() => {
       // Set up default successful mocks
       mockPrisma.tenant.findUnique.mockResolvedValue(mockTenant);
       mockPrisma.lead.findFirst.mockResolvedValue(mockLead);
-      mockPrisma.appointment_type.findFirst.mockResolvedValue(mockAppointmentType);
+      mockPrisma.appointment_type.findFirst.mockResolvedValue(
+        mockAppointmentType,
+      );
       mockPrisma.user.findFirst.mockResolvedValue(mockUser);
 
       // Mock timezone conversion (2026-03-15 09:00 EST -> 14:00 UTC, 10:00 EST -> 15:00 UTC)
@@ -261,7 +286,9 @@ describe('AppointmentsService', () => {
         tenant_id: tenantId,
         lead_id: 'lead-123',
       };
-      mockPrisma.service_request.findFirst.mockResolvedValue(mockServiceRequest);
+      mockPrisma.service_request.findFirst.mockResolvedValue(
+        mockServiceRequest,
+      );
 
       const expected = {
         id: 'appt-123',
@@ -270,7 +297,11 @@ describe('AppointmentsService', () => {
       };
       mockPrisma.appointment.create.mockResolvedValue(expected);
 
-      const result = await service.create(tenantId, userId, createDtoWithServiceRequest);
+      const result = await service.create(
+        tenantId,
+        userId,
+        createDtoWithServiceRequest,
+      );
 
       expect(result).toEqual(expected);
       expect(mockPrisma.service_request.findFirst).toHaveBeenCalledWith({
@@ -314,12 +345,12 @@ describe('AppointmentsService', () => {
         end_time: '09:00',
       };
 
-      await expect(service.create(tenantId, userId, invalidTimeDto)).rejects.toThrow(
-        BadRequestException,
-      );
-      await expect(service.create(tenantId, userId, invalidTimeDto)).rejects.toThrow(
-        'Start time must be before end time',
-      );
+      await expect(
+        service.create(tenantId, userId, invalidTimeDto),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.create(tenantId, userId, invalidTimeDto),
+      ).rejects.toThrow('Start time must be before end time');
     });
 
     it('should allow appointment without assigned_user_id', async () => {
@@ -338,7 +369,11 @@ describe('AppointmentsService', () => {
       };
       mockPrisma.appointment.create.mockResolvedValue(expected);
 
-      const result = await service.create(tenantId, userId, dtoWithoutAssignedUser);
+      const result = await service.create(
+        tenantId,
+        userId,
+        dtoWithoutAssignedUser,
+      );
 
       expect(result).toEqual(expected);
       expect(mockPrisma.user.findFirst).not.toHaveBeenCalled();
@@ -492,10 +527,7 @@ describe('AppointmentsService', () => {
 
       expect(mockPrisma.appointment.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          orderBy: [
-            { scheduled_date: 'asc' },
-            { start_time: 'asc' },
-          ],
+          orderBy: [{ scheduled_date: 'asc' }, { start_time: 'asc' }],
         }),
       );
     });
@@ -519,7 +551,11 @@ describe('AppointmentsService', () => {
     const id = 'appt-123';
 
     it('should return an appointment', async () => {
-      const expected = { id, tenant_id: tenantId, scheduled_date: '2026-03-15' };
+      const expected = {
+        id,
+        tenant_id: tenantId,
+        scheduled_date: '2026-03-15',
+      };
       mockPrisma.appointment.findFirst.mockResolvedValue(expected);
 
       const result = await service.findOne(tenantId, id);
@@ -568,13 +604,25 @@ describe('AppointmentsService', () => {
     };
 
     const mockTenant = { id: tenantId, timezone: 'America/New_York' };
-    const mockLead = { id: 'lead-123', tenant_id: tenantId, first_name: 'John', last_name: 'Doe' };
-    const mockAppointmentType = { id: 'apt-type-123', tenant_id: tenantId, name: 'Quote Visit', slot_duration_minutes: 60 };
+    const mockLead = {
+      id: 'lead-123',
+      tenant_id: tenantId,
+      first_name: 'John',
+      last_name: 'Doe',
+    };
+    const mockAppointmentType = {
+      id: 'apt-type-123',
+      tenant_id: tenantId,
+      name: 'Quote Visit',
+      slot_duration_minutes: 60,
+    };
 
     beforeEach(() => {
       mockPrisma.tenant.findUnique.mockResolvedValue(mockTenant);
       mockPrisma.lead.findFirst.mockResolvedValue(mockLead);
-      mockPrisma.appointment_type.findFirst.mockResolvedValue(mockAppointmentType);
+      mockPrisma.appointment_type.findFirst.mockResolvedValue(
+        mockAppointmentType,
+      );
       mockDateTimeConverter.localToUtc.mockImplementation((date, time) => {
         return new Date(`${date}T${time}:00.000Z`);
       });
@@ -630,7 +678,9 @@ describe('AppointmentsService', () => {
         appointment_type: mockAppointmentType,
       };
 
-      mockPrisma.service_request.findFirst.mockResolvedValue(mockServiceRequest);
+      mockPrisma.service_request.findFirst.mockResolvedValue(
+        mockServiceRequest,
+      );
       mockPrisma.appointment.create.mockResolvedValue(expected);
 
       await service.create(tenantId, userId, createDtoWithServiceRequest);
@@ -675,7 +725,9 @@ describe('AppointmentsService', () => {
 
       await service.create(tenantId, userId, createDto);
 
-      expect(mockGoogleCalendarSync.queueCreateEvent).toHaveBeenCalledWith('appt-123');
+      expect(mockGoogleCalendarSync.queueCreateEvent).toHaveBeenCalledWith(
+        'appt-123',
+      );
     });
   });
 
@@ -696,8 +748,13 @@ describe('AppointmentsService', () => {
     };
 
     beforeEach(() => {
-      mockPrisma.appointment.findFirst.mockResolvedValue(mockExistingAppointment);
-      mockPrisma.user.findFirst.mockResolvedValue({ id: 'user-456', tenant_id: tenantId });
+      mockPrisma.appointment.findFirst.mockResolvedValue(
+        mockExistingAppointment,
+      );
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 'user-456',
+        tenant_id: tenantId,
+      });
     });
 
     it('should update appointment successfully', async () => {
@@ -707,7 +764,12 @@ describe('AppointmentsService', () => {
       };
       mockPrisma.appointment.update.mockResolvedValue(expected);
 
-      const result = await service.update(tenantId, appointmentId, userId, updateDto);
+      const result = await service.update(
+        tenantId,
+        appointmentId,
+        userId,
+        updateDto,
+      );
 
       expect(result).toEqual(expected);
       expect(mockPrisma.appointment.update).toHaveBeenCalledWith({
@@ -737,9 +799,7 @@ describe('AppointmentsService', () => {
       ).rejects.toThrow(NotFoundException);
       await expect(
         service.update(tenantId, appointmentId, userId, updateDto),
-      ).rejects.toThrow(
-        'User with ID user-456 not found or access denied',
-      );
+      ).rejects.toThrow('User with ID user-456 not found or access denied');
     });
 
     it('should allow updating only notes', async () => {
@@ -750,7 +810,12 @@ describe('AppointmentsService', () => {
       };
       mockPrisma.appointment.update.mockResolvedValue(expected);
 
-      const result = await service.update(tenantId, appointmentId, userId, notesOnlyDto);
+      const result = await service.update(
+        tenantId,
+        appointmentId,
+        userId,
+        notesOnlyDto,
+      );
 
       expect(result).toEqual(expected);
       expect(mockPrisma.user.findFirst).not.toHaveBeenCalled();
@@ -759,7 +824,9 @@ describe('AppointmentsService', () => {
     it('should enforce tenant_id isolation', async () => {
       mockPrisma.appointment.findFirst.mockResolvedValue(null);
 
-      await service.update(tenantId, appointmentId, userId, updateDto).catch(() => {});
+      await service
+        .update(tenantId, appointmentId, userId, updateDto)
+        .catch(() => {});
 
       expect(mockPrisma.appointment.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({

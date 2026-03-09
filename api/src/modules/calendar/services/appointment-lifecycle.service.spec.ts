@@ -155,10 +155,17 @@ describe('AppointmentLifecycleService - Sprint 06', () => {
     dateTimeConverter = module.get<DateTimeConverterService>(
       DateTimeConverterService,
     );
-    googleCalendarSync = module.get<GoogleCalendarSyncService>(GoogleCalendarSyncService);
-    leadActivitiesService = module.get<LeadActivitiesService>(LeadActivitiesService);
-    appointmentReminderService = module.get<AppointmentReminderService>(AppointmentReminderService);
-    notificationsService = module.get<NotificationsService>(NotificationsService);
+    googleCalendarSync = module.get<GoogleCalendarSyncService>(
+      GoogleCalendarSyncService,
+    );
+    leadActivitiesService = module.get<LeadActivitiesService>(
+      LeadActivitiesService,
+    );
+    appointmentReminderService = module.get<AppointmentReminderService>(
+      AppointmentReminderService,
+    );
+    notificationsService =
+      module.get<NotificationsService>(NotificationsService);
 
     jest.clearAllMocks();
   });
@@ -286,10 +293,20 @@ describe('AppointmentLifecycleService - Sprint 06', () => {
       mockPrisma.appointment.findFirst.mockResolvedValue(mockAppointment);
 
       await expect(
-        service.cancelAppointment(tenantId, appointmentId, userId, dtoWithOther),
+        service.cancelAppointment(
+          tenantId,
+          appointmentId,
+          userId,
+          dtoWithOther,
+        ),
       ).rejects.toThrow(BadRequestException);
       await expect(
-        service.cancelAppointment(tenantId, appointmentId, userId, dtoWithOther),
+        service.cancelAppointment(
+          tenantId,
+          appointmentId,
+          userId,
+          dtoWithOther,
+        ),
       ).rejects.toThrow(/cancellation_notes is required/);
     });
 
@@ -840,7 +857,11 @@ describe('AppointmentLifecycleService - Sprint 06', () => {
     it('should log lead activity when appointment is confirmed', async () => {
       const appointmentWithType = {
         ...mockAppointment,
-        appointment_type: { id: 'type-123', name: 'Quote Visit', slot_duration_minutes: 60 },
+        appointment_type: {
+          id: 'type-123',
+          name: 'Quote Visit',
+          slot_duration_minutes: 60,
+        },
       };
       mockPrisma.appointment.findFirst.mockResolvedValue(appointmentWithType);
       mockPrisma.appointment.update.mockResolvedValue({
@@ -849,7 +870,12 @@ describe('AppointmentLifecycleService - Sprint 06', () => {
       });
 
       const confirmDto: ConfirmAppointmentDto = {};
-      await service.confirmAppointment(tenantId, appointmentId, userId, confirmDto);
+      await service.confirmAppointment(
+        tenantId,
+        appointmentId,
+        userId,
+        confirmDto,
+      );
 
       expect(mockLeadActivitiesService.logActivity).toHaveBeenCalledWith(
         tenantId,
@@ -865,7 +891,11 @@ describe('AppointmentLifecycleService - Sprint 06', () => {
     it('should log lead activity when appointment is cancelled', async () => {
       const appointmentWithType = {
         ...mockAppointment,
-        appointment_type: { id: 'type-123', name: 'Quote Visit', slot_duration_minutes: 60 },
+        appointment_type: {
+          id: 'type-123',
+          name: 'Quote Visit',
+          slot_duration_minutes: 60,
+        },
       };
       mockPrisma.appointment.findFirst.mockResolvedValue(appointmentWithType);
       mockPrisma.appointment.update.mockResolvedValue({
@@ -877,7 +907,12 @@ describe('AppointmentLifecycleService - Sprint 06', () => {
       const cancelDto: CancelAppointmentDto = {
         cancellation_reason: CancellationReason.CUSTOMER_CANCELLED,
       };
-      await service.cancelAppointment(tenantId, appointmentId, userId, cancelDto);
+      await service.cancelAppointment(
+        tenantId,
+        appointmentId,
+        userId,
+        cancelDto,
+      );
 
       expect(mockLeadActivitiesService.logActivity).toHaveBeenCalledWith(
         tenantId,
@@ -906,8 +941,12 @@ describe('AppointmentLifecycleService - Sprint 06', () => {
 
       mockPrisma.appointment.findFirst.mockResolvedValue(appointmentWithType);
       mockPrisma.tenant.findUnique.mockResolvedValue(mockTenant);
-      mockPrisma.appointment_type.findFirst.mockResolvedValue(mockAppointmentType);
-      mockDateTimeConverter.localToUtc.mockReturnValue(new Date('2026-03-20T15:00:00Z'));
+      mockPrisma.appointment_type.findFirst.mockResolvedValue(
+        mockAppointmentType,
+      );
+      mockDateTimeConverter.localToUtc.mockReturnValue(
+        new Date('2026-03-20T15:00:00Z'),
+      );
 
       const newAppointment = {
         ...mockAppointment,
@@ -920,7 +959,10 @@ describe('AppointmentLifecycleService - Sprint 06', () => {
       mockPrisma.$transaction.mockImplementation(async (callback) => {
         return callback({
           appointment: {
-            update: jest.fn().mockResolvedValue({ ...mockAppointment, status: AppointmentStatus.RESCHEDULED }),
+            update: jest.fn().mockResolvedValue({
+              ...mockAppointment,
+              status: AppointmentStatus.RESCHEDULED,
+            }),
             create: jest.fn().mockResolvedValue(newAppointment),
           },
         });
@@ -931,7 +973,12 @@ describe('AppointmentLifecycleService - Sprint 06', () => {
         new_start_time: '10:00',
       };
 
-      await service.rescheduleAppointment(tenantId, appointmentId, userId, rescheduleDto);
+      await service.rescheduleAppointment(
+        tenantId,
+        appointmentId,
+        userId,
+        rescheduleDto,
+      );
 
       expect(mockLeadActivitiesService.logActivity).toHaveBeenCalledWith(
         tenantId,
@@ -947,7 +994,11 @@ describe('AppointmentLifecycleService - Sprint 06', () => {
     it('should log lead activity when appointment is completed', async () => {
       const appointmentWithType = {
         ...mockAppointment,
-        appointment_type: { id: 'type-123', name: 'Quote Visit', slot_duration_minutes: 60 },
+        appointment_type: {
+          id: 'type-123',
+          name: 'Quote Visit',
+          slot_duration_minutes: 60,
+        },
       };
       mockPrisma.appointment.findFirst.mockResolvedValue(appointmentWithType);
       mockPrisma.appointment.update.mockResolvedValue({
@@ -956,7 +1007,12 @@ describe('AppointmentLifecycleService - Sprint 06', () => {
       });
 
       const completeDto: CompleteAppointmentDto = {};
-      await service.completeAppointment(tenantId, appointmentId, userId, completeDto);
+      await service.completeAppointment(
+        tenantId,
+        appointmentId,
+        userId,
+        completeDto,
+      );
 
       expect(mockLeadActivitiesService.logActivity).toHaveBeenCalledWith(
         tenantId,
@@ -972,7 +1028,11 @@ describe('AppointmentLifecycleService - Sprint 06', () => {
     it('should log lead activity when appointment is marked as no-show', async () => {
       const appointmentWithType = {
         ...mockAppointment,
-        appointment_type: { id: 'type-123', name: 'Quote Visit', slot_duration_minutes: 60 },
+        appointment_type: {
+          id: 'type-123',
+          name: 'Quote Visit',
+          slot_duration_minutes: 60,
+        },
       };
       mockPrisma.appointment.findFirst.mockResolvedValue(appointmentWithType);
       mockPrisma.appointment.update.mockResolvedValue({

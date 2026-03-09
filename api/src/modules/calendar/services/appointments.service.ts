@@ -134,9 +134,7 @@ export class AppointmentsService {
 
     // Validate: Start time is before end time
     if (createDto.start_time >= createDto.end_time) {
-      throw new BadRequestException(
-        'Start time must be before end time',
-      );
+      throw new BadRequestException('Start time must be before end time');
     }
 
     // Sprint 05b: Proper timezone conversion with DST support
@@ -312,10 +310,7 @@ export class AppointmentsService {
    * @param listDto - Filter and pagination options
    * @returns Paginated list of appointments
    */
-  async findAll(
-    tenantId: string,
-    listDto: ListAppointmentsDto,
-  ): Promise<any> {
+  async findAll(tenantId: string, listDto: ListAppointmentsDto): Promise<any> {
     const page = listDto.page ?? 1;
     const limit = Math.min(listDto.limit ?? 50, 100); // Max 100 per page
     const skip = (page - 1) * limit;
@@ -355,10 +350,7 @@ export class AppointmentsService {
     let orderBy: any;
     if (sortBy === 'scheduled_date') {
       // Sort by date first, then by start_time
-      orderBy = [
-        { scheduled_date: sortOrder },
-        { start_time: sortOrder },
-      ];
+      orderBy = [{ scheduled_date: sortOrder }, { start_time: sortOrder }];
     } else {
       orderBy = { [sortBy]: sortOrder };
     }

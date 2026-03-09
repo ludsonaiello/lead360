@@ -38,7 +38,10 @@ async function bootstrap() {
   app.use(
     session({
       store: redisStore,
-      secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || 'fallback-secret-change-in-production', // Fallback to JWT secret
+      secret:
+        process.env.SESSION_SECRET ||
+        process.env.JWT_SECRET ||
+        'fallback-secret-change-in-production', // Fallback to JWT secret
       resave: false, // Don't save session if unmodified
       saveUninitialized: false, // Don't create session until something stored
       name: 'lead360.sid', // Custom cookie name
@@ -47,7 +50,8 @@ async function bootstrap() {
         secure: process.env.NODE_ENV === 'production', // HTTPS only in production
         sameSite: 'lax', // CSRF protection (allows OAuth redirects)
         maxAge: 600000, // 10 minutes (600,000 ms)
-        domain: process.env.NODE_ENV === 'production' ? '.lead360.app' : undefined, // Cross-subdomain
+        domain:
+          process.env.NODE_ENV === 'production' ? '.lead360.app' : undefined, // Cross-subdomain
         path: '/', // Available on all routes
       },
     }),
@@ -150,9 +154,7 @@ function setupGracefulShutdown(app: any) {
 
     // Set a timeout to force exit if shutdown takes too long
     const shutdownTimeout = setTimeout(() => {
-      logger.error(
-        'Graceful shutdown timeout (30s) - forcing exit',
-      );
+      logger.error('Graceful shutdown timeout (30s) - forcing exit');
       process.exit(1);
     }, 30000); // 30 seconds
 

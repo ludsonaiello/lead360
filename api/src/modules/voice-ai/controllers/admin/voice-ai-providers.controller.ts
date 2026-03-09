@@ -36,9 +36,7 @@ import { FilterVoiceAiProvidersDto } from '../../dto/filter-voice-ai-providers.d
 @Controller('system/voice-ai/providers')
 @UseGuards(PlatformAdminGuard)
 export class VoiceAiProvidersController {
-  constructor(
-    private readonly providersService: VoiceAiProvidersService,
-  ) {}
+  constructor(private readonly providersService: VoiceAiProvidersService) {}
 
   /**
    * GET /api/v1/system/voice-ai/providers

@@ -72,7 +72,9 @@ describe('GoogleCalendarService', () => {
 
   describe('configuration', () => {
     it('should load configuration from environment', () => {
-      expect(configService.get('GOOGLE_CALENDAR_CLIENT_ID')).toBe('test-client-id');
+      expect(configService.get('GOOGLE_CALENDAR_CLIENT_ID')).toBe(
+        'test-client-id',
+      );
       expect(configService.get('GOOGLE_CALENDAR_CLIENT_SECRET')).toBe(
         'test-client-secret',
       );

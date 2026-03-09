@@ -268,24 +268,25 @@ model service {
 }
 
 model subscription_plan {
-  id                        String   @id @db.VarChar(36)
-  name                      String   @unique @db.VarChar(100)
-  description               String?  @db.Text
-  monthly_price             Decimal  @db.Decimal(10, 2)
-  annual_price              Decimal  @db.Decimal(10, 2)
-  max_users                 Int
-  max_storage_gb            Decimal? @db.Decimal(10, 2)
-  offers_trial              Boolean  @default(false)
-  trial_days                Int?
-  feature_flags             String   @db.LongText
-  is_active                 Boolean  @default(true)
-  is_default                Boolean  @default(false)
-  created_at                DateTime @default(now())
-  updated_at                DateTime
-  voice_ai_enabled          Boolean  @default(false)
-  voice_ai_minutes_included Int      @default(0)
-  voice_ai_overage_rate     Decimal? @db.Decimal(10, 4)
-  tenant                    tenant[]
+  id                          String   @id @db.VarChar(36)
+  name                        String   @unique @db.VarChar(100)
+  description                 String?  @db.Text
+  monthly_price               Decimal  @db.Decimal(10, 2)
+  annual_price                Decimal  @db.Decimal(10, 2)
+  max_users                   Int
+  max_storage_gb              Decimal? @db.Decimal(10, 2)
+  offers_trial                Boolean  @default(false)
+  trial_days                  Int?
+  feature_flags               String   @db.LongText
+  is_active                   Boolean  @default(true)
+  is_default                  Boolean  @default(false)
+  created_at                  DateTime @default(now())
+  updated_at                  DateTime
+  voice_ai_enabled            Boolean  @default(false)
+  voice_ai_minutes_included   Int      @default(0)
+  voice_ai_overage_rate       Decimal? @db.Decimal(10, 4)
+  voice_ai_max_agent_profiles Int      @default(1)
+  tenant                      tenant[]
 
   @@index([is_active])
   @@index([is_default])
@@ -405,6 +406,7 @@ model tenant {
   twilio_usage_records                    twilio_usage_record[]                  @relation("twilio_usage_tenant")
   voice_ai_settings                       tenant_voice_ai_settings?
   voice_transfer_numbers                  tenant_voice_transfer_number[]
+  voice_agent_profile_overrides           tenant_voice_agent_profile_override[]
   voice_call_logs                         voice_call_log[]
   voice_usage_records                     voice_usage_record[]
   voice_monthly_usages                    voice_monthly_usage[]
@@ -1218,6 +1220,52 @@ model tenant_voice_transfer_number {
   @@index([tenant_id, is_default])
   @@index([tenant_id, display_order])
   @@map("tenant_voice_transfer_number")
+}
+
+/// Global voice agent profiles (system admin managed)
+model voice_ai_agent_profile {
+  id                   String   @id @default(uuid()) @db.VarChar(36)
+  language_code        String   @db.VarChar(10)
+  language_name        String   @db.VarChar(100)
+  voice_id             String   @db.VarChar(200)
+  voice_provider_type  String   @default("tts") @db.VarChar(20)
+  default_greeting     String?  @db.Text
+  default_instructions String?  @db.LongText
+  display_name         String   @unique @db.VarChar(100)
+  description          String?  @db.Text
+  is_active            Boolean  @default(true)
+  display_order        Int      @default(0)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+  updated_by           String?  @db.VarChar(36)
+
+  tenant_overrides tenant_voice_agent_profile_override[]
+
+  @@index([language_code])
+  @@index([is_active])
+  @@map("voice_ai_agent_profile")
+}
+
+/// Tenant overrides for global profiles
+model tenant_voice_agent_profile_override {
+  id                  String   @id @default(uuid()) @db.VarChar(36)
+  tenant_id           String   @db.VarChar(36)
+  agent_profile_id    String   @db.VarChar(36)
+  custom_greeting     String?  @db.Text
+  custom_instructions String?  @db.LongText
+  is_active           Boolean  @default(true)
+  display_order       Int      @default(0)
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  updated_by          String?  @db.VarChar(36)
+
+  tenant        tenant                 @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  agent_profile voice_ai_agent_profile @relation(fields: [agent_profile_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
+  @@index([tenant_id, agent_profile_id])
+  @@index([agent_profile_id])
+  @@map("tenant_voice_agent_profile_override")
 }
 
 model voice_call_log {

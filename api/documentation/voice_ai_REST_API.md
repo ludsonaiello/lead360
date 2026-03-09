@@ -3,8 +3,8 @@
 **Module**: Voice AI
 **API Version**: v1
 **Base URL**: `https://api.lead360.app/api/v1`
-**Last Updated**: 2026-02-28
-**Sprint**: Sprint 5 (STT Configuration from Database)
+**Last Updated**: 2026-03-04
+**Sprint**: Sprint 9 (Multilingual Support - Documentation & Testing)
 
 ---
 
@@ -21,7 +21,9 @@
 3. [Tenant Endpoints](#tenant-endpoints)
    - [Settings](#tenant-settings)
    - [Transfer Numbers](#transfer-numbers)
+   - [Voice Agent Profiles](#voice-agent-profiles) ⭐ **NEW - Multilingual Support**
    - [Call Logs & Usage](#call-logs--usage-tenant)
+4. [Multilingual Feature Documentation](#multilingual-feature-documentation)
 
 ---
 
@@ -2800,10 +2802,172 @@ Rate limiting is not currently enforced on Voice AI endpoints, but may be added 
 
 ---
 
+## Voice Agent Profiles
+
+⭐ **NEW FEATURE - Multilingual Voice Agent Support**
+
+Voice Agent Profiles enable tenants to create multiple named voice agent configurations, each with its own language, TTS voice, greeting, and custom instructions. This allows businesses to offer language-specific call routing through IVR menus.
+
+### Quick Overview
+
+**What are Voice Agent Profiles?**
+- Named configurations that bind: language + TTS voice + greeting + instructions
+- Can be referenced in IVR configurations for language-specific routing
+- Subject to subscription plan limits (`voice_ai_max_agent_profiles`)
+- Example: Create "English Sales", "Spanish Support", "Portuguese After-Hours" profiles
+
+**Key Features**:
+- ✅ Multi-language support (BCP-47 language codes)
+- ✅ Per-profile TTS voice selection
+- ✅ Custom greetings per language
+- ✅ Custom instructions (appended to tenant-level instructions)
+- ✅ Plan-based limits on active profiles
+- ✅ IVR integration for language selection menus
+- ✅ Default profile fallback support
+
+### Endpoints Summary
+
+| Method | Endpoint | Description | RBAC |
+|--------|----------|-------------|------|
+| POST | `/voice-ai/agent-profiles` | Create new profile | Owner, Admin |
+| GET | `/voice-ai/agent-profiles` | List all profiles | Owner, Admin, Manager |
+| GET | `/voice-ai/agent-profiles/:id` | Get single profile | Owner, Admin, Manager |
+| PATCH | `/voice-ai/agent-profiles/:id` | Update profile | Owner, Admin |
+| DELETE | `/voice-ai/agent-profiles/:id` | Delete profile | Owner, Admin |
+
+### Quick Start Example
+
+**1. Create an English Profile**:
+```bash
+curl -X POST http://localhost:8000/api/v1/voice-ai/agent-profiles \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "English Agent",
+    "language_code": "en",
+    "voice_id": "694f9389-aac1-45b6-b726-9d9369183238",
+    "custom_greeting": "Hello! How can I help you today?",
+    "is_active": true
+  }'
+```
+
+**2. Create a Spanish Profile**:
+```bash
+curl -X POST http://localhost:8000/api/v1/voice-ai/agent-profiles \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Agente Español",
+    "language_code": "es",
+    "voice_id": "a0e99841-438c-4a64-b679-ae501e7d6091",
+    "custom_greeting": "¡Hola! ¿Cómo puedo ayudarle?",
+    "is_active": true
+  }'
+```
+
+**3. Configure IVR to Use Profiles**:
+```bash
+curl -X POST http://localhost:8000/api/v1/communication/ivr-configuration \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "greeting_message": "Press 1 for English, Press 2 for Spanish",
+    "menu_options": [
+      {
+        "digit": "1",
+        "action": "voice_ai",
+        "label": "English",
+        "config": {
+          "agent_profile_id": "english-profile-uuid"
+        }
+      },
+      {
+        "digit": "2",
+        "action": "voice_ai",
+        "label": "Español",
+        "config": {
+          "agent_profile_id": "spanish-profile-uuid"
+        }
+      }
+    ]
+  }'
+```
+
+### Business Rules
+
+1. **Plan Limits**: Active profile count (`is_active = true`) must not exceed `subscription_plan.voice_ai_max_agent_profiles`
+2. **Uniqueness**: `(language_code + title)` must be unique per tenant (case-sensitive)
+3. **Voice AI Enabled**: Tenant's subscription plan must have `voice_ai_enabled = true`
+4. **IVR References**: Cannot delete profile if referenced in active IVR configuration
+5. **Deactivation**: Deactivating default profile clears `tenant_voice_ai_settings.default_agent_profile_id`
+6. **Tenant Isolation**: All queries filter by `tenant_id` from JWT (never from request)
+
+### Context Resolution Flow
+
+When a call arrives:
+
+1. **Step 1**: Try to resolve profile from `agent_profile_id` (from IVR config)
+2. **Step 2**: If Step 1 fails, try `tenant_voice_ai_settings.default_agent_profile_id`
+3. **Step 3**: If Step 2 fails, fall back to `enabled_languages[0]` + `voice_id_override`
+
+When a profile is resolved:
+- `language_code` → `context.behavior.language`
+- `voice_id` → `context.providers.tts.voice_id`
+- `custom_greeting` → `context.behavior.greeting` (overrides tenant default)
+- `custom_instructions` → **APPENDS** to `context.behavior.system_prompt`
+
+### Error Codes
+
+| Status | Error | Cause |
+|--------|-------|-------|
+| 403 | Forbidden (plan limit) | Active profiles >= `voice_ai_max_agent_profiles` |
+| 403 | Forbidden (voice AI disabled) | Plan doesn't include Voice AI |
+| 404 | Not Found | Profile doesn't exist or belongs to other tenant |
+| 409 | Conflict (duplicate) | (language + title) already exists |
+| 409 | Conflict (IVR in use) | Profile referenced in IVR config |
+
+### Complete Documentation
+
+For complete API documentation including all request/response fields, validation rules, and advanced examples, see:
+- **[Voice Agent Profiles REST API](./voice_agent_profiles_REST_API.md)** - Complete endpoint documentation
+- **[Voice AI Multilingual Feature](./voice_ai_multilingual_REST_API.md)** - Comprehensive multilingual feature guide
+
+---
+
+## Multilingual Feature Documentation
+
+The Voice AI module now supports multilingual voice agents through the Voice Agent Profiles feature.
+
+**Comprehensive Guides**:
+
+1. **[voice_agent_profiles_REST_API.md](./voice_agent_profiles_REST_API.md)**
+   - Complete REST API documentation for Voice Agent Profiles
+   - All CRUD endpoints with request/response examples
+   - Error handling and validation rules
+   - IVR integration details
+   - Context resolution flow
+
+2. **[voice_ai_multilingual_REST_API.md](./voice_ai_multilingual_REST_API.md)**
+   - Complete multilingual feature guide
+   - Architecture and data flow diagrams
+   - End-to-end examples (bilingual, multilingual setups)
+   - Best practices for profile management
+   - Testing and validation guides
+   - System prompt merging explained
+   - Admin configuration examples
+
+**Quick Links**:
+- Create profiles: See [voice_agent_profiles_REST_API.md § Create Voice Agent Profile](./voice_agent_profiles_REST_API.md#1-create-voice-agent-profile)
+- IVR integration: See [voice_ai_multilingual_REST_API.md § IVR Integration](./voice_ai_multilingual_REST_API.md#ivr-integration)
+- Complete examples: See [voice_ai_multilingual_REST_API.md § Complete Examples](./voice_ai_multilingual_REST_API.md#complete-examples)
+
+---
+
 ## Changelog
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-03-04 | 1.4 | **Sprint 9**: Added Voice Agent Profiles (Multilingual Support) with complete CRUD endpoints, IVR integration, and context resolution. Created comprehensive documentation in voice_agent_profiles_REST_API.md and voice_ai_multilingual_REST_API.md |
 | 2026-03-03 | 1.3 | **Sprint 19**: Added Voice AI Tools section documenting reschedule_appointment and cancel_appointment tools with identity verification, two-phase operation flow, and conversation examples. |
 | 2026-02-25 | 1.2 | **MAJOR**: Added Internal Agent Endpoints section with 4 critical endpoints (access, context, start, complete). Added new fields to context: business_description, business_hours, industries. Enhanced context for better agent capabilities. |
 | 2026-02-24 | 1.1 | Added GET `/api/v1/system/voice-ai/tenants/:tenantId/override` endpoint for retrieving current override settings (fixes tenant override form pre-population) |

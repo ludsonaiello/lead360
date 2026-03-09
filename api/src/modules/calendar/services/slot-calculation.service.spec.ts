@@ -444,9 +444,7 @@ describe('SlotCalculationService', () => {
         mockPrisma.appointment_type.findFirst.mockResolvedValue(
           appointmentType,
         );
-        mockPrisma.appointment.findMany.mockResolvedValue(
-          existingAppointments,
-        );
+        mockPrisma.appointment.findMany.mockResolvedValue(existingAppointments);
 
         const result = await service.getAvailableSlots(
           tenantId,
@@ -495,9 +493,7 @@ describe('SlotCalculationService', () => {
         mockPrisma.appointment_type.findFirst.mockResolvedValue(
           appointmentType,
         );
-        mockPrisma.appointment.findMany.mockResolvedValue(
-          existingAppointments,
-        );
+        mockPrisma.appointment.findMany.mockResolvedValue(existingAppointments);
 
         const result = await service.getAvailableSlots(
           tenantId,
@@ -559,9 +555,7 @@ describe('SlotCalculationService', () => {
         mockPrisma.appointment_type.findFirst.mockResolvedValue(
           appointmentType,
         );
-        mockPrisma.appointment.findMany.mockResolvedValue(
-          existingAppointments,
-        );
+        mockPrisma.appointment.findMany.mockResolvedValue(existingAppointments);
 
         const result = await service.getAvailableSlots(
           tenantId,
@@ -610,9 +604,7 @@ describe('SlotCalculationService', () => {
         mockPrisma.appointment_type.findFirst.mockResolvedValue(
           appointmentType,
         );
-        mockPrisma.appointment.findMany.mockResolvedValue(
-          existingAppointments,
-        );
+        mockPrisma.appointment.findMany.mockResolvedValue(existingAppointments);
 
         const result = await service.getAvailableSlots(
           tenantId,
@@ -695,9 +687,7 @@ describe('SlotCalculationService', () => {
         mockPrisma.appointment_type.findFirst.mockResolvedValue(
           appointmentType,
         );
-        mockPrisma.appointment.findMany.mockResolvedValue(
-          existingAppointments,
-        );
+        mockPrisma.appointment.findMany.mockResolvedValue(existingAppointments);
 
         const result = await service.getAvailableSlots(
           tenantId,
@@ -813,9 +803,7 @@ describe('SlotCalculationService', () => {
         mockPrisma.appointment_type.findFirst.mockResolvedValue(
           appointmentType,
         );
-        mockPrisma.appointment.findMany.mockResolvedValue(
-          existingAppointments,
-        );
+        mockPrisma.appointment.findMany.mockResolvedValue(existingAppointments);
 
         const result = await service.getAvailableSlots(
           tenantId,
@@ -1065,7 +1053,9 @@ describe('SlotCalculationService', () => {
         expect(result.available_dates).toHaveLength(1);
 
         // Verify 10:00 slot is missing
-        const slotTimes = result.available_dates[0].slots.map((s) => s.start_time);
+        const slotTimes = result.available_dates[0].slots.map(
+          (s) => s.start_time,
+        );
         expect(slotTimes).not.toContain('10:00');
         expect(slotTimes).toContain('09:00');
         expect(slotTimes).toContain('11:00');
@@ -1112,7 +1102,9 @@ describe('SlotCalculationService', () => {
         );
 
         // 10:00 and 11:00 slots should both be excluded (partial overlap)
-        const slotTimes = result.available_dates[0].slots.map((s) => s.start_time);
+        const slotTimes = result.available_dates[0].slots.map(
+          (s) => s.start_time,
+        );
         expect(slotTimes).not.toContain('10:00');
         expect(slotTimes).not.toContain('11:00');
         expect(slotTimes).toContain('09:00');

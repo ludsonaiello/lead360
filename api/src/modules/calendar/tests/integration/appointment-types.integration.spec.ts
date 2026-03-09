@@ -39,7 +39,9 @@ describe('Appointment Types Integration Tests', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     app.setGlobalPrefix('api/v1');
 
     await app.init();
@@ -188,7 +190,9 @@ describe('Appointment Types Integration Tests', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
-      expect(response.body.items.every((t: any) => t.is_active === true)).toBe(true);
+      expect(response.body.items.every((t: any) => t.is_active === true)).toBe(
+        true,
+      );
     });
 
     it('should filter by is_default', async () => {
@@ -253,7 +257,9 @@ describe('Appointment Types Integration Tests', () => {
 
     it('should return 404 for non-existent appointment type', async () => {
       await request(app.getHttpServer())
-        .get('/api/v1/calendar/appointment-types/00000000-0000-0000-0000-000000000000')
+        .get(
+          '/api/v1/calendar/appointment-types/00000000-0000-0000-0000-000000000000',
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(404);
     });
@@ -303,7 +309,9 @@ describe('Appointment Types Integration Tests', () => {
 
     it('should return 404 for non-existent appointment type', async () => {
       await request(app.getHttpServer())
-        .patch('/api/v1/calendar/appointment-types/00000000-0000-0000-0000-000000000000')
+        .patch(
+          '/api/v1/calendar/appointment-types/00000000-0000-0000-0000-000000000000',
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Non-existent',
@@ -366,7 +374,9 @@ describe('Appointment Types Integration Tests', () => {
 
     it('should return 404 for non-existent appointment type', async () => {
       await request(app.getHttpServer())
-        .delete('/api/v1/calendar/appointment-types/00000000-0000-0000-0000-000000000000')
+        .delete(
+          '/api/v1/calendar/appointment-types/00000000-0000-0000-0000-000000000000',
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(404);
     });
@@ -380,7 +390,9 @@ describe('Appointment Types Integration Tests', () => {
         .expect(200);
 
       // All returned types should belong to the authenticated tenant
-      expect(response.body.items.every((t: any) => t.tenant_id === tenantId)).toBe(true);
+      expect(
+        response.body.items.every((t: any) => t.tenant_id === tenantId),
+      ).toBe(true);
     });
   });
 
@@ -420,7 +432,9 @@ describe('Appointment Types Integration Tests', () => {
 
     it('should permanently delete an appointment type with no appointments', async () => {
       await request(app.getHttpServer())
-        .delete(`/api/v1/calendar/appointment-types/${hardDeleteTestTypeId}/permanent`)
+        .delete(
+          `/api/v1/calendar/appointment-types/${hardDeleteTestTypeId}/permanent`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(204);
 
@@ -464,7 +478,9 @@ describe('Appointment Types Integration Tests', () => {
 
       // Attempt hard delete should fail
       const response = await request(app.getHttpServer())
-        .delete(`/api/v1/calendar/appointment-types/${hardDeleteTestTypeId}/permanent`)
+        .delete(
+          `/api/v1/calendar/appointment-types/${hardDeleteTestTypeId}/permanent`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(400);
 
@@ -480,7 +496,9 @@ describe('Appointment Types Integration Tests', () => {
 
     it('should return 404 for non-existent appointment type', async () => {
       await request(app.getHttpServer())
-        .delete('/api/v1/calendar/appointment-types/00000000-0000-0000-0000-000000000000/permanent')
+        .delete(
+          '/api/v1/calendar/appointment-types/00000000-0000-0000-0000-000000000000/permanent',
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(404);
     });
@@ -489,7 +507,9 @@ describe('Appointment Types Integration Tests', () => {
       // Note: This test assumes the current user is Owner
       // In a full test suite, you would test with an Admin user and verify 403
       const response = await request(app.getHttpServer())
-        .delete(`/api/v1/calendar/appointment-types/${hardDeleteTestTypeId}/permanent`)
+        .delete(
+          `/api/v1/calendar/appointment-types/${hardDeleteTestTypeId}/permanent`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(204);
 
@@ -498,7 +518,9 @@ describe('Appointment Types Integration Tests', () => {
 
     it('should require authentication', async () => {
       await request(app.getHttpServer())
-        .delete(`/api/v1/calendar/appointment-types/${hardDeleteTestTypeId}/permanent`)
+        .delete(
+          `/api/v1/calendar/appointment-types/${hardDeleteTestTypeId}/permanent`,
+        )
         .expect(401);
     });
   });

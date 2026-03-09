@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { QuotePricingService } from './quote-pricing.service';
 import { QuoteTemplateService } from './quote-template.service';
@@ -49,7 +45,6 @@ export class QuotePdfGeneratorService {
     private readonly puppeteerManager: PuppeteerProcessManager,
   ) {}
 
-
   /**
    * Generate PDF for a quote
    *
@@ -73,7 +68,6 @@ export class QuotePdfGeneratorService {
     includeCostBreakdown: boolean = false,
     forceRegenerate: boolean = false,
   ): Promise<PdfResponseDto> {
-
     // 1. Fetch quote with PDF metadata and latest_pdf_file relation
     const quote = await this.prisma.quote.findFirst({
       where: {
@@ -403,10 +397,7 @@ export class QuotePdfGeneratorService {
 
       return Buffer.from(pdfBuffer);
     } catch (error) {
-      this.logger.error(
-        `PDF generation failed: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`PDF generation failed: ${error.message}`, error.stack);
       throw error;
     } finally {
       // Ensure page is closed even if errors occur

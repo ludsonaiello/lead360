@@ -100,9 +100,9 @@ describe('PeriodicSyncScheduler', () => {
       await scheduler.handlePeriodicSync();
 
       // Assert
-      expect(prisma.calendar_provider_connection.findMany).toHaveBeenCalledTimes(
-        1,
-      );
+      expect(
+        prisma.calendar_provider_connection.findMany,
+      ).toHaveBeenCalledTimes(1);
       expect(syncQueue.add).toHaveBeenCalledTimes(1);
       expect(syncQueue.add).toHaveBeenCalledWith('incremental-sync', {
         tenantId: 'tenant-123',

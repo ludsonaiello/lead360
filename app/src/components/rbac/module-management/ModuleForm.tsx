@@ -29,7 +29,7 @@ const moduleFormSchema = z.object({
     .string()
     .min(1, 'Module name is required')
     .max(50, 'Module name must be less than 50 characters')
-    .regex(/^[a-z0-9-]+$/, 'Module name can only contain lowercase letters, numbers, and hyphens'),
+    .regex(/^[a-z_]+$/, 'Module name can only contain lowercase letters and underscores'),
   display_name: z
     .string()
     .min(1, 'Display name is required')
@@ -211,14 +211,14 @@ export default function ModuleForm({
               id="name"
               type="text"
               {...register('name')}
-              placeholder="e.g., leads, users, rbac"
+              placeholder="e.g., leads, users, voice_ai"
               disabled={submitting || isEditMode}
             />
             {errors.name && (
               <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
             )}
             <p className="mt-1 text-xs text-gray-500">
-              Use lowercase letters, numbers, and hyphens only
+              Use lowercase letters and underscores only (snake_case)
             </p>
             {isEditMode && (
               <p className="mt-1 text-xs text-gray-500">

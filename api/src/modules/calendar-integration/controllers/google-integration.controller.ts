@@ -14,7 +14,12 @@ import {
   Session,
   Res,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -69,16 +74,22 @@ export class GoogleIntegrationController {
     description: 'Authorization URL generated successfully',
     type: GoogleAuthUrlResponseDto,
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized - JWT missing or invalid' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - JWT missing or invalid',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
   async generateAuthUrl(
     @TenantId() tenantId: string,
     @Session() session: Record<string, any>,
   ): Promise<GoogleAuthUrlResponseDto> {
-
     this.logger.log(`Generating OAuth URL for tenant ${tenantId}`);
 
-    const { authUrl, state } = this.googleCalendarService.generateAuthUrl(tenantId);
+    const { authUrl, state } =
+      this.googleCalendarService.generateAuthUrl(tenantId);
 
     // Store FULL state (tenantId:uuid) in session for CSRF validation
     const fullState = `${tenantId}:${state}`;
@@ -107,7 +118,10 @@ export class GoogleIntegrationController {
     description: 'Authorization successful - redirect to calendar selection',
     type: GoogleOAuthCallbackResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Bad request - Invalid state or code' })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Invalid state or code',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized - OAuth failed' })
   async handleOAuthCallback(
     @Query() query: GoogleOAuthCallbackQueryDto,
@@ -140,7 +154,9 @@ export class GoogleIntegrationController {
 
     if (state !== sessionState) {
       this.logger.error('OAuth state mismatch - possible CSRF attack');
-      res.redirect(`${process.env.APP_URL}/settings/calendar?error=invalid_state`);
+      res.redirect(
+        `${process.env.APP_URL}/settings/calendar?error=invalid_state`,
+      );
       return;
     }
 
@@ -165,7 +181,9 @@ export class GoogleIntegrationController {
       res.redirect(`${process.env.APP_URL}/settings/calendar/select-calendar`);
     } catch (error) {
       this.logger.error('Failed to exchange authorization code', error.stack);
-      res.redirect(`${process.env.APP_URL}/settings/calendar?error=token_exchange_failed`);
+      res.redirect(
+        `${process.env.APP_URL}/settings/calendar?error=token_exchange_failed`,
+      );
     }
   }
 
@@ -187,13 +205,18 @@ export class GoogleIntegrationController {
     description: 'Calendar list retrieved successfully',
     type: GoogleCalendarListResponseDto,
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized - Session tokens missing' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Session tokens missing',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
   async listCalendars(
     @TenantId() tenantId: string,
     @Session() session: Record<string, any>,
   ): Promise<GoogleCalendarListResponseDto> {
-
     // Get tokens from session
     const sessionTokens = session.googleOAuthTokens;
 
@@ -233,9 +256,18 @@ export class GoogleIntegrationController {
     description: 'Calendar connected successfully',
     type: ConnectGoogleCalendarResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Bad request - Invalid calendar ID' })
-  @ApiResponse({ status: 401, description: 'Unauthorized - Session tokens missing' })
-  @ApiResponse({ status: 409, description: 'Conflict - Connection already exists' })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Invalid calendar ID',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Session tokens missing',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - Connection already exists',
+  })
   async connectCalendar(
     @TenantId() tenantId: string,
     @Req() req: any,
@@ -244,13 +276,23 @@ export class GoogleIntegrationController {
   ): Promise<ConnectGoogleCalendarResponseDto> {
     const userId = req.user?.id;
 
-    // Check if connection already exists
-    const existingConnection = await this.connectionService.getActiveConnection(tenantId);
+    // Check if ANY connection already exists (active or inactive)
+    const existingAnyConnection =
+      await this.connectionService.getConnection(tenantId);
 
-    if (existingConnection) {
+    if (existingAnyConnection?.is_active) {
       throw new BadRequestException(
         'Calendar connection already exists. Disconnect first before connecting a new calendar.',
       );
+    }
+
+    // If inactive connection exists, delete it before creating new one
+    // This handles the case where disconnect succeeded but left inactive record
+    if (existingAnyConnection && !existingAnyConnection.is_active) {
+      this.logger.log(
+        `Cleaning up inactive connection before reconnect for tenant ${tenantId}`,
+      );
+      await this.connectionService.deleteConnection(tenantId);
     }
 
     // Get tokens from session
@@ -287,12 +329,13 @@ export class GoogleIntegrationController {
       const webhookUrl = `${process.env.LEAD360_API_URL || 'https://api.lead360.app'}/api/v1/webhooks/google-calendar`;
       const channelToken = randomUUID();
 
-      const webhookChannel = await this.googleCalendarService.createWatchChannel(
-        sessionTokens.accessToken,
-        dto.calendarId,
-        webhookUrl,
-        channelToken,
-      );
+      const webhookChannel =
+        await this.googleCalendarService.createWatchChannel(
+          sessionTokens.accessToken,
+          dto.calendarId,
+          webhookUrl,
+          channelToken,
+        );
 
       // Create connection record
       const connection = await this.connectionService.createConnection({
@@ -357,8 +400,8 @@ export class GoogleIntegrationController {
   async disconnectCalendar(
     @TenantId() tenantId: string,
   ): Promise<DisconnectCalendarResponseDto> {
-
-    const connection = await this.connectionService.getActiveConnection(tenantId);
+    const connection =
+      await this.connectionService.getActiveConnection(tenantId);
 
     if (!connection) {
       throw new NotFoundException('Calendar connection not found');
@@ -367,17 +410,40 @@ export class GoogleIntegrationController {
     this.logger.log(`Disconnecting calendar for tenant ${tenantId}`);
 
     try {
+      // Refresh token if expired/expiring (prevents auth failures)
+      let accessToken = connection.accessToken;
+
+      if (this.connectionService.needsTokenRefresh(connection.tokenExpiresAt)) {
+        this.logger.log(
+          `Token expired/expiring - refreshing before disconnect for tenant ${tenantId}`,
+        );
+
+        const refreshed = await this.googleCalendarService.refreshAccessToken(
+          connection.refreshToken,
+        );
+
+        await this.connectionService.updateAccessToken(
+          connection.id,
+          refreshed.accessToken,
+          refreshed.expiryDate,
+        );
+
+        accessToken = refreshed.accessToken;
+
+        this.logger.log(`Token refreshed successfully for tenant ${tenantId}`);
+      }
+
       // Stop webhook channel
       if (connection.webhookChannelId && connection.webhookResourceId) {
         await this.googleCalendarService.stopWatchChannel(
-          connection.accessToken,
+          accessToken,
           connection.webhookChannelId,
           connection.webhookResourceId,
         );
       }
 
       // Revoke OAuth tokens
-      await this.googleCalendarService.revokeToken(connection.accessToken);
+      await this.googleCalendarService.revokeToken(accessToken);
 
       // Deactivate connection and purge external blocks
       await this.connectionService.deactivateConnection(tenantId);
@@ -418,9 +484,11 @@ export class GoogleIntegrationController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Connection not found' })
-  async triggerSync(@TenantId() tenantId: string): Promise<TriggerSyncResponseDto> {
-
-    const connection = await this.connectionService.getActiveConnection(tenantId);
+  async triggerSync(
+    @TenantId() tenantId: string,
+  ): Promise<TriggerSyncResponseDto> {
+    const connection =
+      await this.connectionService.getActiveConnection(tenantId);
 
     if (!connection) {
       throw new NotFoundException('Calendar connection not found');
@@ -459,9 +527,11 @@ export class GoogleIntegrationController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Connection not found' })
   @ApiResponse({ status: 503, description: 'Connection test failed' })
-  async testConnection(@TenantId() tenantId: string): Promise<TestConnectionResponseDto> {
-
-    const connection = await this.connectionService.getActiveConnection(tenantId);
+  async testConnection(
+    @TenantId() tenantId: string,
+  ): Promise<TestConnectionResponseDto> {
+    const connection =
+      await this.connectionService.getActiveConnection(tenantId);
 
     if (!connection) {
       throw new NotFoundException('Calendar connection not found');
@@ -471,9 +541,7 @@ export class GoogleIntegrationController {
 
     try {
       // Check if token needs refresh
-      if (
-        this.connectionService.needsTokenRefresh(connection.tokenExpiresAt)
-      ) {
+      if (this.connectionService.needsTokenRefresh(connection.tokenExpiresAt)) {
         this.logger.log('Token expired, refreshing before test');
 
         const { accessToken, expiryDate } =
@@ -497,9 +565,7 @@ export class GoogleIntegrationController {
         connection.connectedCalendarId,
       );
 
-      this.logger.log(
-        `Connection test successful for tenant ${tenantId}`,
-      );
+      this.logger.log(`Connection test successful for tenant ${tenantId}`);
 
       return {
         status: 'success',

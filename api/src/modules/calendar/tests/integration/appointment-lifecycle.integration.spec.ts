@@ -37,7 +37,9 @@ describe('Appointment Lifecycle Integration Tests', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     app.setGlobalPrefix('api/v1');
 
     await app.init();
@@ -84,8 +86,12 @@ describe('Appointment Lifecycle Integration Tests', () => {
   afterAll(async () => {
     await prisma.appointment.deleteMany({ where: { tenant_id: tenantId } });
     await prisma.lead.deleteMany({ where: { id: leadId } });
-    await prisma.appointment_type_schedule.deleteMany({ where: { appointment_type_id: appointmentTypeId } });
-    await prisma.appointment_type.deleteMany({ where: { id: appointmentTypeId } });
+    await prisma.appointment_type_schedule.deleteMany({
+      where: { appointment_type_id: appointmentTypeId },
+    });
+    await prisma.appointment_type.deleteMany({
+      where: { id: appointmentTypeId },
+    });
     await prisma.$disconnect();
     await app.close();
   });
@@ -138,7 +144,9 @@ describe('Appointment Lifecycle Integration Tests', () => {
 
       expect(response.body.oldAppointment.status).toBe('rescheduled');
       expect(response.body.newAppointment.status).toBe('scheduled');
-      expect(response.body.newAppointment.rescheduled_from_id).toBe(appointmentId);
+      expect(response.body.newAppointment.rescheduled_from_id).toBe(
+        appointmentId,
+      );
 
       newAppointmentId = response.body.newAppointment.id;
 
@@ -160,7 +168,9 @@ describe('Appointment Lifecycle Integration Tests', () => {
 
       expect(response.body.status).toBe('completed');
       expect(response.body.completed_at).toBeDefined();
-      expect(response.body.notes).toContain('Quote visit completed successfully');
+      expect(response.body.notes).toContain(
+        'Quote visit completed successfully',
+      );
     });
 
     it('should prevent further changes to completed appointment (terminal state)', async () => {
@@ -311,7 +321,9 @@ describe('Appointment Lifecycle Integration Tests', () => {
         .expect(200);
 
       secondAppointmentId = response.body.newAppointment.id;
-      expect(response.body.newAppointment.rescheduled_from_id).toBe(firstAppointmentId);
+      expect(response.body.newAppointment.rescheduled_from_id).toBe(
+        firstAppointmentId,
+      );
     });
 
     it('should reschedule second time', async () => {
@@ -325,13 +337,21 @@ describe('Appointment Lifecycle Integration Tests', () => {
         .expect(200);
 
       thirdAppointmentId = response.body.newAppointment.id;
-      expect(response.body.newAppointment.rescheduled_from_id).toBe(secondAppointmentId);
+      expect(response.body.newAppointment.rescheduled_from_id).toBe(
+        secondAppointmentId,
+      );
     });
 
     it('should verify reschedule chain in database', async () => {
-      const first = await prisma.appointment.findUnique({ where: { id: firstAppointmentId } });
-      const second = await prisma.appointment.findUnique({ where: { id: secondAppointmentId } });
-      const third = await prisma.appointment.findUnique({ where: { id: thirdAppointmentId } });
+      const first = await prisma.appointment.findUnique({
+        where: { id: firstAppointmentId },
+      });
+      const second = await prisma.appointment.findUnique({
+        where: { id: secondAppointmentId },
+      });
+      const third = await prisma.appointment.findUnique({
+        where: { id: thirdAppointmentId },
+      });
 
       expect(first.status).toBe('rescheduled');
       expect(second.status).toBe('rescheduled');

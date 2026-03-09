@@ -44,9 +44,7 @@ import {
 export class AppointmentActionsController {
   private readonly logger = new Logger(AppointmentActionsController.name);
 
-  constructor(
-    private readonly lifecycleService: AppointmentLifecycleService,
-  ) {}
+  constructor(private readonly lifecycleService: AppointmentLifecycleService) {}
 
   // ========== CONFIRM APPOINTMENT ==========
 
@@ -69,7 +67,8 @@ export class AppointmentActionsController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Invalid transition (e.g., appointment is already confirmed or in terminal state)',
+    description:
+      'Invalid transition (e.g., appointment is already confirmed or in terminal state)',
   })
   @ApiResponse({
     status: 404,
@@ -160,7 +159,8 @@ export class AppointmentActionsController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Appointment rescheduled successfully. Returns the NEW appointment.',
+    description:
+      'Appointment rescheduled successfully. Returns the NEW appointment.',
   })
   @ApiResponse({
     status: 400,
@@ -188,13 +188,15 @@ export class AppointmentActionsController {
       req.user.id,
       dto,
     );
-    this.logger.log(`[RESCHEDULE DEBUG] Controller received from service: ${JSON.stringify({
-      hasOldAppointment: !!result.oldAppointment,
-      hasNewAppointment: !!result.newAppointment,
-      resultType: typeof result,
-      resultKeys: Object.keys(result),
-      isNewAppointmentOnly: result.id !== undefined
-    })}`);
+    this.logger.log(
+      `[RESCHEDULE DEBUG] Controller received from service: ${JSON.stringify({
+        hasOldAppointment: !!result.oldAppointment,
+        hasNewAppointment: !!result.newAppointment,
+        resultType: typeof result,
+        resultKeys: Object.keys(result),
+        isNewAppointmentOnly: result.id !== undefined,
+      })}`,
+    );
     return result;
   }
 
@@ -219,7 +221,8 @@ export class AppointmentActionsController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Invalid transition (e.g., appointment already in terminal state)',
+    description:
+      'Invalid transition (e.g., appointment already in terminal state)',
   })
   @ApiResponse({
     status: 404,
@@ -266,7 +269,8 @@ export class AppointmentActionsController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Invalid transition (e.g., appointment already in terminal state)',
+    description:
+      'Invalid transition (e.g., appointment already in terminal state)',
   })
   @ApiResponse({
     status: 404,

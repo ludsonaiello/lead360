@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Post,
-  Body,
-  HttpCode,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Public } from '../../auth/decorators/public.decorator';
 import { LiveKitWebhookGuard } from '../guards/livekit-webhook.guard';
@@ -34,9 +28,7 @@ import type { LiveKitWebhookEvent } from '../interfaces/livekit-webhook.interfac
 @ApiTags('Voice AI Webhooks')
 @Controller('webhooks/voice-ai')
 export class VoiceAiWebhookController {
-  constructor(
-    private readonly webhookService: VoiceAiWebhookService,
-  ) {}
+  constructor(private readonly webhookService: VoiceAiWebhookService) {}
 
   /**
    * API-031: LiveKit webhook event handler.

@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Patch,
-  Body,
-  Param,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Patch, Body, Param, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -30,9 +23,7 @@ import { UpdatePlanVoiceConfigDto } from '../../dto/update-plan-voice-config.dto
 @Controller('system/voice-ai/plans')
 @UseGuards(JwtAuthGuard, PlatformAdminGuard)
 export class VoiceAiPlanConfigController {
-  constructor(
-    private readonly planConfigService: VoiceAiPlanConfigService,
-  ) {}
+  constructor(private readonly planConfigService: VoiceAiPlanConfigService) {}
 
   /**
    * GET /api/v1/system/voice-ai/plans
@@ -44,7 +35,8 @@ export class VoiceAiPlanConfigController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Plans returned with voice_ai_enabled, minutes, and overage rate',
+    description:
+      'Plans returned with voice_ai_enabled, minutes, and overage rate',
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })

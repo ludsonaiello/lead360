@@ -67,7 +67,10 @@ export class VoiceTransferNumbersController {
     status: 200,
     description: 'Transfer numbers returned successfully',
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized — valid JWT required' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized — valid JWT required',
+  })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   findAll(@Request() req: { user: { tenant_id: string } }) {
     return this.transferNumbersService.findAll(req.user.tenant_id);
@@ -96,7 +99,10 @@ export class VoiceTransferNumbersController {
     status: 400,
     description: 'Validation error or maximum of 10 transfer numbers reached',
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized — valid JWT required' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized — valid JWT required',
+  })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   create(
     @Request() req: { user: { tenant_id: string } },
@@ -119,12 +125,18 @@ export class VoiceTransferNumbersController {
       'Returns a single call transfer destination by ID. ' +
       'Returns 404 if the ID does not exist or belongs to a different tenant.',
   })
-  @ApiParam({ name: 'id', description: 'UUID of the transfer number to retrieve' })
+  @ApiParam({
+    name: 'id',
+    description: 'UUID of the transfer number to retrieve',
+  })
   @ApiResponse({
     status: 200,
     description: 'Transfer number returned successfully',
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized — valid JWT required' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized — valid JWT required',
+  })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   @ApiResponse({
     status: 404,
@@ -163,9 +175,13 @@ export class VoiceTransferNumbersController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Validation error or one or more IDs do not belong to the tenant',
+    description:
+      'Validation error or one or more IDs do not belong to the tenant',
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized — valid JWT required' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized — valid JWT required',
+  })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   reorder(
     @Request() req: { user: { tenant_id: string } },
@@ -190,13 +206,19 @@ export class VoiceTransferNumbersController {
       'If is_default: true, any previously set default is unset automatically. ' +
       'Returns 404 if the ID does not exist or belongs to a different tenant.',
   })
-  @ApiParam({ name: 'id', description: 'UUID of the transfer number to update' })
+  @ApiParam({
+    name: 'id',
+    description: 'UUID of the transfer number to update',
+  })
   @ApiResponse({
     status: 200,
     description: 'Transfer number updated successfully',
   })
   @ApiResponse({ status: 400, description: 'Validation error' })
-  @ApiResponse({ status: 401, description: 'Unauthorized — valid JWT required' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized — valid JWT required',
+  })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   @ApiResponse({
     status: 404,
@@ -225,9 +247,15 @@ export class VoiceTransferNumbersController {
       'Soft-deletes a transfer number by setting is_active = false. ' +
       'Returns 404 if the ID does not exist or belongs to a different tenant.',
   })
-  @ApiParam({ name: 'id', description: 'UUID of the transfer number to delete' })
+  @ApiParam({
+    name: 'id',
+    description: 'UUID of the transfer number to delete',
+  })
   @ApiResponse({ status: 204, description: 'Transfer number deactivated' })
-  @ApiResponse({ status: 401, description: 'Unauthorized — valid JWT required' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized — valid JWT required',
+  })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   @ApiResponse({
     status: 404,

@@ -83,11 +83,23 @@ describe('VoiceAiInternalService - Sprint 19 (Reschedule/Cancel Tools)', () => {
         { provide: VoiceCallLogService, useValue: mockCallLogService },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: LeadsService, useValue: mockLeadsService },
-        { provide: VoiceTransferNumbersService, useValue: mockTransferNumbersService },
-        { provide: SlotCalculationService, useValue: mockSlotCalculationService },
+        {
+          provide: VoiceTransferNumbersService,
+          useValue: mockTransferNumbersService,
+        },
+        {
+          provide: SlotCalculationService,
+          useValue: mockSlotCalculationService,
+        },
         { provide: AppointmentsService, useValue: mockAppointmentsService },
-        { provide: AppointmentTypesService, useValue: mockAppointmentTypesService },
-        { provide: AppointmentLifecycleService, useValue: mockAppointmentLifecycleService },
+        {
+          provide: AppointmentTypesService,
+          useValue: mockAppointmentTypesService,
+        },
+        {
+          provide: AppointmentLifecycleService,
+          useValue: mockAppointmentLifecycleService,
+        },
       ],
     }).compile();
 
@@ -280,7 +292,10 @@ describe('VoiceAiInternalService - Sprint 19 (Reschedule/Cancel Tools)', () => {
         // First call returns 0 slots (14 days)
         // Second call returns slots (8 weeks)
         mockSlotCalculationService.getAvailableSlots
-          .mockResolvedValueOnce({ total_available_slots: 0, available_dates: [] })
+          .mockResolvedValueOnce({
+            total_available_slots: 0,
+            available_dates: [],
+          })
           .mockResolvedValueOnce({
             total_available_slots: 2,
             available_dates: [
@@ -297,7 +312,9 @@ describe('VoiceAiInternalService - Sprint 19 (Reschedule/Cancel Tools)', () => {
           lead_id: leadId,
         });
 
-        expect(mockSlotCalculationService.getAvailableSlots).toHaveBeenCalledTimes(2);
+        expect(
+          mockSlotCalculationService.getAvailableSlots,
+        ).toHaveBeenCalledTimes(2);
         expect(result.status).toBe('slots_available');
         expect(result.available_slots![0].date).toBe('2026-04-20');
       });
@@ -361,16 +378,18 @@ describe('VoiceAiInternalService - Sprint 19 (Reschedule/Cancel Tools)', () => {
             },
           },
         ]);
-        mockAppointmentLifecycleService.rescheduleAppointment.mockResolvedValue({
-          newAppointment: {
-            id: 'new-appt-123',
-            scheduled_date: '2026-03-12',
-            start_time: '10:30',
+        mockAppointmentLifecycleService.rescheduleAppointment.mockResolvedValue(
+          {
+            newAppointment: {
+              id: 'new-appt-123',
+              scheduled_date: '2026-03-12',
+              start_time: '10:30',
+            },
+            oldAppointment: {
+              id: appointmentId,
+            },
           },
-          oldAppointment: {
-            id: appointmentId,
-          },
-        });
+        );
 
         const result = await service.toolRescheduleAppointment(tenantId, {
           call_log_id: callLogId,
@@ -383,7 +402,9 @@ describe('VoiceAiInternalService - Sprint 19 (Reschedule/Cancel Tools)', () => {
         expect(result.status).toBe('rescheduled');
         expect(result.new_appointment_id).toBe('new-appt-123');
         expect(result.old_appointment_id).toBe(appointmentId);
-        expect(mockAppointmentLifecycleService.rescheduleAppointment).toHaveBeenCalledWith(
+        expect(
+          mockAppointmentLifecycleService.rescheduleAppointment,
+        ).toHaveBeenCalledWith(
           tenantId,
           appointmentId,
           null, // Voice AI is system actor
@@ -611,7 +632,9 @@ describe('VoiceAiInternalService - Sprint 19 (Reschedule/Cancel Tools)', () => {
         expect(result.status).toBe('cancelled');
         expect(result.appointment_id).toBe(appointmentId);
         expect(result.cancellation_reason).toBe('customer_cancelled');
-        expect(mockAppointmentLifecycleService.cancelAppointment).toHaveBeenCalledWith(
+        expect(
+          mockAppointmentLifecycleService.cancelAppointment,
+        ).toHaveBeenCalledWith(
           tenantId,
           appointmentId,
           null, // Voice AI is system actor
@@ -654,15 +677,12 @@ describe('VoiceAiInternalService - Sprint 19 (Reschedule/Cancel Tools)', () => {
 
         expect(result.status).toBe('cancelled');
         expect(result.cancellation_reason).toBe('scheduling_conflict');
-        expect(mockAppointmentLifecycleService.cancelAppointment).toHaveBeenCalledWith(
-          tenantId,
-          appointmentId,
-          null,
-          {
-            cancellation_reason: 'scheduling_conflict',
-            cancellation_notes: undefined,
-          },
-        );
+        expect(
+          mockAppointmentLifecycleService.cancelAppointment,
+        ).toHaveBeenCalledWith(tenantId, appointmentId, null, {
+          cancellation_reason: 'scheduling_conflict',
+          cancellation_notes: undefined,
+        });
       });
 
       it('should return error if appointment_id not in active appointments', async () => {

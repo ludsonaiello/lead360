@@ -111,7 +111,8 @@ describe('TenantService - Sprint 02: Appointment Type Lifecycle Hook', () => {
         id: 'appt-type-123',
         tenant_id: 'tenant-123',
         name: 'Quote Visit',
-        description: 'Schedule a quote visit with the customer to assess the job',
+        description:
+          'Schedule a quote visit with the customer to assess the job',
         slot_duration_minutes: 60,
         max_lookahead_weeks: 8,
         reminder_24h_enabled: true,
@@ -121,7 +122,9 @@ describe('TenantService - Sprint 02: Appointment Type Lifecycle Hook', () => {
       };
 
       // Mock subscription plan lookup
-      jest.spyOn(prisma.subscription_plan, 'findFirst').mockResolvedValue(mockSubscriptionPlan as any);
+      jest
+        .spyOn(prisma.subscription_plan, 'findFirst')
+        .mockResolvedValue(mockSubscriptionPlan as any);
 
       // Mock subdomain check
       jest.spyOn(prisma.tenant, 'findUnique').mockResolvedValue(null);
@@ -210,7 +213,8 @@ describe('TenantService - Sprint 02: Appointment Type Lifecycle Hook', () => {
       expect(appointmentTypeData).toMatchObject({
         tenant_id: 'tenant-456',
         name: 'Quote Visit',
-        description: 'Schedule a quote visit with the customer to assess the job',
+        description:
+          'Schedule a quote visit with the customer to assess the job',
         slot_duration_minutes: 60,
         max_lookahead_weeks: 8,
         reminder_24h_enabled: true,
@@ -252,7 +256,10 @@ describe('TenantService - Sprint 02: Appointment Type Lifecycle Hook', () => {
           appointment_type_schedule: {
             create: jest.fn().mockImplementation(({ data }) => {
               scheduleCreates.push(data);
-              return Promise.resolve({ id: `schedule-${scheduleCreates.length}`, ...data });
+              return Promise.resolve({
+                id: `schedule-${scheduleCreates.length}`,
+                ...data,
+              });
             }),
           },
         };
@@ -388,7 +395,9 @@ describe('TenantService - Sprint 02: Appointment Type Lifecycle Hook', () => {
         subdomain: 'existing-subdomain',
       } as any);
 
-      await expect(service.create(createTenantDto)).rejects.toThrow(ConflictException);
+      await expect(service.create(createTenantDto)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw ConflictException if EIN is already registered', async () => {
@@ -404,11 +413,17 @@ describe('TenantService - Sprint 02: Appointment Type Lifecycle Hook', () => {
       };
 
       // Mock subdomain check (available)
-      jest.spyOn(prisma.tenant, 'findUnique')
+      jest
+        .spyOn(prisma.tenant, 'findUnique')
         .mockResolvedValueOnce(null) // subdomain check
-        .mockResolvedValueOnce({ id: 'existing-tenant', ein: '12-3456789' } as any); // EIN check
+        .mockResolvedValueOnce({
+          id: 'existing-tenant',
+          ein: '12-3456789',
+        } as any); // EIN check
 
-      await expect(service.create(createTenantDto)).rejects.toThrow(ConflictException);
+      await expect(service.create(createTenantDto)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 });

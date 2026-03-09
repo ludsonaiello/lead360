@@ -37,7 +37,9 @@ describe('Reminders Integration Tests', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     app.setGlobalPrefix('api/v1');
 
     await app.init();
@@ -113,12 +115,16 @@ describe('Reminders Integration Tests', () => {
     await prisma.lead.deleteMany({ where: { id: leadId } });
     await prisma.appointment_type_schedule.deleteMany({
       where: {
-        appointment_type_id: { in: [appointmentTypeWithRemindersId, appointmentTypeNoRemindersId] },
+        appointment_type_id: {
+          in: [appointmentTypeWithRemindersId, appointmentTypeNoRemindersId],
+        },
       },
     });
     await prisma.appointment_type.deleteMany({
       where: {
-        id: { in: [appointmentTypeWithRemindersId, appointmentTypeNoRemindersId] },
+        id: {
+          in: [appointmentTypeWithRemindersId, appointmentTypeNoRemindersId],
+        },
       },
     });
     await prisma.$disconnect();
@@ -215,7 +221,9 @@ describe('Reminders Integration Tests', () => {
       const authToken = loginResponse.body.access_token;
 
       const response = await request(app.getHttpServer())
-        .patch(`/api/v1/calendar/appointment-types/${appointmentTypeNoRemindersId}`)
+        .patch(
+          `/api/v1/calendar/appointment-types/${appointmentTypeNoRemindersId}`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           reminder_24h_enabled: true,
@@ -273,7 +281,9 @@ describe('Reminders Integration Tests', () => {
       expect(response.body.lead_id).toBe(leadNoEmail.id);
 
       // Clean up
-      await prisma.appointment.deleteMany({ where: { lead_id: leadNoEmail.id } });
+      await prisma.appointment.deleteMany({
+        where: { lead_id: leadNoEmail.id },
+      });
       await prisma.lead.deleteMany({ where: { id: leadNoEmail.id } });
     });
   });

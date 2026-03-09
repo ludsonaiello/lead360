@@ -182,9 +182,7 @@ export class AppointmentTypesService {
     });
 
     if (!appointmentType) {
-      throw new NotFoundException(
-        `Appointment type with ID ${id} not found`,
-      );
+      throw new NotFoundException(`Appointment type with ID ${id} not found`);
     }
 
     return appointmentType;
@@ -218,7 +216,8 @@ export class AppointmentTypesService {
     const updateData: any = {};
 
     if (updateDto.name !== undefined) updateData.name = updateDto.name;
-    if (updateDto.description !== undefined) updateData.description = updateDto.description;
+    if (updateDto.description !== undefined)
+      updateData.description = updateDto.description;
     if (updateDto.slot_duration_minutes !== undefined) {
       updateData.slot_duration_minutes = updateDto.slot_duration_minutes;
     }

@@ -33,9 +33,7 @@ const execAsync = promisify(exec);
  * @author System
  */
 @Injectable()
-export class PuppeteerProcessManager
-  implements OnModuleInit, OnModuleDestroy
-{
+export class PuppeteerProcessManager implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PuppeteerProcessManager.name);
   private browser: Browser | null = null;
   private readonly pidFilePath = '/tmp/lead360-puppeteer.pid';
@@ -81,7 +79,9 @@ export class PuppeteerProcessManager
           `Puppeteer browser launched successfully (PID: ${this.browserPid})`,
         );
       } else {
-        this.logger.error('CRITICAL: Could not retrieve browser PID - orphan cleanup will fail');
+        this.logger.error(
+          'CRITICAL: Could not retrieve browser PID - orphan cleanup will fail',
+        );
       }
     } catch (error) {
       this.logger.error(
@@ -181,7 +181,10 @@ export class PuppeteerProcessManager
         try {
           await this.browser.close();
         } catch (error) {
-          this.logger.debug('Error closing disconnected browser:', error.message);
+          this.logger.debug(
+            'Error closing disconnected browser:',
+            error.message,
+          );
         }
         this.browser = null;
       }
@@ -201,9 +204,13 @@ export class PuppeteerProcessManager
       if (browserProcess && browserProcess.pid) {
         this.browserPid = browserProcess.pid;
         await this.storePidAsync(this.browserPid);
-        this.logger.log(`Browser restarted successfully (PID: ${this.browserPid})`);
+        this.logger.log(
+          `Browser restarted successfully (PID: ${this.browserPid})`,
+        );
       } else {
-        this.logger.error('CRITICAL: Browser launched but PID unavailable - orphan cleanup will fail');
+        this.logger.error(
+          'CRITICAL: Browser launched but PID unavailable - orphan cleanup will fail',
+        );
       }
 
       return this.browser;
@@ -213,7 +220,9 @@ export class PuppeteerProcessManager
         error.stack,
       );
       this.browser = null;
-      throw new Error('PDF generation unavailable - browser initialization failed');
+      throw new Error(
+        'PDF generation unavailable - browser initialization failed',
+      );
     }
   }
 
@@ -265,9 +274,7 @@ export class PuppeteerProcessManager
           try {
             process.kill(oldPid, 0);
             process.kill(oldPid, 'SIGKILL');
-            this.logger.debug(
-              `Force killed stubborn process (PID: ${oldPid})`,
-            );
+            this.logger.debug(`Force killed stubborn process (PID: ${oldPid})`);
           } catch (error) {
             // Process is dead, that's good
           }
@@ -316,7 +323,9 @@ export class PuppeteerProcessManager
               } else if (error.code === 'EPERM') {
                 this.logger.warn(`No permission to kill PID ${pid}`);
               } else {
-                this.logger.debug(`Could not kill PID ${pid}: ${error.message}`);
+                this.logger.debug(
+                  `Could not kill PID ${pid}: ${error.message}`,
+                );
               }
             }
           }
@@ -339,9 +348,7 @@ export class PuppeteerProcessManager
           }
         }
       } catch (error) {
-        this.logger.debug(
-          `Error finding Chrome processes: ${error.message}`,
-        );
+        this.logger.debug(`Error finding Chrome processes: ${error.message}`);
       }
 
       // Step 3: Clean up temp directories
@@ -351,9 +358,7 @@ export class PuppeteerProcessManager
         );
         this.logger.debug('Cleaned up Puppeteer temp directories');
       } catch (error) {
-        this.logger.debug(
-          `Could not clean temp directories: ${error.message}`,
-        );
+        this.logger.debug(`Could not clean temp directories: ${error.message}`);
       }
 
       // Step 4: Clear PID file
@@ -443,7 +448,9 @@ export class PuppeteerProcessManager
 
         // Validate PID format
         if (!/^\d+$/.test(pidStr)) {
-          this.logger.error(`Corrupted PID file: contains invalid data "${pidStr}". Deleting.`);
+          this.logger.error(
+            `Corrupted PID file: contains invalid data "${pidStr}". Deleting.`,
+          );
           this.clearPidSync();
           return null;
         }

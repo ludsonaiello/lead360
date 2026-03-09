@@ -202,7 +202,8 @@ with special characters: !@#$%`;
 
       // Tamper with the encrypted data
       const parsed = JSON.parse(encrypted);
-      parsed.encrypted = parsed.encrypted.substring(0, parsed.encrypted.length - 2) + 'FF';
+      parsed.encrypted =
+        parsed.encrypted.substring(0, parsed.encrypted.length - 2) + 'FF';
       const tampered = JSON.stringify(parsed);
 
       expect(() => {
@@ -216,7 +217,8 @@ with special characters: !@#$%`;
 
       // Tamper with the auth tag
       const parsed = JSON.parse(encrypted);
-      parsed.authTag = parsed.authTag.substring(0, parsed.authTag.length - 2) + 'FF';
+      parsed.authTag =
+        parsed.authTag.substring(0, parsed.authTag.length - 2) + 'FF';
       const tampered = JSON.stringify(parsed);
 
       expect(() => {
@@ -285,7 +287,9 @@ with special characters: !@#$%`;
 
       // Encrypted data should not contain the plaintext
       expect(encrypted).not.toContain(sensitiveData);
-      expect(encrypted.toLowerCase()).not.toContain(sensitiveData.toLowerCase());
+      expect(encrypted.toLowerCase()).not.toContain(
+        sensitiveData.toLowerCase(),
+      );
     });
   });
 

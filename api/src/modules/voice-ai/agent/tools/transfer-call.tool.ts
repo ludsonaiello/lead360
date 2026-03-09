@@ -15,36 +15,50 @@ import { LlmTool } from '../providers/llm.interface';
  *   - Tenant isolation enforced by VoiceTransferNumbersService
  */
 export class TransferCallTool implements AgentTool {
-  constructor(private readonly transferNumbersService: VoiceTransferNumbersService) {}
+  constructor(
+    private readonly transferNumbersService: VoiceTransferNumbersService,
+  ) {}
 
   definition: LlmTool = {
     type: 'function',
     function: {
       name: 'transfer_call',
-      description: 'Transfer the call to a human agent. Use when the caller requests to speak with a person.',
+      description:
+        'Transfer the call to a human agent. Use when the caller requests to speak with a person.',
       parameters: {
         type: 'object',
         properties: {
-          reason: { type: 'string', description: 'Why the call is being transferred' },
-          destination: { type: 'string', description: 'Optional: which department (sales, support, etc.)' }
+          reason: {
+            type: 'string',
+            description: 'Why the call is being transferred',
+          },
+          destination: {
+            type: 'string',
+            description: 'Optional: which department (sales, support, etc.)',
+          },
         },
-        required: ['reason']
-      }
-    }
+        required: ['reason'],
+      },
+    },
   };
 
-  async execute(args: { reason: string; destination?: string }, context: ToolExecutionContext): Promise<string> {
+  async execute(
+    args: { reason: string; destination?: string },
+    context: ToolExecutionContext,
+  ): Promise<string> {
     try {
       // Get all transfer numbers for this tenant
-      const numbers = await this.transferNumbersService.findAll(context.tenant_id);
+      const numbers = await this.transferNumbersService.findAll(
+        context.tenant_id,
+      );
 
       // Find default number, or use first available
-      const defaultNumber = numbers.find(n => n.is_default) || numbers[0];
+      const defaultNumber = numbers.find((n) => n.is_default) || numbers[0];
 
       if (!defaultNumber) {
         return JSON.stringify({
           success: false,
-          error: 'No transfer number configured'
+          error: 'No transfer number configured',
         });
       }
 
@@ -60,7 +74,7 @@ export class TransferCallTool implements AgentTool {
     } catch (error) {
       return JSON.stringify({
         success: false,
-        error: error.message || 'Could not retrieve transfer number'
+        error: error.message || 'Could not retrieve transfer number',
       });
     }
   }

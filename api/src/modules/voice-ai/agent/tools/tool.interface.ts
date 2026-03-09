@@ -5,11 +5,14 @@ export interface AgentTool {
   definition: LlmTool;
 
   // Execute the tool when LLM calls it
-  execute(args: Record<string, any>, context: ToolExecutionContext): Promise<string>;
+  execute(
+    args: Record<string, any>,
+    context: ToolExecutionContext,
+  ): Promise<string>;
 }
 
 export interface ToolExecutionContext {
   tenant_id: string;
   call_sid: string;
-  caller_phone: string;    // The caller's phone number (from_number in voice_call_log)
+  caller_phone: string; // The caller's phone number (from_number in voice_call_log)
 }

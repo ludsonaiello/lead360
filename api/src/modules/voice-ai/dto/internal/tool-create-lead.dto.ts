@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsNotEmpty, IsEmail, Matches } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNotEmpty,
+  IsEmail,
+  Matches,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SanitizePhone } from '../../../../common/validators/formatted-inputs';
 
@@ -15,7 +21,8 @@ export class CreateLeadToolDto {
 
   @ApiProperty({
     example: '+15551234567',
-    description: 'Phone number (any format accepted: E.164, 10-digit, 11-digit with country code, formatted with parentheses/dashes)',
+    description:
+      'Phone number (any format accepted: E.164, 10-digit, 11-digit with country code, formatted with parentheses/dashes)',
   })
   @IsString()
   @IsNotEmpty()
@@ -71,7 +78,9 @@ export class CreateLeadToolResponseDto {
   @ApiPropertyOptional()
   message?: string;
 
-  @ApiPropertyOptional({ description: 'True if lead already existed, false if newly created' })
+  @ApiPropertyOptional({
+    description: 'True if lead already existed, false if newly created',
+  })
   lead_exists?: boolean;
 
   @ApiPropertyOptional()

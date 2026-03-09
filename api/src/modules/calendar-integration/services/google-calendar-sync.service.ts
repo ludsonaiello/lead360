@@ -134,7 +134,9 @@ export class GoogleCalendarSyncService {
 
       // 3. Refresh token if needed
       if (this.connectionService.needsTokenRefresh(connection.tokenExpiresAt)) {
-        this.logger.log(`Refreshing access token for connection ${connection.id}`);
+        this.logger.log(
+          `Refreshing access token for connection ${connection.id}`,
+        );
         const refreshed = await this.googleCalendar.refreshAccessToken(
           connection.refreshToken,
         );
@@ -283,7 +285,9 @@ export class GoogleCalendarSyncService {
 
       // 3. Refresh token if needed
       if (this.connectionService.needsTokenRefresh(connection.tokenExpiresAt)) {
-        this.logger.log(`Refreshing access token for connection ${connection.id}`);
+        this.logger.log(
+          `Refreshing access token for connection ${connection.id}`,
+        );
         const refreshed = await this.googleCalendar.refreshAccessToken(
           connection.refreshToken,
         );
@@ -397,7 +401,9 @@ export class GoogleCalendarSyncService {
 
       // 3. Refresh token if needed
       if (this.connectionService.needsTokenRefresh(connection.tokenExpiresAt)) {
-        this.logger.log(`Refreshing access token for connection ${connection.id}`);
+        this.logger.log(
+          `Refreshing access token for connection ${connection.id}`,
+        );
         const refreshed = await this.googleCalendar.refreshAccessToken(
           connection.refreshToken,
         );
@@ -499,7 +505,9 @@ export class GoogleCalendarSyncService {
     }
 
     if (appointment.service_request?.service_name) {
-      descriptionLines.push(`Service: ${appointment.service_request.service_name}`);
+      descriptionLines.push(
+        `Service: ${appointment.service_request.service_name}`,
+      );
     }
 
     if (appointment.service_request?.description) {
@@ -561,7 +569,8 @@ export class GoogleCalendarSyncService {
       );
 
       // 1. Get calendar connection
-      const connection = await this.connectionService.getActiveConnection(tenantId);
+      const connection =
+        await this.connectionService.getActiveConnection(tenantId);
 
       if (!connection) {
         throw new Error(
@@ -571,7 +580,9 @@ export class GoogleCalendarSyncService {
 
       // 2. Refresh token if needed
       if (this.connectionService.needsTokenRefresh(connection.tokenExpiresAt)) {
-        this.logger.log(`Refreshing access token for connection ${connection.id}`);
+        this.logger.log(
+          `Refreshing access token for connection ${connection.id}`,
+        );
         const refreshed = await this.googleCalendar.refreshAccessToken(
           connection.refreshToken,
         );
@@ -624,9 +635,7 @@ export class GoogleCalendarSyncService {
       for (const event of events) {
         // Skip events created by Lead360
         if (lead360EventIds.has(event.id)) {
-          this.logger.debug(
-            `Skipping event ${event.id} - created by Lead360`,
-          );
+          this.logger.debug(`Skipping event ${event.id} - created by Lead360`);
           continue;
         }
 
@@ -685,9 +694,7 @@ export class GoogleCalendarSyncService {
             `⚠️ Found ${conflictsFound} conflict(s) for tenant ${tenantId} - ${notificationsCreated} notification(s) created`,
           );
         } else {
-          this.logger.log(
-            `✅ No conflicts found for tenant ${tenantId}`,
-          );
+          this.logger.log(`✅ No conflicts found for tenant ${tenantId}`);
         }
       } catch (error) {
         // Don't fail the entire sync if conflict detection fails

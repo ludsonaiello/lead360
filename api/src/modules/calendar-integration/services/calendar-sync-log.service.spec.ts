@@ -53,7 +53,9 @@ describe('CalendarSyncLogService', () => {
         created_at: new Date(),
       };
 
-      mockPrismaService.calendar_sync_log.create.mockResolvedValue(mockLogEntry);
+      mockPrismaService.calendar_sync_log.create.mockResolvedValue(
+        mockLogEntry,
+      );
 
       const result = await service.logSync({
         tenantId: 'tenant-1',
@@ -98,7 +100,9 @@ describe('CalendarSyncLogService', () => {
         created_at: new Date(),
       };
 
-      mockPrismaService.calendar_sync_log.create.mockResolvedValue(mockLogEntry);
+      mockPrismaService.calendar_sync_log.create.mockResolvedValue(
+        mockLogEntry,
+      );
 
       const result = await service.logSync({
         tenantId: 'tenant-1',
@@ -136,7 +140,9 @@ describe('CalendarSyncLogService', () => {
         created_at: new Date(),
       };
 
-      mockPrismaService.calendar_sync_log.create.mockResolvedValue(mockLogEntry);
+      mockPrismaService.calendar_sync_log.create.mockResolvedValue(
+        mockLogEntry,
+      );
 
       const result = await service.logSync({
         tenantId: 'tenant-1',

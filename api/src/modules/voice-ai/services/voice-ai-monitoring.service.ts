@@ -258,6 +258,25 @@ export class VoiceAiMonitoringService {
   }
 
   /**
+   * getTenantProfiles
+   *
+   * DEPRECATED: This method used the old tenant_voice_agent_profile table.
+   * With the new schema (voice_ai_agent_profile + tenant_voice_agent_profile_override),
+   * this functionality needs to be reimplemented in a future sprint.
+   *
+   * @param tenantId - Target tenant UUID
+   * @param activeOnly - If true, returns only is_active=true profiles (default: false)
+   * @returns Array of voice agent profiles for the tenant
+   */
+  async getTenantProfiles(tenantId: string, activeOnly: boolean = false) {
+    // TODO: Reimplement using new schema
+    // Should return tenant_voice_agent_profile_override records with their global profiles
+    throw new Error(
+      'Method not implemented - awaiting Sprint 15+ for new schema implementation',
+    );
+  }
+
+  /**
    * overrideTenantVoiceSettings
    *
    * Upserts tenant_voice_ai_settings with the provided infrastructure override fields.
@@ -360,7 +379,11 @@ export class VoiceAiMonitoringService {
 
     // Get call counts — run in parallel for efficiency
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const [activeCalls, todayCalls, thisMonthCalls] = await Promise.all([
@@ -426,18 +449,28 @@ export class VoiceAiMonitoringService {
     this.logger.debug(`Found ${activeCalls.length} active call(s)`);
 
     if (activeCalls.length > 0) {
-      this.logger.debug(`Active call SIDs: ${activeCalls.map(c => c.call_sid).join(', ')}`);
+      this.logger.debug(
+        `Active call SIDs: ${activeCalls.map((c) => c.call_sid).join(', ')}`,
+      );
 
       // Log calls that have been active for a suspiciously long time (>10 minutes)
       const now = new Date();
       const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
-      const stuckCalls = activeCalls.filter(call => call.started_at < tenMinutesAgo);
+      const stuckCalls = activeCalls.filter(
+        (call) => call.started_at < tenMinutesAgo,
+      );
 
       if (stuckCalls.length > 0) {
-        this.logger.warn(`⚠️  ${stuckCalls.length} call(s) have been active for >10 minutes (possibly stuck):`);
-        stuckCalls.forEach(call => {
-          const durationMinutes = Math.floor((now.getTime() - call.started_at.getTime()) / 60000);
-          this.logger.warn(`  - ${call.call_sid} (${call.tenant.company_name}) - ${durationMinutes} minutes`);
+        this.logger.warn(
+          `⚠️  ${stuckCalls.length} call(s) have been active for >10 minutes (possibly stuck):`,
+        );
+        stuckCalls.forEach((call) => {
+          const durationMinutes = Math.floor(
+            (now.getTime() - call.started_at.getTime()) / 60000,
+          );
+          this.logger.warn(
+            `  - ${call.call_sid} (${call.tenant.company_name}) - ${durationMinutes} minutes`,
+          );
         });
       }
     }
@@ -453,7 +486,9 @@ export class VoiceAiMonitoringService {
       from_number: call.from_number,
       to_number: call.to_number,
       direction: call.direction,
-      duration_seconds: Math.floor((now.getTime() - call.started_at.getTime()) / 1000),
+      duration_seconds: Math.floor(
+        (now.getTime() - call.started_at.getTime()) / 1000,
+      ),
       started_at: call.started_at,
     }));
   }
@@ -484,7 +519,9 @@ export class VoiceAiMonitoringService {
     });
 
     if (!callLog) {
-      throw new NotFoundException(`Call with room_name "${roomName}" not found`);
+      throw new NotFoundException(
+        `Call with room_name "${roomName}" not found`,
+      );
     }
 
     // Step 2: Update status to 'failed' and mark as force-terminated
@@ -503,8 +540,14 @@ export class VoiceAiMonitoringService {
     try {
       const livekitConfig = await this.globalConfigService.getLiveKitConfig();
 
-      if (!livekitConfig.url || !livekitConfig.apiKey || !livekitConfig.apiSecret) {
-        this.logger.warn('LiveKit credentials not configured — cannot delete room remotely');
+      if (
+        !livekitConfig.url ||
+        !livekitConfig.apiKey ||
+        !livekitConfig.apiSecret
+      ) {
+        this.logger.warn(
+          'LiveKit credentials not configured — cannot delete room remotely',
+        );
         return;
       }
 
@@ -516,7 +559,6 @@ export class VoiceAiMonitoringService {
 
       await roomService.deleteRoom(roomName);
       this.logger.log(`LiveKit room ${roomName} deleted successfully`);
-
     } catch (error) {
       // Log the error but do not throw — call log update already succeeded
       this.logger.error(

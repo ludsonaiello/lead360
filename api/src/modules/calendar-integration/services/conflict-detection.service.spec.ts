@@ -42,9 +42,8 @@ describe('ConflictDetectionService', () => {
 
     service = module.get<ConflictDetectionService>(ConflictDetectionService);
     prisma = module.get<PrismaService>(PrismaService);
-    notificationsService = module.get<NotificationsService>(
-      NotificationsService,
-    );
+    notificationsService =
+      module.get<NotificationsService>(NotificationsService);
 
     // Clear all mocks before each test
     jest.clearAllMocks();
@@ -302,8 +301,7 @@ describe('ConflictDetectionService', () => {
       );
       mockPrismaService.calendar_external_block.count.mockResolvedValue(1);
 
-      const result =
-        await service.detectConflictForAppointment('appt-1');
+      const result = await service.detectConflictForAppointment('appt-1');
 
       expect(result).toBe(true);
       expect(prisma.appointment.findUnique).toHaveBeenCalledWith({
@@ -337,8 +335,7 @@ describe('ConflictDetectionService', () => {
       );
       mockPrismaService.calendar_external_block.count.mockResolvedValue(0);
 
-      const result =
-        await service.detectConflictForAppointment('appt-1');
+      const result = await service.detectConflictForAppointment('appt-1');
 
       expect(result).toBe(false);
     });

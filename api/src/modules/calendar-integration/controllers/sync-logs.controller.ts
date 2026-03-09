@@ -108,7 +108,8 @@ export class SyncLogsController {
     name: 'action',
     required: false,
     type: String,
-    description: 'Filter by action type (e.g., event_created, webhook_received)',
+    description:
+      'Filter by action type (e.g., event_created, webhook_received)',
   })
   @ApiResponse({
     status: 200,
@@ -121,7 +122,8 @@ export class SyncLogsController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden - User role not authorized (Estimator cannot access)',
+    description:
+      'Forbidden - User role not authorized (Estimator cannot access)',
   })
   async getSyncLogs(
     @Req() req: any,
@@ -216,7 +218,8 @@ export class SyncLogsController {
     this.logger.log(`Fetching health status for tenant ${tenantId}`);
 
     // 1. Get active connection
-    const connection = await this.connectionService.getActiveConnection(tenantId);
+    const connection =
+      await this.connectionService.getActiveConnection(tenantId);
 
     if (!connection) {
       // No connection - return inactive status

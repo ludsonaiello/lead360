@@ -67,7 +67,8 @@ export class GoogleOAuthCallbackQueryDto {
 
   @ApiPropertyOptional({
     description: 'Granted OAuth scopes (space-separated)',
-    example: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly',
+    example:
+      'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly',
   })
   @IsString()
   @IsOptional()
@@ -93,8 +94,7 @@ export class GoogleOAuthCallbackResponseDto {
   message: string;
 
   @ApiProperty({
-    description:
-      'URL to redirect to for calendar selection (frontend route)',
+    description: 'URL to redirect to for calendar selection (frontend route)',
     example: '/settings/calendar/select-calendar',
   })
   @IsString()
@@ -181,7 +181,8 @@ export class ConnectGoogleCalendarDto {
   calendarId: string;
 
   @ApiPropertyOptional({
-    description: 'Calendar display name (optional - auto-fetched if not provided)',
+    description:
+      'Calendar display name (optional - auto-fetched if not provided)',
     example: 'My Calendar',
   })
   @IsString()

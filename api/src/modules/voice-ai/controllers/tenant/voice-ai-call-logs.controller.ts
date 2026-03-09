@@ -66,14 +66,48 @@ export class VoiceAiCallLogsController {
       'Returns paginated call logs for the authenticated tenant, ' +
       'ordered by started_at descending. Supports date range, outcome, and pagination filters.',
   })
-  @ApiQuery({ name: 'from', required: false, description: 'Start date (ISO 8601)', example: '2026-02-01' })
-  @ApiQuery({ name: 'to', required: false, description: 'End date (ISO 8601)', example: '2026-02-28' })
-  @ApiQuery({ name: 'outcome', required: false, description: 'Filter by call outcome', enum: ['lead_created', 'transferred', 'abandoned'] })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number (default: 1)', example: 1 })
-  @ApiQuery({ name: 'limit', required: false, description: 'Records per page (default: 20, max: 100)', example: 20 })
-  @ApiResponse({ status: 200, description: 'Paginated call log list with meta' })
-  @ApiResponse({ status: 401, description: 'Unauthorized — valid JWT required' })
-  @ApiResponse({ status: 403, description: 'Forbidden — Owner, Admin, or Manager role required' })
+  @ApiQuery({
+    name: 'from',
+    required: false,
+    description: 'Start date (ISO 8601)',
+    example: '2026-02-01',
+  })
+  @ApiQuery({
+    name: 'to',
+    required: false,
+    description: 'End date (ISO 8601)',
+    example: '2026-02-28',
+  })
+  @ApiQuery({
+    name: 'outcome',
+    required: false,
+    description: 'Filter by call outcome',
+    enum: ['lead_created', 'transferred', 'abandoned'],
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    description: 'Page number (default: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Records per page (default: 20, max: 100)',
+    example: 20,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated call log list with meta',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized — valid JWT required',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden — Owner, Admin, or Manager role required',
+  })
   findCallLogs(
     @Request() req: { user: { tenant_id: string } },
     @Query('from') from?: string,
@@ -107,9 +141,18 @@ export class VoiceAiCallLogsController {
   })
   @ApiParam({ name: 'id', description: 'voice_call_log UUID' })
   @ApiResponse({ status: 200, description: 'Call log detail returned' })
-  @ApiResponse({ status: 401, description: 'Unauthorized — valid JWT required' })
-  @ApiResponse({ status: 403, description: 'Forbidden — Owner, Admin, or Manager role required' })
-  @ApiResponse({ status: 404, description: 'Call log not found or belongs to a different tenant' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized — valid JWT required',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden — Owner, Admin, or Manager role required',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Call log not found or belongs to a different tenant',
+  })
   findCallLogById(
     @Request() req: { user: { tenant_id: string } },
     @Param('id') id: string,
@@ -140,11 +183,27 @@ export class VoiceAiCallLogsController {
       'TTS characters, estimated cost, and a per-provider breakdown. ' +
       'Defaults to the current calendar month.',
   })
-  @ApiQuery({ name: 'year', required: false, description: 'Year (default: current year)', example: 2026 })
-  @ApiQuery({ name: 'month', required: false, description: 'Month 1–12 (default: current month)', example: 2 })
+  @ApiQuery({
+    name: 'year',
+    required: false,
+    description: 'Year (default: current year)',
+    example: 2026,
+  })
+  @ApiQuery({
+    name: 'month',
+    required: false,
+    description: 'Month 1–12 (default: current month)',
+    example: 2,
+  })
   @ApiResponse({ status: 200, description: 'Monthly usage summary returned' })
-  @ApiResponse({ status: 401, description: 'Unauthorized — valid JWT required' })
-  @ApiResponse({ status: 403, description: 'Forbidden — Owner, Admin, or Manager role required' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized — valid JWT required',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden — Owner, Admin, or Manager role required',
+  })
   getUsageSummary(
     @Request() req: { user: { tenant_id: string } },
     @Query('year') year?: string,
@@ -152,8 +211,12 @@ export class VoiceAiCallLogsController {
   ) {
     const now = new Date();
     // Use || so NaN (from parseInt("abc")) falls back to the current date component
-    const resolvedYear = year ? (parseInt(year, 10) || now.getFullYear()) : now.getFullYear();
-    const resolvedMonth = month ? (parseInt(month, 10) || (now.getMonth() + 1)) : now.getMonth() + 1;
+    const resolvedYear = year
+      ? parseInt(year, 10) || now.getFullYear()
+      : now.getFullYear();
+    const resolvedMonth = month
+      ? parseInt(month, 10) || now.getMonth() + 1
+      : now.getMonth() + 1;
 
     return this.usageService.getUsageSummary(
       req.user.tenant_id,

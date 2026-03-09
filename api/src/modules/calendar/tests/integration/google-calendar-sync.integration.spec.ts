@@ -34,7 +34,9 @@ describe('Google Calendar Sync Integration Tests', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     app.setGlobalPrefix('api/v1');
 
     await app.init();
@@ -78,9 +80,15 @@ describe('Google Calendar Sync Integration Tests', () => {
   });
 
   afterAll(async () => {
-    await prisma.calendar_external_block.deleteMany({ where: { connection_id: connectionId } });
-    await prisma.calendar_sync_log.deleteMany({ where: { connection_id: connectionId } });
-    await prisma.calendar_provider_connection.delete({ where: { id: connectionId } });
+    await prisma.calendar_external_block.deleteMany({
+      where: { connection_id: connectionId },
+    });
+    await prisma.calendar_sync_log.deleteMany({
+      where: { connection_id: connectionId },
+    });
+    await prisma.calendar_provider_connection.delete({
+      where: { id: connectionId },
+    });
     await prisma.$disconnect();
     await app.close();
   });

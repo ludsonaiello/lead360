@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import {
   UpcomingAppointmentsResponseDto,
@@ -59,9 +55,7 @@ export class CalendarDashboardService {
           gte: now,
         },
       },
-      orderBy: [
-        { start_datetime_utc: 'asc' },
-      ],
+      orderBy: [{ start_datetime_utc: 'asc' }],
       take: limit,
       include: {
         appointment_type: {
@@ -131,9 +125,7 @@ export class CalendarDashboardService {
           in: ['scheduled', 'confirmed'],
         },
       },
-      orderBy: [
-        { created_at: 'desc' },
-      ],
+      orderBy: [{ created_at: 'desc' }],
       take: limit,
       include: {
         appointment_type: {

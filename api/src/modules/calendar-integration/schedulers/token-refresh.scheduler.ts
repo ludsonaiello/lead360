@@ -168,7 +168,10 @@ export class TokenRefreshScheduler {
           });
 
           // If refresh failed, likely user revoked access
-          if (error.message.includes('refresh') || error.message.includes('revoked')) {
+          if (
+            error.message.includes('refresh') ||
+            error.message.includes('revoked')
+          ) {
             this.logger.warn(
               `Marking connection ${connection.id} as disconnected - user may have revoked access`,
             );

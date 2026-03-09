@@ -159,7 +159,7 @@ export class WebhookRetryProcessor extends WorkerHost {
    * @private
    */
   private async reprocessWebhook(event: any): Promise<void> {
-    const payload = event.payload as any;
+    const payload = event.payload;
 
     switch (event.event_type) {
       // SMS Status Webhooks
@@ -202,9 +202,7 @@ export class WebhookRetryProcessor extends WorkerHost {
           `Unknown webhook event type: ${event.event_type} for webhook ${event.id}`,
         );
         // Mark as processed to avoid infinite retries
-        throw new Error(
-          `Unsupported webhook event type: ${event.event_type}`,
-        );
+        throw new Error(`Unsupported webhook event type: ${event.event_type}`);
     }
   }
 
@@ -224,7 +222,7 @@ export class WebhookRetryProcessor extends WorkerHost {
    * @private
    */
   private async processSmsStatus(event: any): Promise<void> {
-    const payload = event.payload as any;
+    const payload = event.payload;
     const messageSid =
       event.provider_message_id || payload.MessageSid || payload.SmsSid;
 
@@ -295,7 +293,7 @@ export class WebhookRetryProcessor extends WorkerHost {
    * @private
    */
   private async processCallStatus(event: any): Promise<void> {
-    const payload = event.payload as any;
+    const payload = event.payload;
     const callSid = payload.CallSid;
 
     if (!callSid) {
@@ -357,7 +355,7 @@ export class WebhookRetryProcessor extends WorkerHost {
    * @private
    */
   private async processWhatsAppStatus(event: any): Promise<void> {
-    const payload = event.payload as any;
+    const payload = event.payload;
     const messageSid = event.provider_message_id || payload.MessageSid;
 
     if (!messageSid) {

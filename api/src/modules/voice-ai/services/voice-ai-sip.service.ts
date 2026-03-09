@@ -60,9 +60,7 @@ export class VoiceAiSipService {
     });
 
     if (!tenant?.subscription_plan?.voice_ai_enabled) {
-      this.logger.warn(
-        `Voice AI not included in plan for tenant ${tenantId}`,
-      );
+      this.logger.warn(`Voice AI not included in plan for tenant ${tenantId}`);
       return { allowed: false, reason: 'plan_not_included' };
     }
 
@@ -79,26 +77,19 @@ export class VoiceAiSipService {
   }
 
   /**
-   * Build TwiML that transfers the call to the LiveKit SIP trunk.
-   *
-   * Output:
-   * ```xml
-   * <Response>
-   *   <Dial>
-   *     <Sip>
-   *       sip:voice-ai@{livekit_sip_trunk_url}
-   *       <SipHeader name="X-Twilio-Number">{toNumber}</SipHeader>
-   *     </Sip>
-   *   </Dial>
-   * </Response>
-   * ```
-   *
-   * @param tenantId  Tenant UUID
-   * @param callSid   Twilio CallSid for session correlation
-   * @param toNumber  Original Twilio number called (for agent tenant lookup)
+   * Builds TwiML to route call to LiveKit SIP trunk for AI agent handling
+   * @param tenantId - Tenant UUID
+   * @param callSid - Twilio call SID
+   * @param toNumber - Original dialed number (optional)
+   * @param agentProfileId - Voice agent profile ID for language/voice selection (optional)
    * @returns TwiML XML string
    */
-  async buildSipTwiml(tenantId: string, callSid: string, toNumber?: string): Promise<string> {
+  async buildSipTwiml(
+    tenantId: string,
+    callSid: string,
+    toNumber?: string,
+    agentProfileId?: string,
+  ): Promise<string> {
     // Create voice AI logger for this call
     const voiceLogger = createVoiceAILogger(tenantId, callSid);
 
@@ -138,18 +129,22 @@ export class VoiceAiSipService {
       ].join('\n');
     }
 
-    // Build SIP URI with X-Called-Number as query parameter
-    // LiveKit SIP automatically captures Twilio-specific attributes on the SIP participant:
-    //   - sip.twilio.callSid
-    //   - sip.trunkPhoneNumber (returns "voice-ai" trunk name, NOT the actual Twilio number)
-    //   - sip.phoneNumber (the caller's number)
-    // We pass the actual Twilio number via query parameter in SIP URI for agent tenant lookup
-    // IMPORTANT: Cannot use X-Twilio-* prefix (reserved by Twilio, silently dropped)
-    // LiveKit will expose this as sip.h.X-Called-Number participant attribute
-    const sipUriBase = `sip:voice-ai@${livekitUrl}`;
-    const sipUri = toNumber
-      ? `${sipUriBase}?X-Called-Number=${encodeURIComponent(toNumber)}`
-      : sipUriBase;
+    // Build SIP headers array
+    const sipHeaders: string[] = [];
+
+    // Always include Twilio number if provided
+    if (toNumber) {
+      sipHeaders.push(
+        `<SipHeader name="X-Twilio-Number">${this.escapeXml(toNumber)}</SipHeader>`,
+      );
+    }
+
+    // Include agent profile ID if provided
+    if (agentProfileId) {
+      sipHeaders.push(
+        `<SipHeader name="X-Agent-Profile-Id">${this.escapeXml(agentProfileId)}</SipHeader>`,
+      );
+    }
 
     this.logger.log(
       `Routing call ${callSid} to LiveKit SIP for tenant ${tenantId}`,
@@ -167,17 +162,18 @@ export class VoiceAiSipService {
       '🚀 SIP routing configured, call will be transferred to LiveKit',
       {
         livekit_sip_url: livekitUrl,
-        sip_uri: sipUri,
         tenant_id: tenantId,
         call_sid: callSid,
         twilio_number: toNumber,
+        agent_profile_id: agentProfileId,
         action_url: actionUrl,
         recording_callback_url: recordingCallbackUrl,
-        note: 'Twilio number passed as X-Called-Number query parameter (X-Twilio-* prefix reserved by Twilio). Action URL will capture SIP response codes. Call recording enabled with dual-channel capture.',
+        sip_headers: sipHeaders.length > 0 ? sipHeaders : 'none',
+        note: 'SIP headers passed to LiveKit. Action URL will capture SIP response codes. Call recording enabled with dual-channel capture.',
       },
     );
 
-    // Build TwiML with SIP URI (header now in query string)
+    // Build TwiML with SIP headers
     // The action URL receives DialSipResponseCode when the dial completes
     // This is CRITICAL for debugging - shows WHY LiveKit accepted/rejected the call
     // Recording is enabled with record-from-answer-dual to capture both caller and AI agent
@@ -192,7 +188,7 @@ export class VoiceAiSipService {
       '        record="record-from-answer-dual"',
       `        recordingStatusCallback="${recordingCallbackUrl}"`,
       '        recordingStatusCallbackMethod="POST">',
-      `    <Sip>${sipUri}</Sip>`,
+      `    <Sip>sip:voice-ai@${livekitUrl}${sipHeaders.join('')}</Sip>`,
       '  </Dial>',
       '</Response>',
     ].join('\n');
@@ -243,6 +239,19 @@ export class VoiceAiSipService {
    */
   private escapeTwimlText(text: string): string {
     return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  /**
+   * Escape XML special characters in header values.
+   * Prevents XML injection in SIP header values.
+   */
+  private escapeXml(unsafe: string): string {
+    return unsafe
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')

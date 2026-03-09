@@ -249,6 +249,7 @@ export interface SubscriptionPlan {
   voice_ai_enabled: boolean;
   voice_ai_minutes_included: number;
   voice_ai_overage_rate: string | null; // Decimal serialized as string, null = block calls
+  voice_ai_max_agent_profiles: number; // Sprint 12: Max active profiles per tenant (multilingual)
 }
 
 /**
@@ -259,6 +260,7 @@ export interface UpdatePlanVoiceConfigRequest {
   voice_ai_enabled?: boolean;
   voice_ai_minutes_included?: number;
   voice_ai_overage_rate?: number | null;
+  voice_ai_max_agent_profiles?: number; // Sprint 12: Max active profiles (1-50)
 }
 
 // ============================================================================
@@ -292,6 +294,7 @@ export interface TenantOverrideDto {
   llm_provider_override_id?: string | null;
   tts_provider_override_id?: string | null;
   admin_notes?: string | null;
+  default_agent_profile_id?: string | null; // Sprint 12: Default profile for tenant (multilingual)
 }
 
 /**
@@ -612,5 +615,142 @@ export interface TransferNumberFormData {
   description: string;
   is_default: boolean;
   available_hours: string;
+  display_order: number;
+}
+
+// ============================================================================
+// Voice Agent Profiles (Tenant - Multilingual Feature)
+// Base path: /api/v1/voice-ai/agent-profiles
+// ============================================================================
+
+/**
+ * Voice Agent Profile
+ * Named configuration binding language + voice + custom greeting/instructions
+ * Matches backend API from api/documentation/voice_agent_profiles_REST_API.md
+ */
+export interface VoiceAgentProfile {
+  id: string;
+  tenant_id: string;
+  title: string;
+  language_code: string;
+  voice_id: string;
+  custom_greeting: string | null;
+  custom_instructions: string | null;
+  is_active: boolean;
+  display_order: number;
+  created_at: string; // ISO date string
+  updated_at: string; // ISO date string
+  updated_by: string | null;
+}
+
+/**
+ * Create Voice Agent Profile Request
+ * Data for creating a new profile
+ */
+export interface CreateVoiceAgentProfileRequest {
+  title: string;
+  language_code: string;
+  voice_id: string;
+  custom_greeting?: string;
+  custom_instructions?: string;
+  is_active?: boolean;
+  display_order?: number;
+}
+
+/**
+ * Update Voice Agent Profile Request (partial)
+ * PATCH semantics - only provided fields are updated
+ */
+export interface UpdateVoiceAgentProfileRequest {
+  title?: string;
+  language_code?: string;
+  voice_id?: string;
+  custom_greeting?: string | null;
+  custom_instructions?: string | null;
+  is_active?: boolean;
+  display_order?: number;
+}
+
+/**
+ * Voice Agent Profile Form Data
+ * Form state for create/edit profile
+ */
+export interface VoiceAgentProfileFormData {
+  title: string;
+  language_code: string;
+  voice_id: string;
+  custom_greeting: string;
+  custom_instructions: string;
+  is_active: boolean;
+  display_order: number;
+}
+
+// ============================================================================
+// Global Agent Profiles (Platform Admin - Multilingual v2)
+// Base path: /api/v1/system/voice-ai/agent-profiles
+// ============================================================================
+
+/**
+ * Global Agent Profile
+ * Platform-wide language/voice template managed by admins
+ * Matches backend API from api/documentation/voice_agent_profiles_REST_API.md
+ */
+export interface GlobalAgentProfile {
+  id: string;
+  language_code: string;
+  language_name: string;
+  voice_id: string;
+  voice_provider_type: string;
+  display_name: string;
+  description?: string;
+  default_greeting?: string;
+  default_instructions?: string;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+  updated_by?: string;
+  _count?: {
+    tenant_overrides: number;
+  };
+}
+
+/**
+ * Create Global Profile Request
+ * Data for creating a new global profile
+ */
+export interface CreateGlobalProfileDto {
+  language_code: string;
+  language_name: string;
+  voice_id: string;
+  voice_provider_type?: string;
+  display_name: string;
+  description?: string;
+  default_greeting?: string;
+  default_instructions?: string;
+  is_active?: boolean;
+  display_order?: number;
+}
+
+/**
+ * Update Global Profile Request (partial)
+ * PATCH semantics - only provided fields are updated
+ */
+export interface UpdateGlobalProfileDto extends Partial<CreateGlobalProfileDto> {}
+
+/**
+ * Global Profile Form Data
+ * Form state for create/edit global profile
+ */
+export interface GlobalProfileFormData {
+  language_code: string;
+  language_name: string;
+  voice_id: string;
+  voice_provider_type: string;
+  display_name: string;
+  description: string;
+  default_greeting: string;
+  default_instructions: string;
+  is_active: boolean;
   display_order: number;
 }

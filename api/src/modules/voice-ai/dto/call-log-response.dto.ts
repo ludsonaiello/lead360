@@ -23,10 +23,17 @@ export class VoiceCallLogResponseDto {
   @ApiProperty({ description: 'Call direction', enum: ['inbound', 'outbound'] })
   direction: string;
 
-  @ApiProperty({ description: 'Call status', enum: ['in_progress', 'completed', 'failed', 'transferred'] })
+  @ApiProperty({
+    description: 'Call status',
+    enum: ['in_progress', 'completed', 'failed', 'transferred'],
+  })
   status: string;
 
-  @ApiProperty({ description: 'Call outcome', enum: ['lead_created', 'transferred', 'abandoned'], nullable: true })
+  @ApiProperty({
+    description: 'Call outcome',
+    enum: ['lead_created', 'transferred', 'abandoned'],
+    nullable: true,
+  })
   outcome: string | null;
 
   @ApiProperty({ description: 'Whether this call exceeded plan limits' })
@@ -35,16 +42,26 @@ export class VoiceCallLogResponseDto {
   @ApiProperty({ description: 'Call duration in seconds', nullable: true })
   duration_seconds: number | null;
 
-  @ApiProperty({ description: 'AI-generated transcript summary', nullable: true })
+  @ApiProperty({
+    description: 'AI-generated transcript summary',
+    nullable: true,
+  })
   transcript_summary: string | null;
 
   @ApiProperty({ description: 'Full STT transcript', nullable: true })
   full_transcript: string | null;
 
-  @ApiProperty({ description: 'Actions taken during call (JSON array)', nullable: true, type: [String] })
+  @ApiProperty({
+    description: 'Actions taken during call (JSON array)',
+    nullable: true,
+    type: [String],
+  })
   actions_taken: string[] | null;
 
-  @ApiProperty({ description: 'Lead UUID created/matched during call', nullable: true })
+  @ApiProperty({
+    description: 'Lead UUID created/matched during call',
+    nullable: true,
+  })
   lead_id: string | null;
 
   @ApiProperty({ description: 'STT provider UUID used', nullable: true })
@@ -87,7 +104,10 @@ export class PaginationMetaDto {
  * Paginated call logs response
  */
 export class PaginatedCallLogsDto {
-  @ApiProperty({ description: 'Array of call log records', type: [VoiceCallLogResponseDto] })
+  @ApiProperty({
+    description: 'Array of call log records',
+    type: [VoiceCallLogResponseDto],
+  })
   data: VoiceCallLogResponseDto[];
 
   @ApiProperty({ description: 'Pagination metadata' })

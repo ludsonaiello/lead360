@@ -73,7 +73,10 @@ export class VoiceAiGlobalConfigController {
     description: 'Config updated successfully (no raw keys returned)',
     type: GlobalConfigResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Validation error or malformed JSON field' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or malformed JSON field',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Platform Admin access required' })
   updateConfig(

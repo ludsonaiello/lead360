@@ -109,10 +109,12 @@ describe('CalendarProviderConnectionService', () => {
     });
 
     it('should return null if connection is not active', async () => {
-      mockPrismaService.calendar_provider_connection.findUnique.mockResolvedValue({
-        ...mockConnection,
-        is_active: false,
-      });
+      mockPrismaService.calendar_provider_connection.findUnique.mockResolvedValue(
+        {
+          ...mockConnection,
+          is_active: false,
+        },
+      );
 
       const result = await service.getActiveConnection('tenant-123');
 
@@ -145,7 +147,9 @@ describe('CalendarProviderConnectionService', () => {
       expect(encryptionService.encrypt).toHaveBeenCalledWith(
         'plain-refresh-token',
       );
-      expect(prismaService.calendar_provider_connection.create).toHaveBeenCalled();
+      expect(
+        prismaService.calendar_provider_connection.create,
+      ).toHaveBeenCalled();
       expect(result.id).toBe('conn-123');
       expect(result.tenantId).toBe('tenant-123');
     });
@@ -186,7 +190,9 @@ describe('CalendarProviderConnectionService', () => {
         new Date('2026-03-04T11:00:00Z'),
       );
 
-      expect(encryptionService.encrypt).toHaveBeenCalledWith('new-access-token');
+      expect(encryptionService.encrypt).toHaveBeenCalledWith(
+        'new-access-token',
+      );
       expect(
         prismaService.calendar_provider_connection.update,
       ).toHaveBeenCalledWith({
@@ -336,9 +342,9 @@ describe('CalendarProviderConnectionService', () => {
         null,
       );
 
-      await expect(
-        service.deactivateConnection('tenant-123'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.deactivateConnection('tenant-123')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

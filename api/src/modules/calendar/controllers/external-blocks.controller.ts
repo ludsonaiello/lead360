@@ -76,8 +76,7 @@ export class ExternalBlocksController {
   })
   @ApiQuery({
     name: 'appointment_type_id',
-    description:
-      'Optional appointment type ID (reserved for future filtering)',
+    description: 'Optional appointment type ID (reserved for future filtering)',
     required: false,
     type: String,
     example: '123e4567-e89b-12d3-a456-426614174000',

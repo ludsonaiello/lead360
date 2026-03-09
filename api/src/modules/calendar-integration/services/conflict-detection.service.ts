@@ -214,9 +214,7 @@ export class ConflictDetectionService {
    * @param appointmentId - Appointment ID to check
    * @returns true if conflict exists, false otherwise
    */
-  async detectConflictForAppointment(
-    appointmentId: string,
-  ): Promise<boolean> {
+  async detectConflictForAppointment(appointmentId: string): Promise<boolean> {
     try {
       const appointment = await this.prisma.appointment.findUnique({
         where: { id: appointmentId },

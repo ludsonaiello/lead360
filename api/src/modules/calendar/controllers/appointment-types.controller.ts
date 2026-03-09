@@ -63,10 +63,7 @@ export class AppointmentTypesController {
     status: 403,
     description: 'Forbidden - Requires Owner or Admin role',
   })
-  async create(
-    @Request() req,
-    @Body() createDto: CreateAppointmentTypeDto,
-  ) {
+  async create(@Request() req, @Body() createDto: CreateAppointmentTypeDto) {
     return this.appointmentTypesService.create(
       req.user.tenant_id,
       req.user.id,

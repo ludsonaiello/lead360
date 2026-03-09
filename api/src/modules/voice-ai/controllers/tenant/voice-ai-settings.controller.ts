@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Put,
-  Body,
-  Request,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Put, Body, Request, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -52,9 +45,13 @@ export class VoiceAiSettingsController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Current settings returned (may be null if not yet configured)',
+    description:
+      'Current settings returned (may be null if not yet configured)',
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized — valid JWT required' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized — valid JWT required',
+  })
   @ApiResponse({
     status: 403,
     description: 'Forbidden — requires Owner, Admin, or Manager role',
@@ -83,10 +80,14 @@ export class VoiceAiSettingsController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Settings saved successfully — full updated settings row returned',
+    description:
+      'Settings saved successfully — full updated settings row returned',
   })
   @ApiResponse({ status: 400, description: 'Validation error in request body' })
-  @ApiResponse({ status: 401, description: 'Unauthorized — valid JWT required' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized — valid JWT required',
+  })
   @ApiResponse({
     status: 403,
     description:

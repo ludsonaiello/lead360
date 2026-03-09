@@ -2,7 +2,10 @@ import { IsString, IsNotEmpty } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class FindLeadToolDto {
-  @ApiProperty({ example: '+19788968047', description: 'Phone number in E.164 format' })
+  @ApiProperty({
+    example: '+19788968047',
+    description: 'Phone number in E.164 format',
+  })
   @IsString()
   @IsNotEmpty()
   phone_number: string;

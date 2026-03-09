@@ -23,12 +23,18 @@ export class UsageRecordDto {
   @IsIn(['STT', 'LLM', 'TTS'])
   provider_type: string;
 
-  @ApiProperty({ description: 'Consumption amount (seconds | tokens | characters)', minimum: 0 })
+  @ApiProperty({
+    description: 'Consumption amount (seconds | tokens | characters)',
+    minimum: 0,
+  })
   @IsNumber()
   @Min(0)
   usage_quantity: number;
 
-  @ApiProperty({ description: 'Unit of measurement', enum: ['seconds', 'tokens', 'characters'] })
+  @ApiProperty({
+    description: 'Unit of measurement',
+    enum: ['seconds', 'tokens', 'characters'],
+  })
   @IsString()
   @IsIn(['seconds', 'tokens', 'characters'])
   usage_unit: string;
@@ -40,7 +46,10 @@ export class UsageRecordDto {
 }
 
 export class CompleteCallDto {
-  @ApiProperty({ description: 'Twilio CallSid — must match the :callSid path parameter', example: 'CA1234567890abcdef' })
+  @ApiProperty({
+    description: 'Twilio CallSid — must match the :callSid path parameter',
+    example: 'CA1234567890abcdef',
+  })
   @IsString()
   @IsNotEmpty()
   call_sid: string;
@@ -53,7 +62,10 @@ export class CompleteCallDto {
   @IsIn(['completed', 'failed', 'transferred'])
   status: string;
 
-  @ApiPropertyOptional({ description: 'Total call duration in seconds', minimum: 0 })
+  @ApiPropertyOptional({
+    description: 'Total call duration in seconds',
+    minimum: 0,
+  })
   @IsOptional()
   @IsInt()
   @Min(0)
@@ -78,18 +90,25 @@ export class CompleteCallDto {
   @IsString()
   full_transcript?: string;
 
-  @ApiPropertyOptional({ description: 'List of actions taken during the call', type: [String] })
+  @ApiPropertyOptional({
+    description: 'List of actions taken during the call',
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   actions_taken?: string[];
 
-  @ApiPropertyOptional({ description: 'UUID of the lead matched or created during this call' })
+  @ApiPropertyOptional({
+    description: 'UUID of the lead matched or created during this call',
+  })
   @IsOptional()
   @IsString()
   lead_id?: string;
 
-  @ApiPropertyOptional({ description: 'Phone number the call was transferred to (E.164 format)' })
+  @ApiPropertyOptional({
+    description: 'Phone number the call was transferred to (E.164 format)',
+  })
   @IsOptional()
   @IsString()
   transferred_to?: string;
@@ -99,12 +118,18 @@ export class CompleteCallDto {
   @IsString()
   error_message?: string;
 
-  @ApiPropertyOptional({ description: 'True if this call consumed overage minutes beyond the plan limit' })
+  @ApiPropertyOptional({
+    description:
+      'True if this call consumed overage minutes beyond the plan limit',
+  })
   @IsOptional()
   @IsBoolean()
   is_overage?: boolean;
 
-  @ApiPropertyOptional({ description: 'Per-provider usage records (1–3 entries: STT, LLM, TTS)', type: [UsageRecordDto] })
+  @ApiPropertyOptional({
+    description: 'Per-provider usage records (1–3 entries: STT, LLM, TTS)',
+    type: [UsageRecordDto],
+  })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })

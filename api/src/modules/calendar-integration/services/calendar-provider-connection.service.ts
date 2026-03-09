@@ -42,11 +42,12 @@ export class CalendarProviderConnectionService {
     createdAt: Date;
     updatedAt: Date;
   } | null> {
-    const connection = await this.prisma.calendar_provider_connection.findUnique({
-      where: {
-        tenant_id: tenantId,
-      },
-    });
+    const connection =
+      await this.prisma.calendar_provider_connection.findUnique({
+        where: {
+          tenant_id: tenantId,
+        },
+      });
 
     if (!connection || !connection.is_active) {
       return null;
@@ -54,7 +55,9 @@ export class CalendarProviderConnectionService {
 
     // Decrypt tokens
     const accessToken = this.encryptionService.decrypt(connection.access_token);
-    const refreshToken = this.encryptionService.decrypt(connection.refresh_token);
+    const refreshToken = this.encryptionService.decrypt(
+      connection.refresh_token,
+    );
 
     return {
       id: connection.id,
@@ -77,6 +80,52 @@ export class CalendarProviderConnectionService {
       createdAt: connection.created_at,
       updatedAt: connection.updated_at,
     };
+  }
+
+  /**
+   * Get calendar provider connection (active OR inactive)
+   * Use this when you need to check for ANY existing connection
+   * @param tenantId - Tenant ID
+   * @returns Connection record (raw, without decryption), or null if not found
+   */
+  async getConnection(tenantId: string): Promise<{
+    id: string;
+    tenant_id: string;
+    provider_type: string;
+    is_active: boolean;
+    sync_status: string;
+    webhook_channel_id: string | null;
+    webhook_resource_id: string | null;
+  } | null> {
+    const connection =
+      await this.prisma.calendar_provider_connection.findUnique({
+        where: {
+          tenant_id: tenantId,
+        },
+        select: {
+          id: true,
+          tenant_id: true,
+          provider_type: true,
+          is_active: true,
+          sync_status: true,
+          webhook_channel_id: true,
+          webhook_resource_id: true,
+        },
+      });
+
+    return connection;
+  }
+
+  /**
+   * Delete calendar provider connection (hard delete)
+   * Use this to clean up inactive connections before reconnecting
+   * @param tenantId - Tenant ID
+   */
+  async deleteConnection(tenantId: string): Promise<void> {
+    await this.prisma.calendar_provider_connection.delete({
+      where: { tenant_id: tenantId },
+    });
+    this.logger.log(`Deleted calendar connection for tenant ${tenantId}`);
   }
 
   /**
@@ -106,8 +155,12 @@ export class CalendarProviderConnectionService {
     syncStatus: string;
   }> {
     // Encrypt tokens before storage
-    const encryptedAccessToken = this.encryptionService.encrypt(data.accessToken);
-    const encryptedRefreshToken = this.encryptionService.encrypt(data.refreshToken);
+    const encryptedAccessToken = this.encryptionService.encrypt(
+      data.accessToken,
+    );
+    const encryptedRefreshToken = this.encryptionService.encrypt(
+      data.refreshToken,
+    );
 
     const connection = await this.prisma.calendar_provider_connection.create({
       data: {
@@ -241,7 +294,9 @@ export class CalendarProviderConnectionService {
       },
     });
 
-    this.logger.log(`Updated last sync timestamp for connection ${connectionId}`);
+    this.logger.log(
+      `Updated last sync timestamp for connection ${connectionId}`,
+    );
   }
 
   /**
@@ -249,9 +304,10 @@ export class CalendarProviderConnectionService {
    * @param tenantId - Tenant ID
    */
   async deactivateConnection(tenantId: string): Promise<void> {
-    const connection = await this.prisma.calendar_provider_connection.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const connection =
+      await this.prisma.calendar_provider_connection.findUnique({
+        where: { tenant_id: tenantId },
+      });
 
     if (!connection) {
       throw new NotFoundException('Calendar connection not found');
@@ -303,12 +359,14 @@ export class CalendarProviderConnectionService {
     createdAt: Date;
     updatedAt: Date;
   } | null> {
-    const connection = await this.prisma.calendar_provider_connection.findFirst({
-      where: {
-        webhook_channel_id: channelId,
-        is_active: true,
+    const connection = await this.prisma.calendar_provider_connection.findFirst(
+      {
+        where: {
+          webhook_channel_id: channelId,
+          is_active: true,
+        },
       },
-    });
+    );
 
     if (!connection) {
       return null;
@@ -316,7 +374,9 @@ export class CalendarProviderConnectionService {
 
     // Decrypt tokens
     const accessToken = this.encryptionService.decrypt(connection.access_token);
-    const refreshToken = this.encryptionService.decrypt(connection.refresh_token);
+    const refreshToken = this.encryptionService.decrypt(
+      connection.refresh_token,
+    );
 
     return {
       id: connection.id,
@@ -357,9 +417,7 @@ export class CalendarProviderConnectionService {
    * @param withinMinutes - Look for tokens expiring within this many minutes (default: 30)
    * @returns Array of connections needing refresh
    */
-  async getConnectionsNeedingTokenRefresh(
-    withinMinutes: number = 30,
-  ): Promise<
+  async getConnectionsNeedingTokenRefresh(withinMinutes: number = 30): Promise<
     Array<{
       id: string;
       tenantId: string;
@@ -373,20 +431,22 @@ export class CalendarProviderConnectionService {
   > {
     const thresholdDate = new Date(Date.now() + withinMinutes * 60 * 1000);
 
-    const connections = await this.prisma.calendar_provider_connection.findMany({
-      where: {
-        is_active: true,
-        sync_status: {
-          in: ['active', 'syncing'], // Only refresh healthy connections
+    const connections = await this.prisma.calendar_provider_connection.findMany(
+      {
+        where: {
+          is_active: true,
+          sync_status: {
+            in: ['active', 'syncing'], // Only refresh healthy connections
+          },
+          token_expires_at: {
+            lte: thresholdDate, // Expires within threshold
+          },
         },
-        token_expires_at: {
-          lte: thresholdDate, // Expires within threshold
+        orderBy: {
+          token_expires_at: 'asc', // Refresh most urgent first
         },
       },
-      orderBy: {
-        token_expires_at: 'asc', // Refresh most urgent first
-      },
-    });
+    );
 
     // Decrypt tokens for each connection
     return connections.map((conn) => ({
@@ -407,9 +467,7 @@ export class CalendarProviderConnectionService {
    * @param withinHours - Look for webhooks expiring within this many hours (default: 24)
    * @returns Array of connections needing webhook renewal
    */
-  async getConnectionsNeedingWebhookRenewal(
-    withinHours: number = 24,
-  ): Promise<
+  async getConnectionsNeedingWebhookRenewal(withinHours: number = 24): Promise<
     Array<{
       id: string;
       tenantId: string;
@@ -427,24 +485,26 @@ export class CalendarProviderConnectionService {
   > {
     const thresholdDate = new Date(Date.now() + withinHours * 60 * 60 * 1000);
 
-    const connections = await this.prisma.calendar_provider_connection.findMany({
-      where: {
-        is_active: true,
-        sync_status: {
-          in: ['active', 'syncing'], // Only renew healthy connections
+    const connections = await this.prisma.calendar_provider_connection.findMany(
+      {
+        where: {
+          is_active: true,
+          sync_status: {
+            in: ['active', 'syncing'], // Only renew healthy connections
+          },
+          webhook_channel_id: {
+            not: null, // Has a webhook channel
+          },
+          webhook_expiration: {
+            not: null,
+            lte: thresholdDate, // Expires within threshold
+          },
         },
-        webhook_channel_id: {
-          not: null, // Has a webhook channel
-        },
-        webhook_expiration: {
-          not: null,
-          lte: thresholdDate, // Expires within threshold
+        orderBy: {
+          webhook_expiration: 'asc', // Renew most urgent first
         },
       },
-      orderBy: {
-        webhook_expiration: 'asc', // Renew most urgent first
-      },
-    });
+    );
 
     // Decrypt tokens for each connection
     return connections.map((conn) => ({

@@ -18,7 +18,9 @@ export class GoogleCalendarService {
   ];
 
   constructor(private readonly configService: ConfigService) {
-    const clientId = this.configService.get<string>('GOOGLE_CALENDAR_CLIENT_ID');
+    const clientId = this.configService.get<string>(
+      'GOOGLE_CALENDAR_CLIENT_ID',
+    );
     const clientSecret = this.configService.get<string>(
       'GOOGLE_CALENDAR_CLIENT_SECRET',
     );
@@ -75,7 +77,9 @@ export class GoogleCalendarService {
         throw new Error('Failed to obtain access or refresh token from Google');
       }
 
-      const expiryDate = new Date(tokens.expiry_date || Date.now() + 3600 * 1000);
+      const expiryDate = new Date(
+        tokens.expiry_date || Date.now() + 3600 * 1000,
+      );
 
       this.logger.log('Successfully exchanged authorization code for tokens');
 
@@ -107,7 +111,9 @@ export class GoogleCalendarService {
         throw new Error('Failed to refresh access token');
       }
 
-      const expiryDate = new Date(credentials.expiry_date || Date.now() + 3600 * 1000);
+      const expiryDate = new Date(
+        credentials.expiry_date || Date.now() + 3600 * 1000,
+      );
 
       this.logger.log('Successfully refreshed access token');
 
@@ -141,7 +147,10 @@ export class GoogleCalendarService {
     try {
       this.oauth2Client.setCredentials({ access_token: accessToken });
 
-      const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
+      const calendar = google.calendar({
+        version: 'v3',
+        auth: this.oauth2Client,
+      });
       const response = await calendar.calendarList.list();
 
       const calendars = response.data.items || [];
@@ -177,7 +186,10 @@ export class GoogleCalendarService {
     try {
       this.oauth2Client.setCredentials({ access_token: accessToken });
 
-      const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
+      const calendar = google.calendar({
+        version: 'v3',
+        auth: this.oauth2Client,
+      });
       const response = await calendar.calendars.get({ calendarId });
 
       return {
@@ -212,7 +224,10 @@ export class GoogleCalendarService {
     try {
       this.oauth2Client.setCredentials({ access_token: accessToken });
 
-      const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
+      const calendar = google.calendar({
+        version: 'v3',
+        auth: this.oauth2Client,
+      });
 
       const channelId = randomUUID();
       const expiration = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -257,7 +272,10 @@ export class GoogleCalendarService {
     try {
       this.oauth2Client.setCredentials({ access_token: accessToken });
 
-      const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
+      const calendar = google.calendar({
+        version: 'v3',
+        auth: this.oauth2Client,
+      });
 
       await calendar.channels.stop({
         requestBody: {
@@ -270,7 +288,9 @@ export class GoogleCalendarService {
     } catch (error) {
       // 404 is acceptable (channel already expired/stopped)
       if (error.code === 404) {
-        this.logger.warn(`Watch channel ${channelId} not found (already stopped)`);
+        this.logger.warn(
+          `Watch channel ${channelId} not found (already stopped)`,
+        );
         return;
       }
 
@@ -288,7 +308,10 @@ export class GoogleCalendarService {
       await this.oauth2Client.revokeToken(accessToken);
       this.logger.log('Successfully revoked Google Calendar access token');
     } catch (error) {
-      this.logger.warn('Failed to revoke token (may already be revoked)', error.stack);
+      this.logger.warn(
+        'Failed to revoke token (may already be revoked)',
+        error.stack,
+      );
       // Don't throw - disconnection should proceed even if revocation fails
     }
   }
@@ -324,7 +347,10 @@ export class GoogleCalendarService {
     try {
       this.oauth2Client.setCredentials({ access_token: accessToken });
 
-      const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
+      const calendar = google.calendar({
+        version: 'v3',
+        auth: this.oauth2Client,
+      });
 
       const response = await calendar.events.insert({
         calendarId,
@@ -384,7 +410,10 @@ export class GoogleCalendarService {
     try {
       this.oauth2Client.setCredentials({ access_token: accessToken });
 
-      const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
+      const calendar = google.calendar({
+        version: 'v3',
+        auth: this.oauth2Client,
+      });
 
       const response = await calendar.events.update({
         calendarId,
@@ -407,7 +436,10 @@ export class GoogleCalendarService {
         htmlLink: response.data.htmlLink || '',
       };
     } catch (error) {
-      this.logger.error(`Failed to update calendar event ${eventId}`, error.stack);
+      this.logger.error(
+        `Failed to update calendar event ${eventId}`,
+        error.stack,
+      );
       throw new Error('Failed to update Google Calendar event');
     }
   }
@@ -427,7 +459,10 @@ export class GoogleCalendarService {
     try {
       this.oauth2Client.setCredentials({ access_token: accessToken });
 
-      const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
+      const calendar = google.calendar({
+        version: 'v3',
+        auth: this.oauth2Client,
+      });
 
       await calendar.events.delete({
         calendarId,
@@ -446,7 +481,10 @@ export class GoogleCalendarService {
         return;
       }
 
-      this.logger.error(`Failed to delete calendar event ${eventId}`, error.stack);
+      this.logger.error(
+        `Failed to delete calendar event ${eventId}`,
+        error.stack,
+      );
       throw new Error('Failed to delete Google Calendar event');
     }
   }
@@ -484,7 +522,10 @@ export class GoogleCalendarService {
     try {
       this.oauth2Client.setCredentials({ access_token: accessToken });
 
-      const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
+      const calendar = google.calendar({
+        version: 'v3',
+        auth: this.oauth2Client,
+      });
 
       const requestParams: any = {
         calendarId,
@@ -494,7 +535,9 @@ export class GoogleCalendarService {
       if (syncToken) {
         // Incremental sync - fetch only changes since last sync
         requestParams.syncToken = syncToken;
-        this.logger.log(`Fetching incremental changes for calendar ${calendarId}`);
+        this.logger.log(
+          `Fetching incremental changes for calendar ${calendarId}`,
+        );
       } else {
         // Full sync - fetch all events in time range
         if (timeMin) {

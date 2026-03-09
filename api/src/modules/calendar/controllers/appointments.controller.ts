@@ -38,9 +38,7 @@ import {
 export class AppointmentsController {
   private readonly logger = new Logger(AppointmentsController.name);
 
-  constructor(
-    private readonly appointmentsService: AppointmentsService,
-  ) {}
+  constructor(private readonly appointmentsService: AppointmentsService) {}
 
   // ========== APPOINTMENT CRUD ==========
 
@@ -67,10 +65,7 @@ export class AppointmentsController {
     status: 403,
     description: 'Forbidden - Requires Owner, Admin, or Estimator role',
   })
-  async create(
-    @Request() req,
-    @Body() createDto: CreateAppointmentDto,
-  ) {
+  async create(@Request() req, @Body() createDto: CreateAppointmentDto) {
     return this.appointmentsService.create(
       req.user.tenant_id,
       req.user.id,
@@ -104,7 +99,14 @@ export class AppointmentsController {
     required: false,
     type: String,
     description: 'Filter by status',
-    enum: ['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'],
+    enum: [
+      'scheduled',
+      'confirmed',
+      'in_progress',
+      'completed',
+      'cancelled',
+      'no_show',
+    ],
   })
   @ApiQuery({
     name: 'lead_id',

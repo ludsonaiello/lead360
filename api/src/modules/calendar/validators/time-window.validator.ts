@@ -98,7 +98,10 @@ export class TimeWindowValidator implements ValidatorConstraintInterface {
     const object = args.object as any;
 
     // Custom error messages based on validation failure
-    if (object.is_available === true && (!object.window1_start || !object.window1_end)) {
+    if (
+      object.is_available === true &&
+      (!object.window1_start || !object.window1_end)
+    ) {
       return 'When day is available, window1_start and window1_end are required';
     }
 
@@ -110,7 +113,11 @@ export class TimeWindowValidator implements ValidatorConstraintInterface {
     if (window1Start && window1End) {
       const start1Minutes = timeToMinutes(window1Start);
       const end1Minutes = timeToMinutes(window1End);
-      if (start1Minutes !== null && end1Minutes !== null && start1Minutes >= end1Minutes) {
+      if (
+        start1Minutes !== null &&
+        end1Minutes !== null &&
+        start1Minutes >= end1Minutes
+      ) {
         return 'window1_start must be before window1_end';
       }
     }
@@ -124,11 +131,19 @@ export class TimeWindowValidator implements ValidatorConstraintInterface {
       const start2Minutes = timeToMinutes(window2Start);
       const end2Minutes = timeToMinutes(window2End);
 
-      if (end1Minutes !== null && start2Minutes !== null && end1Minutes >= start2Minutes) {
+      if (
+        end1Minutes !== null &&
+        start2Minutes !== null &&
+        end1Minutes >= start2Minutes
+      ) {
         return 'window1_end must be before window2_start (lunch break required)';
       }
 
-      if (start2Minutes !== null && end2Minutes !== null && start2Minutes >= end2Minutes) {
+      if (
+        start2Minutes !== null &&
+        end2Minutes !== null &&
+        start2Minutes >= end2Minutes
+      ) {
         return 'window2_start must be before window2_end';
       }
     }
@@ -142,7 +157,7 @@ export class TimeWindowValidator implements ValidatorConstraintInterface {
  * Apply this to the DTO class (not a specific property)
  */
 export function ValidateTimeWindows(validationOptions?: ValidationOptions) {
-  return function (object: Object, propertyName: string) {
+  return function (object: object, propertyName: string) {
     registerDecorator({
       target: object.constructor,
       propertyName: propertyName,

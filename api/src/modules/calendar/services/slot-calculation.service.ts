@@ -404,7 +404,9 @@ export class SlotCalculationService {
       );
 
       // Check if block overlaps with this date
-      return blockStartLocal.localDate === date || blockEndLocal.localDate === date;
+      return (
+        blockStartLocal.localDate === date || blockEndLocal.localDate === date
+      );
     });
 
     if (hasExternalBlock) {
@@ -550,7 +552,10 @@ export class SlotCalculationService {
       const aptEndMinutes = this.timeToMinutes(apt.end_time);
 
       // Overlap check: slot overlaps if it starts before appointment ends AND ends after appointment starts
-      if (slotStartMinutes < aptEndMinutes && slotEndMinutes > aptStartMinutes) {
+      if (
+        slotStartMinutes < aptEndMinutes &&
+        slotEndMinutes > aptStartMinutes
+      ) {
         return true; // Overlap detected
       }
     }
@@ -592,7 +597,11 @@ export class SlotCalculationService {
       slotStart,
       timezone,
     );
-    const slotEndUtc = this.datetimeConverter.localToUtc(date, slotEnd, timezone);
+    const slotEndUtc = this.datetimeConverter.localToUtc(
+      date,
+      slotEnd,
+      timezone,
+    );
 
     for (const block of externalBlocks) {
       const blockStartUtc = block.start_datetime_utc;

@@ -33,7 +33,9 @@ describe('End-to-End Flows Integration Tests', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     app.setGlobalPrefix('api/v1');
 
     await app.init();
@@ -136,7 +138,9 @@ describe('End-to-End Flows Integration Tests', () => {
 
     it('Step 5: Check available slots', async () => {
       const response = await request(app.getHttpServer())
-        .get(`/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-30&date_to=2026-04-04`)
+        .get(
+          `/api/v1/calendar/availability?appointment_type_id=${appointmentTypeId}&date_from=2026-03-30&date_to=2026-04-04`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
@@ -177,7 +181,9 @@ describe('End-to-End Flows Integration Tests', () => {
 
     it('Step 8: Reschedule appointment', async () => {
       const response = await request(app.getHttpServer())
-        .post(`/api/v1/calendar/appointments/${originalAppointmentId}/reschedule`)
+        .post(
+          `/api/v1/calendar/appointments/${originalAppointmentId}/reschedule`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           new_scheduled_date: '2026-04-02',
@@ -193,7 +199,9 @@ describe('End-to-End Flows Integration Tests', () => {
 
     it('Step 9: Complete rescheduled appointment', async () => {
       const response = await request(app.getHttpServer())
-        .post(`/api/v1/calendar/appointments/${rescheduledAppointmentId}/complete`)
+        .post(
+          `/api/v1/calendar/appointments/${rescheduledAppointmentId}/complete`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           completion_notes: 'Quote visit completed successfully',
@@ -216,10 +224,16 @@ describe('End-to-End Flows Integration Tests', () => {
     afterAll(async () => {
       // Clean up
       await prisma.appointment.deleteMany({ where: { lead_id: leadId } });
-      await prisma.service_request.deleteMany({ where: { id: serviceRequestId } });
+      await prisma.service_request.deleteMany({
+        where: { id: serviceRequestId },
+      });
       await prisma.lead.deleteMany({ where: { id: leadId } });
-      await prisma.appointment_type_schedule.deleteMany({ where: { appointment_type_id: appointmentTypeId } });
-      await prisma.appointment_type.deleteMany({ where: { id: appointmentTypeId } });
+      await prisma.appointment_type_schedule.deleteMany({
+        where: { appointment_type_id: appointmentTypeId },
+      });
+      await prisma.appointment_type.deleteMany({
+        where: { id: appointmentTypeId },
+      });
     });
   });
 
@@ -281,14 +295,18 @@ describe('End-to-End Flows Integration Tests', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
-      const newAppointment = response.body.items.find((a: any) => a.id === voiceAiAppointmentId);
+      const newAppointment = response.body.items.find(
+        (a: any) => a.id === voiceAiAppointmentId,
+      );
       expect(newAppointment).toBeDefined();
       expect(newAppointment.source).toBe('voice_ai');
     });
 
     it('Step 3: Human acknowledges appointment', async () => {
       const response = await request(app.getHttpServer())
-        .patch(`/api/v1/calendar/dashboard/new/${voiceAiAppointmentId}/acknowledge`)
+        .patch(
+          `/api/v1/calendar/dashboard/new/${voiceAiAppointmentId}/acknowledge`,
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
@@ -301,15 +319,23 @@ describe('End-to-End Flows Integration Tests', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
-      const acknowledged = response.body.items.find((a: any) => a.id === voiceAiAppointmentId);
+      const acknowledged = response.body.items.find(
+        (a: any) => a.id === voiceAiAppointmentId,
+      );
       expect(acknowledged).toBeUndefined();
     });
 
     afterAll(async () => {
-      await prisma.appointment.deleteMany({ where: { id: voiceAiAppointmentId } });
+      await prisma.appointment.deleteMany({
+        where: { id: voiceAiAppointmentId },
+      });
       await prisma.lead.deleteMany({ where: { id: leadId } });
-      await prisma.appointment_type_schedule.deleteMany({ where: { appointment_type_id: appointmentTypeId } });
-      await prisma.appointment_type.deleteMany({ where: { id: appointmentTypeId } });
+      await prisma.appointment_type_schedule.deleteMany({
+        where: { appointment_type_id: appointmentTypeId },
+      });
+      await prisma.appointment_type.deleteMany({
+        where: { id: appointmentTypeId },
+      });
     });
   });
 
@@ -392,8 +418,12 @@ describe('End-to-End Flows Integration Tests', () => {
     afterAll(async () => {
       await prisma.appointment.deleteMany({ where: { lead_id: leadId } });
       await prisma.lead.deleteMany({ where: { id: leadId } });
-      await prisma.appointment_type_schedule.deleteMany({ where: { appointment_type_id: appointmentTypeId } });
-      await prisma.appointment_type.deleteMany({ where: { id: appointmentTypeId } });
+      await prisma.appointment_type_schedule.deleteMany({
+        where: { appointment_type_id: appointmentTypeId },
+      });
+      await prisma.appointment_type.deleteMany({
+        where: { id: appointmentTypeId },
+      });
     });
   });
 });

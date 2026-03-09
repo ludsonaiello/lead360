@@ -14,7 +14,7 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useFormContext, useFieldArray, Controller } from "react-hook-form";
 import {
   GripVertical,
@@ -43,6 +43,7 @@ import {
   IVR_CONSTANTS,
   ACTION_TYPE_LABELS
 } from "@/lib/types/ivr";
+import { voiceAiTenantApi, type AvailableGlobalProfile } from "@/lib/api/voice-ai-tenant";
 
 interface MenuTreeBuilderProps {
   parentPath: string;       // e.g., "menu_options" or "menu_options.0.submenu.options"
@@ -65,6 +66,26 @@ export function MenuTreeBuilder({
   });
 
   const options = watch(parentPath as any);
+
+  // Load available global profiles for voice_ai action
+  const [availableProfiles, setAvailableProfiles] = useState<AvailableGlobalProfile[]>([]);
+  const [loadingProfiles, setLoadingProfiles] = useState(false);
+
+  useEffect(() => {
+    loadAvailableProfiles();
+  }, []);
+
+  const loadAvailableProfiles = async () => {
+    try {
+      setLoadingProfiles(true);
+      const profiles = await voiceAiTenantApi.availableProfiles.list(true);
+      setAvailableProfiles(profiles);
+    } catch (error) {
+      console.error('[MenuTreeBuilder] Failed to load available profiles:', error);
+    } finally {
+      setLoadingProfiles(false);
+    }
+  };
 
   // Get available digits (0-9) excluding already used ones
   const getAvailableDigits = (currentIndex: number) => {
@@ -162,6 +183,8 @@ export function MenuTreeBuilder({
               onRemove={() => remove(index)}
               availableDigits={getAvailableDigits(index)}
               currentDigit={watch(`${optionPath}.digit` as any)}
+              availableProfiles={availableProfiles}
+              loadingProfiles={loadingProfiles}
             />
           );
         })}
@@ -207,6 +230,8 @@ interface MenuOptionCardProps {
   onRemove: () => void;
   availableDigits: string[];
   currentDigit: string;
+  availableProfiles: AvailableGlobalProfile[];
+  loadingProfiles: boolean;
 }
 
 function MenuOptionCard({
@@ -223,6 +248,8 @@ function MenuOptionCard({
   onRemove,
   availableDigits,
   currentDigit,
+  availableProfiles,
+  loadingProfiles,
 }: MenuOptionCardProps) {
   const [isSubmenuExpanded, setIsSubmenuExpanded] = useState(false);
 
@@ -377,11 +404,32 @@ function MenuOptionCard({
                     <div className="text-sm text-blue-800 dark:text-blue-200">
                       <p className="font-medium mb-1">Voice AI Assistant</p>
                       <p>
-                        Connects to your configured AI voice assistant. Routing is handled automatically
-                        using your Voice AI settings.
+                        Connects to your configured AI voice assistant. Select a language profile or use the default.
                       </p>
                     </div>
                   </div>
+                </div>
+
+                <div>
+                  <Label htmlFor={`${optionPath}.config.agent_profile_id`}>
+                    Voice Agent Profile (Optional)
+                  </Label>
+                  <select
+                    id={`${optionPath}.config.agent_profile_id`}
+                    {...register(`${optionPath}.config.agent_profile_id` as any)}
+                    className="w-full px-4 py-2 border-2 rounded-lg text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    disabled={loadingProfiles}
+                  >
+                    <option value="">-- Use default profile --</option>
+                    {availableProfiles.map((profile) => (
+                      <option key={profile.id} value={profile.id}>
+                        {profile.display_name} ({profile.language_name})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Choose a specific language profile or leave empty to use your default Voice AI settings
+                  </p>
                 </div>
 
                 <div>

@@ -1,4 +1,17 @@
 /**
+ * Active agent profile metadata included in context when a profile is resolved.
+ * Used by the agent worker for call logs and debug traces.
+ * Sprint: Voice Multilingual - Sprint 7 (Context Builder)
+ * Sprint 18: Added is_override flag to track tenant customization status
+ */
+export interface ActiveAgentProfile {
+  id: string;
+  title: string;
+  language_code: string;
+  is_override: boolean; // Sprint 18: True if tenant has custom greeting/instructions
+}
+
+/**
  * Full merged context returned to the Python voice agent.
  *
  * Contains all data the agent needs for a single tenant:
@@ -12,6 +25,7 @@
  * - Business hours (daily open/close times)
  * - Industries the business operates in
  * - Transfer numbers (ordered by display_order ASC)
+ * - Active agent profile (when language/voice resolved from profile)
  *
  * SECURITY: api_key fields contain DECRYPTED credentials.
  *   This object must NEVER be cached or logged.
@@ -107,9 +121,16 @@ export interface VoiceAiContext {
     available_hours: string | null;
   }>;
   conversational_phrases: {
-    recovery_messages: string[];        // When STT fails / empty input
-    filler_phrases: string[];           // Before tool execution
-    long_wait_messages: string[];       // During long tool execution (>20s)
-    system_error_messages: string[];    // Generic system errors
+    recovery_messages: string[]; // When STT fails / empty input
+    filler_phrases: string[]; // Before tool execution
+    long_wait_messages: string[]; // During long tool execution (>20s)
+    system_error_messages: string[]; // Generic system errors
   };
+
+  /**
+   * Active agent profile metadata (Sprint 7: Voice Multilingual)
+   * Populated when language/voice is resolved from a voice agent profile.
+   * Null when using fallback behavior (no profile resolved).
+   */
+  active_agent_profile?: ActiveAgentProfile | null;
 }

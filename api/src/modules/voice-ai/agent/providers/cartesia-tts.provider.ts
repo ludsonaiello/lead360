@@ -10,12 +10,18 @@ export class CartesiaTtsProvider implements TtsProvider {
   async synthesize(config: TtsConfig): Promise<TtsSession> {
     // Log full TTS request configuration
     this.logger.log(`📋 TTS Request Configuration:`);
-    this.logger.log(`  - API Key: ${config.apiKey ? config.apiKey.substring(0, 12) + '...' : 'MISSING'}`);
+    this.logger.log(
+      `  - API Key: ${config.apiKey ? config.apiKey.substring(0, 12) + '...' : 'MISSING'}`,
+    );
     this.logger.log(`  - Voice ID: ${config.voiceId}`);
     this.logger.log(`  - Model: ${config.model || 'sonic-english'}`);
     this.logger.log(`  - Language: ${config.language || 'en'}`);
-    this.logger.log(`  - Text: "${config.text.substring(0, 100)}..." (${config.text.length} chars)`);
-    this.logger.log(`  - Output Format: ${config.outputFormat?.encoding || 'pcm_s16le'}, ${config.outputFormat?.sampleRate || 16000}Hz`);
+    this.logger.log(
+      `  - Text: "${config.text.substring(0, 100)}..." (${config.text.length} chars)`,
+    );
+    this.logger.log(
+      `  - Output Format: ${config.outputFormat?.encoding || 'pcm_s16le'}, ${config.outputFormat?.sampleRate || 16000}Hz`,
+    );
 
     // Create Cartesia client
     const client = new CartesiaClient({ apiKey: config.apiKey });
@@ -31,7 +37,8 @@ export class CartesiaTtsProvider implements TtsProvider {
       language: (config.language || 'en') as Cartesia.SupportedLanguage,
       outputFormat: {
         container: 'raw',
-        encoding: (config.outputFormat?.encoding || 'pcm_s16le') as Cartesia.RawEncoding,
+        encoding: (config.outputFormat?.encoding ||
+          'pcm_s16le') as Cartesia.RawEncoding,
         sampleRate: config.outputFormat?.sampleRate || 16000,
       },
     };
@@ -141,7 +148,7 @@ export class CartesiaTtsProvider implements TtsProvider {
       //     });
       //   });
       // },
-      
+
       getAudio: async () => {
         const startTime = Date.now();
         this.logger.log(`⏳ Calling Cartesia TTS API...`);
@@ -150,7 +157,9 @@ export class CartesiaTtsProvider implements TtsProvider {
         try {
           const audioStream = await client.tts.bytes(ttsRequest);
           const apiCallDuration = Date.now() - startTime;
-          this.logger.log(`✅ Cartesia API responded (${apiCallDuration}ms) - receiving audio stream...`);
+          this.logger.log(
+            `✅ Cartesia API responded (${apiCallDuration}ms) - receiving audio stream...`,
+          );
 
           //const chunks = [];
           const chunks: Buffer[] = [];
@@ -165,17 +174,22 @@ export class CartesiaTtsProvider implements TtsProvider {
             totalBytesReceived += buffer.length;
             chunks.push(buffer);
 
-            this.logger.debug(`📦 Chunk ${chunkCount}: ${buffer.length} bytes (total: ${totalBytesReceived} bytes)`);
+            this.logger.debug(
+              `📦 Chunk ${chunkCount}: ${buffer.length} bytes (total: ${totalBytesReceived} bytes)`,
+            );
 
             if (chunkCount % 10 === 0) {
-              this.logger.log(`📊 Progress: ${chunkCount} chunks, ${totalBytesReceived} bytes`);
+              this.logger.log(
+                `📊 Progress: ${chunkCount} chunks, ${totalBytesReceived} bytes`,
+              );
             }
           }
 
           const fullBuffer = Buffer.concat(chunks);
           const totalDuration = Date.now() - startTime;
           const sampleCount = fullBuffer.length / 2;
-          const audioDuration = (sampleCount / (config.outputFormat?.sampleRate || 16000)) * 1000;
+          const audioDuration =
+            (sampleCount / (config.outputFormat?.sampleRate || 16000)) * 1000;
 
           this.logger.log(`✅ ✅ ✅ TTS STREAM COMPLETE ✅ ✅ ✅`);
           this.logger.log(`  Total bytes: ${fullBuffer.length}`);
@@ -183,18 +197,27 @@ export class CartesiaTtsProvider implements TtsProvider {
           this.logger.log(`  Sample count: ${sampleCount}`);
           this.logger.log(`  Audio duration: ~${audioDuration.toFixed(0)}ms`);
           this.logger.log(`  Stream duration: ${totalDuration}ms`);
-          this.logger.log(`  Sample rate: ${config.outputFormat?.sampleRate || 16000}Hz`);
-          this.logger.log(`  Encoding: ${config.outputFormat?.encoding || 'pcm_s16le'}`);
+          this.logger.log(
+            `  Sample rate: ${config.outputFormat?.sampleRate || 16000}Hz`,
+          );
+          this.logger.log(
+            `  Encoding: ${config.outputFormat?.encoding || 'pcm_s16le'}`,
+          );
           this.logger.log(`📥 Cartesia Response Summary:`);
           this.logger.log(`  - Status: SUCCESS`);
-          this.logger.log(`  - Audio format: Raw ${config.outputFormat?.encoding || 'pcm_s16le'}`);
-          this.logger.log(`  - Sample rate: ${config.outputFormat?.sampleRate || 16000}Hz`);
+          this.logger.log(
+            `  - Audio format: Raw ${config.outputFormat?.encoding || 'pcm_s16le'}`,
+          );
+          this.logger.log(
+            `  - Sample rate: ${config.outputFormat?.sampleRate || 16000}Hz`,
+          );
           this.logger.log(`  - Channels: 1 (mono)`);
           this.logger.log(`  - Bits per sample: 16`);
-          this.logger.log(`  - Byte rate: ${((config.outputFormat?.sampleRate || 16000) * 2).toLocaleString()} bytes/sec`);
+          this.logger.log(
+            `  - Byte rate: ${((config.outputFormat?.sampleRate || 16000) * 2).toLocaleString()} bytes/sec`,
+          );
 
           return fullBuffer;
-
         } catch (error) {
           const totalDuration = Date.now() - startTime;
           this.logger.error(`❌ ❌ ❌ TTS SYNTHESIS ERROR ❌ ❌ ❌`);
@@ -206,7 +229,9 @@ export class CartesiaTtsProvider implements TtsProvider {
           this.logger.error(`    - Voice ID: ${config.voiceId}`);
           this.logger.error(`    - Model: ${config.model || 'sonic-english'}`);
           this.logger.error(`    - Text length: ${config.text.length}`);
-          this.logger.error(`    - Sample rate: ${config.outputFormat?.sampleRate || 16000}`);
+          this.logger.error(
+            `    - Sample rate: ${config.outputFormat?.sampleRate || 16000}`,
+          );
           throw error;
         }
       },

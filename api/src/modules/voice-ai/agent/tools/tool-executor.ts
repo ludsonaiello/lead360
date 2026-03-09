@@ -19,7 +19,7 @@ export interface ToolCall {
 
 export interface ToolResult {
   name: string;
-  result: string;  // JSON string for LLM
+  result: string; // JSON string for LLM
 }
 
 /**
@@ -31,7 +31,7 @@ export interface ToolResult {
  */
 export async function executeTool(
   tenantId: string,
-  toolCall: ToolCall
+  toolCall: ToolCall,
 ): Promise<ToolResult> {
   console.log(`[Tool Executor] Executing tool: ${toolCall.name}`);
   console.log(`[Tool Executor] Arguments:`, JSON.stringify(toolCall.arguments));
@@ -46,19 +46,31 @@ export async function executeTool(
           city: toolCall.arguments.city,
           state: toolCall.arguments.state,
         });
-        resultData = response.success ? response.data : { error: response.error };
+        resultData = response.success
+          ? response.data
+          : { error: response.error };
         break;
       }
 
       case 'find_lead': {
-        const response = await toolFindLead(tenantId, toolCall.arguments.phone_number);
-        resultData = response.success ? response.data : { error: response.error };
+        const response = await toolFindLead(
+          tenantId,
+          toolCall.arguments.phone_number,
+        );
+        resultData = response.success
+          ? response.data
+          : { error: response.error };
         break;
       }
 
       case 'create_lead': {
-        const response = await toolCreateLead(tenantId, toolCall.arguments as any);
-        resultData = response.success ? response.data : { error: response.error };
+        const response = await toolCreateLead(
+          tenantId,
+          toolCall.arguments as any,
+        );
+        resultData = response.success
+          ? response.data
+          : { error: response.error };
         break;
       }
 
@@ -66,9 +78,11 @@ export async function executeTool(
         const response = await toolTransferCall(
           tenantId,
           toolCall.arguments.reason,
-          toolCall.arguments.destination
+          toolCall.arguments.destination,
         );
-        resultData = response.success ? response.data : { error: response.error };
+        resultData = response.success
+          ? response.data
+          : { error: response.error };
         break;
       }
 
@@ -76,7 +90,10 @@ export async function executeTool(
         resultData = { error: `Unknown tool: ${toolCall.name}` };
     }
   } catch (error: any) {
-    console.error(`[Tool Executor] Error executing ${toolCall.name}:`, error.message);
+    console.error(
+      `[Tool Executor] Error executing ${toolCall.name}:`,
+      error.message,
+    );
     resultData = { error: error.message };
   }
 

@@ -5,14 +5,14 @@ export interface TtsProvider {
 
 export interface TtsConfig {
   apiKey: string;
-  voiceId: string;        // Cartesia voice ID (e.g., from voice_ai_global_config.default_voice_id)
+  voiceId: string; // Cartesia voice ID (e.g., from voice_ai_global_config.default_voice_id)
   text: string;
-  language?: string;      // 'en', 'es', 'pt'
-  model?: string;         // 'sonic-english', 'sonic-multilingual'
+  language?: string; // 'en', 'es', 'pt'
+  model?: string; // 'sonic-english', 'sonic-multilingual'
   outputFormat?: {
-    container: string;    // 'raw'
-    encoding: string;     // 'pcm_s16le' for LiveKit
-    sampleRate: number;   // 16000 or 24000
+    container: string; // 'raw'
+    encoding: string; // 'pcm_s16le' for LiveKit
+    sampleRate: number; // 16000 or 24000
   };
 }
 
@@ -55,7 +55,9 @@ export interface StreamingTtsProvider {
    * Register callback for audio chunks.
    * @param callback Function called when audio data arrives from TTS service
    */
-  onAudioChunk(callback: (contextId: string, audioData: Buffer, isDone: boolean) => void): void;
+  onAudioChunk(
+    callback: (contextId: string, audioData: Buffer, isDone: boolean) => void,
+  ): void;
 
   /**
    * Cancel current generation (for barge-in).
@@ -86,8 +88,8 @@ export interface StreamingTtsProvider {
 export interface StreamingTtsConfig {
   apiKey: string;
   voiceId: string;
-  model?: string;        // From config.model (default: 'sonic-3')
-  language?: string;     // From config.language (default: 'en')
-  sampleRate?: number;   // From config.outputFormat?.sampleRate (default: 16000)
-  encoding?: string;     // From config.outputFormat?.encoding (default: 'pcm_s16le')
+  model?: string; // From config.model (default: 'sonic-3')
+  language?: string; // From config.language (default: 'en')
+  sampleRate?: number; // From config.outputFormat?.sampleRate (default: 16000)
+  encoding?: string; // From config.outputFormat?.encoding (default: 'pcm_s16le')
 }

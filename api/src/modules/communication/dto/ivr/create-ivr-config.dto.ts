@@ -46,7 +46,8 @@ export type IvrActionType = (typeof IVR_ACTION_TYPES)[number];
 export class IvrSubmenuDto {
   @ApiProperty({
     description: 'Greeting message for this submenu level',
-    example: 'Sales Department. Press 1 for new customers or 2 for existing customers.',
+    example:
+      'Sales Department. Press 1 for new customers or 2 for existing customers.',
     minLength: 5,
     maxLength: 500,
   })
@@ -74,7 +75,8 @@ export class IvrSubmenuDto {
   options: IvrMenuOptionDto[];
 
   @ApiProperty({
-    description: 'Timeout for this submenu (optional - inherits from parent if not set)',
+    description:
+      'Timeout for this submenu (optional - inherits from parent if not set)',
     example: 10,
     minimum: 5,
     maximum: 60,
@@ -95,7 +97,8 @@ export class IvrSubmenuDto {
  */
 export class IvrMenuOptionDto {
   @ApiProperty({
-    description: 'Unique option ID (UUID for tracking and circular reference detection)',
+    description:
+      'Unique option ID (UUID for tracking and circular reference detection)',
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
   @IsString()
@@ -139,8 +142,15 @@ export class IvrMenuOptionDto {
 
   @ApiProperty({
     description:
-      'Action-specific configuration (validated based on action type)',
-    example: { phone_number: '+19781234567' },
+      'Action-specific configuration. ' +
+      'For route_to_number/route_to_default: requires phone_number (E.164). ' +
+      'For trigger_webhook: requires webhook_url (HTTPS). ' +
+      'For voicemail: optional max_duration_seconds (30-600). ' +
+      'For voice_ai: optional agent_profile_id (UUID) to select specific language/voice profile.',
+    example: {
+      phone_number: '+19781234567',
+      agent_profile_id: 'uuid-of-profile',
+    },
   })
   @IsObject()
   @IsNotEmpty({ message: 'Config cannot be empty' })
@@ -148,13 +158,15 @@ export class IvrMenuOptionDto {
     phone_number?: string;
     webhook_url?: string;
     max_duration_seconds?: number;
+    agent_profile_id?: string;
   };
 
   @ApiProperty({
     description:
       'Submenu configuration (only present and required if action === "submenu")',
     example: {
-      greeting_message: 'Sales Department. Press 1 for new or 2 for existing customers.',
+      greeting_message:
+        'Sales Department. Press 1 for new or 2 for existing customers.',
       options: [],
     },
     required: false,
@@ -184,8 +196,16 @@ export class IvrDefaultActionDto {
   action: IvrActionType;
 
   @ApiProperty({
-    description: 'Action-specific configuration',
-    example: { max_duration_seconds: 180 },
+    description:
+      'Action-specific configuration. ' +
+      'For route_to_number/route_to_default: requires phone_number (E.164). ' +
+      'For trigger_webhook: requires webhook_url (HTTPS). ' +
+      'For voicemail: optional max_duration_seconds (30-600). ' +
+      'For voice_ai: optional agent_profile_id (UUID) to select specific language/voice profile.',
+    example: {
+      max_duration_seconds: 180,
+      agent_profile_id: 'uuid-of-profile',
+    },
   })
   @IsObject()
   @IsNotEmpty({ message: 'Config cannot be empty' })
@@ -193,6 +213,7 @@ export class IvrDefaultActionDto {
     phone_number?: string;
     webhook_url?: string;
     max_duration_seconds?: number;
+    agent_profile_id?: string;
   };
 }
 

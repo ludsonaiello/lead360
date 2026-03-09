@@ -275,8 +275,10 @@ export class CreateTenantDto {
   default_language?: string;
 
   @ApiPropertyOptional({
-    description: 'Business description / "About Us" text for AI agent context and marketing',
-    example: 'Family-owned plumbing company serving Miami for 20+ years. We specialize in residential and commercial plumbing repairs, installations, and 24/7 emergency services.',
+    description:
+      'Business description / "About Us" text for AI agent context and marketing',
+    example:
+      'Family-owned plumbing company serving Miami for 20+ years. We specialize in residential and commercial plumbing repairs, installations, and 24/7 emergency services.',
   })
   @IsString()
   @IsOptional()

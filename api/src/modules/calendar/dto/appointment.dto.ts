@@ -146,11 +146,25 @@ export class ListAppointmentsDto {
   @ApiPropertyOptional({
     description: 'Filter by appointment status',
     example: 'scheduled',
-    enum: ['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'],
+    enum: [
+      'scheduled',
+      'confirmed',
+      'in_progress',
+      'completed',
+      'cancelled',
+      'no_show',
+    ],
   })
   @IsOptional()
   @IsString()
-  @IsIn(['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'])
+  @IsIn([
+    'scheduled',
+    'confirmed',
+    'in_progress',
+    'completed',
+    'cancelled',
+    'no_show',
+  ])
   status?: string;
 
   @ApiPropertyOptional({

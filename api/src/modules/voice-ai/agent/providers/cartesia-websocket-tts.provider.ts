@@ -32,7 +32,9 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
   private readonly logger = new Logger(CartesiaWebSocketTtsProvider.name);
   private ws: WebSocket | null = null;
   private config: StreamingTtsConfig | null = null;
-  private audioCallback: ((contextId: string, audioData: Buffer, isDone: boolean) => void) | null = null;
+  private audioCallback:
+    | ((contextId: string, audioData: Buffer, isDone: boolean) => void)
+    | null = null;
   private reconnectAttempts = 0;
   private readonly maxReconnectAttempts = 3;
   private isConnecting = false;
@@ -101,13 +103,17 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
         });
 
         this.ws.on('close', (code: number, reason: Buffer) => {
-          this.logger.warn(`⚠️  WebSocket closed (code: ${code}, reason: ${reason.toString() || 'none'})`);
+          this.logger.warn(
+            `⚠️  WebSocket closed (code: ${code}, reason: ${reason.toString() || 'none'})`,
+          );
 
-          if (!this.isConnecting && this.reconnectAttempts < this.maxReconnectAttempts) {
+          if (
+            !this.isConnecting &&
+            this.reconnectAttempts < this.maxReconnectAttempts
+          ) {
             this.attemptReconnect();
           }
         });
-
       } catch (error) {
         this.logger.error(`Failed to create WebSocket: ${error.message}`);
         this.isConnecting = false;
@@ -121,21 +127,30 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
    */
   private async attemptReconnect(): Promise<void> {
     if (!this.config || this.reconnectAttempts >= this.maxReconnectAttempts) {
-      this.logger.error('Max reconnection attempts reached or no config available');
+      this.logger.error(
+        'Max reconnection attempts reached or no config available',
+      );
       return;
     }
 
     this.reconnectAttempts++;
-    const backoffMs = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 10000);
+    const backoffMs = Math.min(
+      1000 * Math.pow(2, this.reconnectAttempts - 1),
+      10000,
+    );
 
-    this.logger.log(`🔄 Attempting reconnect ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${backoffMs}ms...`);
+    this.logger.log(
+      `🔄 Attempting reconnect ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${backoffMs}ms...`,
+    );
 
-    await new Promise(resolve => setTimeout(resolve, backoffMs));
+    await new Promise((resolve) => setTimeout(resolve, backoffMs));
 
     try {
       await this.connect(this.config);
     } catch (error) {
-      this.logger.error(`Reconnection attempt ${this.reconnectAttempts} failed: ${error.message}`);
+      this.logger.error(
+        `Reconnection attempt ${this.reconnectAttempts} failed: ${error.message}`,
+      );
     }
   }
 
@@ -151,20 +166,30 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
       const message = JSON.parse(data.toString());
 
       // Log message type for debugging
-      this.logger.debug(`📨 Received message type: ${message.type}, context: ${message.context_id}`);
+      this.logger.debug(
+        `📨 Received message type: ${message.type}, context: ${message.context_id}`,
+      );
 
       if (message.type === 'chunk' && message.data) {
         // Decode base64 audio to Buffer
         const audioBuffer = Buffer.from(message.data, 'base64');
 
-        this.logger.debug(`🔊 Audio chunk: ${audioBuffer.length} bytes, context: ${message.context_id}, done: ${message.done}`);
+        this.logger.debug(
+          `🔊 Audio chunk: ${audioBuffer.length} bytes, context: ${message.context_id}, done: ${message.done}`,
+        );
 
         // Dispatch to callback
         if (this.audioCallback) {
-          this.audioCallback(message.context_id, audioBuffer, message.done || false);
+          this.audioCallback(
+            message.context_id,
+            audioBuffer,
+            message.done || false,
+          );
         }
       } else if (message.type === 'done') {
-        this.logger.debug(`✅ TTS generation complete for context: ${message.context_id}`);
+        this.logger.debug(
+          `✅ TTS generation complete for context: ${message.context_id}`,
+        );
 
         // Dispatch final done signal
         if (this.audioCallback) {
@@ -173,7 +198,6 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
       } else if (message.type === 'error') {
         this.logger.error(`❌ Cartesia TTS error: ${JSON.stringify(message)}`);
       }
-
     } catch (error) {
       this.logger.error(`Failed to parse WebSocket message: ${error.message}`);
       this.logger.error(`Raw message: ${data.toString()}`);
@@ -193,7 +217,9 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
    */
   streamText(text: string, contextId: string, isFinal: boolean): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      this.logger.warn(`WebSocket not ready - queueing text for context: ${contextId}`);
+      this.logger.warn(
+        `WebSocket not ready - queueing text for context: ${contextId}`,
+      );
       // Queue the message for when connection is restored
       const message = this.buildTtsMessage(text, contextId, isFinal);
       this.messageQueue.push(JSON.stringify(message));
@@ -232,7 +258,9 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
         }
       } else if (isFinal) {
         // Final chunk but no meaningful content - skip entirely
-        this.logger.warn(`Context ${contextId} has no meaningful content - skipping`);
+        this.logger.warn(
+          `Context ${contextId} has no meaningful content - skipping`,
+        );
         this.tokenBuffer.delete(contextId);
       }
       // Otherwise, keep buffering
@@ -256,9 +284,15 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
    * Send text to Cartesia WebSocket (internal helper).
    * Called after buffering and validation.
    */
-  private sendToCartesia(text: string, contextId: string, isFinal: boolean): void {
+  private sendToCartesia(
+    text: string,
+    contextId: string,
+    isFinal: boolean,
+  ): void {
     const message = this.buildTtsMessage(text, contextId, isFinal);
-    this.logger.debug(`📤 Sending to Cartesia: "${text.substring(0, 50)}...", context: ${contextId}, final: ${isFinal}`);
+    this.logger.debug(
+      `📤 Sending to Cartesia: "${text.substring(0, 50)}...", context: ${contextId}, final: ${isFinal}`,
+    );
 
     try {
       this.ws!.send(JSON.stringify(message));
@@ -274,7 +308,11 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
    *
    * Uses dynamic configuration from context.providers.tts.
    */
-  private buildTtsMessage(text: string, contextId: string, isFinal: boolean): any {
+  private buildTtsMessage(
+    text: string,
+    contextId: string,
+    isFinal: boolean,
+  ): any {
     if (!this.config) {
       throw new Error('TTS config not initialized');
     }
@@ -301,7 +339,9 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
   /**
    * Register callback for audio chunks.
    */
-  onAudioChunk(callback: (contextId: string, audioData: Buffer, isDone: boolean) => void): void {
+  onAudioChunk(
+    callback: (contextId: string, audioData: Buffer, isDone: boolean) => void,
+  ): void {
     this.audioCallback = callback;
   }
 
@@ -310,7 +350,9 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
    */
   cancelContext(contextId: string): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      this.logger.warn(`Cannot cancel context ${contextId} - WebSocket not connected`);
+      this.logger.warn(
+        `Cannot cancel context ${contextId} - WebSocket not connected`,
+      );
       return;
     }
 
@@ -339,7 +381,10 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
       this.audioCallback = null;
 
       // Close WebSocket
-      if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+      if (
+        this.ws.readyState === WebSocket.OPEN ||
+        this.ws.readyState === WebSocket.CONNECTING
+      ) {
         this.ws.close();
       }
 

@@ -7,7 +7,10 @@ export class TransferCallToolDto {
   @IsNotEmpty()
   reason: string;
 
-  @ApiPropertyOptional({ example: 'sales', description: 'Department: sales, support, etc.' })
+  @ApiPropertyOptional({
+    example: 'sales',
+    description: 'Department: sales, support, etc.',
+  })
   @IsString()
   @IsOptional()
   destination?: string;

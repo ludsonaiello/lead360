@@ -20,11 +20,13 @@ import { VoiceAiGlobalConfigController } from './controllers/admin/voice-ai-glob
 import { VoiceAiPlanConfigController } from './controllers/admin/voice-ai-plan-config.controller';
 import { VoiceAiAdminCallLogsController } from './controllers/admin/voice-ai-admin-call-logs.controller';
 import { VoiceAiMonitoringController } from './controllers/admin/voice-ai-monitoring.controller';
+import { VoiceAiGlobalAgentProfilesController } from './controllers/admin/voice-ai-global-agent-profiles.controller';
 
 // Controllers — Tenant
 import { VoiceAiSettingsController } from './controllers/tenant/voice-ai-settings.controller';
 import { VoiceTransferNumbersController } from './controllers/tenant/voice-transfer-numbers.controller';
 import { VoiceAiCallLogsController } from './controllers/tenant/voice-ai-call-logs.controller';
+import { VoiceAgentProfilesController } from './controllers/tenant/voice-agent-profiles.controller';
 
 // Controllers — Internal (Python agent)
 import { VoiceAiInternalController } from './controllers/internal/voice-ai-internal.controller';
@@ -51,6 +53,8 @@ import { VoiceAiSipService } from './services/voice-ai-sip.service';
 import { VoiceAiMonitoringService } from './services/voice-ai-monitoring.service';
 import { VoiceAiWebhookService } from './services/voice-ai-webhook.service';
 import { VoiceAgentService } from './agent/voice-agent.service';
+import { VoiceAiGlobalAgentProfilesService } from './services/voice-ai-global-agent-profiles.service';
+import { VoiceAgentProfilesService } from './services/voice-agent-profiles.service';
 
 /**
  * VoiceAiModule
@@ -92,16 +96,18 @@ import { VoiceAgentService } from './agent/voice-agent.service';
     VoiceAiCredentialsController,
     VoiceAiGlobalConfigController,
     VoiceAiPlanConfigController,
-    VoiceAiAdminCallLogsController,   // B07: cross-tenant call logs + usage report
-    VoiceAiMonitoringController,      // B11: tenant overview + admin override
+    VoiceAiAdminCallLogsController, // B07: cross-tenant call logs + usage report
+    VoiceAiMonitoringController, // B11: tenant overview + admin override
+    VoiceAiGlobalAgentProfilesController, // Sprint 16: global agent profiles (admin)
     // Tenant controllers
     VoiceAiSettingsController,
     VoiceTransferNumbersController,
-    VoiceAiCallLogsController,        // B07: tenant call history + usage summary
+    VoiceAiCallLogsController, // B07: tenant call history + usage summary
+    VoiceAgentProfilesController, // Sprint 17: tenant agent profile overrides
     // Internal (Python agent) controllers — authenticated via VoiceAgentKeyGuard, not JWT
     VoiceAiInternalController,
     // Webhook controllers — authenticated via HMAC signature, not JWT
-    VoiceAiWebhookController,   // B14: LiveKit webhook handler
+    VoiceAiWebhookController, // B14: LiveKit webhook handler
   ],
   providers: [
     VoiceAiProvidersService,
@@ -111,15 +117,17 @@ import { VoiceAgentService } from './agent/voice-agent.service';
     VoiceAiSettingsService,
     VoiceAiContextBuilderService,
     VoiceTransferNumbersService,
-    VoiceAgentKeyGuard,       // guard for /internal/voice-ai/* routes
-    LiveKitWebhookGuard,      // guard for /webhooks/voice-ai/livekit — B14
-    VoiceUsageService,        // per-call per-provider usage record creation + quota/summary
-    VoiceCallLogService,      // call lifecycle: start, complete, list, detail
-    VoiceAiInternalService,   // backs internal context + access + call lifecycle endpoints
-    VoiceAiSipService,        // B08: IVR voice_ai action — SIP routing + fallback TwiML
+    VoiceAgentKeyGuard, // guard for /internal/voice-ai/* routes
+    LiveKitWebhookGuard, // guard for /webhooks/voice-ai/livekit — B14
+    VoiceUsageService, // per-call per-provider usage record creation + quota/summary
+    VoiceCallLogService, // call lifecycle: start, complete, list, detail
+    VoiceAiInternalService, // backs internal context + access + call lifecycle endpoints
+    VoiceAiSipService, // B08: IVR voice_ai action — SIP routing + fallback TwiML
     VoiceAiMonitoringService, // B11: cross-tenant monitoring + admin override
-    VoiceAiWebhookService,    // B14: LiveKit webhook event handler
-    VoiceAgentService,        // BAS19: LiveKit agent worker (OnModuleInit)
+    VoiceAiWebhookService, // B14: LiveKit webhook event handler
+    VoiceAgentService, // BAS19: LiveKit agent worker (OnModuleInit)
+    VoiceAiGlobalAgentProfilesService, // Sprint 16: global agent profiles service
+    VoiceAgentProfilesService, // Sprint 17: tenant agent profile overrides service
     // Sprint B10: BullMQ processors + cron scheduler + stuck call cleanup
     VoiceAiQuotaResetProcessor,
     VoiceAiUsageSyncProcessor,
@@ -128,15 +136,15 @@ import { VoiceAgentService } from './agent/voice-agent.service';
   ],
   exports: [
     VoiceAiProvidersService,
-    VoiceAiCredentialsService,        // used by context builder (internal, B06)
-    VoiceAiGlobalConfigService,       // used by context builder (internal, B06)
-    VoiceAiSettingsService,           // used by admin tenant override (B11)
-    VoiceAiContextBuilderService,     // used by internal agent endpoint (B06a)
-    VoiceTransferNumbersService,      // used by context builder (B05)
-    VoiceAgentKeyGuard,               // exported for reuse in B06b and B06c controllers
-    VoiceCallLogService,              // used by B09 quota guard and B07 tenant/admin endpoints
-    VoiceUsageService,                // used by B09 quota guard and B07 usage endpoints
-    VoiceAiSipService,                // used by CommunicationModule IvrConfigurationService (B08)
+    VoiceAiCredentialsService, // used by context builder (internal, B06)
+    VoiceAiGlobalConfigService, // used by context builder (internal, B06)
+    VoiceAiSettingsService, // used by admin tenant override (B11)
+    VoiceAiContextBuilderService, // used by internal agent endpoint (B06a)
+    VoiceTransferNumbersService, // used by context builder (B05)
+    VoiceAgentKeyGuard, // exported for reuse in B06b and B06c controllers
+    VoiceCallLogService, // used by B09 quota guard and B07 tenant/admin endpoints
+    VoiceUsageService, // used by B09 quota guard and B07 usage endpoints
+    VoiceAiSipService, // used by CommunicationModule IvrConfigurationService (B08)
   ],
 })
 export class VoiceAiModule {}

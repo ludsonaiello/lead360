@@ -31,9 +31,11 @@ export class VoiceAiJobsScheduler {
   private readonly logger = new Logger(VoiceAiJobsScheduler.name);
 
   constructor(
-    @InjectQueue('voice-ai-quota-reset') private readonly quotaResetQueue: Queue,
+    @InjectQueue('voice-ai-quota-reset')
+    private readonly quotaResetQueue: Queue,
     @InjectQueue('voice-ai-usage-sync') private readonly usageSyncQueue: Queue,
-    @InjectQueue('voice-ai-stuck-call-cleanup') private readonly stuckCallCleanupQueue: Queue,
+    @InjectQueue('voice-ai-stuck-call-cleanup')
+    private readonly stuckCallCleanupQueue: Queue,
   ) {}
 
   /**
@@ -47,7 +49,11 @@ export class VoiceAiJobsScheduler {
   async scheduleMonthlyReset(): Promise<void> {
     try {
       this.logger.log('Enqueueing monthly Voice AI quota reset job');
-      await this.quotaResetQueue.add('monthly-reset', {}, { jobId: 'monthly-reset' });
+      await this.quotaResetQueue.add(
+        'monthly-reset',
+        {},
+        { jobId: 'monthly-reset' },
+      );
     } catch (error) {
       this.logger.error(
         `Failed to enqueue monthly quota reset job: ${(error as Error).message}`,

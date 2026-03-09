@@ -20,7 +20,8 @@ export class CheckServiceAreaTool implements AgentTool {
     type: 'function',
     function: {
       name: 'check_service_area',
-      description: 'Check if an address is within the service area. Call before creating a lead to confirm coverage.',
+      description:
+        'Check if an address is within the service area. Call before creating a lead to confirm coverage.',
       parameters: {
         type: 'object',
         properties: {
@@ -28,23 +29,26 @@ export class CheckServiceAreaTool implements AgentTool {
           city: { type: 'string' },
           state: { type: 'string' },
         },
-        required: ['zip_code']
-      }
-    }
+        required: ['zip_code'],
+      },
+    },
   };
 
-  async execute(args: { zip_code: string; city?: string; state?: string }, context: ToolExecutionContext): Promise<string> {
+  async execute(
+    args: { zip_code: string; city?: string; state?: string },
+    context: ToolExecutionContext,
+  ): Promise<string> {
     try {
       // Check if tenant has any service areas configured
       const serviceAreaCount = await this.prisma.tenant_service_area.count({
-        where: { tenant_id: context.tenant_id }
+        where: { tenant_id: context.tenant_id },
       });
 
       // If no service areas configured, assume all areas are covered
       if (serviceAreaCount === 0) {
         return JSON.stringify({
           covered: true,
-          message: 'Service area check not configured — assuming coverage'
+          message: 'Service area check not configured — assuming coverage',
         });
       }
 
@@ -52,14 +56,14 @@ export class CheckServiceAreaTool implements AgentTool {
       const zipMatch = await this.prisma.tenant_service_area.findFirst({
         where: {
           tenant_id: context.tenant_id,
-          zipcode: args.zip_code
-        }
+          zipcode: args.zip_code,
+        },
       });
 
       if (zipMatch) {
         return JSON.stringify({
           covered: true,
-          message: 'ZIP code is in service area'
+          message: 'ZIP code is in service area',
         });
       }
 
@@ -69,14 +73,14 @@ export class CheckServiceAreaTool implements AgentTool {
           where: {
             tenant_id: context.tenant_id,
             state: args.state,
-            entire_state: true
-          }
+            entire_state: true,
+          },
         });
 
         if (stateMatch) {
           return JSON.stringify({
             covered: true,
-            message: `Entire state ${args.state} is in service area`
+            message: `Entire state ${args.state} is in service area`,
           });
         }
       }
@@ -88,14 +92,14 @@ export class CheckServiceAreaTool implements AgentTool {
             tenant_id: context.tenant_id,
             city_name: args.city,
             state: args.state,
-            type: 'city'
-          }
+            type: 'city',
+          },
         });
 
         if (cityMatch) {
           return JSON.stringify({
             covered: true,
-            message: `City ${args.city}, ${args.state} is in service area`
+            message: `City ${args.city}, ${args.state} is in service area`,
           });
         }
       }
@@ -103,13 +107,12 @@ export class CheckServiceAreaTool implements AgentTool {
       // Not covered
       return JSON.stringify({
         covered: false,
-        message: 'This location is outside our service area'
+        message: 'This location is outside our service area',
       });
-
     } catch (error) {
       return JSON.stringify({
         covered: true,
-        message: 'Service area check failed — assuming coverage'
+        message: 'Service area check failed — assuming coverage',
       });
     }
   }

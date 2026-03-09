@@ -28,7 +28,10 @@ import {
 export class HttpFindLeadTool implements AgentTool {
   definition: LlmTool = AGENT_TOOLS[1] as LlmTool;
 
-  async execute(args: { phone_number: string }, context: ToolExecutionContext): Promise<string> {
+  async execute(
+    args: { phone_number: string },
+    context: ToolExecutionContext,
+  ): Promise<string> {
     console.log(`[HttpFindLeadTool] Looking up lead for: ${args.phone_number}`);
 
     const response = await toolFindLead(context.tenant_id, args.phone_number);
@@ -50,7 +53,9 @@ export class HttpCreateLeadTool implements AgentTool {
   definition: LlmTool = AGENT_TOOLS[2] as LlmTool;
 
   async execute(args: any, context: ToolExecutionContext): Promise<string> {
-    console.log(`[HttpCreateLeadTool] Creating lead for: ${args.first_name} ${args.last_name}`);
+    console.log(
+      `[HttpCreateLeadTool] Creating lead for: ${args.first_name} ${args.last_name}`,
+    );
 
     const response = await toolCreateLead(context.tenant_id, args);
 
@@ -70,8 +75,13 @@ export class HttpCreateLeadTool implements AgentTool {
 export class HttpCheckServiceAreaTool implements AgentTool {
   definition: LlmTool = AGENT_TOOLS[0] as LlmTool;
 
-  async execute(args: { zip_code: string; city?: string; state?: string }, context: ToolExecutionContext): Promise<string> {
-    console.log(`[HttpCheckServiceAreaTool] Checking service area for ZIP: ${args.zip_code}`);
+  async execute(
+    args: { zip_code: string; city?: string; state?: string },
+    context: ToolExecutionContext,
+  ): Promise<string> {
+    console.log(
+      `[HttpCheckServiceAreaTool] Checking service area for ZIP: ${args.zip_code}`,
+    );
 
     const response = await toolCheckServiceArea(context.tenant_id, args);
 
@@ -91,10 +101,19 @@ export class HttpCheckServiceAreaTool implements AgentTool {
 export class HttpTransferCallTool implements AgentTool {
   definition: LlmTool = AGENT_TOOLS[3] as LlmTool;
 
-  async execute(args: { reason: string; destination?: string }, context: ToolExecutionContext): Promise<string> {
-    console.log(`[HttpTransferCallTool] Transferring call - Reason: ${args.reason}`);
+  async execute(
+    args: { reason: string; destination?: string },
+    context: ToolExecutionContext,
+  ): Promise<string> {
+    console.log(
+      `[HttpTransferCallTool] Transferring call - Reason: ${args.reason}`,
+    );
 
-    const response = await toolTransferCall(context.tenant_id, args.reason, args.destination);
+    const response = await toolTransferCall(
+      context.tenant_id,
+      args.reason,
+      args.destination,
+    );
 
     if (!response.success) {
       return JSON.stringify({ error: response.error });
@@ -116,8 +135,13 @@ export class HttpTransferCallTool implements AgentTool {
 export class HttpEndCallTool implements AgentTool {
   definition: LlmTool = AGENT_TOOLS[4] as LlmTool;
 
-  async execute(args: { reason: string; notes?: string }, context: ToolExecutionContext): Promise<string> {
-    console.log(`[HttpEndCallTool] End call requested - Reason: ${args.reason}`);
+  async execute(
+    args: { reason: string; notes?: string },
+    context: ToolExecutionContext,
+  ): Promise<string> {
+    console.log(
+      `[HttpEndCallTool] End call requested - Reason: ${args.reason}`,
+    );
     if (args.notes) {
       console.log(`[HttpEndCallTool] Notes: ${args.notes}`);
     }

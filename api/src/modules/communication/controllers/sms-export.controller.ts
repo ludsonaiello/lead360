@@ -73,7 +73,11 @@ export class SmsExportController {
     headers: {
       'Content-Disposition': {
         description: 'Attachment with filename',
-        schema: { type: 'string', example: 'attachment; filename=sms_export_tenant-123_1707820800000.csv' },
+        schema: {
+          type: 'string',
+          example:
+            'attachment; filename=sms_export_tenant-123_1707820800000.csv',
+        },
       },
     },
   })
@@ -165,7 +169,11 @@ export class SmsExportController {
     headers: {
       'Content-Disposition': {
         description: 'Attachment with filename',
-        schema: { type: 'string', example: 'attachment; filename=sms_analytics_tenant-123_1707820800000.xlsx' },
+        schema: {
+          type: 'string',
+          example:
+            'attachment; filename=sms_analytics_tenant-123_1707820800000.xlsx',
+        },
       },
     },
   })

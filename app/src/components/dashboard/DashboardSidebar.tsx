@@ -131,6 +131,7 @@ const navigation: (NavItem | NavGroup)[] = [
         permission: 'communications:view',
         items: [
           { name: 'Settings', href: '/voice-ai/settings', icon: Settings, permission: 'communications:view' },
+          { name: 'Agent Profiles', href: '/voice-ai/agent-profiles', icon: Mic, permission: 'voice_ai:manage' },
           { name: 'Transfer Numbers', href: '/voice-ai/transfer-numbers', icon: Phone, permission: 'communications:view' },
           { name: 'Call Logs', href: '/voice-ai/call-logs', icon: Receipt, permission: 'communications:view' },
           { name: 'Usage Dashboard', href: '/voice-ai/usage', icon: BarChart3, permission: 'communications:view' },
@@ -239,6 +240,7 @@ const adminNavigationGroups: (NavItem | NavGroup)[] = [
       { name: 'Monitoring', href: '/admin/voice-ai/monitoring', icon: Activity, permission: 'platform_admin:view_all_tenants' },
       { name: 'Reports', href: '/admin/voice-ai/reports', icon: BarChart3, permission: 'platform_admin:view_all_tenants' },
       { name: 'Global Config', href: '/admin/voice-ai/config', icon: Cog, permission: 'platform_admin:view_all_tenants' },
+      { name: 'Global Profiles', href: '/admin/voice-ai/agent-profiles', icon: Mic, permission: 'platform_admin:view_all_tenants' },
       { name: 'Providers', href: '/admin/voice-ai/providers', icon: Server, permission: 'platform_admin:view_all_tenants' },
       { name: 'Credentials', href: '/admin/voice-ai/credentials', icon: Key, permission: 'platform_admin:view_all_tenants' },
       { name: 'Plan Configuration', href: '/admin/voice-ai/plans', icon: Receipt, permission: 'platform_admin:view_all_tenants' },

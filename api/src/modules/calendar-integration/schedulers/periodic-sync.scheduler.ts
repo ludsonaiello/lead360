@@ -52,8 +52,8 @@ export class PeriodicSyncScheduler {
     try {
       // 1. Query all active calendar connections
       // Priority: connections that haven't synced recently (NULLS FIRST)
-      const connections = await this.prisma.calendar_provider_connection.findMany(
-        {
+      const connections =
+        await this.prisma.calendar_provider_connection.findMany({
           where: {
             is_active: true,
             sync_status: 'active',
@@ -72,8 +72,7 @@ export class PeriodicSyncScheduler {
             provider_type: true,
             last_sync_at: true,
           },
-        },
-      );
+        });
 
       if (connections.length === 0) {
         this.logger.log('No active calendar connections found - skipping sync');

@@ -10,22 +10,35 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
  * 2. Confirm mode: call_log_id + lead_id + appointment_id + reason → executes cancellation
  */
 export class CancelAppointmentToolDto {
-  @ApiProperty({ example: 'uuid', description: 'Call log ID from current call' })
+  @ApiProperty({
+    example: 'uuid',
+    description: 'Call log ID from current call',
+  })
   @IsString()
   @IsNotEmpty()
   call_log_id: string;
 
-  @ApiProperty({ example: 'uuid', description: 'Lead ID requesting cancellation' })
+  @ApiProperty({
+    example: 'uuid',
+    description: 'Lead ID requesting cancellation',
+  })
   @IsString()
   @IsNotEmpty()
   lead_id: string;
 
-  @ApiPropertyOptional({ example: 'uuid', description: 'Appointment ID to cancel (required in confirm mode)' })
+  @ApiPropertyOptional({
+    example: 'uuid',
+    description: 'Appointment ID to cancel (required in confirm mode)',
+  })
   @IsString()
   @IsOptional()
   appointment_id?: string;
 
-  @ApiPropertyOptional({ example: 'customer_cancelled', description: 'Cancellation reason (optional - defaults to customer_cancelled)' })
+  @ApiPropertyOptional({
+    example: 'customer_cancelled',
+    description:
+      'Cancellation reason (optional - defaults to customer_cancelled)',
+  })
   @IsString()
   @IsOptional()
   reason?: string;
@@ -44,17 +57,33 @@ export class CancelAppointmentToolDto {
 export class CancelAppointmentToolResponseDto {
   @ApiProperty({
     description: 'Response status',
-    enum: ['verification_failed', 'no_appointment_found', 'multiple_appointments', 'cancelled', 'error']
+    enum: [
+      'verification_failed',
+      'no_appointment_found',
+      'multiple_appointments',
+      'cancelled',
+      'error',
+    ],
   })
-  status: 'verification_failed' | 'no_appointment_found' | 'multiple_appointments' | 'cancelled' | 'error';
+  status:
+    | 'verification_failed'
+    | 'no_appointment_found'
+    | 'multiple_appointments'
+    | 'cancelled'
+    | 'error';
 
-  @ApiPropertyOptional({ description: 'Human-readable message for Voice AI to convey to caller' })
+  @ApiPropertyOptional({
+    description: 'Human-readable message for Voice AI to convey to caller',
+  })
   message?: string;
 
   @ApiPropertyOptional({ description: 'Voice AI action guidance' })
   action?: string;
 
-  @ApiPropertyOptional({ description: 'Available appointments (multiple_appointments mode)', type: 'array' })
+  @ApiPropertyOptional({
+    description: 'Available appointments (multiple_appointments mode)',
+    type: 'array',
+  })
   appointments?: Array<{
     id: string;
     date: string;
@@ -62,19 +91,27 @@ export class CancelAppointmentToolResponseDto {
     type: string;
   }>;
 
-  @ApiPropertyOptional({ description: 'Cancelled appointment ID (cancelled mode)' })
+  @ApiPropertyOptional({
+    description: 'Cancelled appointment ID (cancelled mode)',
+  })
   appointment_id?: string;
 
-  @ApiPropertyOptional({ description: 'Cancelled appointment date (cancelled mode)' })
+  @ApiPropertyOptional({
+    description: 'Cancelled appointment date (cancelled mode)',
+  })
   appointment_date?: string;
 
-  @ApiPropertyOptional({ description: 'Cancelled appointment time (cancelled mode)' })
+  @ApiPropertyOptional({
+    description: 'Cancelled appointment time (cancelled mode)',
+  })
   appointment_time?: string;
 
   @ApiPropertyOptional({ description: 'Cancellation reason (cancelled mode)' })
   cancellation_reason?: string;
 
-  @ApiPropertyOptional({ description: 'Whether confirmation was sent (cancelled mode)' })
+  @ApiPropertyOptional({
+    description: 'Whether confirmation was sent (cancelled mode)',
+  })
   confirmation_sent?: boolean;
 
   @ApiPropertyOptional({ description: 'Error message if status is error' })

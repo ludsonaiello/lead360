@@ -39,7 +39,12 @@ import { PrismaService } from '../../../core/database/prisma.service';
 import { EncryptionService } from '../../../core/encryption/encryption.service';
 import { v4 as uuidv4 } from 'uuid';
 import twilio from 'twilio';
-import { createVoiceAILogger, logSeparator, VoiceAILogLevel, VoiceAILogCategory } from '../../voice-ai/utils/voice-ai-logger.util';
+import {
+  createVoiceAILogger,
+  logSeparator,
+  VoiceAILogLevel,
+  VoiceAILogCategory,
+} from '../../voice-ai/utils/voice-ai-logger.util';
 
 /**
  * Twilio Webhooks Controller (Public Endpoints)
@@ -379,7 +384,10 @@ export class TwilioWebhooksController {
       !this.webhookVerification.verifyTwilio(url, body, signature, authToken)
     ) {
       this.logger.error('❌ Invalid Twilio signature for call webhook');
-      voiceLogger.logError(new Error('Invalid Twilio signature'), 'Twilio webhook verification');
+      voiceLogger.logError(
+        new Error('Invalid Twilio signature'),
+        'Twilio webhook verification',
+      );
       throw new UnauthorizedException('Invalid Twilio signature');
     }
 
@@ -607,7 +615,10 @@ export class TwilioWebhooksController {
         updateData.delivered_at = new Date();
       } else if (MessageStatus === 'sent') {
         updateData.sent_at = new Date();
-      } else if (MessageStatus === 'failed' || MessageStatus === 'undelivered') {
+      } else if (
+        MessageStatus === 'failed' ||
+        MessageStatus === 'undelivered'
+      ) {
         updateData.error_message = ErrorMessage || `Error code: ${ErrorCode}`;
       }
 
@@ -622,7 +633,10 @@ export class TwilioWebhooksController {
       // Record Prometheus metrics
       if (MessageStatus === 'delivered') {
         this.metrics.incrementSmsDelivered(tenantId);
-      } else if (MessageStatus === 'failed' || MessageStatus === 'undelivered') {
+      } else if (
+        MessageStatus === 'failed' ||
+        MessageStatus === 'undelivered'
+      ) {
         this.metrics.incrementSmsFailed(tenantId, ErrorCode);
       }
 
@@ -1131,10 +1145,12 @@ export class TwilioWebhooksController {
     this.logger.log(`DialCallStatus: ${DialCallStatus}`);
     this.logger.log(`DialSipResponseCode: ${DialSipResponseCode}`);
     this.logger.log(`DialSipCallId: ${body.DialSipCallId}`);
-    this.logger.log(`DialSipHeader_User-Agent: ${body['DialSipHeader_User-Agent']}`);
+    this.logger.log(
+      `DialSipHeader_User-Agent: ${body['DialSipHeader_User-Agent']}`,
+    );
 
     // Log all X-headers returned by LiveKit
-    Object.keys(body).forEach(key => {
+    Object.keys(body).forEach((key) => {
       if (key.startsWith('DialSipHeader_')) {
         this.logger.log(`${key}: ${body[key]}`);
       }
@@ -1146,7 +1162,9 @@ export class TwilioWebhooksController {
 
     // Use Voice AI logger for permanent record
     voiceLogger.log(
-      DialCallStatus === 'completed' ? VoiceAILogLevel.SUCCESS : VoiceAILogLevel.ERROR,
+      DialCallStatus === 'completed'
+        ? VoiceAILogLevel.SUCCESS
+        : VoiceAILogLevel.ERROR,
       VoiceAILogCategory.SIP_DIAL,
       DialCallStatus === 'completed'
         ? '✅ LiveKit SIP dial succeeded'
@@ -1157,10 +1175,10 @@ export class TwilioWebhooksController {
         sip_response_code: DialSipResponseCode,
         sip_call_id: body.DialSipCallId,
         all_headers: Object.keys(body)
-          .filter(k => k.startsWith('DialSipHeader_'))
+          .filter((k) => k.startsWith('DialSipHeader_'))
           .reduce((acc, k) => ({ ...acc, [k]: body[k] }), {}),
         full_body: body,
-      }
+      },
     );
 
     // Interpret SIP response codes
@@ -1171,8 +1189,11 @@ export class TwilioWebhooksController {
       if (code === 200) meaning = '✅ OK - Call connected successfully';
       else if (code === 486) meaning = '❌ Busy - No agent available';
       else if (code === 480) meaning = '❌ Temporarily Unavailable';
-      else if (code === 503) meaning = '❌ Service Unavailable - LiveKit down or agent not registered';
-      else if (code === 404) meaning = '❌ Not Found - Dispatch rule not matching';
+      else if (code === 503)
+        meaning =
+          '❌ Service Unavailable - LiveKit down or agent not registered';
+      else if (code === 404)
+        meaning = '❌ Not Found - Dispatch rule not matching';
       else if (code === 403) meaning = '❌ Forbidden - Authentication issue';
       else if (code >= 400 && code < 500) meaning = '❌ Client Error';
       else if (code >= 500) meaning = '❌ Server Error';

@@ -93,12 +93,12 @@ describe('AppointmentTypeSchedulesService', () => {
       expect(mockPrisma.appointment_type.findFirst).toHaveBeenCalledWith({
         where: { id: appointmentTypeId, tenant_id: tenantId },
       });
-      expect(mockPrisma.appointment_type_schedule.findMany).toHaveBeenCalledWith(
-        {
-          where: { appointment_type_id: appointmentTypeId },
-          orderBy: { day_of_week: 'asc' },
-        },
-      );
+      expect(
+        mockPrisma.appointment_type_schedule.findMany,
+      ).toHaveBeenCalledWith({
+        where: { appointment_type_id: appointmentTypeId },
+        orderBy: { day_of_week: 'asc' },
+      });
     });
 
     it('should throw NotFoundException if appointment type not found', async () => {
@@ -198,14 +198,12 @@ describe('AppointmentTypeSchedulesService', () => {
         mockAppointmentType,
       );
       mockPrisma.appointment_type_schedule.findMany.mockResolvedValue([]);
-      mockPrisma.appointment_type_schedule.upsert.mockImplementation(
-        (args) => {
-          return Promise.resolve({
-            id: `sched-${args.create.day_of_week}`,
-            ...args.create,
-          });
-        },
-      );
+      mockPrisma.appointment_type_schedule.upsert.mockImplementation((args) => {
+        return Promise.resolve({
+          id: `sched-${args.create.day_of_week}`,
+          ...args.create,
+        });
+      });
 
       const result = await service.bulkUpdateSchedules(
         tenantId,

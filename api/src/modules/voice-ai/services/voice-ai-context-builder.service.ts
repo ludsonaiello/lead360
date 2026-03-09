@@ -7,7 +7,10 @@ import { PrismaService } from '../../../core/database/prisma.service';
 import { VoiceAiCredentialsService } from './voice-ai-credentials.service';
 import { VoiceAiGlobalConfigService } from './voice-ai-global-config.service';
 import { VoiceTransferNumbersService } from './voice-transfer-numbers.service';
-import { VoiceAiContext } from '../interfaces/voice-ai-context.interface';
+import {
+  VoiceAiContext,
+  ActiveAgentProfile,
+} from '../interfaces/voice-ai-context.interface';
 
 /**
  * Type alias for backward compatibility.
@@ -54,19 +57,22 @@ export class VoiceAiContextBuilderService {
    *   1. Load tenant + subscription_plan in parallel with tenant settings + global config
    *   2. Inline quota calculation (aggregate STT usage_quantity for current month)
    *   3. Resolve provider IDs (tenant override → global default)
-   *   4. Load provider rows + decrypt credentials (parallel)
-   *   5. Load services, service_areas, transfer_numbers (parallel)
-   *   6. Merge system_prompt (global default + tenant custom_instructions)
-   *   7. Assemble and return FullVoiceAiContext
+   *   4. Resolve language & voice from agent profile (Sprint 7: Voice Multilingual)
+   *   5. Load provider rows + decrypt credentials (parallel)
+   *   6. Load services, service_areas, transfer_numbers (parallel)
+   *   7. Merge system_prompt (global default + tenant custom_instructions + profile instructions)
+   *   8. Assemble and return FullVoiceAiContext
    *
-   * @param tenantId  UUID of the tenant — sourced from the call routing params, NOT from JWT
-   * @param callSid   Optional Twilio CallSid for call identification tracking
+   * @param tenantId        UUID of the tenant — sourced from the call routing params, NOT from JWT
+   * @param callSid         Optional Twilio CallSid for call identification tracking
+   * @param agentProfileId  Optional voice agent profile ID for language/voice selection (Sprint 7)
    * @throws NotFoundException if tenant does not exist
    * @throws BadRequestException if global config has not been initialized
    */
   async buildContext(
     tenantId: string,
     callSid?: string,
+    agentProfileId?: string,
   ): Promise<FullVoiceAiContext> {
     // Step 1: Load tenant, tenant settings, and global config concurrently
     const [tenant, tenantSettings, globalConfig] = await Promise.all([
@@ -125,7 +131,8 @@ export class VoiceAiContextBuilderService {
     // Minutes limit: tenant-level admin override takes precedence over plan default
     const minutesIncluded =
       tenantSettings?.monthly_minutes_override ??
-      (tenant.subscription_plan?.voice_ai_minutes_included ?? 0);
+      tenant.subscription_plan?.voice_ai_minutes_included ??
+      0;
 
     // Overage rate: null means calls are blocked when quota is exceeded (no overage billing)
     const overageRate =
@@ -149,9 +156,17 @@ export class VoiceAiContextBuilderService {
     const minutesRemaining = Math.max(0, minutesIncluded - minutesUsed);
     // quota_exceeded = true only when there is NO overage pricing configured.
     // Tenants with an overage_rate can continue calling at cost beyond their quota.
-    const quotaExceeded = minutesUsed >= minutesIncluded && overageRate === null;
+    const quotaExceeded =
+      minutesUsed >= minutesIncluded && overageRate === null;
 
-    // Step 3: Resolve provider IDs — tenant admin override → global config fallback
+    // Step 3: Resolve language, voice, greeting, and instructions from agent profile (Sprint 7)
+    const profileResolution = await this.resolveAgentProfile(
+      tenantId,
+      agentProfileId,
+      tenantSettings,
+    );
+
+    // Step 4: Resolve provider IDs — tenant admin override → global config fallback
     const resolvedSttProviderId =
       tenantSettings?.stt_provider_override_id ??
       globalConfig.default_stt_provider_id;
@@ -162,7 +177,7 @@ export class VoiceAiContextBuilderService {
       tenantSettings?.tts_provider_override_id ??
       globalConfig.default_tts_provider_id;
 
-    // Step 4: Load provider rows and decrypt credentials concurrently.
+    // Step 5: Load provider rows and decrypt credentials concurrently.
     // If a provider ID resolves to null (none configured) → that slot is null.
     // If a credential does not exist for a configured provider → slot is null (soft failure).
     const [sttProvider, llmProvider, ttsProvider] = await Promise.all([
@@ -213,12 +228,21 @@ export class VoiceAiContextBuilderService {
       tenantSettings?.tts_config_override ?? globalConfig.default_tts_config,
     );
 
-    // TTS voice_id: tenant override → global default
+    // TTS voice_id: profile-resolved → tenant override → global default (Sprint 7)
     const ttsVoiceId =
-      tenantSettings?.voice_id_override ?? globalConfig.default_voice_id ?? null;
+      profileResolution.voice_id ??
+      tenantSettings?.voice_id_override ??
+      globalConfig.default_voice_id ??
+      null;
 
-    // Step 5: Load services, service areas, business hours, industries, and transfer numbers concurrently
-    const [tenantServices, serviceAreas, businessHoursRaw, industries, transferNumbers] = await Promise.all([
+    // Step 6: Load services, service areas, business hours, industries, and transfer numbers concurrently
+    const [
+      tenantServices,
+      serviceAreas,
+      businessHoursRaw,
+      industries,
+      transferNumbers,
+    ] = await Promise.all([
       this.prisma.tenant_service.findMany({
         where: { tenant_id: tenantId },
         include: {
@@ -244,35 +268,44 @@ export class VoiceAiContextBuilderService {
     // Transform wide-format business hours into array format for agent context
     const businessHours = this.transformBusinessHours(businessHoursRaw);
 
-    // Step 6: Resolve behavior fields — tenant settings → global defaults
+    // Step 7: Resolve behavior fields — profile-resolved → tenant settings → global defaults
     const enabledLanguages = this.parseJsonArray(
       tenantSettings?.enabled_languages,
     );
-    // Agent language: first language in tenant's list, or global default, or 'en'
+    // Agent language: profile-resolved → first language in tenant's list → global default → 'en'
     const language =
-      enabledLanguages[0] ?? globalConfig.default_language ?? 'en';
+      profileResolution.language ??
+      enabledLanguages[0] ??
+      globalConfig.default_language ??
+      'en';
 
-    // Greeting: use tenant's custom_greeting if set, else apply {business_name} to global template.
+    // Greeting: profile-resolved → tenant custom_greeting → global template with {business_name}
     // replaceAll() is used (not replace()) so that templates with multiple {business_name}
     // occurrences are fully interpolated — replace() only substitutes the first match.
-    const greeting = tenantSettings?.custom_greeting
-      ? tenantSettings.custom_greeting
-      : globalConfig.default_greeting_template.replaceAll(
-          '{business_name}',
-          tenant.company_name,
-        );
+    const greeting =
+      profileResolution.custom_greeting ??
+      (tenantSettings?.custom_greeting
+        ? tenantSettings.custom_greeting
+        : globalConfig.default_greeting_template.replaceAll(
+            '{business_name}',
+            tenant.company_name,
+          ));
 
-    // System prompt: merge global default + tenant custom_instructions
-    // Start with global default_system_prompt, then append custom_instructions if present
+    // System prompt: merge global default + tenant custom_instructions + profile instructions
+    // Start with global default_system_prompt, then APPEND tenant and profile instructions
+    // CRITICAL: profile instructions APPEND (not replace) - Sprint 7 confirmed requirement
     let systemPrompt = globalConfig.default_system_prompt;
     if (tenantSettings?.custom_instructions) {
-      systemPrompt += `\n\nAdditional Instructions:\n${tenantSettings.custom_instructions}`;
+      systemPrompt += `\n\n${tenantSettings.custom_instructions}`;
+    }
+    if (profileResolution.custom_instructions) {
+      systemPrompt += `\n\n${profileResolution.custom_instructions}`;
     }
 
-    // Step 7: Load conversational phrases from global config
+    // Step 8: Load conversational phrases from global config
     const conversationalPhrases = this.parseConversationalPhrases(globalConfig);
 
-    // Step 8: Assemble FullVoiceAiContext
+    // Step 9: Assemble FullVoiceAiContext
     const primaryAddress = tenant.tenant_address?.[0];
 
     return {
@@ -285,12 +318,14 @@ export class VoiceAiContextBuilderService {
         language: tenant.default_language ?? null,
         business_description: tenant.business_description ?? null,
         email: tenant.primary_contact_email ?? null,
-        primary_address: primaryAddress ? {
-          street: primaryAddress.line1 ?? null,
-          city: primaryAddress.city ?? null,
-          state: primaryAddress.state ?? null,
-          zip: primaryAddress.zip_code ?? null,
-        } : null,
+        primary_address: primaryAddress
+          ? {
+              street: primaryAddress.line1 ?? null,
+              city: primaryAddress.city ?? null,
+              state: primaryAddress.state ?? null,
+              zip: primaryAddress.zip_code ?? null,
+            }
+          : null,
       },
       quota: {
         minutes_included: minutesIncluded,
@@ -367,6 +402,7 @@ export class VoiceAiContextBuilderService {
         available_hours: tn.available_hours ?? null,
       })),
       conversational_phrases: conversationalPhrases,
+      active_agent_profile: profileResolution.active_profile, // Sprint 7: Voice Multilingual
     };
   }
 
@@ -384,7 +420,11 @@ export class VoiceAiContextBuilderService {
     if (!jsonString) return {};
     try {
       const parsed: unknown = JSON.parse(jsonString);
-      if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      if (
+        parsed !== null &&
+        typeof parsed === 'object' &&
+        !Array.isArray(parsed)
+      ) {
         return parsed as Record<string, unknown>;
       }
       return {};
@@ -414,9 +454,11 @@ export class VoiceAiContextBuilderService {
    * Handles the tenant_business_hours table structure with columns like:
    * monday_closed, monday_open1, monday_close1, monday_open2, monday_close2, etc.
    */
-  private transformBusinessHours(
-    hoursRaw: any | null,
-  ): Array<{ day: string; is_closed: boolean; shifts: Array<{ open: string; close: string }> }> {
+  private transformBusinessHours(hoursRaw: any | null): Array<{
+    day: string;
+    is_closed: boolean;
+    shifts: Array<{ open: string; close: string }>;
+  }> {
     if (!hoursRaw) return [];
 
     const days = [
@@ -471,32 +513,32 @@ export class VoiceAiContextBuilderService {
         globalConfig.recovery_messages,
         [
           "Sorry, I didn't quite catch that. Could you repeat?",
-          "I missed that. What did you say?",
-          "Could you say that again, please?",
-        ]
+          'I missed that. What did you say?',
+          'Could you say that again, please?',
+        ],
       ),
       filler_phrases: this.parseJsonArrayWithFallback(
         globalConfig.filler_phrases,
         [
-          "Let me check that for you.",
-          "One moment while I look that up.",
+          'Let me check that for you.',
+          'One moment while I look that up.',
           "Alright, I'll check the information. Hold on.",
-        ]
+        ],
       ),
       long_wait_messages: this.parseJsonArrayWithFallback(
         globalConfig.long_wait_messages,
         [
-          "Still checking, just a moment...",
-          "This is taking a bit longer, almost there...",
+          'Still checking, just a moment...',
+          'This is taking a bit longer, almost there...',
           "I'm still working on it, one moment please...",
-        ]
+        ],
       ),
       system_error_messages: this.parseJsonArrayWithFallback(
         globalConfig.system_error_messages,
         [
           "I'm having some trouble right now. Could you try again?",
           "Something's not working on my end. Please try again.",
-        ]
+        ],
       ),
     };
   }
@@ -508,7 +550,7 @@ export class VoiceAiContextBuilderService {
    */
   private parseJsonArrayWithFallback(
     jsonString: string | null | undefined,
-    fallback: string[]
+    fallback: string[],
   ): string[] {
     if (!jsonString) return fallback;
     try {
@@ -517,5 +559,125 @@ export class VoiceAiContextBuilderService {
     } catch {
       return fallback;
     }
+  }
+
+  /**
+   * Resolve voice agent profile for language/voice selection.
+   * Sprint 18: Voice Multilingual - Context Builder + IVR Integration
+   *
+   * 3-step resolution chain:
+   *   1. Try explicit agentProfileId (from IVR config) → NOW references GLOBAL profile
+   *   2. Try default_agent_profile_id from tenant settings → NOW references override ID
+   *   3. Return nulls (fall through to existing behavior)
+   *
+   * Only active profiles are resolved. If profile not found or inactive,
+   * returns nulls (graceful fallback - no error thrown).
+   *
+   * Architecture Update (Sprint 18):
+   * - agentProfileId from IVR now references voice_ai_agent_profile (global)
+   * - System loads global profile + checks for tenant override
+   * - Tenant customizations (greeting/instructions) applied if override exists
+   *
+   * @param tenantId          Tenant UUID for multi-tenant isolation
+   * @param agentProfileId    Optional GLOBAL profile ID from IVR action
+   * @param tenantSettings    Tenant voice AI settings (may contain default_agent_profile_id)
+   * @returns Profile-resolved values or nulls for fallback
+   */
+  private async resolveAgentProfile(
+    tenantId: string,
+    agentProfileId: string | undefined,
+    tenantSettings: any,
+  ): Promise<{
+    language: string | null;
+    voice_id: string | null;
+    custom_greeting: string | null;
+    custom_instructions: string | null;
+    active_profile: {
+      id: string;
+      title: string;
+      language_code: string;
+      is_override: boolean;
+    } | null;
+  }> {
+    // Step 1: Try agent_profile_id from IVR (NOW references GLOBAL profile)
+    if (agentProfileId) {
+      const globalProfile = await this.prisma.voice_ai_agent_profile.findFirst({
+        where: {
+          id: agentProfileId,
+          is_active: true,
+        },
+      });
+
+      if (globalProfile) {
+        // Check for tenant override
+        const override =
+          await this.prisma.tenant_voice_agent_profile_override.findFirst({
+            where: {
+              tenant_id: tenantId,
+              agent_profile_id: globalProfile.id,
+              is_active: true,
+            },
+          });
+
+        return {
+          language: globalProfile.language_code,
+          voice_id: globalProfile.voice_id,
+          custom_greeting:
+            override?.custom_greeting ?? globalProfile.default_greeting,
+          custom_instructions:
+            override?.custom_instructions ??
+            globalProfile.default_instructions,
+          active_profile: {
+            id: globalProfile.id,
+            title: globalProfile.display_name,
+            language_code: globalProfile.language_code,
+            is_override: !!override,
+          },
+        };
+      }
+    }
+
+    // Step 2: Try default_agent_profile_id from settings (NOW references override ID)
+    if (tenantSettings?.default_agent_profile_id) {
+      const override =
+        await this.prisma.tenant_voice_agent_profile_override.findFirst({
+          where: {
+            id: tenantSettings.default_agent_profile_id,
+            tenant_id: tenantId,
+            is_active: true,
+          },
+          include: {
+            agent_profile: true,
+          },
+        });
+
+      if (override?.agent_profile) {
+        return {
+          language: override.agent_profile.language_code,
+          voice_id: override.agent_profile.voice_id,
+          custom_greeting:
+            override.custom_greeting ??
+            override.agent_profile.default_greeting,
+          custom_instructions:
+            override.custom_instructions ??
+            override.agent_profile.default_instructions,
+          active_profile: {
+            id: override.agent_profile.id,
+            title: override.agent_profile.display_name,
+            language_code: override.agent_profile.language_code,
+            is_override: true,
+          },
+        };
+      }
+    }
+
+    // Step 3: No profile resolved - return nulls (fall through to existing behavior)
+    return {
+      language: null,
+      voice_id: null,
+      custom_greeting: null,
+      custom_instructions: null,
+      active_profile: null,
+    };
   }
 }

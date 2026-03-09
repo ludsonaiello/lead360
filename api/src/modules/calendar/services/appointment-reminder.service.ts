@@ -54,8 +54,12 @@ export class AppointmentReminderService {
     const now = new Date();
 
     // Calculate reminder times
-    const reminder24h = new Date(startDatetimeUtc.getTime() - 24 * 60 * 60 * 1000); // 24 hours before
-    const reminder1h = new Date(startDatetimeUtc.getTime() - 1 * 60 * 60 * 1000); // 1 hour before
+    const reminder24h = new Date(
+      startDatetimeUtc.getTime() - 24 * 60 * 60 * 1000,
+    ); // 24 hours before
+    const reminder1h = new Date(
+      startDatetimeUtc.getTime() - 1 * 60 * 60 * 1000,
+    ); // 1 hour before
 
     const jobData = {
       tenant_id: tenantId,
