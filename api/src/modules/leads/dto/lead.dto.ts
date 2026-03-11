@@ -320,6 +320,13 @@ export class CreateServiceRequestDto {
   @IsOptional()
   @Length(1, 2000)
   notes?: string;
+
+  @ApiPropertyOptional({
+    description: 'Additional data (e.g., requested_service_ids from Voice AI)',
+    example: { requested_service_ids: ['uuid1', 'uuid2'], source: 'voice_ai' },
+  })
+  @IsOptional()
+  extra_data?: Record<string, unknown>;
 }
 
 export class UpdateServiceRequestDto extends PartialType(

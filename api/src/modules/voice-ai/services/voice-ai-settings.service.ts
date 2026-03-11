@@ -121,6 +121,8 @@ export class VoiceAiSettingsService {
       updateData.default_transfer_number = dto.default_transfer_number;
     if (dto.max_call_duration_seconds !== undefined)
       updateData.max_call_duration_seconds = dto.max_call_duration_seconds;
+    if (dto.tool_instructions !== undefined)
+      updateData.tool_instructions = dto.tool_instructions;
 
     return this.prisma.tenant_voice_ai_settings.upsert({
       where: { tenant_id: tenantId },
@@ -226,6 +228,7 @@ export class VoiceAiSettingsService {
       default_transfer_number: settings.default_transfer_number,
       default_transfer_number_id: settings.default_transfer_number_id,
       max_call_duration_seconds: settings.max_call_duration_seconds,
+      tool_instructions: settings.tool_instructions ?? null,
       created_at: settings.created_at,
       updated_at: settings.updated_at,
       updated_by: settings.updated_by,
@@ -382,6 +385,7 @@ export class VoiceAiSettingsService {
       default_transfer_number: settings.default_transfer_number,
       default_transfer_number_id: settings.default_transfer_number_id,
       max_call_duration_seconds: settings.max_call_duration_seconds,
+      tool_instructions: settings.tool_instructions ?? null,
       created_at: settings.created_at,
       updated_at: settings.updated_at,
       updated_by: settings.updated_by,

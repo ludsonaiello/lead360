@@ -20,6 +20,7 @@ export interface IVRActionConfig {
   phone_number?: string;
   webhook_url?: string;
   max_duration_seconds?: number;
+  agent_profile_id?: string;
 }
 
 /**

@@ -55,6 +55,14 @@ export class RescheduleAppointmentToolDto {
     message: 'new_time must be in HH:MM format',
   })
   new_time?: string;
+
+  @ApiPropertyOptional({
+    example: 'Customer requested earlier time due to work schedule',
+    description: 'Reason for rescheduling (appended to appointment notes)',
+  })
+  @IsString()
+  @IsOptional()
+  reason?: string;
 }
 
 /**
@@ -102,7 +110,9 @@ export class RescheduleAppointmentToolResponseDto {
   current_appointment?: {
     id: string;
     date: string;
+    day_name: string;
     time: string;
+    time_display: string;
     type: string;
   };
 
@@ -123,10 +133,10 @@ export class RescheduleAppointmentToolResponseDto {
   available_slots?: Array<{
     date: string;
     day_name: string;
-    slots: Array<{
-      start_time: string;
-      end_time: string;
-    }>;
+    start_time: string;
+    end_time: string;
+    start_time_display: string;
+    end_time_display: string;
   }>;
 
   @ApiPropertyOptional({

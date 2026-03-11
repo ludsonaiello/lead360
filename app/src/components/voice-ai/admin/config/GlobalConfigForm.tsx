@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Save, Key, Server, Settings, MessageSquare, Languages, Wrench, Phone, Bot, MessageCircle } from 'lucide-react';
+import { Save, Key, Server, Settings, MessageSquare, Languages, Wrench, Phone, Bot, MessageCircle, BookOpen } from 'lucide-react';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
 import Select from '@/components/ui/Select';
@@ -116,6 +116,12 @@ const globalConfigSchema = z.object({
     .max(10)
     .optional()
     .nullable(),
+  // Sprint Tool-Audit: Per-tool instruction overrides
+  tool_instructions: z
+    .string()
+    .optional()
+    .nullable()
+    .refine((val) => isValidJSON(val), { message: 'Must be valid JSON' }),
 });
 
 type GlobalConfigFormData = z.infer<typeof globalConfigSchema>;
@@ -126,10 +132,137 @@ interface GlobalConfigFormProps {
   isSubmitting?: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// Tool instruction keys and labels
+// ---------------------------------------------------------------------------
+const TOOL_INSTRUCTION_KEYS = [
+  { key: 'general_rules', label: 'General Rules', description: 'Rules that apply to all tool usage' },
+  { key: 'find_lead', label: 'Find Lead', description: 'When/how to look up existing leads' },
+  { key: 'check_service_area', label: 'Check Service Area', description: 'When/how to verify coverage' },
+  { key: 'create_lead', label: 'Create Lead', description: 'When/how to create new leads' },
+  { key: 'book_appointment', label: 'Book Appointment', description: 'When/how to book appointments' },
+  { key: 'reschedule_appointment', label: 'Reschedule Appointment', description: 'When/how to reschedule' },
+  { key: 'cancel_appointment', label: 'Cancel Appointment', description: 'When/how to cancel' },
+  { key: 'transfer_call', label: 'Transfer Call', description: 'When/how to transfer to a human' },
+  { key: 'end_call', label: 'End Call', description: 'When/how to end the call' },
+  { key: 'workflow_rules', label: 'Workflow Templates', description: 'Call flow ordering rules' },
+];
+
+function ToolInstructionsSection({
+  value,
+  onChange,
+  expandedTools,
+  setExpandedTools,
+  disabled,
+  error,
+}: {
+  value: string | null | undefined;
+  onChange: (value: string | null) => void;
+  expandedTools: Record<string, boolean>;
+  setExpandedTools: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  disabled: boolean;
+  error?: string;
+}) {
+  // Parse current JSON into per-key map
+  const parsed: Record<string, string> = (() => {
+    if (!value) return {};
+    try {
+      const obj = JSON.parse(value);
+      return typeof obj === 'object' && !Array.isArray(obj) ? obj : {};
+    } catch {
+      return {};
+    }
+  })();
+
+  const handleToolChange = (key: string, text: string) => {
+    const updated = { ...parsed };
+    if (text.trim() === '') {
+      delete updated[key];
+    } else {
+      updated[key] = text;
+    }
+    const hasKeys = Object.keys(updated).length > 0;
+    onChange(hasKeys ? JSON.stringify(updated, null, 2) : null);
+  };
+
+  const toggleTool = (key: string) => {
+    setExpandedTools((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  return (
+    <section className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div className="flex items-center gap-3 mb-6">
+        <BookOpen className="h-6 w-6 text-brand-600 dark:text-brand-400" />
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+          10. Tool Usage Instructions
+        </h2>
+      </div>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+        Customize how the AI agent uses each tool during calls.
+        Leave blank to use built-in defaults. Only overridden tools will be saved.
+      </p>
+
+      {error && (
+        <p className="text-sm text-red-600 mb-4">{error}</p>
+      )}
+
+      <div className="space-y-3">
+        {TOOL_INSTRUCTION_KEYS.map(({ key, label, description }) => (
+          <div key={key} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <button
+              type="button"
+              className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              onClick={() => toggleTool(key)}
+            >
+              <div>
+                <span className="font-medium text-gray-900 dark:text-gray-100">{label}</span>
+                <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+                  {description}
+                </span>
+                {parsed[key] && (
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">
+                    customized
+                  </span>
+                )}
+              </div>
+              <svg
+                className={`w-5 h-5 text-gray-400 transition-transform ${expandedTools[key] ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {expandedTools[key] && (
+              <div className="px-4 pb-4">
+                <Textarea
+                  placeholder={`Custom instructions for ${label}... (leave blank for defaults)`}
+                  value={parsed[key] || ''}
+                  onChange={(e) => handleToolChange(key, e.target.value)}
+                  rows={4}
+                  disabled={disabled}
+                />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <p className="text-sm text-blue-800 dark:text-blue-300">
+          <strong>Tip:</strong> These instructions are injected into the AI system prompt and tell the LLM
+          when, how, and in what order to use tools. Only override when the default behavior needs adjustment.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 /**
  * Global Configuration Form
- * 9 sections: Agent Status, Providers, Voice & Language, Agent Behavior,
- * Tool Toggles, Call Handling, LiveKit Config, Agent API Key, Conversational Phrases
+ * 10 sections: Agent Status, Providers, Voice & Language, Agent Behavior,
+ * Tool Toggles, Call Handling, LiveKit Config, Agent API Key, Conversational Phrases, Tool Instructions
  */
 export default function GlobalConfigForm({
   config,
@@ -138,6 +271,7 @@ export default function GlobalConfigForm({
 }: GlobalConfigFormProps) {
   const [regenerateModalOpen, setRegenerateModalOpen] = useState(false);
   const [agentKeyPreview, setAgentKeyPreview] = useState(config.agent_api_key_preview);
+  const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
 
   // Parse tools_enabled JSON for toggle switches
   const parseToolsEnabled = (jsonStr: string): Record<string, boolean> => {
@@ -186,6 +320,8 @@ export default function GlobalConfigForm({
       filler_phrases: config.filler_phrases || null,
       long_wait_messages: config.long_wait_messages || null,
       system_error_messages: config.system_error_messages || null,
+      // Sprint Tool-Audit: Per-tool instruction overrides
+      tool_instructions: config.tool_instructions || null,
     },
   });
 
@@ -198,6 +334,11 @@ export default function GlobalConfigForm({
   };
 
   const handleFormSubmit = async (data: GlobalConfigFormData) => {
+    console.log('[GlobalConfigForm] ===== FORM SUBMIT =====');
+    console.log('[GlobalConfigForm] Full data:', data);
+    console.log('[GlobalConfigForm] STT config:', data.default_stt_config);
+    console.log('[GlobalConfigForm] TTS config:', data.default_tts_config);
+    console.log('[GlobalConfigForm] LLM config:', data.default_llm_config);
     await onSubmit(data);
   };
 
@@ -257,7 +398,10 @@ export default function GlobalConfigForm({
               <ProviderConfigBuilder
                 providerId={watch('default_stt_provider_id')}
                 value={watch('default_stt_config')}
-                onChange={(value) => setValue('default_stt_config', value)}
+                onChange={(value) => {
+                  console.log('[GlobalConfigForm] STT onChange received:', value);
+                  setValue('default_stt_config', value);
+                }}
                 label="STT Configuration"
                 placeholder='{"model":"nova-2-phonecall","punctuate":true}'
                 disabled={isSubmitting}
@@ -301,7 +445,10 @@ export default function GlobalConfigForm({
               <ProviderConfigBuilder
                 providerId={watch('default_tts_provider_id')}
                 value={watch('default_tts_config')}
-                onChange={(value) => setValue('default_tts_config', value)}
+                onChange={(value) => {
+                  console.log('[GlobalConfigForm] TTS onChange received:', value);
+                  setValue('default_tts_config', value);
+                }}
                 label="TTS Configuration"
                 placeholder='{"model":"sonic-multilingual","speed":1}'
                 disabled={isSubmitting}
@@ -563,6 +710,16 @@ export default function GlobalConfigForm({
             </p>
           </div>
         </section>
+
+        {/* Section 10: Tool Usage Instructions - Sprint Tool-Audit */}
+        <ToolInstructionsSection
+          value={watch('tool_instructions') ?? null}
+          onChange={(value) => setValue('tool_instructions', value)}
+          expandedTools={expandedTools}
+          setExpandedTools={setExpandedTools}
+          disabled={isSubmitting}
+          error={errors.tool_instructions?.message as string | undefined}
+        />
 
         {/* Submit Button */}
         <div className="flex gap-3 justify-end sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 -mx-6 -mb-6">

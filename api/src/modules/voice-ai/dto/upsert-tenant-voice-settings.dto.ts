@@ -114,4 +114,17 @@ export class UpsertTenantVoiceSettingsDto {
   @Min(60)
   @Max(3600)
   max_call_duration_seconds?: number | null;
+
+  @ApiPropertyOptional({
+    description:
+      'JSON string of per-tool LLM instruction overrides. ' +
+      'Keys: general_rules, find_lead, check_service_area, create_lead, book_appointment, ' +
+      'reschedule_appointment, cancel_appointment, transfer_call, end_call, workflow_rules. ' +
+      'Tenant overrides merge on top of global defaults (per-key). Pass null to clear.',
+    example: '{"find_lead":"Always greet returning customers warmly."}',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  tool_instructions?: string | null;
 }

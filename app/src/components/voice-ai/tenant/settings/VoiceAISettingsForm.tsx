@@ -9,7 +9,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Save, Loader2, X } from 'lucide-react';
+import { Save, Loader2, X, BookOpen } from 'lucide-react';
 import voiceAiApi from '@/lib/api/voice-ai';
 import type { TenantVoiceAISettings } from '@/lib/types/voice-ai';
 import { LanguageSelector } from './LanguageSelector';
@@ -45,12 +45,155 @@ const settingsSchema = z.object({
     .max(3600, 'Maximum 3600 seconds')
     .nullable()
     .optional(),
+  tool_instructions: z.string().nullable().optional(),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
 
 interface VoiceAISettingsFormProps {
   readOnly?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Tool instruction keys and labels (tenant-facing subset)
+// ---------------------------------------------------------------------------
+const TENANT_TOOL_INSTRUCTION_KEYS = [
+  { key: 'general_rules', label: 'General Rules', description: 'Rules that apply to all tool usage' },
+  { key: 'find_lead', label: 'Find Lead', description: 'When/how to look up existing leads' },
+  { key: 'check_service_area', label: 'Check Service Area', description: 'When/how to verify coverage' },
+  { key: 'create_lead', label: 'Create Lead', description: 'When/how to create new leads' },
+  { key: 'book_appointment', label: 'Book Appointment', description: 'When/how to book appointments' },
+  { key: 'reschedule_appointment', label: 'Reschedule Appointment', description: 'When/how to reschedule' },
+  { key: 'cancel_appointment', label: 'Cancel Appointment', description: 'When/how to cancel' },
+  { key: 'transfer_call', label: 'Transfer Call', description: 'When/how to transfer to a human' },
+  { key: 'end_call', label: 'End Call', description: 'When/how to end the call' },
+  { key: 'workflow_rules', label: 'Workflow Templates', description: 'Call flow ordering rules' },
+];
+
+function TenantToolInstructionsSection({
+  value,
+  onChange,
+  expandedTools,
+  setExpandedTools,
+  disabled,
+}: {
+  value: string | null;
+  onChange: (value: string | null) => void;
+  expandedTools: Record<string, boolean>;
+  setExpandedTools: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  disabled: boolean;
+}) {
+  const parsed: Record<string, string> = (() => {
+    if (!value) return {};
+    try {
+      const obj = JSON.parse(value);
+      return typeof obj === 'object' && !Array.isArray(obj) ? obj : {};
+    } catch {
+      return {};
+    }
+  })();
+
+  const hasAnyOverrides = Object.keys(parsed).length > 0;
+
+  const handleToolChange = (key: string, text: string) => {
+    const updated = { ...parsed };
+    if (text.trim() === '') {
+      delete updated[key];
+    } else {
+      updated[key] = text;
+    }
+    const hasKeys = Object.keys(updated).length > 0;
+    onChange(hasKeys ? JSON.stringify(updated, null, 2) : null);
+  };
+
+  const toggleTool = (key: string) => {
+    setExpandedTools((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+      <div className="flex items-center gap-3 mb-2">
+        <BookOpen className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+        <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+          Tool Usage Instructions
+        </h2>
+        <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">
+          Advanced
+        </span>
+      </div>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        Customize how the AI agent uses each tool for your business.
+        Leave blank to use the platform defaults. Your overrides take priority.
+      </p>
+
+      {hasAnyOverrides && (
+        <div className="mb-4 flex items-center gap-2">
+          <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+            {Object.keys(parsed).length} tool(s) customized
+          </span>
+          {!disabled && (
+            <button
+              type="button"
+              onClick={() => onChange(null)}
+              className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 underline"
+            >
+              Clear all overrides
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {TENANT_TOOL_INSTRUCTION_KEYS.map(({ key, label, description }) => (
+          <div key={key} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <button
+              type="button"
+              className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              onClick={() => toggleTool(key)}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
+                  {description}
+                </span>
+                {parsed[key] && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">
+                    customized
+                  </span>
+                )}
+              </div>
+              <svg
+                className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${expandedTools[key] ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {expandedTools[key] && (
+              <div className="px-4 pb-3">
+                <Textarea
+                  placeholder={`Custom instructions for ${label}... (leave blank for platform defaults)`}
+                  value={parsed[key] || ''}
+                  onChange={(e) => handleToolChange(key, e.target.value)}
+                  rows={3}
+                  disabled={disabled}
+                />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg">
+        <p className="text-xs text-gray-600 dark:text-gray-400">
+          These instructions tell the AI agent when and how to use each tool during calls.
+          Your customizations are merged on top of platform defaults — only override what you need to change.
+        </p>
+      </div>
+    </div>
+  );
 }
 
 export const VoiceAISettingsForm: React.FC<VoiceAISettingsFormProps> = ({ readOnly = false }) => {
@@ -61,6 +204,7 @@ export const VoiceAISettingsForm: React.FC<VoiceAISettingsFormProps> = ({ readOn
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [planIncludesVoiceAI, setPlanIncludesVoiceAI] = useState(true);
+  const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
 
   const {
     control,
@@ -82,6 +226,7 @@ export const VoiceAISettingsForm: React.FC<VoiceAISettingsFormProps> = ({ readOn
       transfer_enabled: true,
       default_transfer_number: null,
       max_call_duration_seconds: null,
+      tool_instructions: null,
     },
   });
 
@@ -125,6 +270,7 @@ export const VoiceAISettingsForm: React.FC<VoiceAISettingsFormProps> = ({ readOn
           transfer_enabled: data.transfer_enabled,
           default_transfer_number: data.default_transfer_number || null,
           max_call_duration_seconds: data.max_call_duration_seconds || null,
+          tool_instructions: data.tool_instructions || null,
         });
       } else {
         // No settings configured yet - use defaults
@@ -138,6 +284,7 @@ export const VoiceAISettingsForm: React.FC<VoiceAISettingsFormProps> = ({ readOn
           transfer_enabled: true,
           default_transfer_number: null,
           max_call_duration_seconds: null,
+          tool_instructions: null,
         });
       }
 
@@ -188,6 +335,10 @@ export const VoiceAISettingsForm: React.FC<VoiceAISettingsFormProps> = ({ readOn
         payload.max_call_duration_seconds = data.max_call_duration_seconds;
       }
 
+      if (data.tool_instructions !== undefined) {
+        payload.tool_instructions = data.tool_instructions === '' ? null : data.tool_instructions;
+      }
+
       const result = await voiceAiApi.updateTenantSettings(payload);
       setSettings(result);
 
@@ -212,6 +363,7 @@ export const VoiceAISettingsForm: React.FC<VoiceAISettingsFormProps> = ({ readOn
         transfer_enabled: result.transfer_enabled,
         default_transfer_number: result.default_transfer_number || null,
         max_call_duration_seconds: result.max_call_duration_seconds || null,
+        tool_instructions: result.tool_instructions || null,
       });
 
       setShowSuccessModal(true);
@@ -436,6 +588,15 @@ export const VoiceAISettingsForm: React.FC<VoiceAISettingsFormProps> = ({ readOn
             )}
           </div>
         </div>
+
+        {/* Tool Usage Instructions (Optional) */}
+        <TenantToolInstructionsSection
+          value={watch('tool_instructions') ?? null}
+          onChange={(value) => setValue('tool_instructions', value, { shouldDirty: true })}
+          expandedTools={expandedTools}
+          setExpandedTools={setExpandedTools}
+          disabled={readOnly}
+        />
 
         {/* Admin Notes (View-Only) */}
         {settings?.admin_notes && (

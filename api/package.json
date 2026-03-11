@@ -32,6 +32,7 @@
     "@aws-sdk/s3-request-presigner": "^3.962.0",
     "@cartesia/cartesia-js": "^2.2.9",
     "@deepgram/sdk": "^4.11.3",
+    "@elevenlabs/elevenlabs-js": "^2.38.1",
     "@googlemaps/google-maps-services-js": "^3.4.2",
     "@livekit/agents": "^1.0.47",
     "@nestjs/bullmq": "^11.0.4",

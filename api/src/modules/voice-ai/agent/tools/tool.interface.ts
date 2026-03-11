@@ -15,4 +15,5 @@ export interface ToolExecutionContext {
   tenant_id: string;
   call_sid: string;
   caller_phone: string; // The caller's phone number (from_number in voice_call_log)
+  call_log_id?: string; // UUID of voice_call_log — needed by reschedule/cancel for identity verification
 }

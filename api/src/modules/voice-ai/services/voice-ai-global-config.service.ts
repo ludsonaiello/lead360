@@ -117,6 +117,10 @@ export class VoiceAiGlobalConfigService {
     if (dto.system_error_messages !== undefined)
       updateData.system_error_messages = dto.system_error_messages;
 
+    // Sprint Tool-Audit: Per-tool instruction overrides
+    if (dto.tool_instructions !== undefined)
+      updateData.tool_instructions = dto.tool_instructions;
+
     // Encrypt LiveKit keys — never store plaintext
     // Handle three cases: undefined (don't update), null (clear), string (encrypt)
     if (dto.livekit_api_key !== undefined) {
@@ -292,6 +296,9 @@ export class VoiceAiGlobalConfigService {
     dto.system_error_messages = config.system_error_messages
       ? JSON.parse(JSON.stringify(config.system_error_messages))
       : null;
+
+    // Sprint Tool-Audit: Per-tool instruction overrides
+    dto.tool_instructions = config.tool_instructions ?? null;
 
     dto.updated_at = config.updated_at;
     dto.updated_by = config.updated_by;

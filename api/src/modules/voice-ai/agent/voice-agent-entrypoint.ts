@@ -23,6 +23,8 @@ import {
   lookupTenant,
   checkAccess,
   getContext,
+  getCallMetadata,
+  getParentCallSid,
   startCallLog,
   completeCallLog,
   findLeadByPhone,
@@ -40,6 +42,9 @@ import {
   HttpCheckServiceAreaTool,
   HttpTransferCallTool,
   HttpEndCallTool,
+  HttpBookAppointmentTool,
+  HttpRescheduleAppointmentTool,
+  HttpCancelAppointmentTool,
 } from './tools/http-tools';
 import { createVoiceAILogger } from '../utils/voice-ai-logger.util';
 
@@ -92,6 +97,9 @@ async function voiceAgentEntrypoint(ctx: JobContext): Promise<void> {
     console.log(`  - Call SID: ${sipAttrs.callSid}`);
     console.log(`  - Trunk Phone: ${sipAttrs.trunkPhoneNumber}`);
     console.log(`  - Caller Phone: ${sipAttrs.callerPhoneNumber}`);
+    console.log(
+      `  - Agent Profile ID: ${sipAttrs.agentProfileId || 'none (will use default)'}`,
+    );
 
     if (!sipAttrs.trunkPhoneNumber) {
       console.error(
@@ -99,6 +107,50 @@ async function voiceAgentEntrypoint(ctx: JobContext): Promise<void> {
       );
       logSeparator('❌ CALL FAILED - Missing trunk phone number');
       return;
+    }
+
+    if (!callSid) {
+      console.error('[VoiceAgent] ❌ Missing call SID in SIP attributes');
+      logSeparator('❌ CALL FAILED - Missing call SID');
+      return;
+    }
+
+    // Step 3.5: Resolve parent call SID (child → parent mapping)
+    // When Twilio uses <Dial><Sip>, it creates two call SIDs:
+    // - Child DialCallSid (what we have): SIP outbound leg to LiveKit
+    // - Parent CallSid (what we need): Original inbound call with metadata
+    console.log('[VoiceAgent] 📋 Resolving parent call SID from Redis mapping...');
+    const parentCallSidResult = await getParentCallSid(callSid);
+    let parentCallSid = callSid; // Default to child if no mapping found
+
+    if (parentCallSidResult.success && parentCallSidResult.data?.found) {
+      parentCallSid = parentCallSidResult.data.parent_call_sid || callSid;
+      console.log(
+        `[VoiceAgent] ✅ Parent call SID resolved: ${callSid} → ${parentCallSid}`,
+      );
+    } else {
+      console.log(
+        `[VoiceAgent] ℹ️  No parent mapping found, using call SID as-is: ${callSid}`,
+      );
+    }
+
+    // Step 3.6: Retrieve call metadata from Redis (using parent call SID)
+    // Metadata is stored by IVR using the parent CallSid, so we must use it
+    console.log(
+      `[VoiceAgent] 📋 Retrieving call metadata from Redis (parent SID: ${parentCallSid})...`,
+    );
+    const metadataResult = await getCallMetadata(parentCallSid);
+    let agentProfileId: string | null = null;
+
+    if (metadataResult.success && metadataResult.data?.found) {
+      agentProfileId = metadataResult.data.agent_profile_id || null;
+      console.log(
+        `[VoiceAgent] ✅ Agent Profile ID from Redis metadata: ${agentProfileId}`,
+      );
+    } else {
+      console.log(
+        '[VoiceAgent] ℹ️  No metadata found in Redis, will use default profile',
+      );
     }
 
     // Step 4: Look up tenant by phone number
@@ -137,7 +189,7 @@ async function voiceAgentEntrypoint(ctx: JobContext): Promise<void> {
 
     // Step 6: Load full context
     console.log('[VoiceAgent] 📋 Loading context...');
-    const contextResult = await getContext(tenantId);
+    const contextResult = await getContext(tenantId, agentProfileId);
 
     if (!contextResult.success || !contextResult.data) {
       console.error('[VoiceAgent] ❌ Failed to load context');
@@ -149,6 +201,23 @@ async function voiceAgentEntrypoint(ctx: JobContext): Promise<void> {
     console.log(
       `[VoiceAgent] ✅ Context loaded for: ${context.tenant.company_name}`,
     );
+
+    // Log active agent profile information (Sprint 7: Multi-lingual support)
+    if (context.active_agent_profile) {
+      console.log(
+        `[VoiceAgent] 🌍 Active Agent Profile: ${context.active_agent_profile.title} (${context.active_agent_profile.language_code})`,
+      );
+      console.log(
+        `[VoiceAgent]   - Profile ID: ${context.active_agent_profile.id}`,
+      );
+      console.log(
+        `[VoiceAgent]   - Is Override: ${context.active_agent_profile.is_override ? 'Yes' : 'No'}`,
+      );
+    } else {
+      console.log(
+        '[VoiceAgent] 🌍 Using default language settings (no profile specified)',
+      );
+    }
 
     // Step 6.5: Look up lead by phone number (Sprint 4: agent_sprint_fixes_feb27_4)
     console.log('[VoiceAgent] 🔍 Looking up lead by phone...');
@@ -200,7 +269,7 @@ async function voiceAgentEntrypoint(ctx: JobContext): Promise<void> {
 
     // Step 8: Run agent session
     console.log('[VoiceAgent] 🚀 Starting conversation pipeline...');
-    const session = await runAgentSession(ctx, context, sipAttrs);
+    const session = await runAgentSession(ctx, context, sipAttrs, callLogId);
 
     // Step 9: Complete call log (SUCCESS PATH)
     const durationSeconds = Math.round((Date.now() - startTime) / 1000);
@@ -223,13 +292,17 @@ async function voiceAgentEntrypoint(ctx: JobContext): Promise<void> {
       });
 
       try {
+        const leadId = session.getLeadId();
+        if (leadId) {
+          console.log(`[VoiceAgent] 🔗 Linking call log to lead: ${leadId}`);
+        }
+
         await completeCallLog(callSid, {
           status: 'completed',
           duration_seconds: durationSeconds,
-          outcome: session.getCallOutcome() || 'abandoned', // Sprint 2: Use outcome from end_call tool, fallback to 'abandoned'
+          outcome: session.getCallOutcome() || 'abandoned',
+          lead_id: leadId || undefined,
           usage_records: usageRecords,
-          // transcript_summary: will be added when transcription is implemented
-          // full_transcript: will be added when transcription is implemented
         });
         console.log(
           '[VoiceAgent] ✅ Call log completion request sent successfully',
@@ -294,6 +367,7 @@ async function runAgentSession(
   ctx: JobContext,
   context: VoiceAiContext,
   sipAttrs: { callSid: string | null; callerPhoneNumber: string | null },
+  callLogId?: string | null,
 ): Promise<VoiceAgentSession> {
   console.log(`[VoiceAgent] Greeting: ${context.behavior.greeting}`);
   console.log(
@@ -321,14 +395,28 @@ async function runAgentSession(
   };
 
   // Create HTTP-based tool instances for VAB architecture
-  // These tools use HTTP API calls instead of direct NestJS service access (process isolation)
+  // Tools are conditionally registered based on tenant feature flags
   const tools: AgentTool[] = [
-    new HttpFindLeadTool(),
-    new HttpCreateLeadTool(),
-    new HttpCheckServiceAreaTool(),
-    new HttpTransferCallTool(),
-    new HttpEndCallTool(),
+    new HttpFindLeadTool(),        // Always available
+    new HttpCheckServiceAreaTool(), // Always available
+    new HttpEndCallTool(),          // Always available
   ];
+
+  if (context.behavior.lead_creation_enabled) {
+    tools.push(new HttpCreateLeadTool());
+  }
+  if (context.behavior.transfer_enabled) {
+    tools.push(new HttpTransferCallTool());
+  }
+  if (context.behavior.booking_enabled) {
+    tools.push(new HttpBookAppointmentTool());
+    tools.push(new HttpRescheduleAppointmentTool());
+    tools.push(new HttpCancelAppointmentTool());
+  }
+
+  console.log(
+    `[VoiceAgent] 🔧 Registered ${tools.length} tools: ${tools.map((t) => t.definition.function.name).join(', ')}`,
+  );
 
   console.log(
     '[VoiceAgent] 🚀 Starting VoiceAgentSession with full STT→LLM→TTS pipeline...',
@@ -349,6 +437,7 @@ async function runAgentSession(
     ctx.room as any,
     livekitConfig,
     voiceLogger, // ✅ Now passing VoiceAILogger for full structured logging
+    callLogId || undefined,
   );
 
   try {

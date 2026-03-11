@@ -252,4 +252,16 @@ export class UpdateGlobalConfigDto {
     message: 'Each system error message must be under 150 characters',
   })
   system_error_messages?: string[];
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // Per-tool instruction overrides (Sprint Tool-Audit)
+  // ═════════════════════════════════════════════════════════════════════════
+
+  @ApiPropertyOptional({
+    description:
+      'JSON string of per-tool LLM instruction overrides, e.g. {"find_lead":"...", "create_lead":"..."}',
+  })
+  @IsOptional()
+  @IsString()
+  tool_instructions?: string;
 }

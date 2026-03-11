@@ -37,6 +37,7 @@ import {
 import { SmsMetricsService } from '../services/sms-metrics.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { EncryptionService } from '../../../core/encryption/encryption.service';
+import { VoiceAiCallMetadataService } from '../../voice-ai/services/voice-ai-call-metadata.service';
 import { v4 as uuidv4 } from 'uuid';
 import twilio from 'twilio';
 import {
@@ -85,6 +86,7 @@ export class TwilioWebhooksController {
     private readonly transcriptionService: TranscriptionJobService,
     private readonly smsKeywordDetection: SmsKeywordDetectionService,
     private readonly metrics: SmsMetricsService,
+    private readonly callMetadataService: VoiceAiCallMetadataService,
     @InjectQueue('communication-sms') private readonly smsQueue: Queue,
     private readonly prisma: PrismaService,
     private readonly encryption: EncryptionService,
@@ -1210,6 +1212,105 @@ export class TwilioWebhooksController {
     // Return empty TwiML (call already ended)
     const twiml = new twilio.twiml.VoiceResponse();
     return twiml.toString();
+  }
+
+  /**
+   * SIP Status Callback Webhook
+   *
+   * Receives status callbacks when Twilio dials to LiveKit SIP trunk.
+   * Used to map child DialCallSid → parent CallSid for metadata retrieval.
+   *
+   * Flow:
+   * 1. Twilio dials LiveKit (<Dial><Sip>)
+   * 2. Twilio creates new DialCallSid (child call)
+   * 3. This webhook receives "initiated" event with both CallSid and DialCallSid
+   * 4. We store mapping: child → parent in Redis
+   * 5. Voice agent uses mapping to resolve parent → retrieve metadata
+   *
+   * Why this is needed:
+   * - IVR stores metadata using parent CallSid (original inbound call)
+   * - Voice agent only knows child DialCallSid (SIP outbound leg)
+   * - Without mapping, metadata lookup fails → wrong language used
+   *
+   * Timing:
+   * - "initiated" event fires when dial STARTS (before LiveKit answers)
+   * - Guarantees mapping exists before voice agent starts
+   */
+  @Post('sip/status')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Twilio SIP status callback webhook (PUBLIC)',
+    description: 'Maps child DialCallSid to parent CallSid for multi-lingual support',
+  })
+  @ApiExcludeEndpoint()
+  async handleSipStatusCallback(@Body() body: any) {
+    // CRITICAL: Twilio uses different field names for SIP status callbacks!
+    // For SIP <Dial> callbacks:
+    // - body.ParentCallSid = Original inbound call (what we stored metadata with)
+    // - body.CallSid = Outbound SIP call to LiveKit (what voice agent knows)
+    // - body.CallStatus = "initiated" (not StatusCallbackEvent!)
+    const parentCallSid = body.ParentCallSid; // Original inbound call
+    const childCallSid = body.CallSid; // Outbound SIP call to LiveKit
+    const callStatus = body.CallStatus; // "initiated", "in-progress", "completed", etc.
+
+    this.logger.log('='.repeat(100));
+    this.logger.log('📞 SIP STATUS CALLBACK RECEIVED FROM TWILIO');
+    this.logger.log('='.repeat(100));
+    this.logger.log(`Parent CallSid: ${parentCallSid}`);
+    this.logger.log(`Child CallSid: ${childCallSid}`);
+    this.logger.log(`CallStatus: ${callStatus}`);
+    this.logger.log('='.repeat(100));
+
+    // Store mapping when dial initiates (before LiveKit answers)
+    if (callStatus === 'initiated' && childCallSid && parentCallSid) {
+      try {
+        await this.callMetadataService.storeCallSidMapping(
+          childCallSid,
+          parentCallSid,
+        );
+
+        this.logger.log(
+          `✅ Stored call SID mapping: ${childCallSid} → ${parentCallSid}`,
+        );
+
+        // Extract tenant for logging
+        const callRecord = await this.prisma.call_record.findUnique({
+          where: { twilio_call_sid: parentCallSid },
+          select: { tenant_id: true },
+        });
+
+        if (callRecord?.tenant_id) {
+          const voiceLogger = createVoiceAILogger(
+            callRecord.tenant_id,
+            parentCallSid,
+          );
+          voiceLogger.log(
+            VoiceAILogLevel.INFO,
+            VoiceAILogCategory.SESSION,
+            `🔗 Call SID mapping stored: child ${childCallSid} → parent ${parentCallSid}`,
+            {
+              parent_call_sid: parentCallSid,
+              child_call_sid: childCallSid,
+              call_status: callStatus,
+            },
+          );
+        }
+      } catch (error: any) {
+        this.logger.error(
+          `Failed to store call SID mapping: ${error.message}`,
+        );
+        // Don't throw - mapping failure shouldn't block the call
+        // Voice agent will fall back to default profile if mapping missing
+      }
+    } else {
+      this.logger.warn(
+        `Skipping mapping - callStatus: ${callStatus}, childCallSid: ${childCallSid}, parentCallSid: ${parentCallSid}`,
+      );
+    }
+
+    // Return empty response (Twilio doesn't expect TwiML for status callbacks)
+    return { success: true };
   }
 
   /**

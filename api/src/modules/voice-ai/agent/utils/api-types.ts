@@ -7,11 +7,13 @@
  * Active agent profile metadata included in context when a profile is resolved.
  * Used by the agent worker for call logs and debug traces.
  * Sprint: Voice Multilingual - Sprint 7 (Context Builder)
+ * Sprint 18: Added is_override flag to track tenant customization status
  */
 export interface ActiveAgentProfile {
   id: string;
   title: string;
   language_code: string;
+  is_override: boolean; // Sprint 18: True if tenant has custom greeting/instructions
 }
 
 // Tenant lookup response
@@ -92,13 +94,14 @@ export interface VoiceAiContext {
     lead_creation_enabled: boolean;
     transfer_enabled: boolean;
     max_call_duration_seconds: number;
+    tool_instructions?: Record<string, string> | null;
   };
   providers: {
     stt: ProviderConfig | null;
     llm: ProviderConfig | null;
     tts: (ProviderConfig & { voice_id: string | null }) | null;
   };
-  services: Array<{ name: string; description: string | null }>;
+  services: Array<{ id: string; name: string; description: string | null }>;
   service_areas: Array<{ type: string; value: string; state: string | null }>;
   business_hours: Array<{
     day: string;
@@ -186,6 +189,62 @@ export interface TransferCallResult {
   label?: string;
   reason?: string;
   action?: string; // 'TRANSFER'
+  error?: string;
+}
+
+// Appointment tool response types — Sprint 18/19
+export interface BookAppointmentResult {
+  success: boolean;
+  mode?: 'search' | 'confirm';
+  appointment_id?: string;
+  message?: string;
+  available_slots?: Array<{
+    date: string;
+    day_name: string;
+    start_time: string;
+    end_time: string;
+    start_time_display: string;
+    end_time_display: string;
+  }>;
+  error?: string;
+}
+
+export interface RescheduleAppointmentResult {
+  success: boolean;
+  mode?: 'lookup' | 'confirm';
+  appointment_id?: string;
+  message?: string;
+  current_appointment?: {
+    id: string;
+    date: string;
+    day_name: string;
+    start_time: string;
+    end_time: string;
+    time_display?: string;
+  };
+  available_slots?: Array<{
+    date: string;
+    day_name: string;
+    start_time: string;
+    end_time: string;
+    start_time_display: string;
+    end_time_display: string;
+  }>;
+  error?: string;
+}
+
+export interface CancelAppointmentResult {
+  success: boolean;
+  mode?: 'lookup' | 'confirm';
+  appointment_id?: string;
+  message?: string;
+  active_appointments?: Array<{
+    id: string;
+    date: string;
+    day_name: string;
+    start_time: string;
+    end_time: string;
+  }>;
   error?: string;
 }
 

@@ -152,6 +152,12 @@ export class GlobalConfigResponseDto {
   })
   system_error_messages: string[] | null;
 
+  @ApiPropertyOptional({
+    description: 'Per-tool LLM instruction overrides (JSON string)',
+    nullable: true,
+  })
+  tool_instructions: string | null;
+
   @ApiProperty({ description: 'Last updated timestamp' })
   updated_at: Date;
 

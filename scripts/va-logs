@@ -8,6 +8,11 @@
 ###############################################################################
 
 VOICE_AI_LOG="/var/www/lead360.app/logs/voice-ai-calls.log"
+DEBUG_LOG="/var/www/lead360.app/logs/ai-call-debug.log"
+LOG_DIR="/var/www/lead360.app/logs/debug"
+
+# Create debug log directory if it doesn't exist
+mkdir -p "$LOG_DIR"
 
 case "$1" in
     ""|all)
@@ -60,6 +65,87 @@ case "$1" in
         tail -f "$VOICE_AI_LOG" | grep "TOOL_CALL" --line-buffered
         ;;
 
+    tools-debug|td)
+        LOG_FILE="$LOG_DIR/tools-debug-$(date +%Y%m%d-%H%M%S).log"
+        echo "🔧 Tool Debug Mode - Full Request & Response"
+        echo "   Output file: $LOG_FILE"
+        echo "   Shows: Tool name, parameters (request), result/error (response)"
+        echo "   Press Ctrl+C to stop"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        tail -f "$VOICE_AI_LOG" | python3 -u -c "
+import sys, json, re
+
+block = []
+is_tool = False
+
+for line in sys.stdin:
+    line = line.rstrip('\n')
+    # New log entry starts with [timestamp]
+    if re.match(r'^\[', line):
+        # Process previous block if it was a TOOL_CALL
+        if is_tool and block:
+            header = block[0]
+            # Extract timestamp
+            ts_match = re.search(r'^\[([^\]]+)\]', header)
+            ts = ts_match.group(1) if ts_match else '?'
+            # Extract tool name (strip ANSI codes first)
+            clean = re.sub(r'\x1b\[[0-9;]*m', '', header)
+            tool_match = re.search(r'Tool executed: (\S+)', clean)
+            tool_name = tool_match.group(1) if tool_match else '?'
+
+            # Extract JSON data block
+            data_lines = []
+            in_data = False
+            for b in block:
+                if 'Data: ' in b:
+                    in_data = True
+                    data_lines.append(b.split('Data: ', 1)[1])
+                elif in_data and b.startswith('  '):
+                    data_lines.append(b[2:])  # strip 2-space indent
+                else:
+                    in_data = False
+
+            print()
+            print('━' * 64)
+            print(f'🔧 TOOL: {tool_name}')
+            print(f'⏱️  TIME: {ts}')
+
+            data_str = '\n'.join(data_lines)
+            try:
+                data = json.loads(data_str)
+                params = data.get('parameters', {})
+                result = data.get('result', None)
+                error = data.get('error', None)
+
+                print('📤 REQUEST (parameters):')
+                print(json.dumps(params, indent=4, ensure_ascii=False))
+
+                if error:
+                    print('❌ ERROR:')
+                    if isinstance(error, (dict, list)):
+                        print(json.dumps(error, indent=4, ensure_ascii=False))
+                    else:
+                        print(str(error))
+                elif result is not None:
+                    print('📥 RESPONSE (result):')
+                    print(json.dumps(result, indent=4, ensure_ascii=False))
+                else:
+                    print('📥 RESPONSE: (no result)')
+            except Exception as e:
+                print(f'⚠️  Could not parse data: {e}')
+                if data_str:
+                    print(data_str)
+
+            print('━' * 64)
+            sys.stdout.flush()
+
+        block = [line]
+        is_tool = 'TOOL_CALL' in line
+    else:
+        block.append(line)
+" 2>/dev/null | tee "$LOG_FILE"
+        ;;
+
     errors)
         echo "❌ Errors only (Ctrl+C to exit)"
         tail -f "$VOICE_AI_LOG" | grep "ERROR" --line-buffered
@@ -95,12 +181,99 @@ case "$1" in
         grep -i "$2" "$VOICE_AI_LOG" | tail -n 100
         ;;
 
+    ###########################################################################
+    # DEBUG OPTIONS - Real-time monitoring with file output
+    # Use these to debug specific components while saving logs to files
+    ###########################################################################
+
+    stt-debug|stt-d)
+        LOG_FILE="$LOG_DIR/stt-debug-$(date +%Y%m%d-%H%M%S).log"
+        echo "🎤 STT Debug Mode - ElevenLabs Speech-to-Text"
+        echo "   Output file: $LOG_FILE"
+        echo "   Filtering: ElevenLabsStt, transcript, audio_chunk, session_started"
+        echo "   Press Ctrl+C to stop"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        tail -f "$DEBUG_LOG" | grep -E "ElevenLabsStt|STT|transcript|audio_chunk|session_started|input_audio|Scribe" --line-buffered | tee "$LOG_FILE"
+        ;;
+
+    tts-debug|tts-d)
+        LOG_FILE="$LOG_DIR/tts-debug-$(date +%Y%m%d-%H%M%S).log"
+        echo "🔊 TTS Debug Mode - ElevenLabs Text-to-Speech"
+        echo "   Output file: $LOG_FILE"
+        echo "   Filtering: ElevenLabsTts, Audio chunk, output_format, WebSocket TTS"
+        echo "   Press Ctrl+C to stop"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        tail -f "$DEBUG_LOG" | grep -E "ElevenLabsTts|TTS|Audio chunk|output_format|WebSocket TTS|streamText|pcm_" --line-buffered | tee "$LOG_FILE"
+        ;;
+
+    llm-debug|llm-d)
+        LOG_FILE="$LOG_DIR/llm-debug-$(date +%Y%m%d-%H%M%S).log"
+        echo "🧠 LLM Debug Mode - OpenAI/GPT Responses"
+        echo "   Output file: $LOG_FILE"
+        echo "   Filtering: LLM, OpenAI, chat, tool_calls, Assistant"
+        echo "   Press Ctrl+C to stop"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        tail -f "$DEBUG_LOG" | grep -E "LLM|OpenAI|chat|tool_calls|Assistant:|User said" --line-buffered | tee "$LOG_FILE"
+        ;;
+
+    livekit|lk)
+        LOG_FILE="$LOG_DIR/livekit-debug-$(date +%Y%m%d-%H%M%S).log"
+        echo "📡 LiveKit Debug Mode - Room & Audio Publishing"
+        echo "   Output file: $LOG_FILE"
+        echo "   Filtering: LiveKit, Room, SIP, Publication, Track, audio track"
+        echo "   Press Ctrl+C to stop"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        tail -f "$DEBUG_LOG" | grep -E "LiveKit|Room|SIP|Publication|Track|audio track|participant|subscrib" --line-buffered | tee "$LOG_FILE"
+        ;;
+
+    audio|audio-debug)
+        LOG_FILE="$LOG_DIR/audio-debug-$(date +%Y%m%d-%H%M%S).log"
+        echo "🎵 Audio Pipeline Debug Mode"
+        echo "   Output file: $LOG_FILE"
+        echo "   Filtering: Audio, frame, chunk, capture, buffer, stream, pcm"
+        echo "   Press Ctrl+C to stop"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        tail -f "$DEBUG_LOG" | grep -E "Audio|audio|frame|chunk|captureFrame|buffer|stream|pcm|Int16|sample" --line-buffered | tee "$LOG_FILE"
+        ;;
+
+    full-debug|debug)
+        LOG_FILE="$LOG_DIR/full-debug-$(date +%Y%m%d-%H%M%S).log"
+        echo "🔬 Full Debug Mode - All Components"
+        echo "   Output file: $LOG_FILE"
+        echo "   Showing: All debug logs (unfiltered)"
+        echo "   Press Ctrl+C to stop"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        tail -f "$DEBUG_LOG" | tee "$LOG_FILE"
+        ;;
+
+    flow|call-flow)
+        LOG_FILE="$LOG_DIR/call-flow-$(date +%Y%m%d-%H%M%S).log"
+        echo "📞 Call Flow Debug - End-to-End"
+        echo "   Output file: $LOG_FILE"
+        echo "   Shows: STT → LLM → TTS → Audio pipeline"
+        echo "   Press Ctrl+C to stop"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        tail -f "$DEBUG_LOG" | grep -E "User said|transcript|Assistant|LLM|Streaming|TTS|Audio chunk|captureFrame|Publication" --line-buffered | tee "$LOG_FILE"
+        ;;
+
+    ws|websocket)
+        LOG_FILE="$LOG_DIR/websocket-debug-$(date +%Y%m%d-%H%M%S).log"
+        echo "🔌 WebSocket Debug Mode"
+        echo "   Output file: $LOG_FILE"
+        echo "   Filtering: WebSocket, connection, close, error, reconnect"
+        echo "   Press Ctrl+C to stop"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        tail -f "$DEBUG_LOG" | grep -E "WebSocket|connection|closed|reconnect|🔌|❌.*error" --line-buffered | tee "$LOG_FILE"
+        ;;
+
     help|-h|--help)
         echo "Voice AI Quick Log Viewer"
         echo ""
         echo "Usage: va-logs [option]"
         echo ""
-        echo "Options:"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "BASIC OPTIONS (voice-ai-calls.log):"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo "  (none)         View all logs (default)"
         echo "  all            View all logs"
         echo "  session        View API/routing logs (current activity)"
@@ -110,23 +283,45 @@ case "$1" in
         echo "  llm            View LLM requests/responses"
         echo "  tts            View text-to-speech only"
         echo "  tools          View tool executions"
+        echo "  tools-debug    View tool calls with full request/response (td)"
         echo "  errors         View errors only"
         echo "  clean          View clean conversation flow"
         echo "  last [N]       View last N lines (default: 50)"
         echo "  search <term>  Search for a term"
-        echo "  help           Show this help"
         echo ""
-        echo "Examples:"
-        echo "  va-logs                    # All logs"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "DEBUG OPTIONS (ai-call-debug.log + file output):"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "  tools-debug    🔧 Tool calls with full request & response (td)"
+        echo "  stt-debug      🎤 ElevenLabs STT detailed logs"
+        echo "  tts-debug      🔊 ElevenLabs TTS detailed logs"
+        echo "  llm-debug      🧠 LLM/OpenAI detailed logs"
+        echo "  livekit        📡 LiveKit room & audio publishing"
+        echo "  audio          🎵 Audio pipeline (frames, chunks, capture)"
+        echo "  flow           📞 Call flow (STT → LLM → TTS → Audio)"
+        echo "  ws             🔌 WebSocket connections"
+        echo "  full-debug     🔬 All debug logs (unfiltered)"
+        echo ""
+        echo "  Debug logs are saved to: /var/www/lead360.app/logs/debug/"
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "EXAMPLES:"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "  va-logs                    # All structured logs"
         echo "  va-logs session            # API/routing (what's working now)"
         echo "  va-logs calls              # Call lifecycle"
-        echo "  va-logs conv               # Conversation only (if agent running)"
+        echo "  va-logs conv               # Conversation only"
         echo "  va-logs last 100           # Last 100 lines"
         echo "  va-logs search 'error'     # Search for 'error'"
         echo ""
-        echo "Note: If no conversation logs appear, the voice agent may need to be"
-        echo "      restarted with the latest fixes. Use 'va-logs session' to see"
-        echo "      current API activity."
+        echo "  # Debug mode (real-time + saves to file):"
+        echo "  va-logs stt-debug          # Debug ElevenLabs STT"
+        echo "  va-logs tts-debug          # Debug ElevenLabs TTS"
+        echo "  va-logs livekit            # Debug LiveKit audio"
+        echo "  va-logs flow               # Debug full call flow"
+        echo ""
+        echo "Note: Debug options output to both screen and file."
+        echo "      Files are saved in /var/www/lead360.app/logs/debug/"
         ;;
 
     *)

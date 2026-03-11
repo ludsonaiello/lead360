@@ -3,18 +3,29 @@ import { CartesiaClient } from '@cartesia/cartesia-js';
 import { Cartesia } from '@cartesia/cartesia-js';
 import { TtsProvider, TtsConfig, TtsSession } from './tts.interface';
 import { Readable } from 'stream';
+import { getConfigField, convertFlatToNested } from '../utils/config-helper';
 
 export class CartesiaTtsProvider implements TtsProvider {
   private readonly logger = new Logger(CartesiaTtsProvider.name);
 
   async synthesize(config: TtsConfig): Promise<TtsSession> {
+    // Convert flat config to nested (if schema uses dot notation)
+    const dynamicConfig = convertFlatToNested(config);
+
+    // Get model from config dynamically (try multiple possible field names)
+    const model = getConfigField<string>(
+      dynamicConfig,
+      ['model_id', 'model', 'modelId', 'tts_model'],
+      'sonic-english',
+    );
+
     // Log full TTS request configuration
     this.logger.log(`📋 TTS Request Configuration:`);
     this.logger.log(
       `  - API Key: ${config.apiKey ? config.apiKey.substring(0, 12) + '...' : 'MISSING'}`,
     );
     this.logger.log(`  - Voice ID: ${config.voiceId}`);
-    this.logger.log(`  - Model: ${config.model || 'sonic-english'}`);
+    this.logger.log(`  - Model: ${model}`);
     this.logger.log(`  - Language: ${config.language || 'en'}`);
     this.logger.log(
       `  - Text: "${config.text.substring(0, 100)}..." (${config.text.length} chars)`,
@@ -28,7 +39,7 @@ export class CartesiaTtsProvider implements TtsProvider {
 
     // Prepare TTS request parameters
     const ttsRequest: Cartesia.TtsRequest = {
-      modelId: config.model || 'sonic-english',
+      modelId: model,
       transcript: config.text,
       voice: {
         mode: 'id',
@@ -140,7 +151,7 @@ export class CartesiaTtsProvider implements TtsProvider {
       //       // Log request params for debugging
       //       this.logger.error(`  Request params:`);
       //       this.logger.error(`    - Voice ID: ${config.voiceId}`);
-      //       this.logger.error(`    - Model: ${config.model || 'sonic-english'}`);
+      //       this.logger.error(`    - Model: ${model}`);
       //       this.logger.error(`    - Text length: ${config.text.length}`);
       //       this.logger.error(`    - Sample rate: ${config.outputFormat?.sampleRate || 16000}`);
 
@@ -227,7 +238,7 @@ export class CartesiaTtsProvider implements TtsProvider {
           this.logger.error(`  Error stack: ${error.stack}`);
           this.logger.error(`  Request params:`);
           this.logger.error(`    - Voice ID: ${config.voiceId}`);
-          this.logger.error(`    - Model: ${config.model || 'sonic-english'}`);
+          this.logger.error(`    - Model: ${model}`);
           this.logger.error(`    - Text length: ${config.text.length}`);
           this.logger.error(
             `    - Sample rate: ${config.outputFormat?.sampleRate || 16000}`,

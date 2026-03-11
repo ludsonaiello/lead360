@@ -7,12 +7,35 @@ import {
   LlmSession,
   LlmToolCall,
 } from './llm.interface';
+import { getConfigField, convertFlatToNested } from '../utils/config-helper';
 
 export class OpenAiLlmProvider implements LlmProvider {
   private readonly logger = new Logger(OpenAiLlmProvider.name);
 
   async chat(config: LlmChatConfig): Promise<LlmSession> {
     const client = new OpenAI({ apiKey: config.apiKey });
+
+    // Convert flat config to nested (if schema uses dot notation)
+    const dynamicConfig = convertFlatToNested(config);
+
+    // Get model and temperature from config dynamically
+    const model = getConfigField<string>(
+      dynamicConfig,
+      ['model_id', 'model', 'llm_model'],
+      'gpt-4o',
+    );
+
+    const temperature = getConfigField<number>(
+      dynamicConfig,
+      ['temperature', 'temp'],
+      0.7,
+    );
+
+    const maxTokens = getConfigField<number>(
+      dynamicConfig,
+      ['max_tokens', 'maxTokens'],
+      config.maxTokens ?? 200,
+    );
 
     const messages: ChatCompletionMessageParam[] = [
       { role: 'system' as const, content: config.systemPrompt || '' },
@@ -21,12 +44,12 @@ export class OpenAiLlmProvider implements LlmProvider {
 
     // Create streaming chat completion
     const stream = await client.chat.completions.create({
-      model: config.model || 'gpt-4o',
+      model,
       messages,
       tools: config.tools?.length ? config.tools : undefined,
       tool_choice: config.tools?.length ? 'auto' : undefined,
-      temperature: config.temperature ?? 0.7,
-      max_tokens: config.maxTokens ?? 200,
+      temperature,
+      max_tokens: maxTokens,
       stream: true,
       stream_options: { include_usage: true }, // Request usage data in stream
     });

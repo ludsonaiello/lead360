@@ -186,6 +186,8 @@ export interface GlobalConfig {
   filler_phrases?: string[] | null;
   long_wait_messages?: string[] | null;
   system_error_messages?: string[] | null;
+  // Sprint Tool-Audit: Per-tool instruction overrides
+  tool_instructions?: string | null; // JSON string
   updated_at: string; // ISO date string
   updated_by: string; // User ID
 }
@@ -220,6 +222,8 @@ export interface UpdateGlobalConfigRequest {
   filler_phrases?: string[] | null;
   long_wait_messages?: string[] | null;
   system_error_messages?: string[] | null;
+  // Sprint Tool-Audit: Per-tool instruction overrides
+  tool_instructions?: string | null;
 }
 
 /**
@@ -388,6 +392,8 @@ export interface TenantVoiceAISettings {
   default_transfer_number: string | null;
   default_transfer_number_id: string | null;
   max_call_duration_seconds: number | null;
+  // Per-tool instruction overrides
+  tool_instructions: string | null; // JSON string
   // Admin-set fields (view-only for tenants)
   monthly_minutes_override: number | null;
   admin_notes: string | null;

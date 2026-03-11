@@ -14,7 +14,12 @@ export interface LlmToolDefinition {
       type: 'object';
       properties: Record<
         string,
-        { type: string; description?: string; enum?: string[] }
+        {
+          type: string;
+          description?: string;
+          enum?: string[];
+          items?: { type: string };
+        }
       >;
       required: string[];
     };
@@ -71,7 +76,7 @@ export const AGENT_TOOLS: LlmToolDefinition[] = [
     function: {
       name: 'create_lead',
       description:
-        'Create a new lead record. Only call after confirming name, phone, and address. If a lead with this phone number already exists, returns the existing lead information instead of creating a duplicate (check the lead_exists field in response).',
+        'Create a new lead record. Only call after confirming name, phone, and address. Use service IDs from context.services when specifying requested_service_ids. If a lead with this phone number already exists, returns the existing lead information instead of creating a duplicate (check the lead_exists field in response).',
       parameters: {
         type: 'object',
         properties: {
@@ -88,7 +93,13 @@ export const AGENT_TOOLS: LlmToolDefinition[] = [
           zip_code: { type: 'string', description: 'ZIP code' },
           service_description: {
             type: 'string',
-            description: 'What service they need',
+            description: 'What service they need (freeform description)',
+          },
+          requested_service_ids: {
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              'Array of service IDs from context.services that match the requested service(s). Use the id field from each service in context.services.',
           },
           language: {
             type: 'string',
@@ -191,7 +202,7 @@ export const AGENT_TOOLS: LlmToolDefinition[] = [
           notes: {
             type: 'string',
             description:
-              'Any additional notes about the appointment (optional)',
+              'REQUIRED when confirming: Include lead full name, full address, phone number, service requested, and a brief summary of the call conversation.',
           },
         },
         required: ['lead_id'],
@@ -203,15 +214,10 @@ export const AGENT_TOOLS: LlmToolDefinition[] = [
     function: {
       name: 'reschedule_appointment',
       description:
-        'Reschedule an existing appointment to a new date/time. Verifies caller identity before allowing reschedule. Call with lead_id first to get current appointment and available slots, then call again with appointment_id, new_date, and new_time to confirm the reschedule.',
+        'Reschedule an existing appointment to a new date/time. Verifies caller identity automatically. Call with lead_id first to get current appointment and available slots, then call again with appointment_id, new_date, new_time, and reason to confirm the reschedule.',
       parameters: {
         type: 'object',
         properties: {
-          call_log_id: {
-            type: 'string',
-            description:
-              'The UUID of the current call log (required for identity verification)',
-          },
           lead_id: {
             type: 'string',
             description: 'The UUID of the lead requesting reschedule',
@@ -231,8 +237,13 @@ export const AGENT_TOOLS: LlmToolDefinition[] = [
             description:
               'New start time in HH:MM format (provide when caller confirms new time)',
           },
+          reason: {
+            type: 'string',
+            description:
+              'Reason for rescheduling. Include original appointment notes plus why the caller is rescheduling.',
+          },
         },
-        required: ['call_log_id', 'lead_id'],
+        required: ['lead_id'],
       },
     },
   },
@@ -241,15 +252,10 @@ export const AGENT_TOOLS: LlmToolDefinition[] = [
     function: {
       name: 'cancel_appointment',
       description:
-        'Cancel an existing appointment. Verifies caller identity before allowing cancellation. Call with lead_id first to get active appointments, then call again with appointment_id to confirm the cancellation.',
+        'Cancel an existing appointment. Verifies caller identity automatically. Call with lead_id first to get active appointments, then call again with appointment_id to confirm the cancellation.',
       parameters: {
         type: 'object',
         properties: {
-          call_log_id: {
-            type: 'string',
-            description:
-              'The UUID of the current call log (required for identity verification)',
-          },
           lead_id: {
             type: 'string',
             description: 'The UUID of the lead requesting cancellation',
@@ -265,7 +271,7 @@ export const AGENT_TOOLS: LlmToolDefinition[] = [
               'Reason for cancellation (optional - defaults to customer_cancelled)',
           },
         },
-        required: ['call_log_id', 'lead_id'],
+        required: ['lead_id'],
       },
     },
   },

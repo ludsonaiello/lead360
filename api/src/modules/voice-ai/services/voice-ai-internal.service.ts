@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { v4 as uuidv4 } from 'uuid';
 import {
   VoiceAiContextBuilderService,
   FullVoiceAiContext,
@@ -6,6 +7,7 @@ import {
 import { VoiceCallLogService } from './voice-call-log.service';
 import { UsageRecordData } from './voice-usage.service';
 import { VoiceTransferNumbersService } from './voice-transfer-numbers.service';
+import { VoiceAiCallMetadataService } from './voice-ai-call-metadata.service';
 import { StartCallDto } from '../dto/start-call.dto';
 import { CompleteCallDto } from '../dto/complete-call.dto';
 import { LookupTenantResponseDto } from '../dto/internal/lookup-tenant.dto';
@@ -88,6 +90,7 @@ export class VoiceAiInternalService {
     private readonly appointmentsService: AppointmentsService,
     private readonly appointmentTypesService: AppointmentTypesService,
     private readonly appointmentLifecycleService: AppointmentLifecycleService,
+    private readonly callMetadataService: VoiceAiCallMetadataService,
   ) {}
 
   /**
@@ -160,6 +163,48 @@ export class VoiceAiInternalService {
     agentProfileId?: string,
   ): Promise<FullVoiceAiContext> {
     return this.contextBuilder.buildContext(tenantId, callSid, agentProfileId);
+  }
+
+  /**
+   * Get call metadata (agent profile ID) from Redis
+   *
+   * Retrieves metadata stored by IVR before routing to SIP.
+   * Used by voice agent to get agent profile ID without passing through SIP protocol.
+   *
+   * @param callSid Twilio call SID
+   * @returns Metadata with agent profile ID or null
+   */
+  async getCallMetadata(callSid: string) {
+    const metadata = await this.callMetadataService.getCallMetadata(callSid);
+    return {
+      found: !!metadata,
+      agent_profile_id: metadata?.agent_profile_id || null,
+      tenant_id: metadata?.tenant_id || null,
+    };
+  }
+
+  /**
+   * Get parent call SID from child call SID
+   *
+   * Resolves child DialCallSid (SIP outbound) → parent CallSid (inbound).
+   * Used by voice agent to retrieve metadata when only child SID is known.
+   *
+   * Flow:
+   * 1. Voice agent knows child DialCallSid (from LiveKit SIP participant)
+   * 2. Call this to resolve parent CallSid
+   * 3. Use parent CallSid to retrieve metadata (agent profile ID)
+   *
+   * @param childCallSid Twilio DialCallSid (SIP outbound leg)
+   * @returns Parent call SID mapping
+   */
+  async getParentCallSid(childCallSid: string) {
+    const parentCallSid =
+      await this.callMetadataService.getParentCallSid(childCallSid);
+    return {
+      found: !!parentCallSid,
+      parent_call_sid: parentCallSid,
+      child_call_sid: childCallSid,
+    };
   }
 
   /**
@@ -244,6 +289,42 @@ export class VoiceAiInternalService {
    * @returns    { call_log_id: string }
    */
   async startCall(dto: StartCallDto): Promise<{ call_log_id: string }> {
+    // Resolve call_record_id from Redis metadata
+    // The voice agent knows the child CallSid; metadata is stored with parent CallSid
+    let callRecordId: string | undefined;
+    let parentCallSid: string | undefined;
+
+    try {
+      // Try direct metadata lookup first (child CallSid might match parent)
+      let metadata = await this.callMetadataService.getCallMetadata(
+        dto.call_sid,
+      );
+
+      // If not found, resolve parent CallSid from child mapping
+      if (!metadata) {
+        const parentSid = await this.callMetadataService.getParentCallSid(
+          dto.call_sid,
+        );
+        if (parentSid) {
+          metadata = await this.callMetadataService.getCallMetadata(parentSid);
+          parentCallSid = parentSid;
+        }
+      } else {
+        parentCallSid = metadata.parent_call_sid ?? undefined;
+      }
+
+      if (metadata?.call_record_id) {
+        callRecordId = metadata.call_record_id;
+        this.logger.log(
+          `🔗 Resolved call_record_id=${callRecordId} for call_sid=${dto.call_sid}`,
+        );
+      }
+    } catch (err: any) {
+      this.logger.warn(
+        `⚠️ Failed to resolve call_record_id for ${dto.call_sid}: ${err.message}`,
+      );
+    }
+
     return this.callLogService.startCall({
       tenantId: dto.tenant_id,
       callSid: dto.call_sid,
@@ -256,6 +337,8 @@ export class VoiceAiInternalService {
       sttProviderId: dto.stt_provider_id,
       llmProviderId: dto.llm_provider_id,
       ttsProviderId: dto.tts_provider_id,
+      callRecordId,
+      parentCallSid,
     });
   }
 
@@ -411,13 +494,21 @@ export class VoiceAiInternalService {
             is_primary: true,
           },
         ],
-        service_request: dto.service_description
-          ? {
-              service_name: 'Voice AI Call',
-              service_description: dto.service_description,
-              urgency: 'medium',
-            }
-          : undefined,
+        service_request:
+          dto.service_description || dto.requested_service_ids?.length
+            ? {
+                service_name: 'Voice AI Call',
+                service_description: dto.service_description || '',
+                urgency: 'medium',
+                // Store requested service IDs in extra_data for proper service association
+                extra_data: dto.requested_service_ids?.length
+                  ? {
+                      requested_service_ids: dto.requested_service_ids,
+                      source: 'voice_ai',
+                    }
+                  : { source: 'voice_ai' },
+              }
+            : undefined,
       };
 
       // Call LeadsService.create() with tenant_id and null userId (system action)
@@ -762,7 +853,7 @@ export class VoiceAiInternalService {
     );
 
     try {
-      // Step 1: Validate lead exists and belongs to tenant
+      // Step 1: Validate lead exists and belongs to tenant (include address + phone for calendar)
       const lead = await this.prisma.lead.findFirst({
         where: {
           id: dto.lead_id,
@@ -772,6 +863,20 @@ export class VoiceAiInternalService {
           id: true,
           first_name: true,
           last_name: true,
+          addresses: {
+            where: { is_primary: true },
+            take: 1,
+          },
+          phones: {
+            where: { is_primary: true },
+            take: 1,
+          },
+          service_requests: {
+            where: { status: { not: 'completed' } },
+            orderBy: { created_at: 'desc' },
+            take: 1,
+            select: { id: true, lead_address_id: true },
+          },
         },
       });
 
@@ -830,6 +935,31 @@ export class VoiceAiInternalService {
         const endMinutes = totalMinutes % 60;
         const end_time = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
 
+        // Find or create service_request so Google Calendar gets location + service info
+        let serviceRequestId: string | undefined;
+        const primaryAddress = lead.addresses?.[0];
+
+        if (lead.service_requests?.[0]) {
+          // Use existing active service_request
+          serviceRequestId = lead.service_requests[0].id;
+          this.logger.log(`[Tool] Using existing service_request: ${serviceRequestId}`);
+        } else if (primaryAddress) {
+          // Create a service_request linked to lead's address for calendar location
+          const sr = await this.prisma.service_request.create({
+            data: {
+              id: uuidv4(),
+              tenant_id: tenantId,
+              lead_id: dto.lead_id,
+              lead_address_id: primaryAddress.id,
+              service_name: defaultType.name,
+              status: 'new',
+              description: dto.notes || null,
+            },
+          });
+          serviceRequestId = sr.id;
+          this.logger.log(`[Tool] Created service_request: ${serviceRequestId} with address ${primaryAddress.id}`);
+        }
+
         // Create appointment using AppointmentsService
         const appointment = await this.appointmentsService.create(
           tenantId,
@@ -837,6 +967,7 @@ export class VoiceAiInternalService {
           {
             appointment_type_id: defaultType.id,
             lead_id: dto.lead_id,
+            service_request_id: serviceRequestId,
             scheduled_date: dto.confirmed_date!,
             start_time: dto.confirmed_start_time!,
             end_time: end_time,
@@ -847,16 +978,24 @@ export class VoiceAiInternalService {
 
         this.logger.log(`[Tool] Appointment created: ${appointment.id}`);
 
+        // Build human-readable date/time for voice
+        const bookedDate = new Date(dto.confirmed_date! + 'T12:00:00');
+        const bookedDayName = bookedDate.toLocaleDateString('en-US', { weekday: 'long' });
+        const bookedTimeDisplay = this.formatTimeForVoice(dto.confirmed_start_time!);
+
         return {
           status: 'appointment_booked',
-          message: `Appointment confirmed for ${lead.first_name} ${lead.last_name} on ${dto.confirmed_date} at ${dto.confirmed_start_time}`,
+          message: `Appointment confirmed for ${lead.first_name} ${lead.last_name} on ${bookedDayName} at ${bookedTimeDisplay}`,
           appointment_id: appointment.id,
           appointment: {
             id: appointment.id,
             appointment_type: defaultType.name,
             scheduled_date: appointment.scheduled_date,
+            day_name: bookedDayName,
             start_time: appointment.start_time,
             end_time: appointment.end_time,
+            start_time_display: bookedTimeDisplay,
+            end_time_display: this.formatTimeForVoice(appointment.end_time),
             lead_name: `${lead.first_name} ${lead.last_name}`,
           },
         };
@@ -921,11 +1060,15 @@ export class VoiceAiInternalService {
         }
 
         // Flatten available slots for Voice AI (easier to present conversationally)
+        // Times are converted to human-readable 12-hour AM/PM format so the LLM
+        // never has to interpret raw 24-hour codes (avoids TTS reading "zero nine zero zero")
         const flatSlots: Array<{
           date: string;
           day_name: string;
           start_time: string;
           end_time: string;
+          start_time_display: string;
+          end_time_display: string;
         }> = [];
 
         for (const dateEntry of slotsResult.available_dates) {
@@ -935,6 +1078,8 @@ export class VoiceAiInternalService {
               day_name: dateEntry.day_name,
               start_time: slot.start_time,
               end_time: slot.end_time,
+              start_time_display: this.formatTimeForVoice(slot.start_time),
+              end_time_display: this.formatTimeForVoice(slot.end_time),
             });
           }
         }
@@ -1129,6 +1274,7 @@ export class VoiceAiInternalService {
             {
               new_scheduled_date: dto.new_date!,
               new_start_time: dto.new_time!,
+              reason: dto.reason,
             },
           );
 
@@ -1136,11 +1282,16 @@ export class VoiceAiInternalService {
           `[Tool] Appointment rescheduled successfully. New appointment: ${result.newAppointment.id}`,
         );
 
+        // Human-readable date/time for voice
+        const reschDate = new Date(dto.new_date! + 'T12:00:00');
+        const reschDayName = reschDate.toLocaleDateString('en-US', { weekday: 'long' });
+        const reschTimeDisplay = this.formatTimeForVoice(dto.new_time!);
+
         return {
           status: 'rescheduled',
           new_appointment_id: result.newAppointment.id,
           old_appointment_id: dto.appointment_id!,
-          message: `Your appointment has been rescheduled to ${dto.new_date} at ${dto.new_time}`,
+          message: `Your appointment has been rescheduled to ${reschDayName} at ${reschTimeDisplay}`,
           confirmation_sent: true,
         };
       } else {
@@ -1217,18 +1368,36 @@ export class VoiceAiInternalService {
           };
         }
 
+        // Flatten and add display times for voice readability
+        const flatSlots = slotsResult.available_dates.flatMap((dateEntry) =>
+          dateEntry.slots.map((slot) => ({
+            date: dateEntry.date,
+            day_name: dateEntry.day_name,
+            start_time: slot.start_time,
+            end_time: slot.end_time,
+            start_time_display: this.formatTimeForVoice(slot.start_time),
+            end_time_display: this.formatTimeForVoice(slot.end_time),
+          })),
+        );
+
+        // Get day name for current appointment date
+        const currentDate = new Date(currentAppointment.scheduled_date + 'T12:00:00');
+        const currentDayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+
         return {
           status: 'slots_available',
           current_appointment: {
             id: currentAppointment.id,
             date: currentAppointment.scheduled_date,
+            day_name: currentDayName,
             time: currentAppointment.start_time,
+            time_display: this.formatTimeForVoice(currentAppointment.start_time),
             type: appointmentType.name,
           },
-          available_slots: slotsResult.available_dates,
-          message: `Your current appointment is ${currentAppointment.scheduled_date} at ${currentAppointment.start_time}. Next available times are...`,
+          available_slots: flatSlots,
+          message: `Your current appointment is on ${currentDayName} at ${this.formatTimeForVoice(currentAppointment.start_time)}. Here are the available times to reschedule.`,
           action:
-            'Voice AI should present slots conversationally and ask caller to choose',
+            'Voice AI should present slots conversationally using day_name and start_time_display fields',
         };
       }
     } catch (error) {
@@ -1606,5 +1775,16 @@ export class VoiceAiInternalService {
       // This prevents the call from crashing if lead lookup fails
       return { found: false, lead: null };
     }
+  }
+
+  /**
+   * Convert 24-hour time (HH:MM) to human-readable 12-hour format for voice.
+   * Examples: "09:00" → "9 AM", "14:30" → "2:30 PM", "12:00" → "12 PM"
+   */
+  private formatTimeForVoice(time: string): string {
+    const [h, m] = time.split(':').map(Number);
+    const period = h >= 12 ? 'P.M' : 'A.M';
+    const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return m === 0 ? `${hour12} ${period}` : `${hour12}:${String(m).padStart(2, '0')} ${period}`;
   }
 }

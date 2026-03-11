@@ -18,6 +18,7 @@ import {
   IvrActionType,
 } from '../dto/ivr/create-ivr-config.dto';
 import { VoiceAiSipService } from '../../voice-ai/services/voice-ai-sip.service';
+import { VoiceAiCallMetadataService } from '../../voice-ai/services/voice-ai-call-metadata.service';
 import { createVoiceAILogger } from '../../voice-ai/utils/voice-ai-logger.util';
 
 /**
@@ -66,6 +67,7 @@ export class IvrConfigurationService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly voiceAiSipService: VoiceAiSipService,
+    private readonly callMetadataService: VoiceAiCallMetadataService,
   ) {
     this.apiBaseUrl =
       this.config.get<string>('API_BASE_URL') || 'https://api.lead360.app';
@@ -549,12 +551,48 @@ export class IvrConfigurationService {
         'SESSION' as any,
         '✅ Quota check passed, routing to LiveKit SIP',
       );
-      // NEW: Pass agentProfileId to buildSipTwiml (will fix signature in Sprint 6)
+
+      // Look up call_record to get its ID and mark as voice_ai-handled
+      let callRecordId: string | null = null;
+      if (callSid) {
+        try {
+          const callRecord = await this.prisma.call_record.findUnique({
+            where: { twilio_call_sid: callSid },
+            select: { id: true },
+          });
+          if (callRecord) {
+            callRecordId = callRecord.id;
+            // Mark call_record as handled by voice_ai
+            await this.prisma.call_record.update({
+              where: { id: callRecord.id },
+              data: { handled_by: 'voice_ai' },
+            });
+            this.logger.log(
+              `✅ call_record ${callRecord.id} marked as handled_by=voice_ai`,
+            );
+          }
+        } catch (err: any) {
+          this.logger.warn(
+            `⚠️ Failed to update call_record for voice_ai handoff: ${err.message}`,
+          );
+        }
+      }
+
+      // Store call metadata for voice agent to retrieve later
+      // Includes call_record_id so voice agent can link voice_call_log → call_record
+      await this.callMetadataService.storeCallMetadata(callSid, {
+        tenant_id: tenantId,
+        agent_profile_id: agentProfileId || null,
+        call_record_id: callRecordId,
+        parent_call_sid: callSid,
+        timestamp: Date.now(),
+      });
+
       return this.voiceAiSipService.buildSipTwiml(
         tenantId,
         callSid,
         toNumber,
-        agentProfileId, // NEW PARAMETER
+        agentProfileId,
       );
     }
 

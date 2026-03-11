@@ -106,6 +106,8 @@ export class ServiceRequestsService {
           requested_date: serviceRequestData.requested_date,
           estimated_value: serviceRequestData.estimated_value,
           notes: serviceRequestData.notes,
+          // Merge any additional extra_data from Voice AI (e.g., requested_service_ids)
+          ...(serviceRequestData.extra_data || {}),
         },
       },
     });

@@ -2,14 +2,25 @@ import { Logger } from '@nestjs/common';
 import { createClient, LiveTranscriptionEvents } from '@deepgram/sdk';
 import type { LiveTranscriptionEvent } from '@deepgram/sdk';
 import { SttProvider, SttConfig, SttSession } from './stt.interface';
+import { getConfigField, convertFlatToNested } from '../utils/config-helper';
 
 export class DeepgramSttProvider implements SttProvider {
   private readonly logger = new Logger(DeepgramSttProvider.name);
 
   async startTranscription(config: SttConfig): Promise<SttSession> {
+    // Convert flat config to nested (if schema uses dot notation)
+    const dynamicConfig = convertFlatToNested(config);
+
+    // Get model from config dynamically (try multiple possible field names)
+    const model = getConfigField<string>(
+      dynamicConfig,
+      ['model_id', 'model', 'stt_model'],
+      'nova-2-phonecall',
+    );
+
     // Log the STT configuration being used (Sprint 5: STT Config from DB)
     this.logger.log('[DeepgramSTT] Starting transcription with config:', {
-      model: config.model || 'nova-2-phonecall',
+      model,
       language: config.language,
       endpointing: config.endpointing ?? 800,
       utterance_end_ms: config.utterance_end_ms ?? 2000,
@@ -18,11 +29,15 @@ export class DeepgramSttProvider implements SttProvider {
       punctuate: config.punctuate ?? true,
     });
 
-    const deepgram = createClient(config.apiKey);
+    // Deepgram SDK v3+ requires an options object with 'key' property
+    // DEBUG: Log API key presence and format
+    this.logger.log(`🔍 DEBUG: Deepgram API Key: ${config.apiKey ? `${config.apiKey.substring(0, 10)}... (length: ${config.apiKey.length})` : 'MISSING'}`);
 
-    const connection = deepgram.listen.live({
+    const deepgram = createClient({ key: config.apiKey });
+
+    const connectionOptions = {
       language: config.language,
-      model: config.model || 'nova-2-phonecall',
+      model,
       encoding: 'linear16',
       sample_rate: config.sampleRate || 16000,
       channels: 1,
@@ -35,7 +50,11 @@ export class DeepgramSttProvider implements SttProvider {
       endpointing: config.endpointing ?? 800,
       utterance_end_ms: config.utterance_end_ms ?? 2000,
       vad_events: config.vad_events ?? true,
-    });
+    };
+
+    this.logger.log(`🔍 DEBUG: Deepgram connection options: ${JSON.stringify(connectionOptions)}`);
+
+    const connection = deepgram.listen.live(connectionOptions);
 
     // Track usage: session start time for duration calculation
     const startTime = Date.now();
@@ -66,7 +85,10 @@ export class DeepgramSttProvider implements SttProvider {
           );
         }
         if (event === 'error') {
-          connection.on(LiveTranscriptionEvents.Error, handler);
+          connection.on(LiveTranscriptionEvents.Error, (error) => {
+            this.logger.error(`❌ Deepgram error details: ${JSON.stringify(error, null, 2)}`);
+            handler(error);
+          });
         }
       },
       close: async () => {

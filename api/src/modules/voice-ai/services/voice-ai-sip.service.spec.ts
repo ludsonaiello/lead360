@@ -107,9 +107,8 @@ describe('VoiceAiSipService', () => {
       expect(twiml).toContain(
         '<SipHeader name="X-Agent-Profile-Id">profile-uuid-123</SipHeader>',
       );
-      expect(twiml).toContain(
-        '<SipHeader name="X-Twilio-Number">+15551234567</SipHeader>',
-      );
+      // Verify toNumber is passed as query parameter in SIP URI
+      expect(twiml).toContain('?X-Called-Number=%2B15551234567');
     });
 
     it('should not include X-Agent-Profile-Id header when agentProfileId not provided', async () => {
@@ -120,9 +119,9 @@ describe('VoiceAiSipService', () => {
       const twiml = await service.buildSipTwiml(tenantId, callSid, toNumber);
 
       expect(twiml).not.toContain('X-Agent-Profile-Id');
-      expect(twiml).toContain(
-        '<SipHeader name="X-Twilio-Number">+15551234567</SipHeader>',
-      );
+      expect(twiml).not.toContain('X-Twilio-Number');
+      // Verify toNumber is passed as query parameter in SIP URI
+      expect(twiml).toContain('?X-Called-Number=%2B15551234567');
     });
 
     it('should escape XML special characters in profile ID', async () => {
@@ -140,19 +139,6 @@ describe('VoiceAiSipService', () => {
       expect(twiml).toContain('&amp;'); // & escaped
       expect(twiml).toContain('&quot;'); // " escaped
       expect(twiml).toContain('&apos;'); // ' escaped
-    });
-
-    it('should escape XML special characters in toNumber', async () => {
-      const toNumber = '+1555<test>123'; // Malicious input
-
-      const twiml = await service.buildSipTwiml(
-        'tenant-123',
-        'CA123',
-        toNumber,
-      );
-
-      expect(twiml).toContain('&lt;'); // < escaped
-      expect(twiml).toContain('&gt;'); // > escaped
     });
 
     it('should generate valid TwiML with both toNumber and agentProfileId', async () => {
@@ -181,16 +167,17 @@ describe('VoiceAiSipService', () => {
       expect(twiml).toContain('</Dial>');
 
       // Check Sip element
-      expect(twiml).toContain('<Sip>sip:voice-ai@livekit.example.com');
+      expect(twiml).toContain('<Sip>');
+      expect(twiml).toContain('sip:voice-ai@livekit.example.com');
       expect(twiml).toContain('</Sip>');
 
       // Check SIP headers are inside Sip element
       expect(twiml).toContain(
-        '<SipHeader name="X-Twilio-Number">+15551234567</SipHeader>',
-      );
-      expect(twiml).toContain(
         '<SipHeader name="X-Agent-Profile-Id">profile-uuid-abc</SipHeader>',
       );
+
+      // Verify toNumber is passed as query parameter in SIP URI
+      expect(twiml).toContain('?X-Called-Number=%2B15551234567');
 
       // Check consent message
       expect(twiml).toContain(
@@ -198,7 +185,7 @@ describe('VoiceAiSipService', () => {
       );
     });
 
-    it('should generate valid TwiML with only toNumber (no agentProfileId)', async () => {
+    it('should generate valid TwiML without agentProfileId', async () => {
       const tenantId = 'tenant-123';
       const callSid = 'CA123';
       const toNumber = '+15551234567';
@@ -211,14 +198,16 @@ describe('VoiceAiSipService', () => {
       expect(twiml).toContain('</Response>');
 
       // Check Sip element
-      expect(twiml).toContain('<Sip>sip:voice-ai@livekit.example.com');
+      expect(twiml).toContain('<Sip>');
+      expect(twiml).toContain('sip:voice-ai@livekit.example.com');
       expect(twiml).toContain('</Sip>');
 
-      // Check only X-Twilio-Number header is present
-      expect(twiml).toContain(
-        '<SipHeader name="X-Twilio-Number">+15551234567</SipHeader>',
-      );
+      // Verify no SIP headers present
+      expect(twiml).not.toContain('X-Twilio-Number');
       expect(twiml).not.toContain('X-Agent-Profile-Id');
+
+      // Verify toNumber is passed as query parameter in SIP URI
+      expect(twiml).toContain('?X-Called-Number=%2B15551234567');
     });
 
     it('should generate valid TwiML with neither toNumber nor agentProfileId', async () => {
@@ -233,10 +222,112 @@ describe('VoiceAiSipService', () => {
       expect(twiml).toContain('</Response>');
 
       // Check Sip element without headers
-      expect(twiml).toContain('<Sip>sip:voice-ai@livekit.example.com</Sip>');
+      expect(twiml).toContain('<Sip>');
+      expect(twiml).toContain('sip:voice-ai@livekit.example.com');
+      expect(twiml).toContain('</Sip>');
 
       // No SIP headers should be present
       expect(twiml).not.toContain('<SipHeader');
+
+      // Verify no query parameter when toNumber not provided
+      expect(twiml).not.toContain('X-Called-Number');
+    });
+
+    it('should properly separate SIP URI and headers with newlines', async () => {
+      const tenantId = 'tenant-123';
+      const callSid = 'CA123';
+      const agentProfileId = 'profile-uuid-123';
+
+      const twiml = await service.buildSipTwiml(
+        tenantId,
+        callSid,
+        undefined,
+        agentProfileId,
+      );
+
+      // Extract Sip element content
+      const sipMatch = twiml.match(/<Sip>([\s\S]*?)<\/Sip>/);
+      expect(sipMatch).toBeTruthy();
+
+      const sipContent = sipMatch[1];
+
+      // Verify structure: URI and header on separate lines with whitespace
+      expect(sipContent).toMatch(/sip:voice-ai@[\w.-]+\s+<SipHeader/);
+
+      // Verify URI is not immediately followed by tag (no concatenation)
+      expect(sipContent).not.toMatch(/sip:voice-ai@[\w.-]+<SipHeader/);
+
+      // Verify multiple lines exist
+      expect(sipContent.split('\n').length).toBeGreaterThan(1);
+
+      // Verify no query parameter when toNumber not provided
+      expect(twiml).not.toContain('X-Called-Number');
+    });
+
+    it('should properly indent SIP URI and headers', async () => {
+      const tenantId = 'tenant-123';
+      const callSid = 'CA123';
+      const agentProfileId = 'profile-uuid-123';
+
+      const twiml = await service.buildSipTwiml(
+        tenantId,
+        callSid,
+        undefined,
+        agentProfileId,
+      );
+
+      // Verify proper indentation (6 spaces for nested content)
+      expect(twiml).toContain('    <Sip>\n      sip:voice-ai@');
+      expect(twiml).toContain('      <SipHeader name="X-Agent-Profile-Id">');
+      expect(twiml).toContain('\n    </Sip>');
+
+      // Verify no query parameter when toNumber not provided
+      expect(twiml).not.toContain('X-Called-Number');
+    });
+
+    it('should properly structure Sip element when no headers present', async () => {
+      const tenantId = 'tenant-123';
+      const callSid = 'CA123';
+
+      const twiml = await service.buildSipTwiml(tenantId, callSid);
+
+      // Verify structure without headers
+      const sipMatch = twiml.match(/<Sip>([\s\S]*?)<\/Sip>/);
+      expect(sipMatch).toBeTruthy();
+
+      const sipContent = sipMatch[1];
+
+      // Should still have newlines even without headers
+      expect(sipContent).toContain('\n');
+      expect(sipContent).toContain('sip:voice-ai@livekit.example.com');
+
+      // Verify no SipHeader tags present
+      expect(sipContent).not.toContain('<SipHeader');
+    });
+
+    it('should include X-Agent-Profile-Id but never X-Twilio-Number', async () => {
+      const tenantId = 'tenant-123';
+      const callSid = 'CA123';
+      const toNumber = '+15551234567';
+      const agentProfileId = 'profile-uuid-123';
+
+      const twiml = await service.buildSipTwiml(
+        tenantId,
+        callSid,
+        toNumber,
+        agentProfileId,
+      );
+
+      // X-Agent-Profile-Id should be present
+      expect(twiml).toContain(
+        '<SipHeader name="X-Agent-Profile-Id">profile-uuid-123</SipHeader>',
+      );
+
+      // X-Twilio-Number should NEVER be present (even when toNumber provided)
+      expect(twiml).not.toContain('X-Twilio-Number');
+
+      // Verify toNumber is passed as query parameter in SIP URI
+      expect(twiml).toContain('?X-Called-Number=%2B15551234567');
     });
 
     it('should handle missing LiveKit SIP trunk URL gracefully', async () => {

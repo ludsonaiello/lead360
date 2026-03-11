@@ -95,7 +95,20 @@ export default function ProviderConfigBuilder({
             if (value) {
               try {
                 const parsed = JSON.parse(value);
-                Object.assign(initialData, parsed);
+                console.log('[ProviderConfigBuilder] Parsed old value:', parsed);
+                console.log('[ProviderConfigBuilder] Current schema fields:', parsedFields.map(f => f.name));
+
+                // CRITICAL: Only keep fields that exist in the current provider's schema
+                // When switching providers, this prevents old provider fields from being retained
+                Object.keys(parsed).forEach((key) => {
+                  if (parsedFields.find((f) => f.name === key)) {
+                    initialData[key] = parsed[key];
+                    console.log(`[ProviderConfigBuilder] Kept field: ${key} = ${parsed[key]}`);
+                  } else {
+                    console.log(`[ProviderConfigBuilder] DISCARDED field: ${key} (not in schema)`);
+                  }
+                  // Else: field not in current schema, discard it (prevents mixed provider configs)
+                });
               } catch {
                 // Invalid JSON, use defaults
               }
@@ -105,9 +118,11 @@ export default function ProviderConfigBuilder({
             parsedFields.forEach((field) => {
               if (!(field.name in initialData) && field.default !== undefined) {
                 initialData[field.name] = field.default;
+                console.log(`[ProviderConfigBuilder] Added default: ${field.name} = ${field.default}`);
               }
             });
 
+            console.log('[ProviderConfigBuilder] Final initialData:', initialData);
             setFormData(initialData);
           }
         }
@@ -134,6 +149,8 @@ export default function ProviderConfigBuilder({
     const newData = { ...formData, [fieldName]: fieldValue };
     setFormData(newData);
     const json = JSON.stringify(newData);
+    console.log('[ProviderConfigBuilder] Field changed:', fieldName, '=', fieldValue);
+    console.log('[ProviderConfigBuilder] Sending to parent:', json);
     setRawJson(json);
     onChange(json);
   };

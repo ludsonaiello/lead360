@@ -16,6 +16,9 @@ import {
   FindLeadResult,
   CheckServiceAreaResult,
   TransferCallResult,
+  BookAppointmentResult,
+  RescheduleAppointmentResult,
+  CancelAppointmentResult,
   FindLeadByPhoneResponse,
 } from './api-types';
 
@@ -51,10 +54,44 @@ export async function checkAccess(
  */
 export async function getContext(
   tenantId: string,
+  agentProfileId?: string | null,
 ): Promise<ApiResponse<VoiceAiContext>> {
   console.log(`[Agent API] Loading context for tenant: ${tenantId}`);
-  return apiGet<VoiceAiContext>(
-    `/api/v1/internal/voice-ai/tenant/${tenantId}/context`,
+
+  // Build URL with optional agent_profile_id query parameter
+  let url = `/api/v1/internal/voice-ai/tenant/${tenantId}/context`;
+  if (agentProfileId) {
+    url += `?agent_profile_id=${encodeURIComponent(agentProfileId)}`;
+    console.log(`[Agent API]   - Agent Profile ID: ${agentProfileId}`);
+  }
+
+  return apiGet<VoiceAiContext>(url);
+}
+
+/**
+ * Get call metadata from Redis
+ */
+export async function getCallMetadata(
+  callSid: string,
+): Promise<ApiResponse<{ found: boolean; agent_profile_id?: string | null; tenant_id?: string | null }>> {
+  console.log(`[Agent API] Retrieving call metadata for: ${callSid}`);
+  return apiGet(
+    `/api/v1/internal/voice-ai/call/${callSid}/metadata`,
+  );
+}
+
+/**
+ * Get parent call SID from child call SID
+ *
+ * Resolves child DialCallSid (SIP outbound) → parent CallSid (inbound).
+ * Used when voice agent only knows child SID but needs to retrieve metadata.
+ */
+export async function getParentCallSid(
+  childCallSid: string,
+): Promise<ApiResponse<{ found: boolean; parent_call_sid?: string | null }>> {
+  console.log(`[Agent API] Resolving parent call SID for: ${childCallSid}`);
+  return apiGet(
+    `/api/v1/internal/voice-ai/call/${childCallSid}/parent`,
   );
 }
 
@@ -180,10 +217,14 @@ export async function toolCreateLead(
     state: string;
     zip_code: string;
     service_description?: string;
+    requested_service_ids?: string[];
     language?: string;
   },
 ): Promise<ApiResponse<CreateLeadResult>> {
   console.log(`[Agent API] Creating lead for tenant: ${tenantId}`);
+  if (data.requested_service_ids?.length) {
+    console.log(`[Agent API]   - Requested service IDs: ${data.requested_service_ids.join(', ')}`);
+  }
   return apiPost<CreateLeadResult>(
     `/api/v1/internal/voice-ai/tenant/${tenantId}/tools/create_lead`,
     data,
@@ -234,6 +275,65 @@ export async function toolTransferCall(
   return apiPost<TransferCallResult>(
     `/api/v1/internal/voice-ai/tenant/${tenantId}/tools/transfer_call`,
     { reason, destination },
+  );
+}
+
+/**
+ * Book an appointment for a lead
+ */
+export async function toolBookAppointment(
+  tenantId: string,
+  data: {
+    lead_id: string;
+    preferred_date?: string;
+    confirmed_date?: string;
+    confirmed_start_time?: string;
+    notes?: string;
+  },
+): Promise<ApiResponse<BookAppointmentResult>> {
+  console.log(`[Agent API] Booking appointment for tenant: ${tenantId}`);
+  return apiPost<BookAppointmentResult>(
+    `/api/v1/internal/voice-ai/tenant/${tenantId}/tools/book_appointment`,
+    data,
+  );
+}
+
+/**
+ * Reschedule an existing appointment
+ */
+export async function toolRescheduleAppointment(
+  tenantId: string,
+  data: {
+    call_log_id: string;
+    lead_id: string;
+    appointment_id?: string;
+    new_date?: string;
+    new_time?: string;
+  },
+): Promise<ApiResponse<RescheduleAppointmentResult>> {
+  console.log(`[Agent API] Rescheduling appointment for tenant: ${tenantId}`);
+  return apiPost<RescheduleAppointmentResult>(
+    `/api/v1/internal/voice-ai/tenant/${tenantId}/tools/reschedule_appointment`,
+    data,
+  );
+}
+
+/**
+ * Cancel an existing appointment
+ */
+export async function toolCancelAppointment(
+  tenantId: string,
+  data: {
+    call_log_id: string;
+    lead_id: string;
+    appointment_id?: string;
+    reason?: string;
+  },
+): Promise<ApiResponse<CancelAppointmentResult>> {
+  console.log(`[Agent API] Cancelling appointment for tenant: ${tenantId}`);
+  return apiPost<CancelAppointmentResult>(
+    `/api/v1/internal/voice-ai/tenant/${tenantId}/tools/cancel_appointment`,
+    data,
   );
 }
 

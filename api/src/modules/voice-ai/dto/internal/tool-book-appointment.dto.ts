@@ -97,6 +97,8 @@ export class BookAppointmentToolResponseDto {
     day_name: string;
     start_time: string;
     end_time: string;
+    start_time_display: string;
+    end_time_display: string;
   }>;
 
   @ApiPropertyOptional({ description: 'Total number of available slots found' })
@@ -110,8 +112,11 @@ export class BookAppointmentToolResponseDto {
     id: string;
     appointment_type: string;
     scheduled_date: string;
+    day_name: string;
     start_time: string;
     end_time: string;
+    start_time_display: string;
+    end_time_display: string;
     lead_name: string;
   };
 

@@ -5,15 +5,17 @@ export interface TtsProvider {
 
 export interface TtsConfig {
   apiKey: string;
-  voiceId: string; // Cartesia voice ID (e.g., from voice_ai_global_config.default_voice_id)
+  voiceId: string; // Provider voice ID
   text: string;
   language?: string; // 'en', 'es', 'pt'
-  model?: string; // 'sonic-english', 'sonic-multilingual'
+  model?: string; // Provider-specific model name
   outputFormat?: {
-    container: string; // 'raw'
-    encoding: string; // 'pcm_s16le' for LiveKit
-    sampleRate: number; // 16000 or 24000
+    container: string;
+    encoding: string;
+    sampleRate: number;
   };
+  // Allow any additional provider-specific fields
+  [key: string]: unknown;
 }
 
 export interface TtsSession {
@@ -84,12 +86,20 @@ export interface StreamingTtsProvider {
 /**
  * Configuration for WebSocket-based streaming TTS.
  * Populated from context.providers.tts (dynamic configuration).
+ *
+ * Core fields (apiKey, voiceId, language) are universal across all providers.
+ * Common provider fields (model, sampleRate, encoding) are optional and provider-specific.
+ * Additional provider-specific fields are passed through via index signature.
+ *
+ * This allows providers to define their own schemas without backend code changes.
  */
 export interface StreamingTtsConfig {
   apiKey: string;
   voiceId: string;
-  model?: string; // From config.model (default: 'sonic-3')
-  language?: string; // From config.language (default: 'en')
-  sampleRate?: number; // From config.outputFormat?.sampleRate (default: 16000)
-  encoding?: string; // From config.outputFormat?.encoding (default: 'pcm_s16le')
+  language?: string;
+  model?: string; // Provider-specific model name
+  sampleRate?: number; // Audio sample rate (typically 16000)
+  encoding?: string; // Audio encoding (e.g., 'pcm_s16le')
+  // Allow any additional provider-specific fields
+  [key: string]: unknown;
 }

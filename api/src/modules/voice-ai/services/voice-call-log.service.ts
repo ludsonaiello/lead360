@@ -183,6 +183,8 @@ export class VoiceCallLogService {
     sttProviderId?: string;
     llmProviderId?: string;
     ttsProviderId?: string;
+    callRecordId?: string;
+    parentCallSid?: string;
   }): Promise<{ call_log_id: string }> {
     // Idempotency: check for existing call_sid before creating
     const existing = await this.prisma.voice_call_log.findUnique({
@@ -198,6 +200,7 @@ export class VoiceCallLogService {
       data: {
         tenant_id: data.tenantId,
         call_sid: data.callSid,
+        parent_call_sid: data.parentCallSid ?? null,
         room_name: data.roomName ?? null,
         from_number: data.fromNumber,
         to_number: data.toNumber,
@@ -211,6 +214,26 @@ export class VoiceCallLogService {
       },
       select: { id: true },
     });
+
+    // Link voice_call_log to parent call_record (bidirectional FK)
+    if (data.callRecordId) {
+      try {
+        await this.prisma.call_record.update({
+          where: { id: data.callRecordId },
+          data: {
+            voice_call_log_id: log.id,
+            handled_by: 'voice_ai',
+          },
+        });
+        this.logger.log(
+          `🔗 Linked voice_call_log ${log.id} to call_record ${data.callRecordId}`,
+        );
+      } catch (err: any) {
+        this.logger.warn(
+          `⚠️ Failed to link voice_call_log to call_record: ${err.message}`,
+        );
+      }
+    }
 
     return { call_log_id: log.id };
   }
@@ -310,6 +333,29 @@ export class VoiceCallLogService {
             data.usageRecords,
           );
           this.logger.log(`  - Usage records created successfully`);
+        }
+
+        // 3. Sync key fields back to linked call_record
+        // This ensures the canonical call_record has AI outcome data
+        const linkedCallRecord = await tx.call_record.findFirst({
+          where: { voice_call_log_id: callLog.id },
+          select: { id: true },
+        });
+
+        if (linkedCallRecord) {
+          await tx.call_record.update({
+            where: { id: linkedCallRecord.id },
+            data: {
+              outcome: data.outcome ?? null,
+              duration_seconds: data.durationSeconds ?? null,
+              lead_id: data.leadId ?? undefined, // Only update if provided
+              status: data.status === 'completed' ? 'completed' : undefined,
+              ended_at: new Date(),
+            },
+          });
+          this.logger.log(
+            `🔗 Synced call completion to call_record ${linkedCallRecord.id}`,
+          );
         }
       });
 

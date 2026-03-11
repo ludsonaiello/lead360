@@ -739,6 +739,7 @@ unknown unknown
     String to_number 
     String status 
     String call_type 
+    String handled_by 
     String call_reason "❓"
     String outcome "❓"
     Int duration_seconds "❓"
@@ -875,6 +876,7 @@ unknown unknown
     Json filler_phrases "❓"
     Json long_wait_messages "❓"
     Json system_error_messages "❓"
+    String tool_instructions "❓"
     DateTime created_at 
     DateTime updated_at 
     String updated_by "❓"
@@ -903,6 +905,7 @@ unknown unknown
     String llm_config_override "❓"
     String tts_config_override "❓"
     String voice_id_override "❓"
+    String tool_instructions "❓"
     DateTime created_at 
     DateTime updated_at 
     String updated_by "❓"
@@ -957,6 +960,7 @@ unknown unknown
   "voice_call_log" {
     String id "🗝️"
     String call_sid 
+    String parent_call_sid "❓"
     String room_name "❓"
     String from_number 
     String to_number 
@@ -1893,6 +1897,7 @@ unknown unknown
     "call_record" }o--|o "tenant" : "tenant"
     "call_record" }o--|o lead : "lead"
     "call_record" }o--|o "user" : "initiated_by_user"
+    "call_record" |o--|o voice_call_log : "voice_call_log"
     "ivr_configuration" |o--|| "tenant" : "tenant"
     "office_number_whitelist" }o--|| "tenant" : "tenant"
     "call_transcription" }o--|o "tenant" : "tenant"

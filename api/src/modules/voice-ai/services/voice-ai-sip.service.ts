@@ -129,29 +129,15 @@ export class VoiceAiSipService {
       ].join('\n');
     }
 
-    // Build SIP headers array
-    const sipHeaders: string[] = [];
-
-    // Always include Twilio number if provided
-    if (toNumber) {
-      sipHeaders.push(
-        `<SipHeader name="X-Twilio-Number">${this.escapeXml(toNumber)}</SipHeader>`,
-      );
-    }
-
-    // Include agent profile ID if provided
-    if (agentProfileId) {
-      sipHeaders.push(
-        `<SipHeader name="X-Agent-Profile-Id">${this.escapeXml(agentProfileId)}</SipHeader>`,
-      );
-    }
-
     this.logger.log(
       `Routing call ${callSid} to LiveKit SIP for tenant ${tenantId}`,
     );
 
     // Build callback URL for SIP dial results
     const actionUrl = `https://${tenant?.subdomain || 'app'}.lead360.app/api/v1/twilio/sip/dial-result`;
+
+    // Build status callback URL for SIP call SID mapping (child → parent)
+    const statusCallbackUrl = `https://${tenant?.subdomain || 'app'}.lead360.app/api/v1/twilio/sip/status`;
 
     // Build recording callback URL (uses same webhook as IVR calls)
     const recordingCallbackUrl = `https://${tenant?.subdomain || 'app'}.lead360.app/api/v1/twilio/recording/ready`;
@@ -167,13 +153,39 @@ export class VoiceAiSipService {
         twilio_number: toNumber,
         agent_profile_id: agentProfileId,
         action_url: actionUrl,
+        status_callback_url: statusCallbackUrl,
         recording_callback_url: recordingCallbackUrl,
-        sip_headers: sipHeaders.length > 0 ? sipHeaders : 'none',
-        note: 'SIP headers passed to LiveKit. Action URL will capture SIP response codes. Call recording enabled with dual-channel capture.',
+        note: 'Agent profile ID stored in Redis. Status callback will map child→parent CallSid. Call routed with clean SIP URI (phone number only). Recording enabled with dual-channel capture.',
       },
     );
 
-    // Build TwiML with SIP headers
+    // Build Sip element with proper XML structure
+    // CLEAN SIP URI: Phone number ONLY (no query params, no headers)
+    //
+    // Use the actual Twilio phone number as the SIP URI username.
+    // LiveKit's sip.trunkPhoneNumber attribute will automatically extract this value,
+    // enabling proper tenant lookup without workarounds.
+    //
+    // Agent profile ID is stored in Redis (not passed via SIP) to avoid
+    // concatenation issues that occur when mixing data in SIP protocol.
+    let sipUri = `sip:${livekitUrl}`;
+    if (toNumber) {
+      // Use phone number as SIP username (standard SIP routing)
+      sipUri = `sip:${toNumber}@${livekitUrl}`;
+    }
+    // NO query parameters, NO headers - clean SIP URI
+
+    // Format with proper indentation (6 spaces for nested content)
+    // Add statusCallback to enable call SID mapping (child → parent)
+    // The "initiated" event fires when dial starts (before LiveKit answers)
+    // This creates the mapping BEFORE voice agent starts, ensuring it's available
+    const sipElement = [
+      `    <Sip statusCallback="${statusCallbackUrl}" statusCallbackEvent="initiated">`,
+      `      ${sipUri}`,
+      '    </Sip>',
+    ].join('\n');
+
+    // Build TwiML with properly structured Sip element
     // The action URL receives DialSipResponseCode when the dial completes
     // This is CRITICAL for debugging - shows WHY LiveKit accepted/rejected the call
     // Recording is enabled with record-from-answer-dual to capture both caller and AI agent
@@ -188,7 +200,7 @@ export class VoiceAiSipService {
       '        record="record-from-answer-dual"',
       `        recordingStatusCallback="${recordingCallbackUrl}"`,
       '        recordingStatusCallbackMethod="POST">',
-      `    <Sip>sip:voice-ai@${livekitUrl}${sipHeaders.join('')}</Sip>`,
+      sipElement,
       '  </Dial>',
       '</Response>',
     ].join('\n');

@@ -120,6 +120,7 @@ export class CallManagementService {
             to_number: To,
             status: 'initiated',
             call_type: 'office_bypass_call',
+            handled_by: 'office_bypass',
             consent_message_played: false,
             lead_id: leadId, // Link to lead if found
           },
@@ -159,6 +160,7 @@ export class CallManagementService {
                 to_number: To,
                 status: 'initiated',
                 call_type: 'ivr_routed_call',
+                handled_by: 'ivr',
                 consent_message_played: true, // IVR plays consent message
                 lead_id: leadId, // Link to lead if found
               },
@@ -201,6 +203,7 @@ export class CallManagementService {
           to_number: To,
           status: 'initiated',
           call_type: 'customer_call',
+          handled_by: 'direct',
           consent_message_played: false,
           lead_id: leadId, // Link to lead if found
         },
@@ -390,7 +393,8 @@ export class CallManagementService {
       this.logger.log(`🟢 Call ${callSid} marked as in_progress`);
 
       // Start recording via Twilio API
-      if (call_record.tenant_id) {
+      // Skip for voice_ai calls — SIP TwiML already has record="record-from-answer-dual"
+      if (call_record.tenant_id && call_record.handled_by !== 'voice_ai') {
         const config = await this.getTenantTwilioConfig(call_record.tenant_id);
         const credentials = JSON.parse(
           this.encryption.decrypt(config.credentials),
@@ -413,6 +417,10 @@ export class CallManagementService {
         });
 
         this.logger.log(`🎙️  Recording started for call ${callSid}`);
+      } else if (call_record.handled_by === 'voice_ai') {
+        this.logger.log(
+          `🤖 Voice AI call ${callSid} — recording handled by SIP TwiML, skipping API recording`,
+        );
       }
     } catch (error) {
       this.logger.error(
@@ -478,12 +486,14 @@ export class CallManagementService {
       }
 
       // Update CallRecord
+      // For voice_ai calls, the AI agent's completeCall() may have already set outcome/duration.
+      // We still update status/ended_at/cost from Twilio (source of truth for Twilio billing).
       await this.prisma.call_record.update({
         where: { id: call_record.id },
         data: {
           status: 'completed',
-          ended_at: new Date(),
-          duration_seconds: duration,
+          ended_at: call_record.ended_at ?? new Date(), // Don't overwrite if AI agent set it
+          duration_seconds: call_record.duration_seconds ?? duration, // Prefer AI-provided duration
           ...(cost !== null && { cost }),
         },
       });
@@ -627,15 +637,39 @@ export class CallManagementService {
             recording_status: 'available',
           },
         });
+
+        // If call_record is linked to a voice_call_log, sync recording there too
+        if (call_record?.voice_call_log_id) {
+          try {
+            await this.prisma.voice_call_log.update({
+              where: { id: call_record.voice_call_log_id },
+              data: {
+                recording_url: publicUrl,
+                recording_duration_seconds: duration,
+                recording_status: 'available',
+              },
+            });
+            this.logger.log(
+              `🔗 Recording synced to linked voice_call_log ${call_record.voice_call_log_id}`,
+            );
+          } catch (syncErr: any) {
+            this.logger.warn(
+              `⚠️ Failed to sync recording to voice_call_log: ${syncErr.message}`,
+            );
+          }
+        }
       }
 
       this.logger.log(
         `✅ Recording stored for ${callType} call ${callSid}: ${publicUrl}`,
       );
 
-      // Auto-queue transcription job (only for IVR calls)
+      // Auto-queue transcription job (only for IVR calls without AI handling)
       // Voice AI calls already have real-time transcription via STT
-      if (this.transcriptionJobService && !isVoiceAiCall) {
+      const isAiHandled =
+        isVoiceAiCall ||
+        (call_record as any)?.handled_by === 'voice_ai';
+      if (this.transcriptionJobService && !isAiHandled) {
         try {
           await this.transcriptionJobService.queueTranscription(callRecord.id);
           this.logger.log(
@@ -647,7 +681,7 @@ export class CallManagementService {
           );
           // Don't throw - recording is still successful even if transcription fails to queue
         }
-      } else if (isVoiceAiCall) {
+      } else if (isAiHandled) {
         this.logger.log(
           `🤖 Voice AI call already has real-time transcription, skipping recording transcription`,
         );

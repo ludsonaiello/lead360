@@ -98,6 +98,12 @@ export class TenantVoiceAiSettingsDto {
   })
   max_call_duration_seconds: number | null;
 
+  @ApiPropertyOptional({
+    description: 'Per-tool LLM instruction overrides (JSON string)',
+    nullable: true,
+  })
+  tool_instructions: string | null;
+
   @ApiProperty({
     description: 'Record creation timestamp',
     example: '2026-01-15T10:30:00Z',

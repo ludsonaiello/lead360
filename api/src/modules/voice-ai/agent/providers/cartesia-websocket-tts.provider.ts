@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import WebSocket from 'ws';
 import { StreamingTtsProvider, StreamingTtsConfig } from './tts.interface';
+import { getConfigField, convertFlatToNested } from '../utils/config-helper';
 
 /**
  * Cartesia WebSocket TTS Provider — Sprint BAS-TTS-01
@@ -57,12 +58,32 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
    * @param config Dynamic configuration from context.providers.tts
    */
   async connect(config: StreamingTtsConfig): Promise<void> {
-    this.config = config;
+    // DEBUG: Log what we're receiving
+    this.logger.log('🔍 DEBUG: Raw config received:');
+    this.logger.log(JSON.stringify(config, null, 2));
+
+    // Convert to nested for dynamic field access
+    const nestedConfig = convertFlatToNested(config);
+
+    this.logger.log('🔍 DEBUG: After convertFlatToNested:');
+    this.logger.log(JSON.stringify(nestedConfig, null, 2));
+
+    // ✅ FIX: Store NESTED config (not original) so buildTtsMessage() can access dynamic fields
+    this.config = nestedConfig as StreamingTtsConfig;
+
+    // Get model from config dynamically (try multiple possible field names)
+    const model = getConfigField<string>(
+      this.config,
+      ['model_id', 'model', 'modelId', 'tts_model'],
+      'sonic-english',
+    );
+
+    this.logger.log(`🔍 DEBUG: Model resolved to: ${model}`);
 
     const wsUrl = `wss://api.cartesia.ai/tts/websocket?api_key=${config.apiKey}&cartesia_version=2025-04-16`;
 
     this.logger.log('🔌 Connecting to Cartesia WebSocket TTS...');
-    this.logger.log(`  Model: ${config.model || 'sonic-3'}`);
+    this.logger.log(`  Model: ${model}`);
     this.logger.log(`  Voice ID: ${config.voiceId}`);
     this.logger.log(`  Language: ${config.language || 'en'}`);
     this.logger.log(`  Sample Rate: ${config.sampleRate || 16000}Hz`);
@@ -317,8 +338,21 @@ export class CartesiaWebSocketTtsProvider implements StreamingTtsProvider {
       throw new Error('TTS config not initialized');
     }
 
+    // DEBUG: Log config being used
+    this.logger.debug('🔍 DEBUG buildTtsMessage: Config keys available:');
+    this.logger.debug(Object.keys(this.config).join(', '));
+
+    // Get model from config dynamically
+    const model = getConfigField<string>(
+      this.config,
+      ['model_id', 'model', 'modelId', 'tts_model'],
+      'sonic-english',
+    );
+
+    this.logger.debug(`🔍 DEBUG buildTtsMessage: Model resolved to: ${model}`);
+
     return {
-      model_id: this.config.model || 'sonic-3',
+      model_id: model,
       transcript: text,
       voice: {
         mode: 'id',

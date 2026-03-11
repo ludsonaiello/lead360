@@ -55,6 +55,7 @@ import { VoiceAiWebhookService } from './services/voice-ai-webhook.service';
 import { VoiceAgentService } from './agent/voice-agent.service';
 import { VoiceAiGlobalAgentProfilesService } from './services/voice-ai-global-agent-profiles.service';
 import { VoiceAgentProfilesService } from './services/voice-agent-profiles.service';
+import { VoiceAiCallMetadataService } from './services/voice-ai-call-metadata.service';
 
 /**
  * VoiceAiModule
@@ -128,6 +129,7 @@ import { VoiceAgentProfilesService } from './services/voice-agent-profiles.servi
     VoiceAgentService, // BAS19: LiveKit agent worker (OnModuleInit)
     VoiceAiGlobalAgentProfilesService, // Sprint 16: global agent profiles service
     VoiceAgentProfilesService, // Sprint 17: tenant agent profile overrides service
+    VoiceAiCallMetadataService, // Sprint 6: Call metadata storage (Redis) for multi-lingual routing
     // Sprint B10: BullMQ processors + cron scheduler + stuck call cleanup
     VoiceAiQuotaResetProcessor,
     VoiceAiUsageSyncProcessor,
@@ -145,6 +147,7 @@ import { VoiceAgentProfilesService } from './services/voice-agent-profiles.servi
     VoiceCallLogService, // used by B09 quota guard and B07 tenant/admin endpoints
     VoiceUsageService, // used by B09 quota guard and B07 usage endpoints
     VoiceAiSipService, // used by CommunicationModule IvrConfigurationService (B08)
+    VoiceAiCallMetadataService, // used by CommunicationModule IvrConfigurationService + VoiceAiInternalService
   ],
 })
 export class VoiceAiModule {}

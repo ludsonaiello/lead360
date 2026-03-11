@@ -935,6 +935,8 @@ model call_record {
   to_number                  String    @db.VarChar(20)
   status                     String    @db.VarChar(20) // 'initiated' | 'ringing' | 'in_progress' | 'completed' | 'failed' | 'no_answer' | 'busy' | 'canceled'
   call_type                  String    @db.VarChar(30) // 'customer_call' | 'office_bypass_call' | 'ivr_routed_call'
+  handled_by                 String    @default("direct") @db.VarChar(20) // 'direct' | 'ivr' | 'voice_ai' | 'office_bypass'
+  voice_call_log_id          String?   @unique @db.VarChar(36) // FK to voice_call_log when handled by AI
   initiated_by               String?   @db.VarChar(36) // User ID if outbound
   call_reason                String?   @db.Text
   outcome                    String?   @db.VarChar(50) // Call outcome (matched to voice_call_log)
@@ -955,12 +957,14 @@ model call_record {
   lead              lead?                @relation("lead_call_records", fields: [lead_id], references: [id], onDelete: SetNull)
   initiated_by_user user?                @relation("user_initiated_calls", fields: [initiated_by], references: [id], onDelete: SetNull)
   transcriptions    call_transcription[] // One-to-many: allows retries
+  voice_call_log    voice_call_log?      @relation("call_record_voice_log", fields: [voice_call_log_id], references: [id], onDelete: SetNull)
 
   // Indexes
   @@index([tenant_id, created_at])
   @@index([tenant_id, status])
   @@index([tenant_id, lead_id])
   @@index([tenant_id, outcome])
+  @@index([tenant_id, handled_by])
   @@index([twilio_call_sid])
   @@index([from_number])
   @@index([to_number])
@@ -1152,6 +1156,10 @@ model voice_ai_global_config {
   long_wait_messages    Json? // During long tool execution (>20s)
   system_error_messages Json? // Generic system errors
 
+  // Per-tool usage instruction overrides (Sprint Tool-Audit)
+  // JSON object: { "general_rules": "...", "find_lead": "...", ... }
+  tool_instructions String? @db.LongText
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   updated_by String?  @db.VarChar(36)
@@ -1187,6 +1195,12 @@ model tenant_voice_ai_settings {
   llm_config_override        String?  @db.Text
   tts_config_override        String?  @db.Text
   voice_id_override          String?  @db.VarChar(100)
+
+  // Per-tool usage instruction overrides (Sprint Tool-Audit)
+  // JSON object: { "find_lead": "...", "create_lead": "...", ... }
+  // Tenant overrides merge on top of global defaults (per-key)
+  tool_instructions          String?  @db.LongText
+
   created_at                 DateTime @default(now())
   updated_at                 DateTime @updatedAt
   updated_by                 String?  @db.VarChar(36)
@@ -1272,6 +1286,7 @@ model voice_call_log {
   id                         String    @id @default(uuid()) @db.VarChar(36)
   tenant_id                  String    @db.VarChar(36)
   call_sid                   String    @unique @db.VarChar(100)
+  parent_call_sid            String?   @db.VarChar(100) // Parent Twilio CallSid (inbound leg)
   room_name                  String?   @db.VarChar(100)
   from_number                String    @db.VarChar(20)
   to_number                  String    @db.VarChar(20)
@@ -1302,11 +1317,13 @@ model voice_call_log {
   tenant        tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   lead          lead?                @relation(fields: [lead_id], references: [id])
   usage_records voice_usage_record[]
+  call_record   call_record?         @relation("call_record_voice_log") // Back-relation to parent call_record
 
   @@index([tenant_id])
   @@index([tenant_id, started_at])
   @@index([tenant_id, status])
   @@index([call_sid])
+  @@index([parent_call_sid])
   @@index([tenant_id, outcome])
   @@index([recording_status])
   @@map("voice_call_log")

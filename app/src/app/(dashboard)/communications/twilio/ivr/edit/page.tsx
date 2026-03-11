@@ -74,6 +74,7 @@ const ivrMenuOptionSchema: z.ZodType<any> = z.lazy(() =>
         (val) => (val === '' || val === null || val === undefined) ? undefined : val,
         z.number().min(60).max(300).optional()
       ),
+      agent_profile_id: z.string().uuid().optional(),
     }),
     submenu: z
       .object({

@@ -4,6 +4,8 @@ import {
   IsNotEmpty,
   IsEmail,
   Matches,
+  IsArray,
+  IsUUID,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SanitizePhone } from '../../../../common/validators/formatted-inputs';
@@ -61,6 +63,16 @@ export class CreateLeadToolDto {
   @IsString()
   @IsOptional()
   service_description?: string;
+
+  @ApiPropertyOptional({
+    example: ['uuid-of-service-1', 'uuid-of-service-2'],
+    description: 'Array of service IDs that the caller is requesting',
+    type: [String],
+  })
+  @IsArray()
+  @IsUUID('all', { each: true })
+  @IsOptional()
+  requested_service_ids?: string[];
 
   @ApiPropertyOptional({ example: 'en', description: 'Language: en, es, pt' })
   @IsString()

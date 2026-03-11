@@ -260,6 +260,66 @@ export class VoiceAiInternalController {
     return this.internalService.getContext(tenantId, callSid, agentProfileId);
   }
 
+  /**
+   * GET /api/v1/internal/voice-ai/call/:callSid/metadata
+   *
+   * Retrieves call metadata (agent profile ID) from Redis.
+   * Used by voice agent to get agent profile ID without passing through SIP.
+   *
+   * Response: { found: boolean, agent_profile_id: string | null, tenant_id: string | null }
+   */
+  @Get('call/:callSid/metadata')
+  @ApiOperation({
+    summary: 'Get call metadata',
+    description:
+      'Retrieves metadata stored for a call (agent profile ID, etc.). ' +
+      'Metadata is stored by IVR before routing and retrieved by voice agent.',
+  })
+  @ApiParam({
+    name: 'callSid',
+    description: 'Twilio call SID',
+    type: String,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Call metadata (may be null if not found/expired)',
+  })
+  getCallMetadata(@Param('callSid') callSid: string) {
+    return this.internalService.getCallMetadata(callSid);
+  }
+
+  /**
+   * GET /api/v1/internal/voice-ai/call/:callSid/parent
+   *
+   * Resolves parent call SID from child call SID (for SIP dial mapping).
+   * Used by voice agent to map child DialCallSid → parent CallSid → metadata.
+   *
+   * When Twilio uses <Dial><Sip>, it creates two call SIDs:
+   * - Parent CallSid: Original inbound call (has metadata)
+   * - Child DialCallSid: Outbound SIP leg to LiveKit (voice agent knows this)
+   *
+   * Response: { found: boolean, parent_call_sid: string | null, child_call_sid: string }
+   */
+  @Get('call/:callSid/parent')
+  @ApiOperation({
+    summary: 'Get parent call SID from child call SID',
+    description:
+      'Resolves parent call SID for SIP dial child calls. ' +
+      'Used to retrieve metadata when voice agent only knows child DialCallSid.',
+  })
+  @ApiParam({
+    name: 'callSid',
+    description: 'Child Twilio DialCallSid (SIP outbound leg)',
+    type: String,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Parent call SID mapping (may be null if not found)',
+  })
+  getParentCallSid(@Param('callSid') callSid: string) {
+    return this.internalService.getParentCallSid(callSid);
+  }
+
   // ---------------------------------------------------------------------------
   // Sprint B06b — Call Lifecycle
   // ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ import { createSttProvider } from './providers/stt-factory';
 import { createLlmProvider } from './providers/llm-factory';
 import { createTtsProvider } from './providers/tts-factory';
 import { AgentTool } from './tools/tool.interface';
+import { buildToolInstructions } from './tools/tool-instructions-builder';
 import { LlmMessage, LlmToolCall } from './providers/llm.interface';
 import {
   Room,
@@ -18,9 +19,11 @@ import {
   LocalTrackPublication,
 } from '@livekit/rtc-node';
 import { ParticipantKind } from '@livekit/rtc-node';
-import { SipClient } from 'livekit-server-sdk';
+import { SipClient, RoomServiceClient } from 'livekit-server-sdk';
 import { VoiceAILogger } from '../utils/voice-ai-logger.util';
 import { CartesiaWebSocketTtsProvider } from './providers/cartesia-websocket-tts.provider';
+import { ElevenLabsTtsProvider } from './providers/elevenlabs-tts.provider';
+import { StreamingTtsProvider } from './providers/tts.interface';
 
 //BACKGROUND AUDIO
 import { voice } from '@livekit/agents';
@@ -72,9 +75,13 @@ export class VoiceAgentSession {
   private actionsTaken: string[] = [];
 
   // Sprint BAS-TTS: WebSocket streaming TTS for ultra-low latency
-  private streamingTtsProvider: CartesiaWebSocketTtsProvider | null = null;
+  private streamingTtsProvider: StreamingTtsProvider | null = null;
   private currentTtsContextId: string | null = null;
   private isAgentSpeaking = false;
+
+  // Guard: prevent concurrent handleUtterance calls during tool execution
+  private isProcessingUtterance = false;
+  private pendingUtterance: string | null = null;
 
   // Sprint 05: Audio chunk queue to prevent overlapping audio
   private audioChunkQueue: Buffer[] = [];
@@ -83,6 +90,9 @@ export class VoiceAgentSession {
   // Usage tracking: Store session references and accumulated usage
   private sttSession: any = null;
   private accumulatedLlmTokens = 0;
+
+  // Track lead_id from find_lead/create_lead for call log linking
+  private resolvedLeadId: string | null = null;
 
   // Sprint 2: Call outcome tracking for end_call tool
   private callOutcome:
@@ -96,6 +106,9 @@ export class VoiceAgentSession {
     | null = null;
   private startTime: number = 0;
 
+  // Call log ID for tool execution context (needed by appointment tools)
+  private callLogId?: string;
+
   constructor(
     private readonly context: VoiceAiContext,
     private readonly tools: AgentTool[],
@@ -106,7 +119,10 @@ export class VoiceAgentSession {
       apiSecret: string;
     },
     private readonly voiceLogger?: VoiceAILogger,
-  ) {}
+    callLogId?: string,
+  ) {
+    this.callLogId = callLogId;
+  }
 
   /**
    * Start the voice agent session.
@@ -131,6 +147,26 @@ export class VoiceAgentSession {
         tenant_id: this.context.tenant.id,
         company_name: this.context.tenant.company_name,
       });
+
+      // Sprint 18: Log active agent profile and language selection (IVR-based)
+      if (this.context.active_agent_profile) {
+        this.logger.log(
+          `🌍 LANGUAGE SELECTION: ${this.context.active_agent_profile.title} (${this.context.active_agent_profile.language_code})`,
+        );
+        this.logger.log(
+          `   Profile ID: ${this.context.active_agent_profile.id}`,
+        );
+        this.logger.log(
+          `   Behavior Language: ${this.context.behavior.language}`,
+        );
+      } else {
+        this.logger.log(
+          `🌍 LANGUAGE SELECTION: Default (no IVR profile selected)`,
+        );
+        this.logger.log(
+          `   Behavior Language: ${this.context.behavior.language}`,
+        );
+      }
 
       // Validate providers are configured
       if (!this.context.providers.stt) {
@@ -221,6 +257,18 @@ IMPORTANT:
       } else {
         this.logger.log('ℹ️  No lead context available - new caller');
       }
+
+      // Inject tool usage instructions into system prompt
+      const toolInstructions = buildToolInstructions(
+        this.context,
+        this.tools.map((t) => t.definition.function.name),
+        this.context.behavior.tool_instructions ?? null,
+      );
+      systemPrompt += '\n\n' + toolInstructions;
+
+      this.logger.log(
+        `🔧 Tool instructions injected (${toolInstructions.length} chars, ${this.tools.length} tools)`,
+      );
 
       this.conversationHistory = [{ role: 'system', content: systemPrompt }];
 
@@ -462,22 +510,43 @@ IMPORTANT:
       // ====================================================================================
       this.logger.log(`🚀 Initializing WebSocket streaming TTS...`);
 
-      this.streamingTtsProvider = new CartesiaWebSocketTtsProvider();
+      // Conditional provider selection - Cartesia is default (preserves existing behavior)
+      if (this.context.providers.tts.provider_key === 'elevenlabs_tts') {
+        this.logger.log(`  Using provider: ElevenLabs TTS (${this.context.providers.tts.provider_key})`);
+        this.streamingTtsProvider = new ElevenLabsTtsProvider();
+      } else {
+        // Default to Cartesia for ALL other cases (cartesia, undefined, null, unknown, etc.)
+        this.logger.log(`  Using provider: Cartesia TTS (${this.context.providers.tts.provider_key || 'default'})`);
+        this.streamingTtsProvider = new CartesiaWebSocketTtsProvider();
+      }
 
       // Build streaming TTS config from context (dynamic configuration)
+      // CRITICAL: Spread provider config FIRST, then override with profile-resolved values
+      // This ensures IVR language selection takes precedence over database defaults
       const streamingTtsConfig = {
+        ...this.context.providers.tts.config,  // ← Provider defaults come FIRST
         apiKey: this.context.providers.tts.api_key,
         voiceId: this.context.providers.tts.voice_id || '',
-        model:
-          (this.context.providers.tts.config?.model as string) || 'sonic-3',
-        language: this.context.behavior.language,
-        sampleRate:
-          (this.context.providers.tts.config?.outputFormat as any)
-            ?.sampleRate || 16000,
-        encoding:
-          (this.context.providers.tts.config?.outputFormat as any)?.encoding ||
-          'pcm_s16le',
+        language: this.context.behavior.language,         // ← Profile language overrides
+        language_code: this.context.behavior.language,    // ← Also set language_code for ElevenLabs
       };
+
+      // Sprint VAB-05: Diagnostic logging for debugging authentication issues (2026-03-10)
+      this.logger.log('🔍 TTS Configuration Debug:');
+      this.logger.log(`  Provider: ${this.context.providers.tts.provider_key}`);
+      this.logger.log(
+        `  API Key present: ${!!this.context.providers.tts.api_key}`,
+      );
+      this.logger.log(
+        `  API Key length: ${this.context.providers.tts.api_key?.length || 0}`,
+      );
+      this.logger.log(
+        `  API Key preview: ${this.context.providers.tts.api_key ? this.context.providers.tts.api_key.substring(0, 10) + '...' : 'NULL'}`,
+      );
+      this.logger.log(`  Voice ID: ${this.context.providers.tts.voice_id}`);
+      this.logger.log(
+        `  Config: ${JSON.stringify(streamingTtsConfig, (k, v) => (k === 'apiKey' ? '***' : v))}`,
+      );
 
       await this.streamingTtsProvider.connect(streamingTtsConfig);
 
@@ -553,11 +622,32 @@ IMPORTANT:
       this.voiceLogger?.logSessionEvent('starting_stt_session', {
         language: this.context.behavior.language,
       });
-      this.sttSession = await sttProvider.startTranscription({
+
+      // Sprint VAB-05: Diagnostic logging for debugging STT authentication issues (2026-03-10)
+      // CRITICAL: Spread provider config FIRST, then override with profile-resolved values
+      // This ensures IVR language selection takes precedence over database defaults
+      const sttConfig = {
+        ...this.context.providers.stt.config,             // ← Provider defaults come FIRST
         apiKey: this.context.providers.stt.api_key,
-        language: this.context.behavior.language,
-        ...this.context.providers.stt.config,
-      });
+        language: this.context.behavior.language,         // ← Profile language overrides
+        language_code: this.context.behavior.language,    // ← Also set language_code for ElevenLabs
+      };
+      this.logger.log('🔍 STT Configuration Debug:');
+      this.logger.log(`  Provider: ${this.context.providers.stt.provider_key}`);
+      this.logger.log(
+        `  API Key present: ${!!this.context.providers.stt.api_key}`,
+      );
+      this.logger.log(
+        `  API Key length: ${this.context.providers.stt.api_key?.length || 0}`,
+      );
+      this.logger.log(
+        `  API Key preview: ${this.context.providers.stt.api_key ? this.context.providers.stt.api_key.substring(0, 10) + '...' : 'NULL'}`,
+      );
+      this.logger.log(
+        `  Config: ${JSON.stringify(sttConfig, (k, v) => (k === 'apiKey' ? '***' : v))}`,
+      );
+
+      this.sttSession = await sttProvider.startTranscription(sttConfig);
 
       // Handle transcripts
       let currentUtterance = '';
@@ -709,6 +799,18 @@ IMPORTANT:
     llmProvider: any,
     ttsProvider: any,
   ): Promise<void> {
+    // Guard: if we're already processing, queue the utterance for after
+    // This prevents concurrent handleUtterance which corrupts single-stream TTS
+    if (this.isProcessingUtterance) {
+      this.logger.log(
+        `⏳ Utterance queued (processing in progress): "${text.substring(0, 50)}"`,
+      );
+      // Store as pending — will be processed after current turn completes
+      this.pendingUtterance = text;
+      return;
+    }
+
+    this.isProcessingUtterance = true;
     try {
       // Add user message to history
       this.conversationHistory.push({ role: 'user', content: text });
@@ -757,11 +859,14 @@ IMPORTANT:
 
         // ═══════════════════════════════════════════════════════════════════════════
         // Sprint Voice-UX-01: Speak filler phrase BEFORE executing tools
+        // Fire-and-forget: don't wait for TTS playback to complete before
+        // starting tool execution. This eliminates the silence gap where the
+        // user hears nothing and thinks the agent is unresponsive.
         // ═══════════════════════════════════════════════════════════════════════════
-        await this.speakFillerPhrase();
+        this.speakFillerPhrase(); // intentionally not awaited
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // Sprint Voice-UX-01: Start long-wait monitor
+        // Sprint Voice-UX-01: Start long-wait monitor (reduced threshold)
         // ═══════════════════════════════════════════════════════════════════════════
         const longWaitMonitor = this.startLongWaitMonitor();
 
@@ -789,64 +894,132 @@ IMPORTANT:
           longWaitMonitor.stop();
         }
 
-        // Get follow-up response after tool execution
-        this.voiceLogger?.logLLMRequest(
-          this.conversationHistory,
-          (this.context.providers.llm!.config?.model as string) || 'gpt-4o',
-        );
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Tool-chaining loop: follow-up LLM calls include tool definitions so the
+        // LLM can chain calls (e.g., create_lead → book_appointment) without
+        // requiring another user turn. Capped at MAX_TOOL_CHAIN to prevent loops.
+        // ═══════════════════════════════════════════════════════════════════════════
+        const MAX_TOOL_CHAIN = 5;
+        let chainCount = 0;
+        let hasMoreToolCalls = true;
 
-        const followUpSession = await llmProvider.chat({
-          apiKey: this.context.providers.llm!.api_key,
-          model:
+        while (hasMoreToolCalls && chainCount < MAX_TOOL_CHAIN && this.isActive) {
+          chainCount++;
+
+          // Get follow-up response WITH tool definitions so LLM can chain
+          this.voiceLogger?.logLLMRequest(
+            this.conversationHistory,
             (this.context.providers.llm!.config?.model as string) || 'gpt-4o',
-          messages: this.conversationHistory,
-          maxTokens: 200,
-        });
-
-        // ====================================================================================
-        // Sprint BAS-TTS-02: Stream follow-up response to WebSocket TTS (ultra-low latency)
-        // ====================================================================================
-        this.currentTtsContextId = `turn-${Date.now()}`;
-        this.isAgentSpeaking = true;
-        let followUpText = '';
-
-        try {
-          this.logger.log(
-            `🎙️  Streaming follow-up response to TTS (context: ${this.currentTtsContextId})`,
           );
 
-          // Stream LLM tokens directly to TTS
+          const followUpSession = await llmProvider.chat({
+            apiKey: this.context.providers.llm!.api_key,
+            model:
+              (this.context.providers.llm!.config?.model as string) || 'gpt-4o',
+            messages: this.conversationHistory,
+            tools: toolDefinitions,
+            maxTokens: 200,
+          });
+
+          // First, consume stream to detect whether this is a tool-call or text response.
+          // We buffer text tokens and check tool calls after stream completes.
+          // For the final text-only response, we stream tokens to TTS for low latency.
+          let followUpText = '';
+          const followUpTokens: string[] = [];
+
           for await (const token of followUpSession.stream()) {
             followUpText += token;
-            this.streamingTtsProvider!.streamText(
-              token,
-              this.currentTtsContextId,
-              false,
+            followUpTokens.push(token);
+          }
+
+          const followUpToolCalls = await followUpSession.getToolCalls();
+          this.accumulatedLlmTokens += followUpSession.getUsage().totalTokens;
+
+          if (followUpToolCalls.length > 0) {
+            // LLM wants to call more tools — execute them and loop
+            this.logger.log(
+              `🔗 Tool chain ${chainCount}: LLM requested ${followUpToolCalls.length} more tool calls`,
             );
-          }
+            this.voiceLogger?.logLLMResponse(
+              followUpText || '[tool calls only]',
+              followUpToolCalls,
+            );
 
-          // Signal end of text (flush final audio)
-          this.streamingTtsProvider!.streamText(
-            '',
-            this.currentTtsContextId,
-            true,
+            // Add assistant message with tool calls to history
+            this.conversationHistory.push({
+              role: 'assistant',
+              content: followUpText || '',
+              tool_calls: followUpToolCalls,
+            });
+
+            // Play filler phrase before tool execution
+            this.speakFillerPhrase();
+
+            // Execute each tool call
+            for (const toolCall of followUpToolCalls) {
+              await this.executeToolCall(toolCall);
+
+              if (this.transferRequested) {
+                await this.handleTransfer(this.transferNumber!, ttsProvider);
+                hasMoreToolCalls = false;
+                break;
+              }
+
+              if (toolCall.function.name === 'end_call') {
+                this.logger.log(
+                  '🔚 end_call detected in tool chain - will end session after final response',
+                );
+              }
+            }
+
+            // Continue loop → another follow-up call to get the final text response
+          } else {
+            // No more tool calls — stream the buffered text tokens to TTS
+            hasMoreToolCalls = false;
+
+            this.currentTtsContextId = `turn-${Date.now()}`;
+            this.isAgentSpeaking = true;
+
+            try {
+              this.logger.log(
+                `🎙️  Streaming follow-up response to TTS (context: ${this.currentTtsContextId})`,
+              );
+
+              // Stream each buffered token to TTS for natural pacing
+              for (const token of followUpTokens) {
+                this.streamingTtsProvider!.streamText(
+                  token,
+                  this.currentTtsContextId,
+                  false,
+                );
+              }
+
+              // Signal end of text (flush final audio)
+              this.streamingTtsProvider!.streamText(
+                '',
+                this.currentTtsContextId,
+                true,
+              );
+
+              this.voiceLogger?.logLLMResponse(followUpText, []);
+              this.conversationHistory.push({
+                role: 'assistant',
+                content: followUpText,
+              });
+              this.logger.log(`Assistant: ${followUpText}`);
+            } finally {
+              // Wait for TTS to complete before continuing
+              while (this.isAgentSpeaking) {
+                await new Promise((resolve) => setTimeout(resolve, 100));
+              }
+            }
+          }
+        }
+
+        if (chainCount >= MAX_TOOL_CHAIN) {
+          this.logger.warn(
+            `⚠️ Tool chain limit reached (${MAX_TOOL_CHAIN}). Breaking loop.`,
           );
-
-          this.voiceLogger?.logLLMResponse(followUpText, []);
-          this.conversationHistory.push({
-            role: 'assistant',
-            content: followUpText,
-          });
-          this.logger.log(`Assistant: ${followUpText}`);
-
-          // Accumulate LLM token usage
-          const usage = followUpSession.getUsage();
-          this.accumulatedLlmTokens += usage.totalTokens;
-        } finally {
-          // Wait for TTS to complete before continuing
-          while (this.isAgentSpeaking) {
-            await new Promise((resolve) => setTimeout(resolve, 100));
-          }
         }
 
         // Accumulate LLM token usage from initial session (with tool calls)
@@ -920,6 +1093,19 @@ IMPORTANT:
         );
         this.voiceLogger?.logError(speakError, 'Speaking error message');
       }
+    } finally {
+      this.isProcessingUtterance = false;
+
+      // Process any utterance that arrived while we were busy
+      if (this.pendingUtterance && this.isActive) {
+        const queued = this.pendingUtterance;
+        this.pendingUtterance = null;
+        this.logger.log(
+          `📨 Processing queued utterance: "${queued.substring(0, 50)}"`,
+        );
+        // Recurse — the guard is now cleared so this will run normally
+        await this.handleUtterance(queued, llmProvider, ttsProvider);
+      }
     }
   }
 
@@ -958,6 +1144,7 @@ IMPORTANT:
         tenant_id: this.context.tenant.id,
         call_sid: this.context.call_sid || '',
         caller_phone: '', // TODO: Extract from voice_call_log.from_number
+        call_log_id: this.callLogId,
       });
 
       // Log successful tool execution
@@ -998,10 +1185,11 @@ IMPORTANT:
         }
       }
 
-      // Log lead actions
+      // Log lead actions and track lead_id for call log linking
       if (toolCall.function.name === 'find_lead') {
         const parsed = JSON.parse(result);
         if (parsed.lead_id) {
+          this.resolvedLeadId = parsed.lead_id;
           this.voiceLogger?.logLeadFound(parsed.lead_id, parsed);
         }
       }
@@ -1009,6 +1197,7 @@ IMPORTANT:
       if (toolCall.function.name === 'create_lead') {
         const parsed = JSON.parse(result);
         if (parsed.lead_id) {
+          this.resolvedLeadId = parsed.lead_id;
           this.voiceLogger?.logLeadCreated(parsed.lead_id, parsed);
         }
       }
@@ -1059,6 +1248,9 @@ IMPORTANT:
 
   /**
    * Synthesize text and play it to the caller via LiveKit room.
+   *
+   * Uses the streaming TTS provider when available (for WebSocket-based providers
+   * like ElevenLabs that don't support the legacy synthesize() method).
    */
   private async speak(ttsProvider: any, text: string): Promise<void> {
     if (!text.trim()) return;
@@ -1086,6 +1278,40 @@ IMPORTANT:
       );
       this.logger.debug(`  Voice ID: ${this.context.providers.tts!.voice_id}`);
       this.logger.debug(`  Language: ${this.context.behavior.language}`);
+
+      // ============================================================================
+      // Use streaming TTS provider if available (ElevenLabs, etc.)
+      // The legacy synthesize() method is not supported by streaming providers.
+      // ============================================================================
+      if (this.streamingTtsProvider?.isConnected()) {
+        this.logger.log(`📤 Using streaming TTS for speak()...`);
+
+        const speakContextId = `speak-${Date.now()}`;
+        this.currentTtsContextId = speakContextId;
+        this.isAgentSpeaking = true;
+
+        // Stream text to TTS (entire text at once, mark as final)
+        this.streamingTtsProvider.streamText(text, speakContextId, true);
+
+        // Wait for TTS to complete (with timeout)
+        const speakTimeout = setTimeout(() => {
+          this.logger.warn('⚠️  speak() TTS timeout after 15 seconds');
+          this.isAgentSpeaking = false;
+        }, 15000);
+
+        while (this.isAgentSpeaking) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        clearTimeout(speakTimeout);
+        this.logger.log('✅ speak() TTS complete via streaming provider');
+        return;
+      }
+
+      // ============================================================================
+      // Fallback: Use legacy synthesize() method (Cartesia HTTP, etc.)
+      // ============================================================================
+      this.logger.log(`📤 Using legacy synthesize() for speak()...`);
 
       const ttsSession = await ttsProvider.synthesize({
         apiKey: this.context.providers.tts!.api_key,
@@ -1604,6 +1830,41 @@ IMPORTANT:
       }
       this.isProcessingAudioQueue = false;
 
+      // Disconnect SIP participant to terminate the Twilio call
+      // Without this, the Twilio call stays connected with dead air
+      try {
+        const sipParticipant = Array.from(
+          this.room.remoteParticipants.values(),
+        ).find(
+          (p) => p.kind === ParticipantKind.SIP || p.kind === ParticipantKind.STANDARD,
+        );
+
+        if (sipParticipant && this.livekitConfig.url) {
+          const roomName = this.room.name || '';
+          const participantIdentity = sipParticipant.identity;
+
+          this.logger.log(
+            `📞 Disconnecting SIP participant ${participantIdentity} from room ${roomName} to end Twilio call`,
+          );
+
+          const roomService = new RoomServiceClient(
+            this.livekitConfig.url,
+            this.livekitConfig.apiKey,
+            this.livekitConfig.apiSecret,
+          );
+
+          await roomService.removeParticipant(roomName, participantIdentity);
+          this.logger.log('✅ SIP participant disconnected — Twilio call will end');
+          this.voiceLogger?.logSessionEvent('sip_participant_disconnected', {
+            participant_identity: participantIdentity,
+            room_name: roomName,
+          });
+        }
+      } catch (e) {
+        this.logger.warn(`Error disconnecting SIP participant: ${e.message}`);
+        this.voiceLogger?.logError(e, 'SIP participant disconnect');
+      }
+
       // Remove all room event listeners to prevent memory leaks
       // Note: LiveKit Room uses TypedEventEmitter, we should remove our listeners
       // However, since the room is managed by the JobContext and will be cleaned up
@@ -1661,6 +1922,14 @@ IMPORTANT:
    */
   setCallOutcome(outcome: string): void {
     this.callOutcome = outcome as any;
+  }
+
+  /**
+   * Get the lead ID resolved during the call (from find_lead or create_lead).
+   * Used when completing call log to link it to the lead.
+   */
+  getLeadId(): string | null {
+    return this.resolvedLeadId;
   }
 
   /**
@@ -1903,19 +2172,22 @@ IMPORTANT:
   private isValidTranscript(text: string): boolean {
     const cleaned = text.trim().toLowerCase();
 
-    // Too short - likely noise
-    if (cleaned.length < 2) {
+    // Too short - likely noise or truncated syllable
+    if (cleaned.length < 3) {
       return false;
     }
 
-    // Common filler sounds - ignore
-    const fillerSounds = ['uh', 'um', 'ah', 'mm', 'hmm', 'mhm', 'uh-huh'];
+    // Common filler sounds - ignore (English + Portuguese + Spanish)
+    const fillerSounds = [
+      'uh', 'um', 'ah', 'mm', 'hmm', 'mhm', 'uh-huh',
+      'hm', 'eh', 'oh',
+    ];
     if (fillerSounds.includes(cleaned)) {
       return false;
     }
 
-    // Only punctuation/special chars - not real speech
-    if (!/[a-zA-Z0-9]/.test(cleaned)) {
+    // Only punctuation/special chars (em-dash, ellipsis, etc.) - not real speech
+    if (!/[a-zA-Z0-9\u00C0-\u024F]/.test(cleaned)) {
       return false;
     }
 
@@ -1975,8 +2247,8 @@ IMPORTANT:
    * Sprint: Voice-UX-01
    */
   private startLongWaitMonitor(): { stop: () => void } {
-    const LONG_WAIT_THRESHOLD_MS = 20000; // 20 seconds (user preference)
-    const PERIODIC_UPDATE_MS = 15000; // Every 15 seconds after threshold
+    const LONG_WAIT_THRESHOLD_MS = 8000; // 8 seconds — tools typically take 2-5s, user gets impatient after 5s
+    const PERIODIC_UPDATE_MS = 10000; // Every 10 seconds after threshold
 
     let isStopped = false;
     let timerId: NodeJS.Timeout | null = null;

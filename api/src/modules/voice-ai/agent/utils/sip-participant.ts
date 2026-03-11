@@ -9,10 +9,11 @@ import { Room, RemoteParticipant, ParticipantKind } from '@livekit/rtc-node';
  */
 export interface SipAttributes {
   callSid: string | null; // sip.twilio.callSid
-  trunkPhoneNumber: string | null; // X-Called-Number custom header (actual Twilio number called)
+  trunkPhoneNumber: string | null; // sip.trunkPhoneNumber (actual Twilio number from SIP URI username)
   callerPhoneNumber: string | null; // sip.phoneNumber (caller's number)
   callStatus: string | null; // sip.callStatus
   trunkId: string | null; // sip.trunkID
+  agentProfileId: string | null; // X-Agent-Profile-Id custom header (voice agent profile for language/voice)
 }
 
 /**
@@ -50,17 +51,18 @@ export async function waitForSipParticipant(
 /**
  * Extract SIP attributes from participant
  *
- * NOTE: sip.trunkPhoneNumber returns the trunk identifier ("voice-ai"), not the actual Twilio number.
- * We pass the actual Twilio number via query parameter in the SIP URI as X-Called-Number.
- * (Cannot use X-Twilio-* prefix - reserved by Twilio and silently dropped)
- * LiveKit exposes custom SIP headers/query params with specific attribute keys.
+ * LiveKit automatically exposes Twilio SIP attributes:
+ * - sip.trunkPhoneNumber: The Twilio number that was called (extracted from SIP URI username)
+ * - sip.phoneNumber: The caller's phone number
+ * - sip.twilio.callSid: Twilio call SID
+ * - sip.h.X-Agent-Profile-Id: Custom header for voice agent profile (language/voice selection)
  */
 export function extractSipAttributes(
   participant: RemoteParticipant,
 ): SipAttributes {
   const attrs = participant.attributes || {};
 
-  // ✅ DIAGNOSTIC: Log ALL attributes to identify correct key for X-Called-Number
+  // ✅ DIAGNOSTIC: Log ALL attributes to verify SIP data flow
   console.log(
     '====================================================================',
   );
@@ -73,36 +75,30 @@ export function extractSipAttributes(
     '====================================================================',
   );
 
-  // Try multiple possible keys for X-Called-Number header/query param
-  // LiveKit may expose it with different prefixes depending on how it's passed
-  // IMPORTANT: Using X-Called-Number (not X-Twilio-Number which is reserved by Twilio)
-  const calledNumber =
-    attrs['sip.h.X-Called-Number'] || // LiveKit header prefix pattern (.h.)
-    attrs['sip.X-Called-Number'] || // Direct SIP attribute pattern
-    attrs['X-Called-Number'] || // Query param pattern (no prefix)
-    attrs['sip.h.x-called-number'] || // Lowercase variant
-    attrs['sip.x-called-number'] || // Lowercase without .h.
+  // Extract agent profile ID from X-Agent-Profile-Id SIP header
+  const agentProfileId =
+    attrs['sip.h.X-Agent-Profile-Id'] ||
+    attrs['sip.X-Agent-Profile-Id'] ||
+    attrs['X-Agent-Profile-Id'] ||
+    attrs['sip.h.x-agent-profile-id'] ||
+    attrs['sip.x-agent-profile-id'] ||
     null;
 
   console.log(
-    `[SIP] X-Called-Number lookup result: ${calledNumber || 'NOT FOUND'}`,
+    `[SIP] Agent Profile ID: ${agentProfileId || 'NOT PROVIDED (will use default)'}`,
   );
-  if (!calledNumber) {
-    console.error(
-      '[SIP] ⚠️  X-Called-Number NOT found in any expected attribute key!',
-    );
-    console.error(
-      '[SIP] Will fallback to sip.trunkPhoneNumber (trunk identifier "voice-ai")',
-    );
-  }
+
+  // Extract trunk phone number (should now contain actual Twilio number from SIP URI username)
+  const trunkPhoneNumber = attrs['sip.trunkPhoneNumber'] || null;
+  console.log(`[SIP] Trunk Phone Number: ${trunkPhoneNumber}`);
 
   const sipAttrs: SipAttributes = {
     callSid: attrs['sip.twilio.callSid'] || attrs['sip.callID'] || null,
-    // Use X-Called-Number if found, otherwise fallback to trunk identifier
-    trunkPhoneNumber: calledNumber || attrs['sip.trunkPhoneNumber'] || null,
+    trunkPhoneNumber: trunkPhoneNumber, // Now contains actual phone number (from SIP URI username)
     callerPhoneNumber: attrs['sip.phoneNumber'] || null,
     callStatus: attrs['sip.callStatus'] || null,
     trunkId: attrs['sip.trunkID'] || null,
+    agentProfileId: agentProfileId, // NEW: For language/voice selection
   };
 
   console.log('[SIP] Extracted attributes:', JSON.stringify(sipAttrs));

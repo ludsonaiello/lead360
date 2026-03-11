@@ -184,6 +184,20 @@ export class LeadsService {
         };
       });
 
+      // Retroactive lead-call linking: update orphaned call records
+      // Any previous calls from this phone number that had no lead get linked now
+      if (createLeadDto.phones && createLeadDto.phones.length > 0) {
+        this.linkOrphanedCallsToLead(
+          tenantId,
+          lead.id,
+          createLeadDto.phones.map((p) => p.phone),
+        ).catch((err) => {
+          this.logger.warn(
+            `⚠️ Failed to link orphaned calls to lead ${lead.id}: ${err.message}`,
+          );
+        });
+      }
+
       // Log activity (outside transaction) - only if userId exists
       if (userId) {
         await this.activitiesService.logActivity(tenantId, {
@@ -742,6 +756,69 @@ export class LeadsService {
 
     // Create lead (no user ID for webhook - system action)
     return this.create(tenantId, null, leadDto);
+  }
+
+  /**
+   * Retroactively link orphaned call records to a newly created lead.
+   *
+   * When a lead is created with phone numbers, find any call_record or
+   * voice_call_log rows that have matching from_number but no lead_id,
+   * and update them to point to this lead.
+   *
+   * @param tenantId - Tenant UUID (multi-tenant isolation)
+   * @param leadId - Newly created lead UUID
+   * @param phoneNumbers - Raw phone numbers from the lead
+   */
+  private async linkOrphanedCallsToLead(
+    tenantId: string,
+    leadId: string,
+    phoneNumbers: string[],
+  ): Promise<void> {
+    // Generate all phone variations for each number
+    const allVariations: string[] = [];
+    for (const phone of phoneNumbers) {
+      const sanitized = phone.replace(/\D/g, '');
+      const last10 = sanitized.slice(-10);
+      if (last10.length >= 10) {
+        allVariations.push(
+          last10,
+          `1${last10}`,
+          `+1${last10}`,
+        );
+      } else {
+        allVariations.push(sanitized);
+      }
+    }
+
+    const uniqueVariations = [...new Set(allVariations)];
+
+    if (uniqueVariations.length === 0) return;
+
+    // Update call_record rows with matching from_number and no lead
+    const updatedCalls = await this.prisma.call_record.updateMany({
+      where: {
+        tenant_id: tenantId,
+        lead_id: null,
+        from_number: { in: uniqueVariations },
+      },
+      data: { lead_id: leadId },
+    });
+
+    // Update voice_call_log rows with matching from_number and no lead
+    const updatedVoiceLogs = await this.prisma.voice_call_log.updateMany({
+      where: {
+        tenant_id: tenantId,
+        lead_id: null,
+        from_number: { in: uniqueVariations },
+      },
+      data: { lead_id: leadId },
+    });
+
+    if (updatedCalls.count > 0 || updatedVoiceLogs.count > 0) {
+      this.logger.log(
+        `🔗 Retroactively linked ${updatedCalls.count} call_record(s) and ${updatedVoiceLogs.count} voice_call_log(s) to lead ${leadId}`,
+      );
+    }
   }
 
   /**

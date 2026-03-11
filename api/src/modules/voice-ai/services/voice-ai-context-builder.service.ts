@@ -199,6 +199,8 @@ export class VoiceAiContextBuilderService {
     ]);
 
     // Decrypt credentials — soft-fail if credential not stored (returns null rather than throwing)
+    // Sprint VAB-05: Validate API key decryption (2026-03-10)
+    // If decryption fails, catch and return null so we can throw a meaningful error below
     const [sttApiKey, llmApiKey, ttsApiKey] = await Promise.all([
       resolvedSttProviderId && sttProvider
         ? this.credentialsService
@@ -216,6 +218,27 @@ export class VoiceAiContextBuilderService {
             .catch(() => null)
         : Promise.resolve(null),
     ]);
+
+    // Sprint VAB-05: Validate that API keys were successfully decrypted (2026-03-10)
+    // CRITICAL: Fail early if credentials are missing - prevents silent failures during calls
+    if (sttProvider && !sttApiKey) {
+      throw new BadRequestException(
+        `STT provider "${sttProvider.provider_key}" is configured but API key could not be decrypted. ` +
+          `Please re-save the credential in the admin panel.`,
+      );
+    }
+    if (llmProvider && !llmApiKey) {
+      throw new BadRequestException(
+        `LLM provider "${llmProvider.provider_key}" is configured but API key could not be decrypted. ` +
+          `Please re-save the credential in the admin panel.`,
+      );
+    }
+    if (ttsProvider && !ttsApiKey) {
+      throw new BadRequestException(
+        `TTS provider "${ttsProvider.provider_key}" is configured but API key could not be decrypted. ` +
+          `Please re-save the credential in the admin panel.`,
+      );
+    }
 
     // Parse provider configs — tenant override takes precedence over global default
     const sttConfig = this.parseJsonConfig(
@@ -246,7 +269,7 @@ export class VoiceAiContextBuilderService {
       this.prisma.tenant_service.findMany({
         where: { tenant_id: tenantId },
         include: {
-          service: { select: { name: true, description: true } },
+          service: { select: { id: true, name: true, description: true } },
         },
       }),
       this.prisma.tenant_service_area.findMany({
@@ -305,6 +328,19 @@ export class VoiceAiContextBuilderService {
     // Step 8: Load conversational phrases from global config
     const conversationalPhrases = this.parseConversationalPhrases(globalConfig);
 
+    // Step 8.5: Parse and merge tool_instructions (global + tenant override per-key)
+    const globalToolInstructions = this.parseToolInstructions(
+      globalConfig.tool_instructions,
+    );
+    const tenantToolInstructions = this.parseToolInstructions(
+      tenantSettings?.tool_instructions,
+    );
+    // Merge: tenant keys override global keys; unset tenant keys fall through to global
+    const toolInstructions =
+      globalToolInstructions || tenantToolInstructions
+        ? { ...globalToolInstructions, ...tenantToolInstructions }
+        : null;
+
     // Step 9: Assemble FullVoiceAiContext
     const primaryAddress = tenant.tenant_address?.[0];
 
@@ -348,6 +384,7 @@ export class VoiceAiContextBuilderService {
         max_call_duration_seconds:
           tenantSettings?.max_call_duration_seconds ??
           globalConfig.default_max_call_duration_seconds,
+        tool_instructions: toolInstructions,
       },
       providers: {
         stt:
@@ -380,6 +417,7 @@ export class VoiceAiContextBuilderService {
             : null,
       },
       services: tenantServices.map((ts) => ({
+        id: ts.service.id,
         name: ts.service.name,
         description: ts.service.description ?? null,
       })),
@@ -541,6 +579,29 @@ export class VoiceAiContextBuilderService {
         ],
       ),
     };
+  }
+
+  /**
+   * Parse tool_instructions JSON from global config.
+   * Returns null if not set or invalid — the builder will use defaults.
+   */
+  private parseToolInstructions(
+    jsonString: string | null | undefined,
+  ): Record<string, string> | null {
+    if (!jsonString) return null;
+    try {
+      const parsed: unknown = JSON.parse(jsonString);
+      if (
+        parsed !== null &&
+        typeof parsed === 'object' &&
+        !Array.isArray(parsed)
+      ) {
+        return parsed as Record<string, string>;
+      }
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   /**

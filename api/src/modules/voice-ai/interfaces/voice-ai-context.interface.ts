@@ -81,6 +81,7 @@ export interface VoiceAiContext {
     lead_creation_enabled: boolean;
     transfer_enabled: boolean;
     max_call_duration_seconds: number;
+    tool_instructions?: Record<string, string> | null;
   };
   providers: {
     /** provider_id: UUID of voice_ai_provider row — used by Python agent for usage tracking */
@@ -104,7 +105,7 @@ export interface VoiceAiContext {
       voice_id: string | null;
     } | null;
   };
-  services: Array<{ name: string; description: string | null }>;
+  services: Array<{ id: string; name: string; description: string | null }>;
   service_areas: Array<{ type: string; value: string; state: string | null }>;
   business_hours: Array<{
     day: string;

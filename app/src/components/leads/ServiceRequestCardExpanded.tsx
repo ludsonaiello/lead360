@@ -72,7 +72,7 @@ export function ServiceRequestCardExpanded({
   const [errorMessage, setErrorMessage] = useState('');
 
   const urgency = serviceRequest.time_demand ? urgencyConfig[serviceRequest.time_demand] : null;
-  const status = statusConfig[serviceRequest.status];
+  const status = statusConfig[serviceRequest.status] || { variant: 'neutral' as const, label: serviceRequest.status || 'Unknown', color: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400' };
 
   const requestedDate = serviceRequest.extra_data?.requested_date;
   const estimatedValue = serviceRequest.extra_data?.estimated_value;
