@@ -43,7 +43,18 @@ enum punch_list_status {
 | project_id | String @db.VarChar(36) | no | — | FK → project |
 | template_id | String? @db.VarChar(36) | yes | null | FK → checklist_template (null if manual) |
 | completed_at | DateTime? | yes | null | Set when all required items done |
+| created_by_user_id | String? @db.VarChar(36) | yes | null | FK → user |
 | created_at | DateTime | no | @default(now()) | |
+
+**Unique constraint**: `@@unique([tenant_id, project_id])` — one active checklist per project per tenant. Business rule: If a checklist already exists for this project, return HTTP 409. A project can only have one active completion checklist at a time.
+
+**Relations** (with `@relation` decorators):
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- project: `project @relation(fields: [project_id], references: [id], onDelete: Cascade)`
+- template: `completion_checklist_template? @relation(fields: [template_id], references: [id], onDelete: SetNull)`
+- created_by: `user? @relation(fields: [created_by_user_id], references: [id], onDelete: SetNull)`
+
+**Reverse relations**: Add `items project_completion_checklist_item[]` and `punch_list_items punch_list_item[]` to this model.
 
 **Field Table — project_completion_checklist_item**:
 | Field | Type | Nullable | Default | Notes |
@@ -57,7 +68,14 @@ enum punch_list_status {
 | completed_at | DateTime? | yes | null | |
 | completed_by_user_id | String? @db.VarChar(36) | yes | null | |
 | notes | String? @db.Text | yes | null | |
+| template_item_id | String? @db.VarChar(36) | yes | null | FK → completion_checklist_template_item (nullable → onDelete: SetNull) |
 | order_index | Int | no | — | |
+| updated_at | DateTime | no | @updatedAt | Auto |
+
+**Relations** (with `@relation` decorators):
+- checklist: `project_completion_checklist @relation(fields: [checklist_id], references: [id], onDelete: Cascade)`
+- template_item: `completion_checklist_template_item? @relation(fields: [template_item_id], references: [id], onDelete: SetNull)`
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
 
 **Field Table — punch_list_item**:
 | Field | Type | Nullable | Default | Notes |
@@ -71,8 +89,15 @@ enum punch_list_status {
 | status | punch_list_status | no | open | @default(open) |
 | assigned_to_crew_id | String? @db.VarChar(36) | yes | null | FK → crew_member |
 | resolved_at | DateTime? | yes | null | |
+| reported_by_user_id | String? @db.VarChar(36) | yes | null | FK → user, onDelete: SetNull |
 | resolved_by_user_id | String? @db.VarChar(36) | yes | null | |
 | created_at | DateTime | no | @default(now()) | |
+| updated_at | DateTime | no | @updatedAt | Auto |
+
+**Relations** (with `@relation` decorators):
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- checklist: `project_completion_checklist @relation(fields: [checklist_id], references: [id], onDelete: Cascade)`
+- reported_by: `user? @relation("punch_list_item_reported_by", fields: [reported_by_user_id], references: [id], onDelete: SetNull)`
 
 Run migration.
 **Blocker**: NONE

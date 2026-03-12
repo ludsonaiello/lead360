@@ -42,8 +42,19 @@ NONE
 | created_at | DateTime | no | @default(now()) | |
 | updated_at | DateTime | no | @updatedAt | |
 
-**Indexes**: @@index([tenant_id, project_id, created_at]), @@index([tenant_id, project_id, is_public])
+**Indexes**: @@index([tenant_id, project_id, created_at]), @@index([tenant_id, project_id, is_public]), @@index([tenant_id, author_user_id]) — for activity feeds filtered by user
 **Map**: @@map("project_log")
+
+**Relations** (with `@relation` decorators):
+- tenant: `tenant @relation("project_log_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)`
+- project: `project @relation("project_log_project", fields: [project_id], references: [id], onDelete: Cascade)`
+- task: `project_task? @relation("project_log_task", fields: [task_id], references: [id], onDelete: SetNull)`
+- author: `user @relation("project_log_author", fields: [author_user_id], references: [id], onDelete: SetNull)`
+
+**Reverse relations to add**:
+- `project` model: `project_logs project_log[]`
+- `tenant` model: `project_logs project_log[]`
+- `user` model: add appropriate reverse relation for `project_log_author`
 
 **Enum**:
 ```
@@ -68,6 +79,15 @@ enum log_attachment_file_type {
 | created_at | DateTime | no | @default(now()) | |
 
 **Map**: @@map("project_log_attachment")
+
+**Relations** (with `@relation` decorators):
+- log: `project_log @relation("project_log_attachment_log", fields: [log_id], references: [id], onDelete: Cascade)`
+- file: `file @relation("project_log_attachment_file", fields: [file_id], references: [id], onDelete: SetNull)`
+- tenant: `tenant @relation("project_log_attachment_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)`
+
+**Reverse relation to add**: `project_log` model must receive `attachments project_log_attachment[]`
+
+**ALSO IN THIS SPRINT**: When creating the `project_log` model, also add the `@relation` decorator back to `project_photo.log_id`. Modify the `project_photo` model in schema.prisma to add: `log project_log? @relation('project_photo_log', fields: [log_id], references: [id], onDelete: SetNull)`. Also add reverse relation to `project_log`: `photos project_photo[]`. Run migration after both changes.
 
 Run migration.
 

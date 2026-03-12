@@ -15,10 +15,12 @@ NONE
 ## Prerequisites
 - Sprint 16 must be complete (reason: delay detection exists)
 - Sprint 08 must be complete (reason: ProjectService exists)
+- Sprint 07b must be complete (reason: project_activity entity and ProjectActivityService exist)
 
 ## Codebase Reference
 - ProjectService, ProjectTaskService
 - FinancialEntryService (optional — for financial summary per project)
+- **ProjectActivityService**: `api/src/modules/projects/services/project-activity.service.ts` — for recent_activity feed
 
 ## Tasks
 
@@ -54,9 +56,17 @@ NONE
   "upcoming_deadlines": [
     { "project_id": "uuid", "project_name": "Kitchen Remodel", "target_completion_date": "2026-04-15", "days_remaining": 5 }
   ],
-  "recent_activity": [
-    { "type": "task_completed", "project_name": "Roof Repair", "task_title": "Shingle install", "timestamp": "2026-03-10T14:00:00Z" }
-  ]
+  "recent_activity": []
+  // recent_activity: array — read from project_activity table via ProjectActivityService.getTenantRecentActivity(tenantId, 10).
+  // Fields: { activity_type, project_id, project_name, description, user_id, user_name, created_at }
+  // Query:
+  // SELECT project_activity.*, project.name AS project_name, user.first_name, user.last_name
+  // FROM project_activity
+  // JOIN project ON project_activity.project_id = project.id
+  // LEFT JOIN user ON project_activity.user_id = user.id
+  // WHERE project_activity.tenant_id = :tenantId
+  // ORDER BY project_activity.created_at DESC
+  // LIMIT 10
 }
 ```
 

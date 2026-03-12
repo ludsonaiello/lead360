@@ -55,6 +55,16 @@ enum inspection_result {
 **Indexes**: @@index([tenant_id, permit_id]), @@index([tenant_id, project_id])
 **Map**: @@map("inspection")
 
+**Relations** (with `@relation` decorators):
+- tenant: `tenant @relation("inspection_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)`
+- permit: `permit @relation("inspection_permit", fields: [permit_id], references: [id], onDelete: Cascade)`
+
+**Add `inspected_by_user_id String? @db.VarChar(36)` field** if an internal user tracked inspections:
+- inspected_by: `user? @relation("inspection_inspected_by", fields: [inspected_by_user_id], references: [id], onDelete: SetNull)`
+
+**Reverse relations to add**:
+- `permit` model: `inspections inspection[]`
+
 Run migration.
 
 **Acceptance Criteria**: Model added, migration applied
@@ -77,6 +87,9 @@ Run migration.
 | POST | /projects/:projectId/permits/:permitId/inspections | Owner, Admin, Manager |
 | PATCH | /projects/:projectId/permits/:permitId/inspections/:id | Owner, Admin, Manager |
 | GET | /projects/:projectId/permits/:permitId/inspections | Owner, Admin, Manager |
+| DELETE | /projects/:projectId/permits/:permitId/inspections/:id | Owner, Admin |
+
+**DELETE endpoint**: Hard delete — physically remove the inspection record. No cascading constraints block inspection deletion. Also supports soft delete via `deleted_at DateTime?` field (add to schema if not present).
 
 **Inspection response**:
 ```json

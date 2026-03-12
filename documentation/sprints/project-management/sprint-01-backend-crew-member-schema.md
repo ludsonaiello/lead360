@@ -53,13 +53,13 @@ NONE
 | weekly_hours_schedule | Int? | yes | null | e.g. 36, 40, 50 |
 | overtime_enabled | Boolean | no | false | |
 | overtime_rate_multiplier | Decimal? @db.Decimal(4, 2) | yes | null | e.g. 1.5 = time-and-a-half |
-| default_payment_method | crew_member_payment_method? | yes | null | Enum: cash, check, bank_transfer, venmo, zelle |
+| default_payment_method | payment_method? | yes | null | Enum: cash, check, bank_transfer, venmo, zelle |
 | bank_name | String? @db.VarChar(200) | yes | null | |
 | bank_routing_encrypted | String? @db.Text | yes | null | EncryptionService. Mask: ****1234 |
 | bank_account_encrypted | String? @db.Text | yes | null | EncryptionService. Mask: ****1234 |
 | venmo_handle | String? @db.VarChar(100) | yes | null | |
 | zelle_contact | String? @db.VarChar(100) | yes | null | Phone or email for Zelle |
-| profile_photo_file_id | String? @db.VarChar(36) | yes | null | FK → file table |
+| profile_photo_file_id | String? @db.VarChar(36) | yes | null | FK → file table. URL is NOT stored separately. The service layer resolves the URL at read time using FilesService.getFileUrl(file_id). |
 | notes | String? @db.Text | yes | null | |
 | is_active | Boolean | no | true | @default(true) |
 | created_by_user_id | String @db.VarChar(36) | no | — | FK → user |
@@ -68,7 +68,7 @@ NONE
 
 **Enum to create**:
 ```
-enum crew_member_payment_method {
+enum payment_method {
   cash
   check
   bank_transfer
@@ -77,10 +77,13 @@ enum crew_member_payment_method {
 }
 ```
 
+> **Note**: This enum is the canonical payment method type for the entire platform. It is reused by subcontractor (Sprint 03) and payment records (Sprint 27). Do not create a new payment enum.
+
 **Indexes**:
 - @@index([tenant_id, is_active]) — filter active crew by tenant
 - @@index([tenant_id, user_id]) — clockin system lookup
 - @@index([tenant_id, created_at]) — list ordering
+- @@index([tenant_id, default_hourly_rate]) — for payroll/salary summary queries
 - @@map("crew_member")
 
 **Relations**:
@@ -95,7 +98,7 @@ Note: You must also add the reverse relations to the `tenant`, `user`, and `file
 
 **Acceptance Criteria**:
 - [ ] crew_member model added to schema.prisma with all 31 fields
-- [ ] crew_member_payment_method enum created
+- [ ] payment_method enum created (canonical for entire platform)
 - [ ] All relations defined (tenant, user, created_by, profile_photo)
 - [ ] Reverse relations added to tenant, user, and file models
 - [ ] All indexes defined

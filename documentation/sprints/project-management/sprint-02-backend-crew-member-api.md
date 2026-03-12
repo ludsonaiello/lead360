@@ -103,7 +103,7 @@ Important: The DTO accepts PLAIN TEXT for sensitive fields (ssn, itin, drivers_l
   "has_bank_account": true,
   "venmo_handle": "@johndoe",
   "zelle_contact": "john@email.com",
-  "profile_photo_url": "/public/tenant-uuid/images/photo-uuid.webp",
+  "profile_photo_url": "/public/tenant-uuid/images/photo-uuid.webp",   // RESOLVED AT READ TIME — see service instruction below
   "notes": "Experienced framer",
   "is_active": true,
   "created_by_user_id": "uuid",
@@ -203,7 +203,7 @@ Important: The DTO accepts PLAIN TEXT for sensitive fields (ssn, itin, drivers_l
   - If field is not null: decrypt to get last 4 digits, then mask. SSN: `***-**-${last4}`, Bank: `****${last4}`, DL: `****${last4}`
   - Set `has_{field}` = true
   - If field is null: set masked to null, has_{field} = false
-  - For profile_photo_file_id: resolve to URL from the file relation or store URL separately
+  - For profile_photo_file_id: In the crew member service, when building the response object, call `FilesService.getFileUrl(crew_member.profile_photo_file_id)` to resolve the URL. Return this as `profile_photo_url` in the response. If `profile_photo_file_id` is null, return `profile_photo_url: null`. Do not store the URL in the database. FilesService import path: `api/src/modules/files/services/files.service.ts`. Register FilesModule in the ProjectsModule imports.
 
 **Business Rules**:
 - All queries include `where: { tenant_id }` filter — non-negotiable
@@ -246,8 +246,14 @@ Important: The DTO accepts PLAIN TEXT for sensitive fields (ssn, itin, drivers_l
 | PATCH | /api/v1/crew/:id | Owner, Admin, Manager | Update crew member |
 | DELETE | /api/v1/crew/:id | Owner, Admin | Soft delete (set is_active = false) |
 | POST | /api/v1/crew/:id/photo | Owner, Admin, Manager | Upload profile photo |
+| DELETE | /api/v1/crew/:id/photo | Owner, Admin | Delete profile photo (hard delete) |
 
 **Controller decorator**: `@Controller('api/v1/crew')`
+
+**DELETE /api/v1/crew/:id/photo**:
+- Roles: Owner, Admin
+- Logic: Fetch crew_member (verify tenant). If `profile_photo_file_id` is null: return 404. Call `FilesService.deleteFile(file_id)` to remove from storage. Set `profile_photo_file_id = null` on the crew_member record. Audit log. Return 200.
+- This is a hard delete only. No soft-delete for photo removal.
 
 **Query parameters for GET /crew**:
 - page (number, default 1)

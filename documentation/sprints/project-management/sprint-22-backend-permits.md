@@ -57,6 +57,16 @@ enum permit_status {
 **Indexes**: @@index([tenant_id, project_id]), @@index([tenant_id, status])
 **Map**: @@map("permit")
 
+**Relations** (with `@relation` decorators):
+- tenant: `tenant @relation("permit_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)`
+- project: `project @relation("permit_project", fields: [project_id], references: [id], onDelete: Cascade)`
+
+**Add `created_by_user_id String @db.VarChar(36)` field if missing**, with:
+- created_by: `user @relation("permit_created_by", fields: [created_by_user_id], references: [id], onDelete: SetNull)`
+
+**Reverse relations to add**:
+- `project` model: `permits permit[]`
+
 Run migration.
 
 **Acceptance Criteria**: Model added, migration applied
@@ -80,6 +90,12 @@ Run migration.
 | POST | /projects/:projectId/permits | Owner, Admin, Manager |
 | GET | /projects/:projectId/permits | Owner, Admin, Manager |
 | PATCH | /projects/:projectId/permits/:id | Owner, Admin, Manager |
+| DELETE | /projects/:projectId/permits/:id | Owner, Admin |
+| PATCH | /projects/:projectId/permits/:id/deactivate | Owner, Admin |
+
+**DELETE endpoint**: Hard delete — physically remove the record from the database. Business rule: A permit cannot be hard-deleted if it has linked inspections. Return HTTP 409 if inspections exist. Use soft-delete in that case.
+
+**PATCH /deactivate endpoint**: Soft delete — add `deleted_at DateTime?` field to permit schema and set on soft delete. All list queries should exclude records where `deleted_at IS NOT NULL` by default.
 
 **Permit response**:
 ```json
@@ -94,7 +110,7 @@ Run migration.
   "expiry_date": "2027-03-15",
   "issuing_authority": "City of Boston",
   "notes": null,
-  "inspections": [],
+  "inspections": [],   // Populated after Sprint 23 is complete. Until Sprint 23 runs, return inspections: [] as an empty array. Do not attempt to query the inspection table — it does not exist yet.
   "created_at": "2026-03-01T10:00:00.000Z"
 }
 ```

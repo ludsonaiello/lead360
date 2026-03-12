@@ -341,6 +341,8 @@ All seeded with is_system_default = true, created_by_user_id = null.
 |--------|------|-------|
 | GET | /projects/:projectId/financial-summary | Owner, Admin, Manager, Bookkeeper |
 
+> **Ownership Note**: The `GET /projects/:projectId/financial-summary` endpoint is owned by FinancialModule. It returns a cost breakdown by financial_entry category. This is the financial cost ledger view. It is distinct from the project summary in Sprint 08 (`GET /projects/:id/summary`).
+
 Note: The Bookkeeper role may not yet exist in the roles table. If not, use Owner, Admin, Manager for now and document that Bookkeeper role needs to be added.
 
 **Query params for GET /financial/entries**: page, limit, project_id (required), task_id, category_id, date_from, date_to

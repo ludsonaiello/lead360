@@ -31,7 +31,7 @@ NONE
 |-------|------|----------|---------|-------|
 | id | String @id @db.VarChar(36) | no | @default(uuid()) | PK |
 | tenant_id | String @db.VarChar(36) | no | — | FK → tenant |
-| lead_id | String @db.VarChar(36) | no | — | FK → lead. One per customer per tenant. |
+| lead_id | String @db.VarChar(36) | no | — | FK → lead. Required and non-nullable by design. A portal account requires a lead. Standalone projects (where project.lead_id IS NULL) are ineligible for portal access. |
 | email | String @db.VarChar(255) | no | — | Customer email — login credential |
 | customer_slug | String @db.VarChar(200) | no | — | URL-safe slug. Unique per tenant. |
 | password_hash | String @db.Text | no | — | bcrypt hashed. Never returned in API. |
@@ -44,6 +44,8 @@ NONE
 | updated_at | DateTime | no | @updatedAt | |
 
 **Indexes**: @@unique([tenant_id, lead_id]), @@unique([tenant_id, email]), @@unique([tenant_id, customer_slug])
+
+> **@@unique([tenant_id, lead_id])** — one portal account per lead per tenant. Multiple projects for the same lead share the same portal account.
 **Map**: @@map("portal_account")
 
 Run migration.
@@ -106,6 +108,8 @@ generateSlug(firstName, lastName, tenantId): string {
 - must_change_password = true on first login
 - Reset token expires in 1 hour
 - Portal token payload: { portal_account_id, tenant_id, lead_id, customer_slug }
+- Portal account creation is triggered by project creation from a quote only. The `createForLead(tenantId, leadId, projectId)` method must check: if a portal_account already exists for this (tenant_id, lead_id) pair, skip creation (idempotent). If none exists, create one and queue the welcome email via the email service.
+- Standalone projects (where `project.lead_id IS NULL`) are NEVER eligible for portal account creation.
 
 **Integration with ProjectService**: Update Sprint 08's createFromQuote to call createPortalAccount after project creation.
 

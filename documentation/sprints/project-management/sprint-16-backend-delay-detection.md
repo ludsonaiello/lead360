@@ -27,15 +27,58 @@ NONE
 
 **On-read computation** (already in Sprint 13): is_delayed computed on every task read. This sprint ensures the computed value is also persisted periodically for dashboard queries.
 
-**Add scheduled BullMQ job** (optional but recommended):
-- Job name: 'project-task-delay-check'
-- Schedule: daily at 6:00 AM tenant timezone (or UTC)
-- Logic: For each active project (status in_progress), query all tasks with estimated_end_date < today AND status != 'done'. Update is_delayed = true. For tasks where is_delayed was false and is now true: create notification for assigned_pm_user_id.
-- Use existing notification module if available, or create a simple in-app notification record.
+**BULLMQ CONFIGURATION SPECIFICATION (REQUIRED)**:
 
-**Notification on delay**:
-- If existing notification table/module exists: create notification with type 'task_delayed', message: "Task '{title}' in project '{project_name}' is delayed", link to task
-- If no notification module: log to audit with entityType 'task_delay_notification'
+Queue name: `'project-management'`
+Queue registration (in `projects.module.ts`):
+  `BullModule.registerQueue({ name: 'project-management' })`
+
+Job registration on module startup (OnModuleInit in ProjectsModule):
+  Call `ScheduledJobService.registerScheduledJob({
+    job_type: 'project-task-delay-check',
+    name: 'Project Task Delay Check',
+    description: 'Daily scan for overdue project tasks. Creates notifications for assigned project managers.',
+    schedule: '0 6 * * *',
+    timezone: 'UTC',
+    max_retries: 3,
+    timeout_seconds: 300
+  });`
+  Use upsert pattern: if job_type already registered, skip (idempotent).
+
+Job processor file: `api/src/modules/projects/processors/task-delay-check.processor.ts`
+Processor class: `@Processor('project-management')` — uses the shared queue
+
+Job options (add to `.add()` call):
+  `{ attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 50 }`
+
+Multi-tenant processing:
+  The processor must query ALL active tenants and process each independently.
+  If processing fails for one tenant, catch the error, log it, and continue to the next tenant.
+  Job failure for one tenant must never stop processing for other tenants.
+
+Logic: For each active project (status in_progress), query all tasks with estimated_end_date < today AND status != 'done'. Update is_delayed = true. For tasks where is_delayed was false and is now true: create notification for assigned_pm_user_id via NotificationsService.
+
+Register in `scheduled_job` table via `ScheduledJobService.registerScheduledJob()` on OnModuleInit. This makes it visible and manageable in the Platform Admin UI at `/admin/jobs/schedules`.
+
+ScheduledJobService import: `api/src/modules/jobs/services/scheduled-job.service.ts`
+
+**NOTIFICATION INTEGRATION (REQUIRED)**:
+Import path: `api/src/modules/communication/services/notifications.service.ts`
+Import in ProjectsModule: import `CommunicationModule` in `projects.module.ts` imports array.
+
+When a task transitions from `is_delayed=false` to `is_delayed=true`:
+Call `NotificationsService.createNotification({
+  tenant_id: task.tenant_id,
+  user_id: project.assigned_pm_user_id,  // null = broadcast to all if no PM assigned
+  type: 'task_delayed',
+  title: 'Task Delayed',
+  message: \`Task '${task.title}' in project '${project.name}' is past its estimated end date.\`,
+  action_url: \`/projects/${project.id}/tasks/${task.id}\`,
+  related_entity_type: 'project_task',
+  related_entity_id: task.id
+});`
+
+If `project.assigned_pm_user_id` is null: set `user_id = null` (broadcast to all tenant users).
 
 **Business Rules**:
 - is_delayed computation is the source of truth (on-read)

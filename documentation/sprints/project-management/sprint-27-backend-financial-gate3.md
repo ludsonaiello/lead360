@@ -31,14 +31,11 @@ OPENS_FINANCIAL_GATE_3
 **Complexity**: High
 
 **Enums**:
+
+> **Note**: Use the existing `payment_method` enum defined in Sprint 01. Do not redefine it. The enum is the canonical payment method type for the entire platform.
+
 ```
-enum payment_method {
-  cash
-  check
-  bank_transfer
-  venmo
-  zelle
-}
+// payment_method — ALREADY EXISTS from Sprint 01. Do not redefine.
 
 enum hour_log_source {
   manual
@@ -52,7 +49,7 @@ enum invoice_status {
 }
 ```
 
-Note: payment_method may overlap with crew_member_payment_method. Use the existing enum if compatible or create a shared one.
+Note: The `payment_method` enum is the canonical enum defined in Sprint 01. Reuse it directly. Do not create a duplicate.
 
 **Field Table — crew_payment_record**:
 | Field | Type | Nullable | Default | Notes |
@@ -61,7 +58,7 @@ Note: payment_method may overlap with crew_member_payment_method. Use the existi
 | tenant_id | String @db.VarChar(36) | no | — | |
 | crew_member_id | String @db.VarChar(36) | no | — | FK → crew_member |
 | project_id | String? @db.VarChar(36) | yes | null | FK → project (optional) |
-| amount | Decimal @db.Decimal(10, 2) | no | — | Must be > 0 |
+| amount | Decimal @db.Decimal(12, 2) | no | — | Must be > 0. All monetary amounts on this platform use Decimal(12,2). Max value: $9,999,999,999.99. |
 | payment_date | DateTime @db.Date | no | — | Cannot be future |
 | payment_method | payment_method | no | — | |
 | reference_number | String? @db.VarChar(200) | yes | null | |
@@ -73,6 +70,12 @@ Note: payment_method may overlap with crew_member_payment_method. Use the existi
 | created_at | DateTime | no | @default(now()) | |
 
 **Indexes**: @@index([tenant_id, crew_member_id]), @@index([tenant_id, crew_member_id, payment_date]), @@index([tenant_id, project_id])
+
+**Relations** (with `@relation` decorators):
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- crew_member: `crew_member @relation(fields: [crew_member_id], references: [id], onDelete: Restrict)`
+- project: `project? @relation(fields: [project_id], references: [id], onDelete: Cascade)`
+- created_by: `user @relation(fields: [created_by_user_id], references: [id], onDelete: SetNull)`
 
 **Field Table — crew_hour_log**:
 | Field | Type | Nullable | Default | Notes |
@@ -94,6 +97,13 @@ Note: payment_method may overlap with crew_member_payment_method. Use the existi
 
 **Indexes**: @@index([tenant_id, crew_member_id, log_date]), @@index([tenant_id, project_id]), @@index([tenant_id, task_id])
 
+**Relations** (with `@relation` decorators):
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- crew_member: `crew_member @relation(fields: [crew_member_id], references: [id], onDelete: Restrict)`
+- project: `project @relation(fields: [project_id], references: [id], onDelete: Cascade)`
+- task: `project_task? @relation(fields: [task_id], references: [id], onDelete: Cascade)`
+- created_by: `user @relation(fields: [created_by_user_id], references: [id], onDelete: SetNull)`
+
 **Field Table — subcontractor_payment_record**:
 | Field | Type | Nullable | Default | Notes |
 |-------|------|----------|---------|-------|
@@ -101,7 +111,7 @@ Note: payment_method may overlap with crew_member_payment_method. Use the existi
 | tenant_id | String @db.VarChar(36) | no | — | |
 | subcontractor_id | String @db.VarChar(36) | no | — | FK → subcontractor |
 | project_id | String? @db.VarChar(36) | yes | null | FK → project (optional) |
-| amount | Decimal @db.Decimal(10, 2) | no | — | Must be > 0 |
+| amount | Decimal @db.Decimal(12, 2) | no | — | Must be > 0. All monetary amounts use Decimal(12,2). |
 | payment_date | DateTime @db.Date | no | — | Cannot be future |
 | payment_method | payment_method | no | — | |
 | reference_number | String? @db.VarChar(200) | yes | null | |
@@ -110,6 +120,12 @@ Note: payment_method may overlap with crew_member_payment_method. Use the existi
 | created_at | DateTime | no | @default(now()) | |
 
 **Indexes**: @@index([tenant_id, subcontractor_id]), @@index([tenant_id, subcontractor_id, payment_date]), @@index([tenant_id, project_id])
+
+**Relations** (with `@relation` decorators):
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- subcontractor: `subcontractor @relation(fields: [subcontractor_id], references: [id], onDelete: Restrict)`
+- project: `project? @relation(fields: [project_id], references: [id], onDelete: Cascade)`
+- created_by: `user @relation(fields: [created_by_user_id], references: [id], onDelete: SetNull)`
 
 **Field Table — subcontractor_task_invoice**:
 | Field | Type | Nullable | Default | Notes |
@@ -132,6 +148,17 @@ Note: payment_method may overlap with crew_member_payment_method. Use the existi
 | updated_at | DateTime | no | @updatedAt | |
 
 **Indexes**: @@index([tenant_id, subcontractor_id]), @@index([tenant_id, task_id]), @@index([tenant_id, project_id]), @@index([tenant_id, status])
+**Unique constraint**: `@@unique([tenant_id, invoice_number])` — `invoice_number` must be unique per tenant. If provided and already exists, throw `ConflictException`.
+
+**Relations** (with `@relation` decorators):
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- subcontractor: `subcontractor @relation(fields: [subcontractor_id], references: [id], onDelete: Restrict)`
+- task: `project_task @relation(fields: [task_id], references: [id], onDelete: Cascade)`
+- project: `project @relation(fields: [project_id], references: [id], onDelete: Cascade)`
+- file: `file? @relation(fields: [file_id], references: [id], onDelete: SetNull)`
+- created_by: `user @relation(fields: [created_by_user_id], references: [id], onDelete: SetNull)`
+
+**Add all reverse relation arrays to parent models** (crew_member, subcontractor, project, project_task, tenant, user, file) in schema notes.
 
 Run migration for all 4 tables.
 

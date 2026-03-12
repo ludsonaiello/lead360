@@ -86,6 +86,7 @@ enum project_status {
 **Also update**:
 - financial_entry model: add `project project? @relation(fields: [project_id], references: [id], onDelete: Restrict)` and reverse `financial_entries financial_entry[]` to project model
 - Add `deletion_locked Boolean @default(false)` to the quote model if it doesn't exist already (check first)
+- **Add `next_project_number Int @default(1)` to the `tenant` model in schema.prisma.** Run migration: `add_project_number_counter_to_tenant`. This field is required by Sprint 08 for concurrency-safe project number generation (mirrors the existing `next_quote_number` pattern).
 
 **Expected Outcome**: Project model in schema with all 22 fields and proper relations.
 

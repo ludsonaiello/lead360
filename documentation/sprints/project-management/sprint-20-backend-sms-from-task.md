@@ -17,10 +17,32 @@ NONE
 - CommunicationsModule must exist in the codebase (verified: api/src/modules/communication/)
 
 ## Codebase Reference
-- SmsSendingService: `api/src/modules/communication/services/` — verify exact file name
-- CommunicationsModule: `api/src/modules/communication/`
-- sendSms signature: `sendSms(tenantId: string, userId: string, dto: SendSmsDto): Promise<SmsSendingResponse>`
-- SendSmsDto fields: to_phone (E.164), text_body (max 1600), lead_id (optional), related_entity_type, related_entity_id, template_id (optional)
+
+**VERIFIED SMS INTEGRATION:**
+Service class: `SmsSendingService`
+Service file: `api/src/modules/communication/services/sms-sending.service.ts`
+Import in ProjectsModule: add `CommunicationModule` to `projects.module.ts` imports array.
+
+Exact call:
+```
+await smsSendingService.sendSms(tenantId, userId, {
+  to_phone: resolvedPhone,         // E.164, e.g. '+19781234567'. Optional if lead_id provided.
+  text_body: dto.text_body,        // Max 1600 chars. Required.
+  lead_id: resolvedLeadId,         // project.lead_id. Null if standalone project.
+  related_entity_type: 'project_task',
+  related_entity_id: taskId
+});
+```
+
+**Phone resolution logic:**
+1. If `dto.to_phone` is provided: use it directly.
+2. If `dto.to_phone` is null: fetch `lead.phones` where `is_primary=true` AND `lead.id = project.lead_id`.
+3. If no primary phone found: throw `BadRequestException('No phone number available for this lead')`.
+4. If `project.lead_id` is null (standalone project): `to_phone` from dto is required. Throw `BadRequestException('Standalone projects require an explicit to_phone')` if `dto.to_phone` is null.
+
+The CommunicationsModule automatically logs the event in `communication_event` table.
+No additional logging needed.
+
 - ProjectTaskService from Sprint 13
 
 ## Tasks

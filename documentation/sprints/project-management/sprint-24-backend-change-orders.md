@@ -23,59 +23,28 @@ NONE
 
 ## Tasks
 
-### Task 24.1 — Create task-context change order endpoint
-**Type**: Service + Controller
-**Complexity**: Medium
+### Task 24.1 — Add GET /projects/:projectId/change-orders-redirect
+**Type**: Controller
+**Complexity**: Low
 
-**Add method** to ProjectTaskService or create TaskChangeOrderService:
+**Sprint Goal (revised)**: Implement a redirect endpoint that takes a project context and returns the correct URL for the Change Orders tab in the Quote detail page.
 
-**initiateChangeOrder(tenantId, projectId, taskId, userId, dto: { description, items? })**:
-1. Fetch project with quote_id. Validate project has a linked quote.
-2. Verify parent quote status: approved | started | concluded
-3. Call ChangeOrderService.create() with: parent_quote_id = project.quote_id, private_notes = `Created from task: ${task.title} (Task ID: ${taskId})`
-4. If dto.items provided, add them to the change order
-5. Audit log
-6. Return change order data
+**Rationale**: Change orders are managed in the Quotes module, which is already fully built. Creating a parallel change order system in the Project Management module would cause data duplication and inconsistency. The correct UX is to navigate the user from the project view to the quote's change orders tab.
 
 **Endpoint**:
 | Method | Path | Roles |
 |--------|------|-------|
-| POST | /projects/:projectId/tasks/:taskId/change-order | Owner, Admin, Manager |
+| GET | /api/v1/projects/:projectId/change-orders-redirect | Owner, Admin, Manager |
 
-**Request**:
-```json
-{
-  "description": "Additional electrical work needed for kitchen island"
-}
-```
+**Logic**: Fetch `project.quote_id` for this tenant+project. If `quote_id` is null (standalone project): return HTTP 400 with message "This project was not created from a quote. Change orders are not available for standalone projects." If `quote_id` exists: return `{ redirect_url: '/quotes/{quote_id}?tab=change-orders' }`.
 
-**Response**:
-```json
-{
-  "message": "Change order created",
-  "change_order_id": "uuid",
-  "change_order_number": "CO-2026-0003",
-  "parent_quote_id": "uuid",
-  "task_id": "uuid"
-}
-```
-
-**Business Rules**:
-- Project must have a linked quote (standalone projects cannot create COs)
-- Parent quote must be approved/started/concluded
-- Change order metadata includes task_id reference
-- Uses existing ChangeOrderService — do NOT duplicate CO logic
-
-Import QuotesModule into ProjectsModule if not already done.
-
-Unit tests, integration tests, update task REST docs.
+This is a read-only endpoint. No mutations. No new change order entities, controllers, or services should be built under the Project Management module.
 
 **Files Expected**:
-- api/src/modules/projects/dto/create-task-change-order.dto.ts (created)
-- api/src/modules/projects/services/project-task.service.ts (modified)
-- api/src/modules/projects/controllers/project-task.controller.ts (modified)
-- api/src/modules/projects/projects.module.ts (modified if needed)
-- api/documentation/project_task_REST_API.md (modified)
+- `api/src/modules/projects/controllers/project.controller.ts` (add one GET endpoint)
+- Update `api/documentation/project_REST_API.md` with this endpoint
+
+**Frontend note** (for handoff): The frontend must use this endpoint to obtain the redirect URL when the user clicks "Add Change Order" from any project view. The frontend then navigates to the returned URL (the Quote detail page, Change Orders tab).
 
 **Blocker**: NONE
 

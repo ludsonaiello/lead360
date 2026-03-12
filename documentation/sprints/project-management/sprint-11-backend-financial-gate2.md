@@ -70,7 +70,7 @@ enum receipt_ocr_status {
 | created_at | DateTime | no | @default(now()) | |
 | updated_at | DateTime | no | @updatedAt | |
 
-**Indexes**: @@index([tenant_id, financial_entry_id]), @@index([tenant_id, project_id]), @@index([tenant_id, task_id]), @@index([tenant_id, is_categorized])
+**Indexes**: @@index([tenant_id, financial_entry_id]), @@index([tenant_id, project_id]), @@index([tenant_id, task_id]), @@index([tenant_id, is_categorized]), @@index([tenant_id, created_at(sort: Desc)]) — for chronological receipt listing
 **Map**: @@map("receipt")
 
 **Relations**: tenant (Cascade), financial_entry (SetNull), uploaded_by (Restrict). Add reverse to financial_entry model (receipt receipt?).

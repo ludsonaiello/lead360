@@ -57,6 +57,16 @@ enum calendar_sync_status {
 **Indexes**: @@index([tenant_id, task_id]), @@index([tenant_id, project_id]), @@index([tenant_id, sync_status])
 **Map**: @@map("task_calendar_event")
 
+**Relations** (with `@relation` decorators — all relations must be named to avoid Prisma ambiguity):
+- tenant: `tenant @relation("task_calendar_event_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)`
+- task: `project_task @relation("task_calendar_event_task", fields: [task_id], references: [id], onDelete: Cascade)`
+- project: `project @relation("task_calendar_event_project", fields: [project_id], references: [id], onDelete: Cascade)`
+- created_by: `user @relation("task_calendar_event_created_by", fields: [created_by_user_id], references: [id], onDelete: SetNull)`
+
+**Reverse relations to add**:
+- `project_task` model: `calendar_events task_calendar_event[]`
+- `project` model: `task_calendar_events task_calendar_event[]`
+
 Run migration.
 
 **Acceptance Criteria**:
@@ -72,7 +82,32 @@ Run migration.
 **Complexity**: High
 
 **TaskCalendarEventService methods**:
-1. **createEvent(tenantId, projectId, taskId, userId, dto: { title, description?, start_datetime, end_datetime })** — Create task_calendar_event. Attempt Google Calendar sync if tenant has active calendar connection. If sync succeeds: set google_event_id, sync_status='synced'. If sync fails: set sync_status='failed', queue retry. If no calendar connection: set sync_status='local_only'.
+1. **createEvent(tenantId, projectId, taskId, userId, dto: { title, description?, start_datetime, end_datetime })** — Create task_calendar_event using the VERIFIED CALENDAR INTEGRATION below.
+
+**VERIFIED CALENDAR INTEGRATION:**
+Module: `CalendarIntegrationModule`
+Path: `api/src/modules/calendar-integration/`
+Import in ProjectsModule: add `CalendarIntegrationModule` to `projects.module.ts` imports array.
+
+Services to inject:
+- `GoogleCalendarService`: `api/src/modules/calendar-integration/services/google-calendar.service.ts`
+- `CalendarProviderConnectionService`: `api/src/modules/calendar-integration/services/calendar-provider-connection.service.ts`
+
+Flow for createEvent():
+1. Use `CalendarProviderConnectionService` to check if tenant has active Google Calendar connection.
+   If no active connection: skip Google sync, set `sync_status = 'local_only'`. Done.
+2. If active connection: get the tenant's access_token and calendarId from the connection.
+3. Call `GoogleCalendarService.createEvent(accessToken, calendarId, {
+     summary: dto.title,
+     description: dto.description || '',
+     start: { dateTime: dto.start_datetime.toISOString(), timeZone: 'UTC' },
+     end: { dateTime: dto.end_datetime.toISOString(), timeZone: 'UTC' }
+   });`
+4. On success: set `google_event_id = result.eventId`, `sync_status = 'synced'`.
+5. On failure (catch Error): set `sync_status = 'failed'`. DO NOT block the creation.
+   Log the error. Queue a retry using the 'calendar-sync' BullMQ queue.
+
+`internal_calendar_id` field: leave null in Phase 1. Reserved for future Lead360-native calendar integration. Do not attempt to populate it.
 2. **listTaskEvents(tenantId, taskId)** — All events for a task.
 3. **deleteEvent(tenantId, taskId, eventId, userId)** — Delete event record. If google_event_id exists, attempt Google Calendar delete. Events NOT auto-deleted when task is deleted.
 
@@ -82,6 +117,9 @@ Run migration.
 | POST | /projects/:projectId/tasks/:taskId/calendar-events | Owner, Admin, Manager |
 | GET | /projects/:projectId/tasks/:taskId/calendar-events | Owner, Admin, Manager |
 | DELETE | /projects/:projectId/tasks/:taskId/calendar-events/:eventId | Owner, Admin, Manager |
+| PATCH | /projects/:projectId/tasks/:taskId/calendar-events/:eventId | Owner, Admin, Manager |
+
+**PATCH endpoint**: Updates event title, description, start_datetime, end_datetime. If `google_event_id` is set: attempt to update the Google Calendar event via `GoogleCalendarService.updateEvent()`. On failure: log and continue (local update succeeds regardless).
 
 **Event response**:
 ```json

@@ -37,7 +37,7 @@ NONE
 | quote_item_id | String? @db.VarChar(36) | yes | null | FK → quote_item |
 | title | String @db.VarChar(200) | no | — | |
 | description | String? @db.Text | yes | null | |
-| status | String @db.VarChar(20) | no | 'not_started' | @default("not_started") |
+| status | project_task_status | no | not_started | @default(not_started). Uses enum defined below. |
 | estimated_duration_days | Int? | yes | null | |
 | category | project_task_category? | yes | null | Reuse enum from Sprint 05 |
 | order_index | Int | no | — | |
@@ -46,6 +46,18 @@ NONE
 | deleted_at | DateTime? | yes | null | Soft delete |
 | created_at | DateTime | no | @default(now()) | |
 | updated_at | DateTime | no | @updatedAt | |
+
+**Enum to create in this sprint**:
+```
+enum project_task_status {
+  not_started
+  in_progress
+  blocked
+  done
+}
+```
+
+> **Note**: The `project_task_status` enum is defined here in Sprint 10. Sprint 12 does NOT need to create or convert this enum. Sprint 12 only adds the `task_assignee` and `task_dependency` models. Do not touch the status field type.
 
 Also ensure task_dependency model exists (minimal):
 | Field | Type | Nullable | Default | Notes |

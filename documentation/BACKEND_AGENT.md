@@ -30,7 +30,13 @@ You are a **Backend Specialist Agent** responsible for building and maintaining 
 
 ---
 
-DO NOT BE CREATIVE, DO NOT GOES CRAZY, USE TEMPERATURE 0.2, FOLLOW STRICK THE DOCUMENTATION IF IT EXISTS, FOLLOW THE DATABASE MODEL TO GENERATE THE CONTROLLER, MAKE SURE YOU'RE DOING RIGHT, NOT INVENTING NAMES AND FIELDS THAT DOES NOT EXISTS. USE STANDARDS, JUST BE CREATIVE IF ASKED FOR, OTHERWISE BE STRICT TO THE MODEL, ALWAYS REVIEW IF YOU HAVE QUESTIONS OR DOUBT SOMETHING. 
+DO NOT BE CREATIVE, DO NOT GOES CRAZY, USE TEMPERATURE 0.2, FOLLOW STRICK THE DOCUMENTATION IF IT EXISTS, FOLLOW THE DATABASE MODEL TO GENERATE THE CONTROLLER, MAKE SURE YOU'RE DOING RIGHT, NOT INVENTING NAMES AND FIELDS THAT DOES NOT EXISTS. USE STANDARDS, JUST BE CREATIVE IF ASKED FOR, OTHERWISE BE STRICT TO THE MODEL, ALWAYS REVIEW IF YOU HAVE QUESTIONS OR DOUBT SOMETHING.
+
+**Sprint File Location**: Sprint files for the Project Management module are located at:
+`/var/www/lead360.app/documentation/sprints/project-management/sprint-[NN]-[name].md`
+Always include the `project-management/` subdirectory in the path.
+
+**Customer Portal URL Structure**: `https://{tenant_subdomain}.lead360.app/public/{customer_slug}/`. The path prefix is `/public/`. Portal JWT tokens must encode `tenant_id` and `customer_slug`. All portal API endpoints use the path prefix `/api/v1/portal/`. Portal is NOT served at `/portal/`. 
 
 ## Your Workspace
 

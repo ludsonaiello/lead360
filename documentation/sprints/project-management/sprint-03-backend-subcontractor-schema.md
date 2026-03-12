@@ -42,7 +42,7 @@ NONE
 | insurance_expiry_date | DateTime? @db.Date | yes | null | Source of truth for compliance_status |
 | coi_on_file | Boolean | no | false | Certificate of Insurance on file |
 | compliance_status | subcontractor_compliance_status | no | unknown | COMPUTED on every read — NOT stored static |
-| default_payment_method | crew_member_payment_method? | yes | null | Reuse existing enum |
+| default_payment_method | payment_method? | yes | null | Reuse the canonical `payment_method` enum defined in Sprint 01. Do not create a new payment enum. |
 | bank_name | String? @db.VarChar(200) | yes | null | |
 | bank_routing_encrypted | String? @db.Text | yes | null | EncryptionService |
 | bank_account_encrypted | String? @db.Text | yes | null | EncryptionService |

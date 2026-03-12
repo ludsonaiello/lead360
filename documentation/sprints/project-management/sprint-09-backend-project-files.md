@@ -64,7 +64,9 @@ enum project_document_type {
 | tenant_id | String @db.VarChar(36) | no | — | FK → tenant |
 | project_id | String @db.VarChar(36) | no | — | FK → project |
 | task_id | String? @db.VarChar(36) | yes | null | FK → project_task |
-| log_id | String? @db.VarChar(36) | yes | null | FK → project_log (when uploaded via log) |
+| log_id | String? @db.VarChar(36) | yes | null | FK field only — see note below |
+
+> **IMPORTANT**: Do NOT add a `@relation()` decorator for `log_id` in this sprint. The `project_log` model does not exist until Sprint 17. The `@relation` decorator and reverse relation will be added in Sprint 17 when the `project_log` model is created. Until then, `log_id` is a plain nullable varchar column with no Prisma relation.
 | file_id | String @db.VarChar(36) | no | — | FK → file table |
 | file_url | String @db.VarChar(500) | no | — | Nginx-served URL. FileCategory: photo |
 | thumbnail_url | String? @db.VarChar(500) | yes | null | Auto-generated from FilesService |

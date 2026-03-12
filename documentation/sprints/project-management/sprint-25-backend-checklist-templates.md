@@ -36,7 +36,14 @@ NONE
 | created_at | DateTime | no | @default(now()) | |
 
 **Indexes**: @@index([tenant_id, is_active])
+**Unique constraint**: `@@unique([tenant_id, name])` — prevent duplicate template names per tenant. Business rule: If a template with the same name already exists for this tenant, throw `ConflictException('A checklist template with this name already exists')`.
 **Map**: @@map("completion_checklist_template")
+
+**Relations** (with `@relation` decorators):
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- created_by: `user @relation(fields: [created_by_user_id], references: [id], onDelete: SetNull)`
+
+**Reverse relation**: template model must receive `items completion_checklist_template_item[]`
 
 **Field Table — completion_checklist_template_item**:
 | Field | Type | Nullable | Default | Notes |
@@ -48,9 +55,15 @@ NONE
 | description | String? @db.Text | yes | null | |
 | is_required | Boolean | no | true | @default(true) |
 | order_index | Int | no | — | |
+| created_at | DateTime | no | @default(now()) | Auto |
+| updated_at | DateTime | no | @updatedAt | Auto |
 
 **Indexes**: @@index([tenant_id, template_id])
 **Map**: @@map("completion_checklist_template_item")
+
+**Relations** (with `@relation` decorators):
+- template: `completion_checklist_template @relation(fields: [template_id], references: [id], onDelete: Cascade)`
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
 
 **Acceptance Criteria**: Both models added, migration applied
 **Blocker**: NONE
@@ -69,6 +82,8 @@ NONE
 5. **delete(tenantId, id, userId)** — Hard delete template and cascade items.
 
 **Controller** — `@Controller('api/v1/settings/checklist-templates')`:
+
+> **Note**: Controller decorator must be: `@Controller('api/v1/settings/checklist-templates')`. All endpoints are under this path. Ensure the `api/v1/` prefix is included.
 | Method | Path | Roles |
 |--------|------|-------|
 | POST | /settings/checklist-templates | Owner, Admin |

@@ -126,19 +126,20 @@ NONE
 
 1. **createFromQuote(tenantId, userId, quoteId, dto)** — The primary project creation flow:
    a. Fetch quote with items. Validate: quote.tenant_id === tenantId, quote.status in ['approved', 'started', 'concluded'].
-   b. Generate project_number: query max existing project_number for tenant, increment. Format: PRJ-{year}-{sequence padded to 4}.
+   b. Generate project_number using ProjectNumberGeneratorService (see PROJECT NUMBER GENERATION section below).
    c. Create project record: name = dto.name || quote.title, contract_value = quote.total, lead_id = quote.lead_id, quote_id = quoteId, is_standalone = false, status = 'planned'.
    d. Lock quote: update quote.deletion_locked = true (or add the field if using a separate mechanism).
    e. Update lead status: if quote.lead_id exists, update lead.status = 'customer' (use LeadsService or direct Prisma update).
    f. Create project_task records from quote items: for each quote_item → create project_task with title = item.title, description = item.description, status = 'not_started', order_index = item.order_index, quote_item_id = item.id.
    g. If dto.template_id provided: also apply template tasks (append after quote item tasks).
-   h. Create portal_account if none exists for this lead+tenant (Sprint 31 handles full portal — here just reserve the field/skip if portal_account model doesn't exist yet).
+   h. Create portal_account for the lead+tenant if none exists. Call `PortalAccountService.createForLead(tenantId, leadId)` — this is implemented in Sprint 31. Sprint 08 must NOT create a portal_account directly, as the portal_account model does not exist yet at this sprint's execution time. Add a TODO comment in the ProjectService source: `// TODO Sprint 31: wire portal account creation here via PortalAccountService`. Sprint 08's createFromQuote must store `lead_id` on the project record so Sprint 31 can reference it.
    i. Audit log.
    j. Return full project response.
 
 2. **createStandalone(tenantId, userId, dto)** — Create project without quote:
-   a. Generate project_number (same sequence).
+   a. Generate project_number using ProjectNumberGeneratorService (same sequence).
    b. is_standalone = true, quote_id = null, lead_id = null.
+   > **Rule**: Standalone projects have `lead_id = null` and `is_standalone = true`. Portal account is NEVER created for standalone projects. Do not add portal account creation logic here under any condition.
    c. If dto.template_id provided: apply template tasks.
    d. Audit log.
    e. Return project response.
@@ -155,8 +156,24 @@ NONE
 
 8. **recomputeProgress(tenantId, projectId)** — Count total tasks and done tasks. Update progress_percent = (done / total) * 100. Called internally after task status changes.
 
-**Private helper**:
-- `generateProjectNumber(tenantId: string): Promise<string>` — Query max project_number for tenant in current year. Parse sequence. Increment. Return formatted string.
+**PROJECT NUMBER GENERATION — CONCURRENCY-SAFE:**
+
+Step 1: In Sprint 07 (schema), verify that the tenant model has `next_project_number Int @default(1)`.
+If not: Sprint 08 must add a migration to add this field to the tenant table before the service runs.
+
+Step 2: Create `ProjectNumberGeneratorService` at:
+  `api/src/modules/projects/services/project-number-generator.service.ts`
+
+Pattern (mirrors `QuoteNumberGeneratorService` at `api/src/modules/quotes/services/quote-number-generator.service.ts`):
+- Use `prisma.$transaction` to ensure atomicity.
+- Inside transaction: read `tenant.next_project_number`.
+- Increment: update tenant set `next_project_number = next_project_number + 1`.
+- Format: `PRJ-{currentYear}-{number padded to 4 digits}` e.g. `PRJ-2026-0042`
+- Return formatted string.
+- On year boundary: number continues incrementing (does not reset). The year in the format reflects the year of generation.
+
+**DO NOT** use `SELECT MAX(project_number)` — this is not concurrency-safe.
+**DO NOT** use database auto-increment integers — UUIDs are used for all PKs.
 
 **Business Rules**:
 - Quote status must be 'approved', 'started', or 'concluded' to create project from it
@@ -200,6 +217,8 @@ NONE
 | PATCH | /projects/:id | Owner, Admin, Manager | Update project |
 | DELETE | /projects/:id | Owner, Admin | Soft delete |
 | GET | /projects/:id/summary | Owner, Admin, Manager, Bookkeeper | Financial summary |
+
+> **Ownership Note**: The `GET /projects/:id/summary` endpoint is owned by ProjectController. It returns project contract_value, estimated_cost, progress, and task counts. It delegates to `FinancialEntryService.getProjectCostSummary()` for the financial cost breakdown section. This is the project overview summary, not the financial ledger view (that is Sprint 06's `GET /projects/:projectId/financial-summary` endpoint).
 
 **Query params for GET /projects**: page, limit, status, assigned_pm_user_id, search (name, project_number)
 

@@ -28,13 +28,11 @@ NONE
 **Description**: Update the existing project_task model to include ALL fields. Create the task_assignee model. Create necessary enums.
 
 **Enums to create**:
+
+> **Note**: `project_task_status` enum already exists from Sprint 10. Sprint 12 does NOT need to create or convert this enum. Sprint 12 only adds the `task_assignee` and `task_dependency` models. The status field is already an enum — no conversion needed.
+
 ```
-enum project_task_status {
-  not_started
-  in_progress
-  blocked
-  done
-}
+// project_task_status — ALREADY EXISTS from Sprint 10. Do not redefine.
 
 enum task_assignee_type {
   crew_member
@@ -73,7 +71,7 @@ enum task_dependency_type {
 | created_at | DateTime | no | @default(now()) | |
 | updated_at | DateTime | no | @updatedAt | |
 
-**Indexes**: @@index([tenant_id, project_id]), @@index([tenant_id, project_id, status]), @@index([tenant_id, project_id, order_index])
+**Indexes**: @@index([tenant_id, project_id]), @@index([tenant_id, project_id, status]), @@index([tenant_id, project_id, order_index]), @@index([tenant_id, is_delayed]) — required for delayed task dashboard queries
 **Map**: @@map("project_task")
 
 **Update task_dependency model** (from Sprint 10) to use the enum:
