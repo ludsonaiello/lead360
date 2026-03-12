@@ -163,38 +163,6 @@ enum invoice_status {
 
 Run migration for all 4 tables.
 
-**Relations — crew_payment_record**:
-- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
-- crew_member: `crew_member @relation(fields: [crew_member_id], references: [id], onDelete: Restrict)`
-- project: `project? @relation(fields: [project_id], references: [id], onDelete: SetNull)`
-- created_by: `user @relation("crew_payment_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)`
-
-**Relations — crew_hour_log**:
-- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
-- crew_member: `crew_member @relation(fields: [crew_member_id], references: [id], onDelete: Restrict)`
-- project: `project @relation(fields: [project_id], references: [id], onDelete: Cascade)`
-- task: `project_task? @relation(fields: [task_id], references: [id], onDelete: SetNull)`
-- created_by: `user @relation("crew_hour_log_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)`
-
-**Relations — subcontractor_payment_record**:
-- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
-- subcontractor: `subcontractor @relation(fields: [subcontractor_id], references: [id], onDelete: Restrict)`
-- project: `project? @relation(fields: [project_id], references: [id], onDelete: SetNull)`
-- created_by: `user @relation("sub_payment_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)`
-
-**Relations — subcontractor_task_invoice**:
-- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
-- subcontractor: `subcontractor @relation(fields: [subcontractor_id], references: [id], onDelete: Restrict)`
-- task: `project_task @relation(fields: [task_id], references: [id], onDelete: Cascade)`
-- project: `project @relation(fields: [project_id], references: [id], onDelete: Cascade)`
-- file: `file? @relation(fields: [file_id], references: [file_id], onDelete: SetNull)`
-- created_by: `user @relation("sub_invoice_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)`
-
-**Add reverse relations** to crew_member, subcontractor, project, project_task, user, file models:
-- crew_member: `payment_records crew_payment_record[]`, `hour_logs crew_hour_log[]`
-- subcontractor: `payment_records subcontractor_payment_record[]`, `task_invoices subcontractor_task_invoice[]`
-- project: `crew_payments crew_payment_record[]`, `crew_hours crew_hour_log[]`, `sub_payments subcontractor_payment_record[]`, `sub_invoices subcontractor_task_invoice[]`
-
 **Acceptance Criteria**: All 4 tables created
 **Blocker**: NONE
 
