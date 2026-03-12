@@ -17,10 +17,35 @@ NONE
 - CommunicationsModule must exist in the codebase (verified: api/src/modules/communication/)
 
 ## Codebase Reference
-- SmsSendingService: `api/src/modules/communication/services/` — verify exact file name
-- CommunicationsModule: `api/src/modules/communication/`
-- sendSms signature: `sendSms(tenantId: string, userId: string, dto: SendSmsDto): Promise<SmsSendingResponse>`
-- SendSmsDto fields: to_phone (E.164), text_body (max 1600), lead_id (optional), related_entity_type, related_entity_id, template_id (optional)
+- **SmsSendingService** (VERIFIED):
+  - File: `api/src/modules/communication/services/sms-sending.service.ts`
+  - Import: `import { SmsSendingService } from '../../communication/services/sms-sending.service';`
+  - Module import: `import { CommunicationModule } from '../communication/communication.module';`
+  - Method signature:
+    ```typescript
+    async sendSms(
+      tenantId: string,
+      userId: string,
+      dto: SendSmsDto,
+    ): Promise<SendSmsResponseDto>
+    ```
+  - **SendSmsDto fields** (import from `../../communication/dto/sms/send-sms.dto`):
+    - `to_phone?: string` — E.164 format (+19781234567), optional
+    - `text_body: string` — required, max 1600 chars
+    - `lead_id?: string` — UUID, auto-resolves phone from lead
+    - `related_entity_type?: string` — e.g. 'project_task'
+    - `related_entity_id?: string` — UUID of related entity
+    - `template_id?: string` — UUID, optional SMS template
+    - `scheduled_at?: string` — ISO 8601, optional future delivery
+  - **SendSmsResponseDto fields**:
+    - `communication_event_id: string` — UUID for tracking
+    - `job_id: string` — BullMQ job ID
+    - `status: 'queued' | 'scheduled'`
+    - `message: string`
+    - `to_phone: string`
+    - `from_phone: string`
+  - The service handles: tenant SMS config validation, lead ownership check, TCPA opt-out check, communication_event creation, and BullMQ job queuing
+  - **Important**: If lead has opted out (sms_opt_out=true), the service throws 403. Handle this in the endpoint response.
 - ProjectTaskService from Sprint 13
 
 ## Tasks

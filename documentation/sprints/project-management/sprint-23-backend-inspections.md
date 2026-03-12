@@ -55,6 +55,14 @@ enum inspection_result {
 **Indexes**: @@index([tenant_id, permit_id]), @@index([tenant_id, project_id])
 **Map**: @@map("inspection")
 
+**Relations**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- permit: `permit @relation(fields: [permit_id], references: [id], onDelete: Cascade)`
+- project: `project @relation(fields: [project_id], references: [id], onDelete: Cascade)`
+- Add reverse relations: `inspections inspection[]` to permit and project models
+
+**Soft Delete**: Add field `deleted_at DateTime?` (yes, null) for soft-delete support.
+
 Run migration.
 
 **Acceptance Criteria**: Model added, migration applied
@@ -70,13 +78,16 @@ Run migration.
 1. **create(tenantId, projectId, permitId, userId, dto)** — Create inspection. Validate permit belongs to project and tenant. Audit log.
 2. **update(tenantId, projectId, permitId, inspectionId, userId, dto)** — Update inspection result, reinspection fields. If result = 'fail', auto-set reinspection_required = true. Audit log.
 3. **findByPermit(tenantId, permitId)** — List inspections for permit.
+4. **delete(tenantId, projectId, permitId, inspectionId, userId)** — Hard delete inspection. Audit log.
 
 **Controller** (nested under permits):
-| Method | Path | Roles |
-|--------|------|-------|
-| POST | /projects/:projectId/permits/:permitId/inspections | Owner, Admin, Manager |
-| PATCH | /projects/:projectId/permits/:permitId/inspections/:id | Owner, Admin, Manager |
-| GET | /projects/:projectId/permits/:permitId/inspections | Owner, Admin, Manager |
+| Method | Path | Roles | Description |
+|--------|------|-------|-------------|
+| POST | /projects/:projectId/permits/:permitId/inspections | Owner, Admin, Manager | Create inspection |
+| GET | /projects/:projectId/permits/:permitId/inspections | Owner, Admin, Manager | List inspections |
+| PATCH | /projects/:projectId/permits/:permitId/inspections/:id | Owner, Admin, Manager | Update inspection |
+| DELETE | /projects/:projectId/permits/:permitId/inspections/:id | Owner, Admin | Soft delete (set deleted_at) |
+| DELETE | /projects/:projectId/permits/:permitId/inspections/:id/permanent | Owner | Hard delete inspection |
 
 **Inspection response**:
 ```json

@@ -198,6 +198,12 @@ Important: The DTO accepts PLAIN TEXT for sensitive fields (ssn, itin, drivers_l
    - Update crew_member.profile_photo_file_id = result.file.file_id (note: use file_id not id)
    - Return updated masked response
 
+8. **deleteProfilePhoto(tenantId: string, crewMemberId: string, userId: string): Promise<CrewMemberResponse>**
+   - Hard delete the profile photo. Call FilesService.deleteFile() to remove the file.
+   - Set crew_member.profile_photo_file_id to null.
+   - Audit log with action: 'updated', description: `Deleted profile photo for crew member ${crewMemberId}`
+   - Return updated masked response
+
 **Private helper method**:
 - `maskResponse(crewMember: any): CrewMemberResponse` — Converts raw DB record to masked response. For each encrypted field:
   - If field is not null: decrypt to get last 4 digits, then mask. SSN: `***-**-${last4}`, Bank: `****${last4}`, DL: `****${last4}`
@@ -212,10 +218,10 @@ Important: The DTO accepts PLAIN TEXT for sensitive fields (ssn, itin, drivers_l
 - Soft delete sets is_active = false, does not remove the row
 - Profile photo uses FilesService with category: 'photo'
 
-**Expected Outcome**: CrewMemberService fully implements all CRUD + reveal + photo upload operations.
+**Expected Outcome**: CrewMemberService fully implements all CRUD + reveal + photo upload + photo delete operations.
 
 **Acceptance Criteria**:
-- [ ] All 7 methods implemented
+- [ ] All 8 methods implemented
 - [ ] All queries include where: { tenant_id } filter
 - [ ] Sensitive fields encrypted before storage
 - [ ] Sensitive fields masked in all responses
@@ -246,6 +252,7 @@ Important: The DTO accepts PLAIN TEXT for sensitive fields (ssn, itin, drivers_l
 | PATCH | /api/v1/crew/:id | Owner, Admin, Manager | Update crew member |
 | DELETE | /api/v1/crew/:id | Owner, Admin | Soft delete (set is_active = false) |
 | POST | /api/v1/crew/:id/photo | Owner, Admin, Manager | Upload profile photo |
+| DELETE | /api/v1/crew/:id/photo | Owner, Admin, Manager | Delete profile photo |
 
 **Controller decorator**: `@Controller('api/v1/crew')`
 
@@ -264,10 +271,10 @@ Important: The DTO accepts PLAIN TEXT for sensitive fields (ssn, itin, drivers_l
 - `@TenantId() tenantId: string` — from JWT
 - `@Request() req` — for req.user.id (actorUserId)
 
-**Expected Outcome**: All 7 endpoints operational and returning correct response shapes.
+**Expected Outcome**: All 8 endpoints operational and returning correct response shapes.
 
 **Acceptance Criteria**:
-- [ ] All 7 endpoints created with correct paths
+- [ ] All 8 endpoints created with correct paths
 - [ ] Guards and Roles decorators applied to every endpoint
 - [ ] Reveal endpoint restricted to Owner, Admin only
 - [ ] Photo upload uses FileInterceptor
@@ -335,6 +342,7 @@ Register ProjectsModule in the root AppModule (`api/src/app.module.ts`).
 11. `revealField()` — throws BadRequestException for disallowed field name
 12. `revealField()` — throws NotFoundException when field value is null
 13. `uploadProfilePhoto()` — calls FilesService.uploadFile, updates profile_photo_file_id
+14. `deleteProfilePhoto()` — calls FilesService.deleteFile, sets profile_photo_file_id to null, calls audit log
 
 **Mock dependencies**: PrismaService, EncryptionService, AuditLoggerService, FilesService
 
@@ -342,10 +350,10 @@ Register ProjectsModule in the root AppModule (`api/src/app.module.ts`).
 
 **Test credentials**: contact@honeydo4you.com / 978@F32c
 
-**Expected Outcome**: All 13 test cases pass.
+**Expected Outcome**: All 14 test cases pass.
 
 **Acceptance Criteria**:
-- [ ] 13 unit tests written and passing
+- [ ] 14 unit tests written and passing
 - [ ] All dependencies mocked
 - [ ] Encryption, masking, and audit logging verified
 - [ ] Tenant isolation verified (tenant_id always in queries)
@@ -407,13 +415,14 @@ Register ProjectsModule in the root AppModule (`api/src/app.module.ts`).
 5. PATCH /api/v1/crew/:id — updatable fields, response
 6. DELETE /api/v1/crew/:id — soft delete behavior
 7. POST /api/v1/crew/:id/photo — multipart upload, response
+8. DELETE /api/v1/crew/:id/photo — delete profile photo, response
 
 Each endpoint must include: HTTP method, path, roles required, request body schema, response body example (JSON), error responses, and notes.
 
 **Expected Outcome**: Frontend agent can implement crew UI from this document alone.
 
 **Acceptance Criteria**:
-- [ ] All 7 endpoints documented
+- [ ] All 8 endpoints documented
 - [ ] Request/response examples for each
 - [ ] RBAC requirements listed per endpoint
 - [ ] Masking behavior explained
@@ -427,7 +436,7 @@ Each endpoint must include: HTTP method, path, roles required, request body sche
 ---
 
 ## Sprint Acceptance Criteria
-- [ ] All 7 crew member endpoints operational
+- [ ] All 8 crew member endpoints operational
 - [ ] Sensitive fields encrypted at rest, masked in responses
 - [ ] Reveal endpoint decrypts and creates audit log
 - [ ] Profile photo upload works via FilesService

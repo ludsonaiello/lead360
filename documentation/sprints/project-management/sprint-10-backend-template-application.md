@@ -28,6 +28,18 @@ NONE
 **Complexity**: Medium
 **Description**: If the project_task model was not yet added in Sprint 08 (it may have been created minimally for quote-to-task), ensure it exists with at least these fields for template application. The full field set will be completed in Sprint 12.
 
+**IMPORTANT**: Use the `project_task_status` enum for the status field (NOT a plain String). Define the enum now so Sprint 12 doesn't need a String→Enum type migration.
+
+**Enum to create** (used by project_task.status):
+```
+enum project_task_status {
+  not_started
+  in_progress
+  blocked
+  done
+}
+```
+
 **Minimum fields needed now**:
 | Field | Type | Nullable | Default | Notes |
 |-------|------|----------|---------|-------|
@@ -37,7 +49,7 @@ NONE
 | quote_item_id | String? @db.VarChar(36) | yes | null | FK → quote_item |
 | title | String @db.VarChar(200) | no | — | |
 | description | String? @db.Text | yes | null | |
-| status | String @db.VarChar(20) | no | 'not_started' | @default("not_started") |
+| status | project_task_status | no | not_started | @default(not_started). Uses enum — same enum Sprint 12 will use, no migration needed later. |
 | estimated_duration_days | Int? | yes | null | |
 | category | project_task_category? | yes | null | Reuse enum from Sprint 05 |
 | order_index | Int | no | — | |
@@ -54,9 +66,28 @@ Also ensure task_dependency model exists (minimal):
 | tenant_id | String @db.VarChar(36) | no | — | |
 | task_id | String @db.VarChar(36) | no | — | FK → project_task (dependent) |
 | depends_on_task_id | String @db.VarChar(36) | no | — | FK → project_task (prerequisite) |
-| dependency_type | String @db.VarChar(20) | no | 'finish_to_start' | @default("finish_to_start") |
+| dependency_type | String @db.VarChar(20) | no | 'finish_to_start' | @default("finish_to_start"). Will be converted to task_dependency_type enum in Sprint 12. |
 | created_by_user_id | String @db.VarChar(36) | no | — | |
 | created_at | DateTime | no | @default(now()) | |
+
+**project_task Relations**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- project: `project @relation(fields: [project_id], references: [id], onDelete: Cascade)`
+- quote_item: `quote_item? @relation(fields: [quote_item_id], references: [id], onDelete: SetNull)`
+- created_by: `user @relation("project_task_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)`
+- Add reverse relations: `project_tasks project_task[]` to project model, and appropriate reverse to user model
+
+**project_task Indexes**: @@index([tenant_id, project_id]), @@index([tenant_id, project_id, status])
+**Map**: @@map("project_task")
+
+**task_dependency Relations**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- task: `project_task @relation("task_dependencies", fields: [task_id], references: [id], onDelete: Cascade)`
+- depends_on_task: `project_task @relation("task_dependents", fields: [depends_on_task_id], references: [id], onDelete: Cascade)`
+- created_by: `user @relation("task_dependency_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)`
+
+**task_dependency Indexes**: @@index([tenant_id, task_id]), @@unique([task_id, depends_on_task_id])
+**Map**: @@map("task_dependency")
 
 Run migration if new models added.
 

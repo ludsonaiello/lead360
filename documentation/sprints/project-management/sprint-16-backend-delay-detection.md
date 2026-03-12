@@ -17,7 +17,23 @@ NONE
 
 ## Codebase Reference
 - ProjectTaskService: already computes is_delayed on read
-- Notification system: check if existing NotificationModule exists in the codebase
+- **Notification System (VERIFIED — EXISTS in CommunicationModule)**:
+  - Queue: `communication-notifications` (BullMQ)
+  - To create notifications, inject the BullMQ queue and add a job:
+    ```typescript
+    @InjectQueue('communication-notifications') private notificationQueue: Queue
+
+    await this.notificationQueue.add('create-notification', {
+      event_type: 'task_delayed',
+      tenant_id: tenantId,
+      data: { task_title: task.title, project_name: project.name, task_id: task.id },
+      entity_type: 'project_task',
+      entity_id: task.id,
+    });
+    ```
+  - The NotificationProcessor resolves recipients from notification_rule records for `event_type='task_delayed'`
+  - Import: `import { BullModule } from '@nestjs/bull';` — register queue `communication-notifications` in ProjectsModule
+  - **Notification rule seeding**: After implementing the job, seed a default notification_rule for event_type 'task_delayed' with recipient_type 'owner' and notify_in_app=true for each tenant
 
 ## Tasks
 
@@ -27,15 +43,24 @@ NONE
 
 **On-read computation** (already in Sprint 13): is_delayed computed on every task read. This sprint ensures the computed value is also persisted periodically for dashboard queries.
 
-**Add scheduled BullMQ job** (optional but recommended):
+**Add scheduled BullMQ job** (REQUIRED):
 - Job name: 'project-task-delay-check'
-- Schedule: daily at 6:00 AM tenant timezone (or UTC)
+- Schedule: daily at 6:00 AM UTC
+- **Admin UI integration**: This job must be registered as a system job in the admin panel's job management system. The admin UI already has capability to manage scheduled jobs. Add a record to the `system_job` table (if it exists) or register via the existing job scheduling infrastructure in `api/src/modules/admin/jobs/`. Follow the pattern used by `notification-cleanup.job.ts` at `api/src/modules/admin/jobs/notification-cleanup.job.ts`.
+- **BullMQ Configuration**:
+  - Queue name: `project-tasks` (register in ProjectsModule)
+  - Job options: `{ attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: true, removeOnFail: false }`
+  - Use `@Cron('0 6 * * *')` decorator or BullMQ repeatable job pattern
 - Logic: For each active project (status in_progress), query all tasks with estimated_end_date < today AND status != 'done'. Update is_delayed = true. For tasks where is_delayed was false and is now true: create notification for assigned_pm_user_id.
 - Use existing notification module if available, or create a simple in-app notification record.
 
 **Notification on delay**:
-- If existing notification table/module exists: create notification with type 'task_delayed', message: "Task '{title}' in project '{project_name}' is delayed", link to task
-- If no notification module: log to audit with entityType 'task_delay_notification'
+- Create notification via the `communication-notifications` BullMQ queue (see Codebase Reference above)
+- Notification type: 'task_delayed'
+- Message format: "Task '{title}' in project '{project_name}' is delayed"
+- action_url: `/projects/{project_id}/tasks/{task_id}`
+- related_entity_type: 'project_task'
+- related_entity_id: task_id
 
 **Business Rules**:
 - is_delayed computation is the source of truth (on-read)
@@ -45,6 +70,7 @@ NONE
 **Files Expected**:
 - api/src/modules/projects/processors/task-delay-check.processor.ts (created — if BullMQ approach)
 - api/src/modules/projects/services/project-task.service.ts (modified — ensure is_delayed update)
+- api/prisma/schema.prisma (modified — add @@index([tenant_id, is_delayed]) to project_task for delayed task dashboard queries)
 - api/src/modules/projects/projects.module.ts (modified)
 **Blocker**: NONE
 

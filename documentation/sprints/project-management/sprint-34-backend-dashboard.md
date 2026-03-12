@@ -15,6 +15,7 @@ NONE
 ## Prerequisites
 - Sprint 16 must be complete (reason: delay detection exists)
 - Sprint 08 must be complete (reason: ProjectService exists)
+- Sprint 4.2 must be complete (reason: ProjectActivityService provides recent_activity data)
 
 ## Codebase Reference
 - ProjectService, ProjectTaskService
@@ -57,6 +58,10 @@ NONE
   "recent_activity": [
     { "type": "task_completed", "project_name": "Roof Repair", "task_title": "Shingle install", "timestamp": "2026-03-10T14:00:00Z" }
   ]
+  // NOTE: recent_activity MUST be populated using ProjectActivityService.getRecentActivities() from Sprint 4.2.
+  // Do NOT use audit_log for this data.
+  // Service call:
+  //   const recentActivity = await this.projectActivityService.getRecentActivities(tenantId, { limit: 10, project_ids: projectIds });
 }
 ```
 
@@ -65,6 +70,7 @@ NONE
 - Dashboard aggregates across all projects for the tenant
 - Filters: status, assigned PM, date range
 - Delayed task count uses is_delayed computation
+- `recent_activity` MUST use `ProjectActivityService.getRecentActivities()` from Sprint 4.2 (NOT audit_log). Call: `const recentActivity = await this.projectActivityService.getRecentActivities(tenantId, { limit: 10, project_ids: projectIds });`
 
 Unit tests, integration tests, REST docs at `api/documentation/project_dashboard_REST_API.md`.
 

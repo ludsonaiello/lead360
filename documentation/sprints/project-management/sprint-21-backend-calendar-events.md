@@ -17,8 +17,41 @@ NONE
 - Calendar module must exist (verified: api/src/modules/calendar/ and api/src/modules/calendar-integration/)
 
 ## Codebase Reference
-- Calendar module: `api/src/modules/calendar/`
-- Calendar integration: `api/src/modules/calendar-integration/`
+- **Calendar Integration Module** (VERIFIED):
+  - File: `api/src/modules/calendar-integration/services/google-calendar-sync.service.ts`
+  - Import: `import { GoogleCalendarSyncService } from '../../calendar-integration/services/google-calendar-sync.service';`
+  - Import: `import { CalendarProviderConnectionService } from '../../calendar-integration/services/calendar-provider-connection.service';`
+  - Module import: `import { CalendarIntegrationModule } from '../calendar-integration/calendar-integration.module';`
+
+  **Key method for creating Google Calendar events**:
+  ```typescript
+  // GoogleCalendarService.createEvent (low-level Google API wrapper):
+  async createEvent(
+    accessToken: string,
+    calendarId: string,
+    eventData: {
+      summary: string;        // Event title
+      location?: string;      // Address
+      description?: string;   // Event description
+      start: { dateTime: string; timeZone: string };
+      end: { dateTime: string; timeZone: string };
+    }
+  ): Promise<{ eventId: string; htmlLink: string; }>
+  ```
+
+  **How to sync task calendar events to Google Calendar**:
+  1. Check if tenant has active calendar connection: `CalendarProviderConnectionService.getActiveConnection(tenantId)`
+  2. If connection exists and `isActive=true`:
+     - Get access token (refresh if expired via `CalendarProviderConnectionService.needsTokenRefresh()`)
+     - Call `GoogleCalendarService.createEvent(accessToken, connection.connectedCalendarId, eventData)`
+     - Store returned `eventId` as `google_event_id` on task_calendar_event
+     - Set `sync_status = 'synced'`
+  3. If no connection: set `sync_status = 'local_only'`
+  4. If sync fails: set `sync_status = 'failed'`, log error, do NOT block creation
+
+  **For deletion**: Call `GoogleCalendarService.deleteEvent(accessToken, calendarId, eventId)` if `google_event_id` exists
+
+  **`internal_calendar_id`**: This field is reserved for linking to the `appointment` model if the event is also an appointment. For task-level events, this will typically be null. It allows future cross-referencing with the appointment system.
 - task_calendar_event model will be new
 
 ## Tasks
@@ -53,9 +86,20 @@ enum calendar_sync_status {
 | sync_status | calendar_sync_status | no | pending | @default(pending) |
 | created_by_user_id | String @db.VarChar(36) | no | — | |
 | created_at | DateTime | no | @default(now()) | |
+| updated_at | DateTime | no | @updatedAt | |
 
 **Indexes**: @@index([tenant_id, task_id]), @@index([tenant_id, project_id]), @@index([tenant_id, sync_status])
 **Map**: @@map("task_calendar_event")
+
+**Relations**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- task: `project_task @relation(fields: [task_id], references: [id], onDelete: Cascade)`
+- project: `project @relation(fields: [project_id], references: [id], onDelete: Cascade)`
+- created_by: `user @relation("task_calendar_event_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)`
+- Add reverse relations to project_task, project, tenant, user models
+- Add `updated_at DateTime @updatedAt` to the field table
+
+**Note**: Events are NOT auto-deleted when tasks are soft-deleted (deleted_at set). The task relation uses onDelete: Cascade only for hard deletes.
 
 Run migration.
 
@@ -72,9 +116,20 @@ Run migration.
 **Complexity**: High
 
 **TaskCalendarEventService methods**:
-1. **createEvent(tenantId, projectId, taskId, userId, dto: { title, description?, start_datetime, end_datetime })** — Create task_calendar_event. Attempt Google Calendar sync if tenant has active calendar connection. If sync succeeds: set google_event_id, sync_status='synced'. If sync fails: set sync_status='failed', queue retry. If no calendar connection: set sync_status='local_only'.
+1. **createEvent(tenantId, projectId, taskId, userId, dto: { title, description?, start_datetime, end_datetime })** — Create task_calendar_event record. Then attempt Google Calendar sync:
+   - Import `CalendarProviderConnectionService` from `../../calendar-integration/services/calendar-provider-connection.service`
+   - Import `GoogleCalendarSyncService` from `../../calendar-integration/services/google-calendar-sync.service`
+   - Import `GoogleCalendarService` from `../../calendar-integration/services/google-calendar.service`
+   - Call `calendarProviderConnectionService.getActiveConnection(tenantId)` to check if tenant has a connected calendar
+   - If connection exists and is active:
+     - Get access token from connection (refresh if needed via `googleCalendarService.refreshAccessToken(connection.refresh_token)`)
+     - Call `googleCalendarService.createEvent(accessToken, connection.connected_calendar_id, { summary: dto.title, description: dto.description, start: { dateTime: dto.start_datetime, timeZone: 'UTC' }, end: { dateTime: dto.end_datetime, timeZone: 'UTC' } })`
+     - If success: set `google_event_id = result.eventId`, `sync_status = 'synced'`
+     - If failure: set `sync_status = 'failed'`, log error
+   - If no connection: set `sync_status = 'local_only'`
+   - Calendar sync is best-effort — failure does NOT block event creation
 2. **listTaskEvents(tenantId, taskId)** — All events for a task.
-3. **deleteEvent(tenantId, taskId, eventId, userId)** — Delete event record. If google_event_id exists, attempt Google Calendar delete. Events NOT auto-deleted when task is deleted.
+3. **deleteEvent(tenantId, taskId, eventId, userId)** — Delete event record. If google_event_id exists, attempt Google Calendar delete via `googleCalendarService.deleteEvent(accessToken, calendarId, google_event_id)`. Events NOT auto-deleted when task is deleted. Audit log.
 
 **Endpoints**:
 | Method | Path | Roles |

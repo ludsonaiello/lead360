@@ -44,6 +44,7 @@ enum punch_list_status {
 | template_id | String? @db.VarChar(36) | yes | null | FK → checklist_template (null if manual) |
 | completed_at | DateTime? | yes | null | Set when all required items done |
 | created_at | DateTime | no | @default(now()) | |
+| updated_at | DateTime | no | @updatedAt | Auto |
 
 **Field Table — project_completion_checklist_item**:
 | Field | Type | Nullable | Default | Notes |
@@ -58,6 +59,7 @@ enum punch_list_status {
 | completed_by_user_id | String? @db.VarChar(36) | yes | null | |
 | notes | String? @db.Text | yes | null | |
 | order_index | Int | no | — | |
+| updated_at | DateTime | no | @updatedAt | Auto |
 
 **Field Table — punch_list_item**:
 | Field | Type | Nullable | Default | Notes |
@@ -73,6 +75,30 @@ enum punch_list_status {
 | resolved_at | DateTime? | yes | null | |
 | resolved_by_user_id | String? @db.VarChar(36) | yes | null | |
 | created_at | DateTime | no | @default(now()) | |
+| updated_at | DateTime | no | @updatedAt | Auto |
+
+**Relations — project_completion_checklist**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- project: `project @relation(fields: [project_id], references: [id], onDelete: Cascade)`
+- template: `completion_checklist_template? @relation(fields: [template_id], references: [id], onDelete: SetNull)`
+- items: `project_completion_checklist_item[]` (one-to-many)
+- punch_list_items: `punch_list_item[]` (one-to-many)
+
+**Relations — project_completion_checklist_item**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- checklist: `project_completion_checklist @relation(fields: [checklist_id], references: [id], onDelete: Cascade)`
+- completed_by: `user? @relation("checklist_item_completed_by", fields: [completed_by_user_id], references: [id], onDelete: SetNull)`
+
+**Relations — punch_list_item**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- checklist: `project_completion_checklist @relation(fields: [checklist_id], references: [id], onDelete: Cascade)`
+- project: `project @relation(fields: [project_id], references: [id], onDelete: Cascade)`
+- assigned_crew: `crew_member? @relation(fields: [assigned_to_crew_id], references: [id], onDelete: SetNull)`
+- resolved_by: `user? @relation("punch_list_resolved_by", fields: [resolved_by_user_id], references: [id], onDelete: SetNull)`
+
+**Unique constraint**: @@unique([tenant_id, project_id]) on `project_completion_checklist` — one active checklist per project
+
+**Missing timestamps**: Add `updated_at DateTime @updatedAt` to `project_completion_checklist_item` and `punch_list_item` for platform consistency.
 
 Run migration.
 **Blocker**: NONE

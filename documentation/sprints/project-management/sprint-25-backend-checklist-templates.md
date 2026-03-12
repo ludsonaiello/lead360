@@ -34,9 +34,11 @@ NONE
 | is_active | Boolean | no | true | @default(true) |
 | created_by_user_id | String @db.VarChar(36) | no | — | FK → user |
 | created_at | DateTime | no | @default(now()) | |
+| updated_at | DateTime | no | @updatedAt | Auto |
 
 **Indexes**: @@index([tenant_id, is_active])
 **Map**: @@map("completion_checklist_template")
+**Unique constraint**: @@unique([tenant_id, name]) — prevent duplicate template names per tenant
 
 **Field Table — completion_checklist_template_item**:
 | Field | Type | Nullable | Default | Notes |
@@ -48,9 +50,22 @@ NONE
 | description | String? @db.Text | yes | null | |
 | is_required | Boolean | no | true | @default(true) |
 | order_index | Int | no | — | |
+| created_at | DateTime | no | @default(now()) | Auto |
+| updated_at | DateTime | no | @updatedAt | Auto |
 
 **Indexes**: @@index([tenant_id, template_id])
 **Map**: @@map("completion_checklist_template_item")
+
+**IMPORTANT**: Add `created_at DateTime @default(now())` and `updated_at DateTime @updatedAt` fields to BOTH models for consistency with platform conventions. The field tables above are missing these — the `completion_checklist_template` has `created_at` but missing `updated_at` in the item model.
+
+**Relations — completion_checklist_template**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- created_by: `user @relation("checklist_template_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)`
+- items: `completion_checklist_template_item[]` (one-to-many)
+
+**Relations — completion_checklist_template_item**:
+- template: `completion_checklist_template @relation(fields: [template_id], references: [id], onDelete: Cascade)`
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
 
 **Acceptance Criteria**: Both models added, migration applied
 **Blocker**: NONE
@@ -71,11 +86,11 @@ NONE
 **Controller** — `@Controller('api/v1/settings/checklist-templates')`:
 | Method | Path | Roles |
 |--------|------|-------|
-| POST | /settings/checklist-templates | Owner, Admin |
-| GET | /settings/checklist-templates | Owner, Admin, Manager |
-| GET | /settings/checklist-templates/:id | Owner, Admin, Manager |
-| PATCH | /settings/checklist-templates/:id | Owner, Admin |
-| DELETE | /settings/checklist-templates/:id | Owner, Admin |
+| POST | /api/v1/settings/checklist-templates | Owner, Admin |
+| GET | /api/v1/settings/checklist-templates | Owner, Admin, Manager |
+| GET | /api/v1/settings/checklist-templates/:id | Owner, Admin, Manager |
+| PATCH | /api/v1/settings/checklist-templates/:id | Owner, Admin |
+| DELETE | /api/v1/settings/checklist-templates/:id | Owner, Admin |
 
 **Template response**:
 ```json

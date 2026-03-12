@@ -341,6 +341,8 @@ All seeded with is_system_default = true, created_by_user_id = null.
 |--------|------|-------|
 | GET | /projects/:projectId/financial-summary | Owner, Admin, Manager, Bookkeeper |
 
+> **CANONICAL ENDPOINT NOTE**: `GET /projects/:projectId/financial-summary` is the **canonical** financial summary endpoint for projects, owned and implemented by the **FinancialModule**. Other modules (e.g., ProjectsModule in Sprint 08) must NOT duplicate this endpoint. If a project overview endpoint is needed elsewhere, it should defer financial data to this endpoint.
+
 Note: The Bookkeeper role may not yet exist in the roles table. If not, use Owner, Admin, Manager for now and document that Bookkeeper role needs to be added.
 
 **Query params for GET /financial/entries**: page, limit, project_id (required), task_id, category_id, date_from, date_to

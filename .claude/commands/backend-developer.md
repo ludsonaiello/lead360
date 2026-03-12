@@ -76,8 +76,10 @@ Read ALL of the following before writing a single line:
 
 **Then read your assigned sprint file**:
 ```
-/var/www/lead360.app/documentation/sprints/sprint-[NN]-[name].md
+documentation/sprints/{module-name}/sprint-[NN]-[description].md
 ```
+> Sprint files are organized by module subdirectory (e.g., `project-management/`, `communications/`, etc.).
+> Example: `documentation/sprints/project-management/sprint-14-backend-task-dependencies.md`
 
 ---
 

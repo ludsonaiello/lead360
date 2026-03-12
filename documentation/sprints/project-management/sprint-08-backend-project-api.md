@@ -151,7 +151,7 @@ NONE
 
 6. **softDelete(tenantId, id, userId)** — Only if project has no active tasks (or allow with warning). Audit log.
 
-7. **getFinancialSummary(tenantId, projectId)** — Delegates to FinancialEntryService.getProjectCostSummary(). Adds contract_value from project record. Returns combined summary.
+7. ~~getFinancialSummary~~ — **REMOVED**: Financial summary is served by Sprint 06's `GET /projects/:projectId/financial-summary` in FinancialModule. Do NOT implement this method in ProjectService.
 
 8. **recomputeProgress(tenantId, projectId)** — Count total tasks and done tasks. Update progress_percent = (done / total) * 100. Called internally after task status changes.
 
@@ -176,7 +176,7 @@ NONE
 - [ ] Quote locked after project creation
 - [ ] Lead status updated to 'customer'
 - [ ] findAll returns paginated with task counts
-- [ ] Financial summary endpoint works
+- [ ] Financial summary deferred to FinancialModule (Sprint 06) — not duplicated here
 - [ ] All queries include where: { tenant_id }
 
 **Files Expected**:
@@ -199,18 +199,17 @@ NONE
 | GET | /projects/:id | Owner, Admin, Manager, Field (assigned) | Project detail |
 | PATCH | /projects/:id | Owner, Admin, Manager | Update project |
 | DELETE | /projects/:id | Owner, Admin | Soft delete |
-| GET | /projects/:id/summary | Owner, Admin, Manager, Bookkeeper | Financial summary |
+
+
+> **Financial summary is provided by Sprint 06's `GET /projects/:projectId/financial-summary` endpoint in FinancialModule. Do NOT duplicate this endpoint in ProjectController. If a project overview endpoint is needed, it should NOT include financial data — defer to the FinancialModule endpoint.**
 
 **Query params for GET /projects**: page, limit, status, assigned_pm_user_id, search (name, project_number)
 
-Note: The financial summary endpoint may already be partially defined in Sprint 06's ProjectFinancialSummaryController. If so, consolidate here. The endpoint should call projectService.getFinancialSummary().
-
-**Expected Outcome**: All 7 endpoints operational.
+**Expected Outcome**: All 6 endpoints operational.
 
 **Acceptance Criteria**:
 - [ ] All endpoints created with correct paths and roles
 - [ ] Quote conversion endpoint validates quote status
-- [ ] Financial summary delegates to service
 
 **Files Expected**:
 - api/src/modules/projects/controllers/project.controller.ts (created)
@@ -261,7 +260,7 @@ Note: The financial summary endpoint may already be partially defined in Sprint 
    - GET /projects — paginated list
    - GET /projects/:id — detail with relations
    - PATCH /projects/:id — status update
-   - GET /projects/:id/summary — financial summary
+   - (Financial summary covered by Sprint 06's FinancialModule endpoint — not duplicated here)
 
 3. REST API docs at `api/documentation/project_REST_API.md`
 
@@ -270,7 +269,7 @@ Note: The financial summary endpoint may already be partially defined in Sprint 
 **Acceptance Criteria**:
 - [ ] Unit tests >80% coverage
 - [ ] Integration tests passing
-- [ ] API documentation covers all 7 endpoints with examples
+- [ ] API documentation covers all 6 endpoints with examples
 
 **Files Expected**:
 - api/src/modules/projects/services/project.service.spec.ts (created)
@@ -286,7 +285,7 @@ Note: The financial summary endpoint may already be partially defined in Sprint 
 - [ ] Standalone project creation works
 - [ ] project_number auto-generated per tenant (PRJ-2026-0001 format)
 - [ ] Tasks seeded from quote items on creation
-- [ ] Financial summary endpoint returns cost breakdown
+- [ ] Financial summary deferred to Sprint 06's FinancialModule (`GET /projects/:projectId/financial-summary`) — not duplicated in ProjectController
 - [ ] All queries include where: { tenant_id }
 - [ ] Tests passing, documentation complete
 

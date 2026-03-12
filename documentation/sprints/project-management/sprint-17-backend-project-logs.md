@@ -42,7 +42,7 @@ NONE
 | created_at | DateTime | no | @default(now()) | |
 | updated_at | DateTime | no | @updatedAt | |
 
-**Indexes**: @@index([tenant_id, project_id, created_at]), @@index([tenant_id, project_id, is_public])
+**Indexes**: @@index([tenant_id, project_id, created_at]), @@index([tenant_id, project_id, is_public]), @@index([tenant_id, author_user_id])
 **Map**: @@map("project_log")
 
 **Enum**:
@@ -68,6 +68,25 @@ enum log_attachment_file_type {
 | created_at | DateTime | no | @default(now()) | |
 
 **Map**: @@map("project_log_attachment")
+
+**Relations — project_log**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- project: `project @relation(fields: [project_id], references: [id], onDelete: Cascade)`
+- task: `project_task? @relation(fields: [task_id], references: [id], onDelete: SetNull)`
+- author: `user @relation("project_log_author", fields: [author_user_id], references: [id], onDelete: Restrict)`
+- attachments: `project_log_attachment[]` (one-to-many)
+- Add reverse relations: `project_logs project_log[]` to project model, user model
+
+**Relations — project_log_attachment**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- log: `project_log @relation(fields: [log_id], references: [id], onDelete: Cascade)`
+- file: `file @relation(fields: [file_id], references: [file_id], onDelete: Restrict)`
+
+**IMPORTANT — Backward relation fix for Sprint 09**:
+Sprint 09 defined `project_photo.log_id` as FK → project_log, but project_log didn't exist yet. Now that project_log exists, you MUST add the `@relation` to the existing `project_photo` model:
+- In `project_photo` model, add: `log project_log? @relation(fields: [log_id], references: [id], onDelete: SetNull)`
+- In `project_log` model, add reverse: `photos project_photo[]`
+This ensures the forward reference from Sprint 09 is now resolvable. Until this sprint is complete, `project_photo.log_id` should remain as a plain FK field without `@relation` — Sprint 09's agent should NOT try to create the relation.
 
 Run migration.
 

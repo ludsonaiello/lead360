@@ -46,6 +46,18 @@ NONE
 **Indexes**: @@unique([tenant_id, lead_id]), @@unique([tenant_id, email]), @@unique([tenant_id, customer_slug])
 **Map**: @@map("portal_account")
 
+**IMPORTANT — Standalone Projects & Portal Access**:
+Portal accounts require a linked lead (`lead_id` is required, non-nullable). This means:
+- **Standalone projects (is_standalone=true, lead_id=null)** CANNOT have customer portal access
+- Portal accounts are only created when a project is created from a quote (which always has a lead)
+- The `createFromQuote` flow in Sprint 08 creates the portal account; the `createStandalone` flow does NOT
+- If a standalone project later needs portal access, a lead must first be linked to the project
+
+**Relations**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- lead: `lead @relation(fields: [lead_id], references: [id], onDelete: Cascade)`
+- Add reverse relations: `portal_account portal_account?` to lead model, `portal_accounts portal_account[]` to tenant model
+
 Run migration.
 
 **Acceptance Criteria**: portal_account table exists with unique constraints

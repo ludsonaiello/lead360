@@ -32,13 +32,7 @@ OPENS_FINANCIAL_GATE_3
 
 **Enums**:
 ```
-enum payment_method {
-  cash
-  check
-  bank_transfer
-  venmo
-  zelle
-}
+**IMPORTANT**: Do NOT create a new `payment_method` enum. Reuse the existing `crew_member_payment_method` enum from Sprint 01. It has the exact same values (cash, check, bank_transfer, venmo, zelle). All references to `payment_method` in this sprint should use `crew_member_payment_method` instead.
 
 enum hour_log_source {
   manual
@@ -52,7 +46,7 @@ enum invoice_status {
 }
 ```
 
-Note: payment_method may overlap with crew_member_payment_method. Use the existing enum if compatible or create a shared one.
+**IMPORTANT**: Reuse the existing `crew_member_payment_method` enum from Sprint 01. Do NOT create a new `payment_method` enum. All payment_method fields below use `crew_member_payment_method`.
 
 **Field Table — crew_payment_record**:
 | Field | Type | Nullable | Default | Notes |
@@ -61,9 +55,9 @@ Note: payment_method may overlap with crew_member_payment_method. Use the existi
 | tenant_id | String @db.VarChar(36) | no | — | |
 | crew_member_id | String @db.VarChar(36) | no | — | FK → crew_member |
 | project_id | String? @db.VarChar(36) | yes | null | FK → project (optional) |
-| amount | Decimal @db.Decimal(10, 2) | no | — | Must be > 0 |
+| amount | Decimal @db.Decimal(12, 2) | no | — | Must be > 0. Use Decimal(12,2) for consistency with all monetary fields. |
 | payment_date | DateTime @db.Date | no | — | Cannot be future |
-| payment_method | payment_method | no | — | |
+| payment_method | crew_member_payment_method | no | — | Reuse existing enum from Sprint 01 |
 | reference_number | String? @db.VarChar(200) | yes | null | |
 | period_start_date | DateTime? @db.Date | yes | null | |
 | period_end_date | DateTime? @db.Date | yes | null | |
@@ -73,6 +67,14 @@ Note: payment_method may overlap with crew_member_payment_method. Use the existi
 | created_at | DateTime | no | @default(now()) | |
 
 **Indexes**: @@index([tenant_id, crew_member_id]), @@index([tenant_id, crew_member_id, payment_date]), @@index([tenant_id, project_id])
+**Map**: @@map("crew_payment_record")
+
+**Relations**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- crew_member: `crew_member @relation(fields: [crew_member_id], references: [id], onDelete: Restrict)`
+- project: `project? @relation(fields: [project_id], references: [id], onDelete: SetNull)`
+- created_by: `user @relation("crew_payment_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)`
+- Add `updated_at DateTime @updatedAt` to field table
 
 **Field Table — crew_hour_log**:
 | Field | Type | Nullable | Default | Notes |
@@ -93,6 +95,14 @@ Note: payment_method may overlap with crew_member_payment_method. Use the existi
 | updated_at | DateTime | no | @updatedAt | |
 
 **Indexes**: @@index([tenant_id, crew_member_id, log_date]), @@index([tenant_id, project_id]), @@index([tenant_id, task_id])
+**Map**: @@map("crew_hour_log")
+
+**Relations**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- crew_member: `crew_member @relation(fields: [crew_member_id], references: [id], onDelete: Restrict)`
+- project: `project @relation(fields: [project_id], references: [id], onDelete: Cascade)`
+- task: `project_task? @relation(fields: [task_id], references: [id], onDelete: SetNull)`
+- created_by: `user @relation("crew_hour_log_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)`
 
 **Field Table — subcontractor_payment_record**:
 | Field | Type | Nullable | Default | Notes |
@@ -101,15 +111,23 @@ Note: payment_method may overlap with crew_member_payment_method. Use the existi
 | tenant_id | String @db.VarChar(36) | no | — | |
 | subcontractor_id | String @db.VarChar(36) | no | — | FK → subcontractor |
 | project_id | String? @db.VarChar(36) | yes | null | FK → project (optional) |
-| amount | Decimal @db.Decimal(10, 2) | no | — | Must be > 0 |
+| amount | Decimal @db.Decimal(12, 2) | no | — | Must be > 0. Use Decimal(12,2) for consistency with all monetary fields. |
 | payment_date | DateTime @db.Date | no | — | Cannot be future |
-| payment_method | payment_method | no | — | |
+| payment_method | crew_member_payment_method | no | — | Reuse existing enum from Sprint 01 |
 | reference_number | String? @db.VarChar(200) | yes | null | |
 | notes | String? @db.Text | yes | null | |
 | created_by_user_id | String @db.VarChar(36) | no | — | |
 | created_at | DateTime | no | @default(now()) | |
 
 **Indexes**: @@index([tenant_id, subcontractor_id]), @@index([tenant_id, subcontractor_id, payment_date]), @@index([tenant_id, project_id])
+**Map**: @@map("subcontractor_payment_record")
+
+**Relations**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- subcontractor: `subcontractor @relation(fields: [subcontractor_id], references: [id], onDelete: Restrict)`
+- project: `project? @relation(fields: [project_id], references: [id], onDelete: SetNull)`
+- created_by: `user @relation("sub_payment_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)`
+- Add `updated_at DateTime @updatedAt` to field table
 
 **Field Table — subcontractor_task_invoice**:
 | Field | Type | Nullable | Default | Notes |
@@ -132,8 +150,50 @@ Note: payment_method may overlap with crew_member_payment_method. Use the existi
 | updated_at | DateTime | no | @updatedAt | |
 
 **Indexes**: @@index([tenant_id, subcontractor_id]), @@index([tenant_id, task_id]), @@index([tenant_id, project_id]), @@index([tenant_id, status])
+**Map**: @@map("subcontractor_task_invoice")
+
+**Relations**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- subcontractor: `subcontractor @relation(fields: [subcontractor_id], references: [id], onDelete: Restrict)`
+- task: `project_task @relation(fields: [task_id], references: [id], onDelete: Cascade)`
+- project: `project @relation(fields: [project_id], references: [id], onDelete: Cascade)`
+- file: `file? @relation("sub_invoice_file", fields: [file_id], references: [file_id], onDelete: SetNull)`
+- created_by: `user @relation("sub_invoice_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)`
+- Add reverse relations to subcontractor, project_task, project models
 
 Run migration for all 4 tables.
+
+**Relations — crew_payment_record**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- crew_member: `crew_member @relation(fields: [crew_member_id], references: [id], onDelete: Restrict)`
+- project: `project? @relation(fields: [project_id], references: [id], onDelete: SetNull)`
+- created_by: `user @relation("crew_payment_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)`
+
+**Relations — crew_hour_log**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- crew_member: `crew_member @relation(fields: [crew_member_id], references: [id], onDelete: Restrict)`
+- project: `project @relation(fields: [project_id], references: [id], onDelete: Cascade)`
+- task: `project_task? @relation(fields: [task_id], references: [id], onDelete: SetNull)`
+- created_by: `user @relation("crew_hour_log_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)`
+
+**Relations — subcontractor_payment_record**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- subcontractor: `subcontractor @relation(fields: [subcontractor_id], references: [id], onDelete: Restrict)`
+- project: `project? @relation(fields: [project_id], references: [id], onDelete: SetNull)`
+- created_by: `user @relation("sub_payment_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)`
+
+**Relations — subcontractor_task_invoice**:
+- tenant: `tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)`
+- subcontractor: `subcontractor @relation(fields: [subcontractor_id], references: [id], onDelete: Restrict)`
+- task: `project_task @relation(fields: [task_id], references: [id], onDelete: Cascade)`
+- project: `project @relation(fields: [project_id], references: [id], onDelete: Cascade)`
+- file: `file? @relation(fields: [file_id], references: [file_id], onDelete: SetNull)`
+- created_by: `user @relation("sub_invoice_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)`
+
+**Add reverse relations** to crew_member, subcontractor, project, project_task, user, file models:
+- crew_member: `payment_records crew_payment_record[]`, `hour_logs crew_hour_log[]`
+- subcontractor: `payment_records subcontractor_payment_record[]`, `task_invoices subcontractor_task_invoice[]`
+- project: `crew_payments crew_payment_record[]`, `crew_hours crew_hour_log[]`, `sub_payments subcontractor_payment_record[]`, `sub_invoices subcontractor_task_invoice[]`
 
 **Acceptance Criteria**: All 4 tables created
 **Blocker**: NONE

@@ -1,7 +1,7 @@
-# Sprint 24 — Change Orders from Task Context
+# Sprint 24 — Change Order Redirect from Task Context
 
 ## Sprint Goal
-Integrate with the existing Change Order module (in QuotesModule) to allow creating change orders from task context, linking the change order back to the project and task.
+Add a lightweight endpoint that validates change order eligibility from task context and returns the redirect URL to the existing Quote Detail → Change Order tab. No new change order logic is built — the existing ChangeOrderService in QuotesModule handles everything.
 
 ## Phase
 BACKEND
@@ -14,67 +14,67 @@ NONE
 
 ## Prerequisites
 - Sprint 13 must be complete (reason: ProjectTaskService exists)
-- Existing ChangeOrderService must exist in quotes module (verified: api/src/modules/quotes/services/change-order.service.ts)
+- Existing ChangeOrderService must exist in quotes module
 
 ## Codebase Reference
 - ChangeOrderService: `api/src/modules/quotes/services/change-order.service.ts`
-- Change orders use the quote table with parent_quote_id FK
-- Existing change order number format: CO-{year}-{0001}
+- Change orders are managed via the Quote Detail page's Change Order tab
+- The frontend will redirect the user to `/quotes/{quote_id}?tab=change-orders` when they click "Create Change Order" from task context
 
 ## Tasks
 
-### Task 24.1 — Create task-context change order endpoint
-**Type**: Service + Controller
-**Complexity**: Medium
-
-**Add method** to ProjectTaskService or create TaskChangeOrderService:
-
-**initiateChangeOrder(tenantId, projectId, taskId, userId, dto: { description, items? })**:
-1. Fetch project with quote_id. Validate project has a linked quote.
-2. Verify parent quote status: approved | started | concluded
-3. Call ChangeOrderService.create() with: parent_quote_id = project.quote_id, private_notes = `Created from task: ${task.title} (Task ID: ${taskId})`
-4. If dto.items provided, add them to the change order
-5. Audit log
-6. Return change order data
+### Task 24.1 — Create change order eligibility check endpoint
+**Type**: Controller
+**Complexity**: Low
 
 **Endpoint**:
 | Method | Path | Roles |
 |--------|------|-------|
-| POST | /projects/:projectId/tasks/:taskId/change-order | Owner, Admin, Manager |
+| GET | /projects/:projectId/tasks/:taskId/change-order-redirect | Owner, Admin, Manager |
 
-**Request**:
+**Logic**:
+1. Fetch project with quote_id. Validate project belongs to tenant.
+2. If project.quote_id is null (standalone project): return 400 with message "Standalone projects cannot create change orders — no linked quote."
+3. Verify parent quote status: must be in ['approved', 'started', 'concluded']. If not, return 400 with message "Quote status must be approved, started, or concluded to create a change order."
+4. Return the redirect data:
+
+**Response (200)**:
 ```json
 {
-  "description": "Additional electrical work needed for kitchen island"
+  "can_create_change_order": true,
+  "redirect_url": "/quotes/{quote_id}?tab=change-orders&from_task={task_id}&from_project={project_id}",
+  "quote_id": "uuid",
+  "quote_number": "Q-2026-0015",
+  "task_id": "uuid",
+  "task_title": "Install new shingles",
+  "message": "Redirecting to quote change order tab"
 }
 ```
 
-**Response**:
+**Response (400 — standalone project)**:
 ```json
 {
-  "message": "Change order created",
-  "change_order_id": "uuid",
-  "change_order_number": "CO-2026-0003",
-  "parent_quote_id": "uuid",
-  "task_id": "uuid"
+  "can_create_change_order": false,
+  "message": "Standalone projects cannot create change orders — no linked quote."
 }
 ```
 
 **Business Rules**:
-- Project must have a linked quote (standalone projects cannot create COs)
-- Parent quote must be approved/started/concluded
-- Change order metadata includes task_id reference
-- Uses existing ChangeOrderService — do NOT duplicate CO logic
+- NO change order creation logic here — use existing QuotesModule
+- This endpoint only validates eligibility and returns redirect data
+- The frontend handles the actual redirect to `/quotes/{quote_id}?tab=change-orders`
+- The `from_task` and `from_project` query params allow the Quote UI to pre-fill context
+- All queries include where: { tenant_id }
 
-Import QuotesModule into ProjectsModule if not already done.
-
-Unit tests, integration tests, update task REST docs.
+**Acceptance Criteria**:
+- [ ] Eligibility check validates quote existence and status
+- [ ] Redirect URL returned with correct query params
+- [ ] Standalone projects rejected with clear message
+- [ ] Tests and docs complete
 
 **Files Expected**:
-- api/src/modules/projects/dto/create-task-change-order.dto.ts (created)
-- api/src/modules/projects/services/project-task.service.ts (modified)
-- api/src/modules/projects/controllers/project-task.controller.ts (modified)
-- api/src/modules/projects/projects.module.ts (modified if needed)
+- api/src/modules/projects/controllers/project-task.controller.ts (modified — add endpoint)
+- api/src/modules/projects/services/project-task.service.ts (modified — add eligibility check method)
 - api/documentation/project_task_REST_API.md (modified)
 
 **Blocker**: NONE
@@ -82,15 +82,16 @@ Unit tests, integration tests, update task REST docs.
 ---
 
 ## Sprint Acceptance Criteria
-- [ ] Change order created from task context
-- [ ] Linked to parent quote correctly
-- [ ] Standalone projects rejected (no quote)
+- [ ] Change order eligibility check working
+- [ ] Redirect URL returned correctly
+- [ ] Standalone projects rejected
 - [ ] Tests and docs complete
 
 ## Gate Marker
 NONE
 
 ## Handoff Notes
-- Change order from task: POST /projects/:projectId/tasks/:taskId/change-order
-- Uses existing ChangeOrderService — no new CO tables
-- Task reference stored in change order's private_notes field
+- Change order redirect: GET /projects/:projectId/tasks/:taskId/change-order-redirect
+- NO new change order logic — existing QuotesModule handles all CO creation
+- Frontend redirects to: /quotes/{quote_id}?tab=change-orders&from_task={task_id}&from_project={project_id}
+- The Quote Detail UI should handle the `from_task` and `from_project` query params to show context

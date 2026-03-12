@@ -62,7 +62,7 @@ NONE
 
 **Pages**: `/projects/[id]/gantt` and `/projects/dashboard/gantt`
 
-Use a React Gantt chart library (e.g., frappe-gantt, dhtmlx-gantt, or custom SVG):
+Use **frappe-gantt** (https://github.com/nicedaybrothers/frappe-gantt-react — MIT license, lightweight) as the Gantt chart library:
 - Tasks as horizontal bars with estimated and actual date ranges
 - Dependency arrows between tasks
 - Color coding: green (done), blue (in_progress), yellow (blocked), red (delayed), gray (not_started)

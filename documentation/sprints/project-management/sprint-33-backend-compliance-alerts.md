@@ -18,7 +18,22 @@ NONE
 ## Codebase Reference
 - SubcontractorService from Sprint 04
 - BullMQ: follow existing pattern from `api/src/modules/jobs/`
-- Notification model: check if existing notification table exists in schema (verified: `notification` model exists)
+- **Notification System (VERIFIED — EXISTS in CommunicationModule)**:
+  - Queue: `communication-notifications` (BullMQ)
+  - To create notifications, inject the BullMQ queue and add a job:
+    ```typescript
+    @InjectQueue('communication-notifications') private notificationQueue: Queue
+
+    await this.notificationQueue.add('create-notification', {
+      event_type: 'subcontractor_compliance',
+      tenant_id: tenantId,
+      data: { business_name: sub.business_name, status: 'expired', expiry_date: sub.insurance_expiry_date },
+      entity_type: 'subcontractor',
+      entity_id: sub.id,
+    });
+    ```
+  - The NotificationProcessor resolves recipients from notification_rule records for `event_type='subcontractor_compliance'`
+  - Seed a default notification_rule for event_type 'subcontractor_compliance' with recipient_type 'owner' and notify_in_app=true for each tenant
 
 ## Tasks
 
@@ -40,7 +55,14 @@ NONE
    - Message: "Insurance for {business_name} is {expired/expiring on date}"
 5. Update compliance_status in database (optional — primarily computed on read)
 
-**Notification creation**: Use existing notification table/service if available, otherwise create notification records directly.
+**Notification creation**: Use the `communication-notifications` BullMQ queue (see Codebase Reference above). Queue one job per subcontractor per notification type.
+
+**Admin Job Management**: Register this job in the admin panel's job management system:
+- Follow the pattern at `api/src/modules/admin/jobs/notification-cleanup.job.ts`
+- Register as a repeatable BullMQ job with cron: `'0 7 * * *'` (7 AM UTC daily)
+- Queue name: `project-tasks` (same queue as Sprint 16's delay check job)
+- Job options: `{ attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: true }`
+- Implement multi-tenant batch processing: query all active tenants, process each in sequence, continue on error
 
 **Business Rules**:
 - Only scan subcontractors assigned to active projects
