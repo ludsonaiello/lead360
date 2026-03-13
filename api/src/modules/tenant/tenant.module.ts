@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../../core/database/prisma.module';
 import { AuditModule } from '../audit/audit.module';
+import { FinancialModule } from '../financial/financial.module';
 
 // Controllers
 import { TenantController } from './tenant.controller';
@@ -35,6 +36,7 @@ import { InsuranceExpiryCheckJob } from './jobs/insurance-expiry-check.job';
   imports: [
     PrismaModule,
     AuditModule,
+    FinancialModule, // For seeding default financial categories on tenant creation
     JwtModule.register({}), // Register JwtModule for middleware to use
     ConfigModule, // ConfigModule is global, but explicitly import for clarity
   ],

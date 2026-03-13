@@ -22,6 +22,8 @@ import { QuotesModule } from './modules/quotes/quotes.module';
 import { VoiceAiModule } from './modules/voice-ai/voice-ai.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
 import { CalendarIntegrationModule } from './modules/calendar-integration/calendar-integration.module';
+import { ProjectsModule } from './modules/projects/projects.module';
+import { FinancialModule } from './modules/financial/financial.module';
 import { PuppeteerProcessManagerModule } from './core/puppeteer/puppeteer-process-manager.module';
 
 @Module({
@@ -92,6 +94,8 @@ import { PuppeteerProcessManagerModule } from './core/puppeteer/puppeteer-proces
     VoiceAiModule, // Voice AI module — AI provider registry + agent infrastructure
     CalendarModule, // Calendar & Scheduling - Appointment types and scheduling
     CalendarIntegrationModule, // Calendar Integration - Google Calendar OAuth & Sync
+    ProjectsModule, // Project Management — Crew members, projects, tasks
+    FinancialModule, // Financial Gate 1 — Categories, entries, project cost summaries
   ],
   controllers: [HealthController],
   providers: [

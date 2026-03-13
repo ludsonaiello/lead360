@@ -212,7 +212,7 @@ export class FilesService {
           'image/jpg',
           'image/webp',
         ],
-        maxSizeBytes: 5 * 1024 * 1024, // 5MB
+        maxSizeBytes: 25 * 1024 * 1024, // 25MB — Sprint 11 requirement
       },
       photo: {
         allowedMimeTypes: [

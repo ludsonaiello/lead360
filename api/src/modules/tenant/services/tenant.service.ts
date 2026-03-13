@@ -12,6 +12,7 @@ import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { CreateTenantDto } from '../dto/create-tenant.dto';
 import { UpdateTenantDto } from '../dto/update-tenant.dto';
 import { UpdateBrandingDto } from '../dto/update-branding.dto';
+import { FinancialCategoryService } from '../../financial/services/financial-category.service';
 
 const RESERVED_SUBDOMAINS = [
   'www',
@@ -49,6 +50,7 @@ export class TenantService {
     private readonly fileStorage: FileStorageService,
     private readonly configService: ConfigService,
     private readonly auditLogger: AuditLoggerService,
+    private readonly financialCategoryService: FinancialCategoryService,
   ) {
     const uploadsPath =
       this.configService.get<string>('UPLOADS_PATH') ||
@@ -402,6 +404,9 @@ export class TenantService {
       after: tenant,
       description: 'Tenant created',
     });
+
+    // Seed default financial categories for the new tenant
+    await this.financialCategoryService.seedDefaultCategories(tenant.id);
 
     return tenant;
   }

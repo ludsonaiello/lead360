@@ -160,6 +160,109 @@ tablet tablet
 unknown unknown
         }
     
+
+
+        payment_method {
+            cash cash
+check check
+bank_transfer bank_transfer
+venmo venmo
+zelle zelle
+        }
+    
+
+
+        subcontractor_compliance_status {
+            valid valid
+expiring_soon expiring_soon
+expired expired
+unknown unknown
+        }
+    
+
+
+        subcontractor_document_type {
+            insurance insurance
+agreement agreement
+coi coi
+contract contract
+license license
+other other
+        }
+    
+
+
+        project_task_category {
+            labor labor
+material material
+subcontractor subcontractor
+equipment equipment
+other other
+        }
+    
+
+
+        financial_category_type {
+            labor labor
+material material
+subcontractor subcontractor
+equipment equipment
+other other
+        }
+    
+
+
+        financial_entry_type {
+            expense expense
+income income
+        }
+    
+
+
+        receipt_file_type {
+            photo photo
+pdf pdf
+        }
+    
+
+
+        receipt_ocr_status {
+            not_processed not_processed
+processing processing
+complete complete
+failed failed
+        }
+    
+
+
+        project_status {
+            planned planned
+in_progress in_progress
+on_hold on_hold
+completed completed
+canceled canceled
+        }
+    
+
+
+        project_task_status {
+            not_started not_started
+in_progress in_progress
+blocked blocked
+done done
+        }
+    
+
+
+        project_document_type {
+            contract contract
+permit permit
+blueprint blueprint
+agreement agreement
+photo photo
+other other
+        }
+    
   "audit_log" {
     String id "🗝️"
     audit_log_actor_type actor_type 
@@ -380,6 +483,7 @@ unknown unknown
     Int next_invoice_number 
     String quote_prefix 
     Int next_quote_number 
+    Int next_project_number 
     Int default_quote_validity_days 
     String default_quote_terms "❓"
     String default_quote_footer "❓"
@@ -1015,6 +1119,39 @@ unknown unknown
     }
   
 
+  "crew_member" {
+    String id "🗝️"
+    String first_name 
+    String last_name 
+    String email "❓"
+    String phone "❓"
+    String address_line1 "❓"
+    String address_line2 "❓"
+    String address_city "❓"
+    String address_state "❓"
+    String address_zip "❓"
+    DateTime date_of_birth "❓"
+    String ssn_encrypted "❓"
+    String itin_encrypted "❓"
+    Boolean has_drivers_license "❓"
+    String drivers_license_number_encrypted "❓"
+    Decimal default_hourly_rate "❓"
+    Int weekly_hours_schedule "❓"
+    Boolean overtime_enabled 
+    Decimal overtime_rate_multiplier "❓"
+    payment_method default_payment_method "❓"
+    String bank_name "❓"
+    String bank_routing_encrypted "❓"
+    String bank_account_encrypted "❓"
+    String venmo_handle "❓"
+    String zelle_contact "❓"
+    String notes "❓"
+    Boolean is_active 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
   "job" {
     String id "🗝️"
     String job_type 
@@ -1643,6 +1780,7 @@ unknown unknown
     String pdf_content_hash "❓"
     DateTime pdf_last_generated_at "❓"
     Json pdf_generation_params "❓"
+    Boolean deletion_locked 
     }
   
 
@@ -1841,6 +1979,204 @@ unknown unknown
     DateTime updated_at 
     }
   
+
+  "subcontractor" {
+    String id "🗝️"
+    String business_name 
+    String trade_specialty "❓"
+    String email "❓"
+    String website "❓"
+    String insurance_provider "❓"
+    String insurance_policy_number "❓"
+    DateTime insurance_expiry_date "❓"
+    Boolean coi_on_file 
+    subcontractor_compliance_status compliance_status 
+    payment_method default_payment_method "❓"
+    String bank_name "❓"
+    String bank_routing_encrypted "❓"
+    String bank_account_encrypted "❓"
+    String venmo_handle "❓"
+    String zelle_contact "❓"
+    String notes "❓"
+    Boolean is_active 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "subcontractor_contact" {
+    String id "🗝️"
+    String contact_name 
+    String phone 
+    String role "❓"
+    String email "❓"
+    Boolean is_primary 
+    DateTime created_at 
+    }
+  
+
+  "subcontractor_document" {
+    String id "🗝️"
+    String file_url 
+    String file_name 
+    subcontractor_document_type document_type 
+    String description "❓"
+    DateTime created_at 
+    }
+  
+
+  "project_template" {
+    String id "🗝️"
+    String name 
+    String description "❓"
+    String industry_type "❓"
+    Boolean is_active 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "project_template_task" {
+    String id "🗝️"
+    String title 
+    String description "❓"
+    Int estimated_duration_days "❓"
+    project_task_category category "❓"
+    Int order_index 
+    Int depends_on_order_index "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "financial_category" {
+    String id "🗝️"
+    String name 
+    financial_category_type type 
+    String description "❓"
+    Boolean is_active 
+    Boolean is_system_default 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "financial_entry" {
+    String id "🗝️"
+    String task_id "❓"
+    financial_entry_type entry_type 
+    Decimal amount 
+    DateTime entry_date 
+    String vendor_name "❓"
+    String notes "❓"
+    Boolean has_receipt 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "receipt" {
+    String id "🗝️"
+    String file_url 
+    String file_name 
+    receipt_file_type file_type 
+    Int file_size_bytes "❓"
+    String vendor_name "❓"
+    Decimal amount "❓"
+    DateTime receipt_date "❓"
+    String ocr_raw "❓"
+    receipt_ocr_status ocr_status 
+    String ocr_vendor "❓"
+    Decimal ocr_amount "❓"
+    DateTime ocr_date "❓"
+    Boolean is_categorized 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "project" {
+    String id "🗝️"
+    String project_number 
+    String name 
+    String description "❓"
+    project_status status 
+    DateTime start_date "❓"
+    DateTime target_completion_date "❓"
+    DateTime actual_completion_date "❓"
+    Boolean permit_required 
+    Decimal contract_value "❓"
+    Decimal estimated_cost "❓"
+    Decimal progress_percent 
+    Boolean is_standalone 
+    Boolean portal_enabled 
+    Boolean deletion_locked 
+    String notes "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "project_task" {
+    String id "🗝️"
+    String title 
+    String description "❓"
+    project_task_status status 
+    Int estimated_duration_days "❓"
+    DateTime estimated_start_date "❓"
+    DateTime estimated_end_date "❓"
+    DateTime actual_start_date "❓"
+    DateTime actual_end_date "❓"
+    Boolean is_delayed 
+    Int order_index 
+    project_task_category category "❓"
+    String notes "❓"
+    DateTime deleted_at "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "task_dependency" {
+    String id "🗝️"
+    String dependency_type 
+    DateTime created_at 
+    }
+  
+
+  "project_activity" {
+    String id "🗝️"
+    String activity_type 
+    String description 
+    Json metadata "❓"
+    DateTime created_at 
+    }
+  
+
+  "project_document" {
+    String id "🗝️"
+    String file_url 
+    String file_name 
+    project_document_type document_type 
+    String description "❓"
+    Boolean is_public 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "project_photo" {
+    String id "🗝️"
+    String log_id "❓"
+    String file_url 
+    String thumbnail_url "❓"
+    String caption "❓"
+    Boolean is_public 
+    DateTime taken_at "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
     "audit_log" |o--|| "audit_log_actor_type" : "enum:actor_type"
     "audit_log" |o--|| "audit_log_status" : "enum:status"
     "audit_log" }o--|o "user" : "user"
@@ -1919,6 +2255,11 @@ unknown unknown
     "voice_usage_record" }o--|| voice_call_log : "call_log"
     "voice_usage_record" }o--|| voice_ai_provider : "provider"
     "voice_monthly_usage" }o--|| "tenant" : "tenant"
+    "crew_member" |o--|o "payment_method" : "enum:default_payment_method"
+    "crew_member" }o--|| "tenant" : "tenant"
+    "crew_member" |o--|o "user" : "user"
+    "crew_member" }o--|| "user" : "created_by"
+    "crew_member" }o--|o "file" : "profile_photo"
     "job_log" }o--|| "job" : "job"
     "email_queue" |o--|| "job" : "job"
     "lead" }o--|| "tenant" : "tenant"
@@ -2043,4 +2384,68 @@ unknown unknown
     "quote_bundle_item" }o--|| unit_measurement : "unit_measurement"
     "sms_template" }o--|| "tenant" : "tenant"
     "sms_template" }o--|| "user" : "creator"
+    "subcontractor" |o--|| "subcontractor_compliance_status" : "enum:compliance_status"
+    "subcontractor" |o--|o "payment_method" : "enum:default_payment_method"
+    "subcontractor" }o--|| "tenant" : "tenant"
+    "subcontractor" }o--|| "user" : "created_by"
+    "subcontractor_contact" }o--|| "tenant" : "tenant"
+    "subcontractor_contact" }o--|| subcontractor : "subcontractor"
+    "subcontractor_document" |o--|| "subcontractor_document_type" : "enum:document_type"
+    "subcontractor_document" }o--|| "tenant" : "tenant"
+    "subcontractor_document" }o--|| subcontractor : "subcontractor"
+    "subcontractor_document" }o--|| "file" : "file"
+    "subcontractor_document" }o--|| "user" : "uploaded_by"
+    "project_template" }o--|| "tenant" : "tenant"
+    "project_template" }o--|| "user" : "created_by"
+    "project_template_task" |o--|o "project_task_category" : "enum:category"
+    "project_template_task" }o--|| project_template : "template"
+    "project_template_task" }o--|| "tenant" : "tenant"
+    "financial_category" |o--|| "financial_category_type" : "enum:type"
+    "financial_category" }o--|| "tenant" : "tenant"
+    "financial_category" }o--|o "user" : "created_by"
+    "financial_entry" |o--|| "financial_entry_type" : "enum:entry_type"
+    "financial_entry" }o--|| "tenant" : "tenant"
+    "financial_entry" }o--|| financial_category : "category"
+    "financial_entry" }o--|| "user" : "created_by"
+    "financial_entry" }o--|o "user" : "updated_by"
+    "financial_entry" }o--|o crew_member : "crew_member"
+    "financial_entry" }o--|o subcontractor : "subcontractor"
+    "financial_entry" }o--|| project : "project"
+    "receipt" |o--|| "receipt_file_type" : "enum:file_type"
+    "receipt" |o--|| "receipt_ocr_status" : "enum:ocr_status"
+    "receipt" }o--|| "tenant" : "tenant"
+    "receipt" }o--|o financial_entry : "financial_entry"
+    "receipt" }o--|o project : "project"
+    "receipt" }o--|o project_task : "task"
+    "receipt" }o--|| "user" : "uploaded_by_user"
+    "receipt" }o--|| "file" : "file"
+    "project" |o--|| "project_status" : "enum:status"
+    "project" }o--|| "tenant" : "tenant"
+    "project" }o--|o quote : "quote"
+    "project" }o--|o lead : "lead"
+    "project" }o--|o "user" : "assigned_pm_user"
+    "project" }o--|| "user" : "created_by_user"
+    "project_task" |o--|| "project_task_status" : "enum:status"
+    "project_task" |o--|o "project_task_category" : "enum:category"
+    "project_task" }o--|| "tenant" : "tenant"
+    "project_task" }o--|| project : "project"
+    "project_task" }o--|o quote_item : "quote_item"
+    "project_task" }o--|| "user" : "created_by"
+    "task_dependency" }o--|| "tenant" : "tenant"
+    "task_dependency" }o--|| project_task : "task"
+    "task_dependency" }o--|| project_task : "depends_on_task"
+    "task_dependency" }o--|| "user" : "created_by"
+    "project_activity" }o--|| "tenant" : "tenant"
+    "project_activity" }o--|| project : "project"
+    "project_activity" }o--|o "user" : "user"
+    "project_document" |o--|| "project_document_type" : "enum:document_type"
+    "project_document" }o--|| "tenant" : "tenant"
+    "project_document" }o--|| project : "project"
+    "project_document" }o--|| "user" : "uploaded_by_user"
+    "project_document" }o--|| "file" : "file"
+    "project_photo" }o--|| "tenant" : "tenant"
+    "project_photo" }o--|| project : "project"
+    "project_photo" }o--|o project_task : "task"
+    "project_photo" }o--|| "user" : "uploaded_by_user"
+    "project_photo" }o--|| "file" : "file"
 ```

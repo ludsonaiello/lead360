@@ -3,5 +3,8 @@
     "allow": [
       "Bash(echo \"=== CHECKING FOR MOCK DATA AND HARDCODED VALUES ===\" echo \"\" echo \"Checking for ''mock'', ''placeholder'', ''hardcoded'', ''localhost'', ''http://'':\" grep -ri \"mock\\\\|placeholder.*=\\\\|hardcoded\\\\|http://localhost\\\\|http://127\" /var/www/lead360.app/app/src/components/admin/twilio/alerts/ /var/www/lead360.app/app/src/components/admin/twilio/events/ /var/www/lead360.app/app/src/app/\\\\\\(dashboard\\\\\\)/admin/communications/twilio/alerts/ /var/www/lead360.app/app/src/app/\\\\\\(dashboard\\\\\\)/admin/communications/twilio/bulk-operations/)"
     ]
+  },
+  "env": {
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "85"
   }
 }
