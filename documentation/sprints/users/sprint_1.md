@@ -12,7 +12,7 @@
 
 Add a unique `jti` (JWT ID) field to every access token issued by the platform, then build a Redis-backed token blocklist service that can immediately invalidate a specific token by its `jti`. Update the JWT strategy to reject blocked tokens on every request. This infrastructure is required by the Users module deactivation flow (BR-04, BR-13) and must be in place before any user service is built.
 
-No schema migration. No new module registration in app.module.ts. This sprint only modifies auth and creates a new core service.
+No schema migration. No new module registration in app.module.ts beyond AuthModule. This sprint only modifies auth infrastructure and creates a new core service.
 
 ---
 
@@ -21,7 +21,7 @@ No schema migration. No new module registration in app.module.ts. This sprint on
 - [ ] Read `/var/www/lead360.app/api/src/modules/auth/strategies/jwt.strategy.ts`
 - [ ] Read `/var/www/lead360.app/api/src/modules/auth/guards/jwt-auth.guard.ts`
 - [ ] Read `/var/www/lead360.app/api/src/modules/auth/entities/jwt-payload.entity.ts`
-- [ ] Read `/var/www/lead360.app/api/src/core/cache/cache.service.ts`
+- [ ] Read `/var/www/lead360.app/api/src/core/cache/cache.service.ts` FULLY — the service auto-serializes values with `JSON.stringify` on `set()` and auto-deserializes with `JSON.parse` on `get()`. Always pass raw typed objects to `set()` and use typed generics on `get<T>()`. Never pre-stringify values.
 - [ ] Read `/var/www/lead360.app/api/src/core/cache/cache.module.ts`
 - [ ] Read `/var/www/lead360.app/api/src/modules/auth/auth.module.ts`
 - [ ] Confirm Redis is running: `redis-cli ping` must return `PONG`
@@ -65,12 +65,19 @@ BEFORE marking the sprint COMPLETE:
 
 ### Task 1 — Create TokenBlocklistService
 
-**What:** Create a new service at `src/core/token-blocklist/token-blocklist.service.ts` with three methods:
+**What:** Create `src/core/token-blocklist/token-blocklist.service.ts`.
+
+The `CacheService` auto-serializes with `JSON.stringify` on write and auto-deserializes with `JSON.parse` on read. Pass typed objects directly — never call `JSON.stringify` yourself.
 
 ```typescript
 // src/core/token-blocklist/token-blocklist.service.ts
 import { Injectable } from '@nestjs/common';
 import { CacheService } from '../cache/cache.service';
+
+interface ActiveTokenRecord {
+  jti: string;
+  exp: number; // Unix timestamp in seconds
+}
 
 @Injectable()
 export class TokenBlocklistService {
@@ -80,21 +87,19 @@ export class TokenBlocklistService {
   constructor(private readonly cache: CacheService) {}
 
   /**
-   * Called at login/refresh: records the user's current active jti so we
-   * can block it later on deactivation.
+   * Called at login/refresh: records the user's current active jti so it can
+   * be blocked later on deactivation.
    *
-   * @param userId    - user.id
-   * @param jti       - UUID jti embedded in the access token
-   * @param exp       - Unix timestamp (seconds) when the token expires
+   * @param userId - user.id
+   * @param jti    - UUID jti embedded in the access token
+   * @param exp    - Unix timestamp (seconds) when the token expires
    */
   async trackToken(userId: string, jti: string, exp: number): Promise<void> {
     const ttl = exp - Math.floor(Date.now() / 1000);
     if (ttl <= 0) return; // already expired — nothing to track
-    await this.cache.set(
-      `${this.TRACK_PREFIX}:${userId}`,
-      JSON.stringify({ jti, exp }),
-      ttl,
-    );
+    // CacheService auto-serializes: pass the typed object directly
+    const record: ActiveTokenRecord = { jti, exp };
+    await this.cache.set(`${this.TRACK_PREFIX}:${userId}`, record, ttl);
   }
 
   /**
@@ -104,26 +109,17 @@ export class TokenBlocklistService {
    * @param userId - user.id of the user being deactivated
    */
   async blockUserTokens(userId: string): Promise<void> {
-    const raw = await this.cache.get<string>(`${this.TRACK_PREFIX}:${userId}`);
-    if (!raw) return; // user has no active tracked token — nothing to block
+    // CacheService auto-deserializes: get the typed object directly
+    const record = await this.cache.get<ActiveTokenRecord>(`${this.TRACK_PREFIX}:${userId}`);
+    if (!record) return; // user has no active tracked token — nothing to block
 
-    let parsed: { jti: string; exp: number };
-    try {
-      parsed = JSON.parse(raw as unknown as string);
-    } catch {
-      return;
-    }
+    const remaining = record.exp - Math.floor(Date.now() / 1000);
+    if (remaining <= 0) return; // already expired — token is naturally invalid
 
-    const remaining = parsed.exp - Math.floor(Date.now() / 1000);
-    if (remaining <= 0) return; // already expired
+    // Store the jti in the blocklist with the remaining lifetime as TTL
+    await this.cache.set(`${this.BLOCK_PREFIX}:${record.jti}`, '1', remaining);
 
-    await this.cache.set(
-      `${this.BLOCK_PREFIX}:${parsed.jti}`,
-      '1',
-      remaining,
-    );
-
-    // Clean up the tracking key
+    // Clean up the tracking key — user is now deactivated
     await this.cache.del(`${this.TRACK_PREFIX}:${userId}`);
   }
 
@@ -144,7 +140,7 @@ export class TokenBlocklistService {
 
 **Acceptance:** Service compiles with no TypeScript errors.
 
-**Do NOT:** Add any database calls. This service is Redis-only.
+**Do NOT:** Add any database calls. This service is Redis-only. Do NOT call `JSON.stringify` or `JSON.parse` — the CacheService handles that automatically.
 
 ---
 
@@ -172,20 +168,23 @@ export class TokenBlocklistModule {}
 
 ### Task 3 — Update JwtPayload Entity
 
-**What:** Open `src/modules/auth/entities/jwt-payload.entity.ts`. Add `jti` field. Also add `membershipId` field (will be populated in Sprint 3, but declare it now so TypeScript is ready):
+**What:** Open `src/modules/auth/entities/jwt-payload.entity.ts`.
 
-The interface/type should be updated to include:
+Add `jti` and `membershipId` as optional fields to both the `JwtPayload` interface and the `AuthenticatedUser` interface. Do not change any existing field.
+
+Add to `JwtPayload`:
 ```typescript
-jti?: string;          // UUID — required for blocklist; optional during transition
-membershipId?: string; // UUID — populated after Sprint 3 auth update
+jti?: string;          // UUID — required for blocklist; optional in Sprint 1 (all tokens get it from Sprint 3 onward)
+membershipId?: string; // UUID — populated from Sprint 3 auth update onward
 ```
 
-If the file exports a `JwtPayload` interface or type, add these two optional fields to it.
-If the file also exports an `AuthenticatedUser` interface, add `jti?: string` and `membershipId?: string` to it as well.
+Add to `AuthenticatedUser`:
+```typescript
+jti?: string;
+membershipId?: string;
+```
 
-**Expected output:** Updated `src/modules/auth/entities/jwt-payload.entity.ts`
-
-**Do NOT:** Change any required field to optional or add other fields not listed here.
+**Do NOT** change any required field to optional. Only add these two new optional fields.
 
 ---
 
@@ -193,17 +192,18 @@ If the file also exports an `AuthenticatedUser` interface, add `jti?: string` an
 
 **What:** Open `src/modules/auth/auth.service.ts`.
 
-Add `import { randomUUID } from 'crypto';` to the imports at the top of the file (if not already present).
-
-Inject `TokenBlocklistService` into the constructor:
+**Step 1** — Add to imports at the top of the file:
 ```typescript
-// Add to constructor parameters:
+import { randomUUID } from 'crypto'; // add randomUUID to the crypto import
+import { TokenBlocklistService } from '../../core/token-blocklist/token-blocklist.service';
+```
+
+**Step 2** — Add `TokenBlocklistService` to the constructor parameter list:
+```typescript
 private readonly tokenBlocklist: TokenBlocklistService,
 ```
 
-Find the private `generateTokens()` method (it contains `this.jwtService.sign(payload, ...)`). This method is at approximately line 972.
-
-**Current payload construction:**
+**Step 3** — Find the private `generateTokens()` method (it calls `this.jwtService.sign(payload, ...)` for the access token; approximately at line 972). Its current payload:
 ```typescript
 const payload: JwtPayload = {
   sub: user.id,
@@ -214,7 +214,7 @@ const payload: JwtPayload = {
 };
 ```
 
-**Change it to:**
+Change it to:
 ```typescript
 const jti = randomUUID();
 const payload: JwtPayload = {
@@ -227,40 +227,44 @@ const payload: JwtPayload = {
 };
 ```
 
-After signing the accessToken, calculate `exp` and call `trackToken`:
+After the `accessToken` is signed, track the token in Redis. The `ACCESS_TOKEN_EXPIRY` constant is `'24h'` = 86400 seconds:
 ```typescript
-const accessToken = this.jwtService.sign(payload, {
-  secret: this.configService.get<string>('JWT_SECRET'),
-  expiresIn: this.ACCESS_TOKEN_EXPIRY,
-});
+const accessToken = this.jwtService.sign(payload, { ... });
 
-// Track the active token for potential blocklist use
-const expTimestamp = Math.floor(Date.now() / 1000) + 86400; // 24h from now
+const expTimestamp = Math.floor(Date.now() / 1000) + 86400; // matches ACCESS_TOKEN_EXPIRY = '24h'
 await this.tokenBlocklist.trackToken(user.id, jti, expTimestamp);
 ```
 
-**Also find the second location** where `jwtService.sign` is called for refresh token handling (around line 378 — the `/auth/refresh` endpoint flow). Update that payload the same way — add `jti: randomUUID()` and call `trackToken`.
+**Step 4** — Also find the token refresh flow (around line 378 — the `/auth/refresh` endpoint re-signs the access token with an inline payload). Update that payload the same way:
+```typescript
+const jti = randomUUID();
+const payload: JwtPayload = {
+  sub: user.id,
+  email: user.email,
+  tenant_id: user.tenant_id,
+  roles,
+  is_platform_admin: user.is_platform_admin,
+  jti,
+};
+// After signing:
+const expTimestamp = Math.floor(Date.now() / 1000) + 86400;
+await this.tokenBlocklist.trackToken(user.id, jti, expTimestamp);
+```
 
-**Expected output:** Updated `auth.service.ts` with jti in every access token signed.
-
-**Acceptance:** After login, decode the returned JWT at jwt.io — it must contain a `jti` field.
-
-**Do NOT:** Modify the refresh token signing (the `{ sub: user.id }` refresh token payload does not get a jti — only access tokens need jti).
+**Do NOT** modify the refresh token signing call (the separate `{ sub: user.id }` payload for the refresh token itself has no jti).
 
 ---
 
 ### Task 5 — Update AuthModule to Import TokenBlocklistModule
 
-**What:** Open `src/modules/auth/auth.module.ts`. Add `TokenBlocklistModule` to the imports array:
+**What:** Open `src/modules/auth/auth.module.ts`. Add to the imports array:
 
 ```typescript
 import { TokenBlocklistModule } from '../../core/token-blocklist/token-blocklist.module';
-// Add to @Module imports: TokenBlocklistModule
+// In @Module({ imports: [...] }): add TokenBlocklistModule
 ```
 
-Also add `TokenBlocklistService` to the providers if it is not exported from the module — but since it comes from `TokenBlocklistModule`, just importing the module is sufficient.
-
-**Expected output:** Updated `auth.module.ts`.
+Since `TokenBlocklistModule` exports `TokenBlocklistService`, it becomes available to all providers within `AuthModule` (including `AuthService` and `JwtStrategy`) via NestJS DI.
 
 ---
 
@@ -268,18 +272,18 @@ Also add `TokenBlocklistService` to the providers if it is not exported from the
 
 **What:** Open `src/modules/auth/strategies/jwt.strategy.ts`.
 
-Inject `TokenBlocklistService`:
+Add to imports and constructor:
 ```typescript
 import { TokenBlocklistService } from '../../../core/token-blocklist/token-blocklist.service';
 
-// Add to constructor parameters:
+// In constructor parameter list, add:
 private readonly tokenBlocklist: TokenBlocklistService,
 ```
 
-In the `validate()` method, add blocklist check BEFORE the user database lookup:
+In the `validate()` method, add the blocklist check as the **first operation**, before any database lookup:
 ```typescript
 async validate(req: any, payload: JwtPayload): Promise<AuthenticatedUser> {
-  // Check token blocklist FIRST — fastest check, avoid DB if blocked
+  // Check token blocklist FIRST — Redis roundtrip avoids unnecessary DB query for blocked tokens
   if (payload.jti) {
     const blocked = await this.tokenBlocklist.isBlocked(payload.jti);
     if (blocked) {
@@ -305,50 +309,40 @@ async validate(req: any, payload: JwtPayload): Promise<AuthenticatedUser> {
   return {
     id: payload.sub,
     email: payload.email,
-    tenant_id: tenant_id,
+    tenant_id,
     roles: payload.roles,
     is_platform_admin: payload.is_platform_admin,
-    jti: payload.jti,            // pass through for downstream use
-    membershipId: payload.membershipId, // will be set after Sprint 3
+    jti: payload.jti,
+    membershipId: payload.membershipId, // undefined until Sprint 3
   };
 }
 ```
 
-**Why:** BR-13 — JWT guard must check the Redis blocklist on every authenticated request. A blocked `jti` returns HTTP 401 with message `Token has been revoked.`
+**Why:** BR-13 — JWT guard must check the Redis blocklist on every authenticated request. Blocked token → HTTP 401 with message `Token has been revoked.`
 
-**Expected output:** Updated `jwt.strategy.ts` with blocklist check before DB lookup.
-
-**Do NOT:** Change the existing `passReqToCallback: true` or any other strategy configuration.
+**Do NOT** change `passReqToCallback: true` or any other strategy configuration option.
 
 ---
 
 ## Patterns to Apply
 
-### CacheService (already exists)
+### CacheService Contract
 ```typescript
-// src/core/cache/cache.service.ts
-// Methods available:
-async get<T>(key: string): Promise<T | null>
-async set(key: string, value: unknown, ttl?: number): Promise<void>  // ttl in seconds
+// src/core/cache/cache.service.ts — auto-serializes on set(), auto-deserializes on get()
+async get<T>(key: string): Promise<T | null>          // returns JSON.parse(stored_value) as T
+async set(key: string, value: any, ttlSeconds: number): Promise<void>  // stores JSON.stringify(value)
 async del(key: string): Promise<void>
 async exists(key: string): Promise<boolean>
 
-// Import path: import { CacheService } from '../../../core/cache/cache.service'
-// Module path: import { CacheModule } from '../../../core/cache/cache.module'
-```
-
-### JWT Strategy Override Pattern
-```typescript
-// To inject dependencies into the JWT strategy constructor, the strategy
-// must be a NestJS Injectable. The existing strategy already is — just add
-// constructor parameters and NestJS DI handles the rest.
+// Import path: import { CacheService } from '../cache/cache.service'
+// Module path: import { CacheModule } from '../cache/cache.module'
 ```
 
 ---
 
 ## Business Rules Enforced in This Sprint
-- **BR-13:** JWT guard must check the Redis blocklist on every authenticated request before allowing access. Blocked token returns HTTP 401 with message: `Token has been revoked.`
-- **BR-04 (partial):** Blocklist infrastructure is prepared for deactivation use in Sprint 6.
+- **BR-13:** JWT guard checks the Redis blocklist on every authenticated request before allowing access. Blocked token → HTTP 401 `Token has been revoked.`
+- **BR-04 (partial):** Blocklist infrastructure is in place and ready for use by the deactivation flow in Sprint 6.
 
 ---
 
@@ -367,9 +361,9 @@ async exists(key: string): Promise<boolean>
 ## Acceptance Criteria
 - [ ] `POST /api/v1/auth/login` returns a JWT that when decoded contains a `jti` UUID field
 - [ ] `POST /api/v1/auth/refresh` returns a new access token that also contains a `jti`
-- [ ] Every authenticated request checks Redis for `blocked_token:{jti}` — verify by inserting a test key manually: `redis-cli SET "blocked_token:{jti_from_login}" 1 EX 3600` then make a request with that token and confirm 401 with body `{ message: "Token has been revoked." }`
-- [ ] Login and refresh still work normally for non-blocked tokens (200 responses)
-- [ ] Server compiles with zero TypeScript errors
+- [ ] Redis blocklist blocks token correctly: `redis-cli SET "blocked_token:{paste_jti_here}" 1 EX 3600`, then make a request with that JWT → must return 401 with `{ "message": "Token has been revoked." }`
+- [ ] Normal (non-blocked) login and refresh flows return 200
+- [ ] Server compiles with zero TypeScript errors (`npx tsc --noEmit` in `/api/`)
 - [ ] No frontend code modified
 - [ ] Dev server shut down cleanly before marking sprint complete
 
@@ -377,15 +371,16 @@ async exists(key: string): Promise<boolean>
 
 ## Gate Marker
 **STOP** — Do not start Sprint 2 until:
-1. Login returns a JWT with `jti` UUID field confirmed via `jwt.io` decode
-2. Manual Redis blocklist test passes (401 on blocked token)
-3. Normal login flow still works (200)
+1. Login returns JWT with `jti` UUID field (verified by decoding the token)
+2. Manual Redis blocklist test passes (401 returned for blocked jti)
+3. Normal login flow returns 200
 
 ---
 
 ## Handoff Notes
-- `TokenBlocklistService` is available at `src/core/token-blocklist/token-blocklist.service.ts`
-- `TokenBlocklistModule` must be imported wherever `TokenBlocklistService` is needed (Sprint 6 Users Service will need it)
-- The `trackToken(userId, jti, exp)` method signature: userId = `user.id`, jti = UUID from payload, exp = Unix timestamp in seconds
-- The `blockUserTokens(userId)` method will be called from `UsersService.deactivateUser()` in Sprint 6
-- The `isBlocked(jti)` method is called from `JwtStrategy.validate()` on every request
+- `TokenBlocklistService` path: `src/core/token-blocklist/token-blocklist.service.ts`
+- `TokenBlocklistModule` must be imported in any NestJS module that needs `TokenBlocklistService` — Sprint 6 `UsersModule` will import it
+- `trackToken(userId, jti, exp)`: stores `{ jti, exp }` as typed object in Redis (CacheService auto-serializes)
+- `blockUserTokens(userId)`: reads typed `ActiveTokenRecord` from Redis, moves jti to blocklist — called by `UsersService.deactivateUser()` in Sprint 6
+- `isBlocked(jti)`: checked on every request by `JwtStrategy.validate()`
+- The `if (payload.jti)` guard in `validate()` allows pre-Sprint-1 tokens without jti to continue working during transition. From Sprint 3 onward all tokens will carry jti.

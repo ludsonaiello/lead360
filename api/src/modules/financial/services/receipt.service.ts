@@ -85,24 +85,31 @@ export class ReceiptService {
       );
     }
 
-    // --- Guard: task must belong to project (if both provided) ---
-    if (dto.task_id && dto.project_id) {
+    // --- Resolve project_id / validate task ownership ---
+    let resolvedProjectId = dto.project_id ?? null;
+    const resolvedTaskId = dto.task_id ?? null;
+
+    if (resolvedTaskId && resolvedProjectId) {
       await this.validateTaskBelongsToProject(
         tenantId,
-        dto.task_id,
-        dto.project_id,
+        resolvedTaskId,
+        resolvedProjectId,
       );
-    } else if (dto.task_id && !dto.project_id) {
+    } else if (resolvedTaskId && !resolvedProjectId) {
       // Auto-resolve project_id from task
       const task = await this.prisma.project_task.findFirst({
-        where: { id: dto.task_id, tenant_id: tenantId, deleted_at: null },
+        where: { id: resolvedTaskId, tenant_id: tenantId, deleted_at: null },
         select: { project_id: true },
       });
       if (!task) {
         throw new NotFoundException('Task not found');
       }
-      dto.project_id = task.project_id;
+      resolvedProjectId = task.project_id;
     }
+
+    this.logger.log(
+      `Uploading receipt for tenant ${tenantId} by user ${userId} — ${file.originalname} (${file.mimetype}, ${file.size} bytes)`,
+    );
 
     // --- Upload file via FilesService ---
     const uploadResult = await this.filesService.uploadFile(
@@ -112,7 +119,6 @@ export class ReceiptService {
       {
         category: FileCategory.RECEIPT,
         entity_type: 'receipt',
-        // entity_id will be updated after receipt row is created (orphan → linked)
       },
     );
 
@@ -124,8 +130,8 @@ export class ReceiptService {
       data: {
         tenant_id: tenantId,
         financial_entry_id: null,
-        project_id: dto.project_id ?? null,
-        task_id: dto.task_id ?? null,
+        project_id: resolvedProjectId,
+        task_id: resolvedTaskId,
         file_id: uploadResult.file.file_id,
         file_url: uploadResult.file.url,
         file_name: file.originalname,
@@ -175,9 +181,14 @@ export class ReceiptService {
   async linkReceiptToEntry(
     tenantId: string,
     receiptId: string,
+    userId: string,
     dto: LinkReceiptDto,
   ) {
     const { financial_entry_id } = dto;
+
+    this.logger.log(
+      `Linking receipt ${receiptId} to entry ${financial_entry_id} (tenant: ${tenantId})`,
+    );
 
     const receipt = await this.findReceiptOrThrow(tenantId, receiptId);
 
@@ -232,8 +243,7 @@ export class ReceiptService {
       entityType: 'receipt',
       entityId: receiptId,
       tenantId,
-      // No actorUserId available in link endpoint — use system marker
-      actorUserId: receipt.uploaded_by_user_id,
+      actorUserId: userId,
       before: { financial_entry_id: null, is_categorized: false },
       after: { financial_entry_id, is_categorized: true },
       description: `Receipt ${receiptId} linked to financial entry ${financial_entry_id}`,
@@ -256,6 +266,10 @@ export class ReceiptService {
     userId: string,
     dto: UpdateReceiptDto,
   ) {
+    this.logger.log(
+      `Updating receipt ${receiptId} metadata (tenant: ${tenantId}, user: ${userId})`,
+    );
+
     const existing = await this.findReceiptOrThrow(tenantId, receiptId);
 
     const data: Record<string, unknown> = {};

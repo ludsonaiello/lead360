@@ -126,7 +126,7 @@ async getTenantUsers(tenantId: string, query: ListUsersQueryDto) {
   const { page = 1, limit = 20, status, role_id } = query;
   const skip = (page - 1) * limit;
 
-  const where: any = { tenant_id: tenantId };
+  const where: Prisma.user_tenant_membershipWhereInput = { tenant_id: tenantId };
   if (status) where.status = status;
   if (role_id) where.role_id = role_id;
 
@@ -230,7 +230,7 @@ async createUserInTenant(tenantId: string, dto: CreateUserAdminDto) {
     const passwordHash = await bcrypt.hash(dto.password, 10);
     user = await this.prisma.user.create({
       data: {
-        id: require('crypto').randomUUID(),
+        id: randomUUID(),  // ES module import — never use require('crypto')
         email: dto.email,
         first_name: dto.first_name,
         last_name: dto.last_name,
@@ -280,7 +280,9 @@ async createUserInTenant(tenantId: string, dto: CreateUserAdminDto) {
 
 Add required imports to `tenant-management.service.ts`:
 ```typescript
+import { randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
+import { Prisma } from '@prisma/client';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 ```
 
@@ -399,6 +401,6 @@ Admin endpoints are EXEMPT from tenant isolation — they operate across all ten
 
 ## Handoff Notes
 - All contract-specified API endpoints are now implemented
-- Sprint 9 (Email Job) handles the actual email delivery for invites — currently invites are created but no email is sent
+- Sprint 9 (Invite Email Template + Flow Verification) creates the `user-invite` email template in the database so the invite email flow works end-to-end
 - Sprint 10 (Unit Tests) will test all service methods
 - Sprint 11 (API Documentation) generates `api/documentation/users_REST_API.md`

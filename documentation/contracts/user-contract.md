@@ -87,7 +87,7 @@ email   @unique   (add unique constraint — currently missing)
 | `tenant_id` | String FK → tenant.id | NOT NULL | |
 | `role_id` | String FK → role.id | NOT NULL | One role per membership |
 | `status` | Enum | NOT NULL | `INVITED`, `ACTIVE`, `INACTIVE` |
-| `invite_token_hash` | String? | UNIQUE when set | bcrypt hash of raw token |
+| `invite_token_hash` | String? | UNIQUE when set | SHA-256 hash of raw token (enables O(1) indexed lookup) |
 | `invite_token_expires_at` | DateTime? | | 72h from creation |
 | `invite_accepted_at` | DateTime? | | Set on token accept |
 | `invited_by_user_id` | String? FK → user.id | | Who sent the invite |

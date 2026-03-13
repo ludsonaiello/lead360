@@ -362,7 +362,7 @@ enum MyEnum {
 - The `user.tenant_id` column is still present after this sprint. It is removed in Sprint 4.
 - The `user_role` table is still present and functional. It is marked deprecated via Prisma comment only.
 - `user_tenant_membership.status` is a Prisma enum `MembershipStatus` with values: `INVITED`, `ACTIVE`, `INACTIVE`
-- The `invite_token_hash` field stores a bcrypt hash of the raw invite token (not the raw token itself)
+- The `invite_token_hash` field stores a SHA-256 hash of the raw invite token (not the raw token itself). SHA-256 is used instead of bcrypt because it enables O(1) direct lookup via the `@unique` index — bcrypt would require a full table scan.
 - Sprint 3 (auth service) will query `user_tenant_membership` WHERE `user_id = ? AND status = 'ACTIVE'`
 - Sprint 6 (users service) will create `user_tenant_membership` rows for new invites and activations
 - All backfilled memberships have `status = 'ACTIVE'`, `joined_at = user_role.assigned_at`

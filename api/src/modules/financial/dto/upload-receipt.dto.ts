@@ -3,10 +3,8 @@ import {
   IsUUID,
   IsString,
   MaxLength,
-  IsDecimal,
   IsDateString,
   IsNumber,
-  Min,
   IsPositive,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';

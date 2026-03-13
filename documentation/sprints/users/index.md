@@ -10,6 +10,7 @@
 | 6 | Users Service: Business Logic |
 | 7 | Users Controller + Module Registration |
 | 8 | Superadmin Endpoints: Admin Module Extension |
-| 9 | Invite Email Job |
+| 9 | Invite Email Template + Flow Verification |
 | 10 | Unit Tests: UsersService |
 | 11 | API Documentation |
+| 12 | Integration Tests: Users Module API |

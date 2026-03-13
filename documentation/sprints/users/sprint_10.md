@@ -10,7 +10,7 @@
 
 ## Objective
 
-Write comprehensive unit tests for `UsersService`. Tests must cover all business rules (BR-01 through BR-13 as applicable to the service layer), all happy paths, and all error cases. The goal is >80% coverage on `users.service.ts`. Prisma, AuditLoggerService, TokenBlocklistService, and JobsService are all mocked.
+Write comprehensive unit tests for `UsersService`. Tests must cover all business rules (BR-01 through BR-13 as applicable to the service layer), all happy paths, and all error cases. The goal is >80% coverage on `users.service.ts`. Prisma, AuditLoggerService, TokenBlocklistService, and JobQueueService are all mocked.
 
 ---
 
@@ -65,12 +65,13 @@ BEFORE marking the sprint COMPLETE:
 
 ```typescript
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { ConflictException, NotFoundException, ForbiddenException, BadRequestException, GoneException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { TokenBlocklistService } from '../../../core/token-blocklist/token-blocklist.service';
-import { JobsService } from '../../jobs/jobs.service';
+import { JobQueueService } from '../../jobs/services/job-queue.service';
 
 // Mock bcrypt to avoid slow hashing in tests
 jest.mock('bcrypt', () => ({
@@ -83,7 +84,7 @@ describe('UsersService', () => {
   let prisma: jest.Mocked<PrismaService>;
   let auditLogger: jest.Mocked<AuditLoggerService>;
   let tokenBlocklist: jest.Mocked<TokenBlocklistService>;
-  let jobsService: jest.Mocked<JobsService>;
+  let jobQueueService: jest.Mocked<JobQueueService>;
 
   const mockPrisma = {
     user: {
@@ -126,9 +127,12 @@ describe('UsersService', () => {
     isBlocked: jest.fn().mockResolvedValue(false),
   };
 
-  const mockJobsService = {
-    dispatch: jest.fn().mockResolvedValue(undefined),
-    // Adjust method name to match the actual JobsService method found in Sprint 9
+  const mockJobQueueService = {
+    queueEmail: jest.fn().mockResolvedValue({ jobId: 'test-job-id' }),
+  };
+
+  const mockConfigService = {
+    get: jest.fn().mockReturnValue('https://app.lead360.app'),
   };
 
   beforeEach(async () => {
@@ -138,7 +142,8 @@ describe('UsersService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditLoggerService, useValue: mockAuditLogger },
         { provide: TokenBlocklistService, useValue: mockTokenBlocklist },
-        { provide: JobsService, useValue: mockJobsService },
+        { provide: JobQueueService, useValue: mockJobQueueService },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
@@ -146,7 +151,7 @@ describe('UsersService', () => {
     prisma = module.get(PrismaService);
     auditLogger = module.get(AuditLoggerService);
     tokenBlocklist = module.get(TokenBlocklistService);
-    jobsService = module.get(JobsService);
+    jobQueueService = module.get(JobQueueService);
 
     jest.clearAllMocks();
   });
@@ -169,6 +174,8 @@ describe('UsersService', () => {
 
     const mockRole = { id: 'role-1', name: 'Employee' };
     const mockUser = { id: 'user-1', email: dto.email, first_name: dto.first_name, last_name: dto.last_name };
+    const mockTenant = { company_name: 'Acme Corp' };
+    const mockInviter = { first_name: 'Admin', last_name: 'User' };
     const mockMembership = {
       id: 'membership-1',
       user_id: 'user-1',
@@ -181,12 +188,23 @@ describe('UsersService', () => {
       invited_by: null,
     };
 
+    // Common setup for tenant and inviter lookups (resolved by inviteUser before dispatching email)
+    const setupTenantAndInviter = () => {
+      mockPrisma.tenant.findUnique.mockResolvedValue(mockTenant);
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null)  // first call: user lookup by email
+        .mockResolvedValueOnce(mockInviter); // second call: inviter lookup by ID
+    };
+
     it('should create an invite membership for a new user', async () => {
       mockPrisma.role.findUnique.mockResolvedValue(mockRole);
       mockPrisma.user_tenant_membership.findFirst.mockResolvedValueOnce(null); // no existing active
-      mockPrisma.user.findUnique.mockResolvedValue(null); // new user
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null); // new user (email lookup)
       mockPrisma.user.create.mockResolvedValue(mockUser);
       mockPrisma.user_tenant_membership.create.mockResolvedValue(mockMembership);
+      mockPrisma.tenant.findUnique.mockResolvedValue(mockTenant);
+      // After transaction: inviter lookup
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockInviter);
 
       const result = await service.inviteUser(tenantId, actorUserId, dto);
 
@@ -195,13 +213,23 @@ describe('UsersService', () => {
       expect(mockAuditLogger.logTenantChange).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'created', entityType: 'UserMembership' }),
       );
+      expect(mockJobQueueService.queueEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: dto.email,
+          templateKey: 'user-invite',
+          tenantId,
+        }),
+      );
     });
 
     it('should link existing user when email already has a user record (BR-12)', async () => {
       mockPrisma.role.findUnique.mockResolvedValue(mockRole);
       mockPrisma.user_tenant_membership.findFirst.mockResolvedValueOnce(null);
-      mockPrisma.user.findUnique.mockResolvedValue(mockUser); // existing user
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(mockUser)   // existing user (email lookup)
+        .mockResolvedValueOnce(mockInviter); // inviter lookup
       mockPrisma.user_tenant_membership.create.mockResolvedValue(mockMembership);
+      mockPrisma.tenant.findUnique.mockResolvedValue(mockTenant);
 
       await service.inviteUser(tenantId, actorUserId, dto);
 
@@ -327,7 +355,7 @@ describe('UsersService', () => {
         role: { name: 'Owner' }, // target is Owner
       });
 
-      const adminActor = { id: 'admin-user', roles: ['Admin'] }; // actor is Admin
+      const adminActor = { id: 'admin-user', roles: ['Admin'], is_platform_admin: false }; // actor is Admin, not platform admin
       const dto = { role_id: 'new-role-id' };
 
       await expect(
@@ -353,7 +381,7 @@ describe('UsersService', () => {
         user_id: 'user-1',
       });
 
-      const ownerActor = { id: 'owner-user', roles: ['Owner'] };
+      const ownerActor = { id: 'owner-user', roles: ['Owner'], is_platform_admin: false };
       const dto = { role_id: 'new-role-id' };
 
       const result = await service.changeRole('tenant-1', 'membership-1', ownerActor, dto);
@@ -420,45 +448,63 @@ describe('UsersService', () => {
 
 ```typescript
   describe('validateInviteToken()', () => {
-    const bcrypt = require('bcrypt');
+    // Token validation uses SHA-256 direct lookup (NOT bcrypt scanning)
+    // The service hashes the raw token with SHA-256 and does a findFirst by invite_token_hash
 
     it('should return token info for a valid token', async () => {
-      bcrypt.compare.mockResolvedValue(true);
-      mockPrisma.user_tenant_membership.findMany.mockResolvedValueOnce([
-        {
-          id: 'membership-1',
-          invite_token_hash: 'hash123',
-          invite_token_expires_at: new Date(Date.now() + 3600 * 1000),
-          user: { email: 'test@example.com' },
-          tenant: { company_name: 'Acme Corp' },
-          role: { name: 'Employee' },
-          invited_by: { first_name: 'John', last_name: 'Doe' },
-        },
-      ]);
+      // findFirst returns the matching membership directly via SHA-256 hash lookup
+      mockPrisma.user_tenant_membership.findFirst.mockResolvedValueOnce({
+        id: 'membership-1',
+        invite_token_hash: 'sha256-hash-value',
+        invite_accepted_at: null,  // not yet accepted
+        invite_token_expires_at: new Date(Date.now() + 3600 * 1000), // still valid
+        user: { email: 'test@example.com' },
+        tenant: { company_name: 'Acme Corp' },
+        role: { name: 'Employee' },
+        invited_by: { first_name: 'John', last_name: 'Doe' },
+      });
 
       const result = await service.validateInviteToken('raw-token-here');
 
       expect(result.tenant_name).toBe('Acme Corp');
       expect(result.role_name).toBe('Employee');
       expect(result.invited_by_name).toBe('John Doe');
+      expect(result.email).toBe('test@example.com');
+    });
+
+    it('should throw 409 ConflictException for already-used token (BR-05)', async () => {
+      mockPrisma.user_tenant_membership.findFirst.mockResolvedValueOnce({
+        id: 'membership-1',
+        invite_token_hash: 'sha256-hash-value',
+        invite_accepted_at: new Date(), // already accepted
+        invite_token_expires_at: new Date(Date.now() + 3600 * 1000),
+        user: { email: 'test@example.com' },
+        tenant: { company_name: 'Acme Corp' },
+        role: { name: 'Employee' },
+        invited_by: null,
+      });
+
+      await expect(service.validateInviteToken('used-token')).rejects.toThrow(ConflictException);
     });
 
     it('should throw 410 GoneException for expired token (BR-05)', async () => {
-      bcrypt.compare.mockResolvedValue(false);
-      // No active candidates
-      mockPrisma.user_tenant_membership.findMany.mockResolvedValueOnce([]);
-      // Expired candidate found
-      bcrypt.compare.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-      mockPrisma.user_tenant_membership.findMany.mockResolvedValueOnce([
-        { invite_token_hash: 'expired-hash' },
-      ]);
+      mockPrisma.user_tenant_membership.findFirst.mockResolvedValueOnce({
+        id: 'membership-1',
+        invite_token_hash: 'sha256-hash-value',
+        invite_accepted_at: null,
+        invite_token_expires_at: new Date(Date.now() - 3600 * 1000), // expired 1 hour ago
+        user: { email: 'test@example.com' },
+        tenant: { company_name: 'Acme Corp' },
+        role: { name: 'Employee' },
+        invited_by: null,
+      });
 
       await expect(service.validateInviteToken('expired-token')).rejects.toThrow(GoneException);
     });
 
     it('should throw 404 NotFoundException for invalid token', async () => {
-      bcrypt.compare.mockResolvedValue(false);
-      mockPrisma.user_tenant_membership.findMany.mockResolvedValue([]);
+      // SHA-256 hash lookup returns null — no matching invite_token_hash
+      mockPrisma.user_tenant_membership.findFirst.mockResolvedValueOnce(null);
 
       await expect(service.validateInviteToken('bad-token')).rejects.toThrow(NotFoundException);
     });
@@ -541,7 +587,7 @@ If coverage is below 80%, add tests for the uncovered branches. Focus on error p
 - [ ] Coverage for `users.service.ts` > 80% statements and branches
 - [ ] No test mocks actual Prisma DB — all Prisma calls are mocked
 - [ ] No test makes actual Redis calls — tokenBlocklist is mocked
-- [ ] No test sends actual emails — jobsService is mocked
+- [ ] No test sends actual emails — JobQueueService is mocked
 - [ ] `npx tsc --noEmit` still returns zero errors after adding tests
 - [ ] No frontend code modified
 - [ ] Dev server shut down cleanly before marking sprint complete
@@ -559,3 +605,4 @@ If coverage is below 80%, add tests for the uncovered branches. Focus on error p
 ## Handoff Notes
 - Test file is at `src/modules/users/services/users.service.spec.ts`
 - Sprint 11 (API Documentation) does not depend on test results — it can be done in parallel with this sprint if needed
+- `JobQueueService` is mocked with `{ queueEmail: jest.fn().mockResolvedValue({ jobId: 'test-job-id' }) }` — no actual email queue interaction in tests

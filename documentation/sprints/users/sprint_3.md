@@ -261,8 +261,11 @@ const ownerRole = await this.prisma.role.findFirst({
 });
 
 if (!ownerRole) {
-  throw new Error('Owner role not found. Ensure system roles are seeded.');
+  throw new InternalServerErrorException(
+    'Owner role not found. Ensure system roles are seeded before running registration.',
+  );
 }
+// Import needed: add InternalServerErrorException to the existing NestJS imports in auth.service.ts
 
 // Create the membership
 await this.prisma.user_tenant_membership.create({
@@ -281,6 +284,18 @@ await this.prisma.user_tenant_membership.create({
 **Why:** After Sprint 4 removes `user.tenant_id`, the registration flow must rely on the membership to establish the tenant relationship. Creating the membership here ensures the owner can log in immediately after registering.
 
 **Do NOT** remove the `user_role` creation from registration yet — it can coexist during this transition period. Sprint 4 will handle cleanup.
+
+**Also update the `generateTokens()` call inside `register()`:** After creating the user, tenant, and membership, if the `register()` method calls `generateTokens()` to issue tokens immediately after registration, that call signature changed in Task 2 to require `membershipId` and `tenantId` as explicit parameters. Update the call inside `register()` to:
+```typescript
+await this.generateTokens(
+  { id: user.id, email: user.email, is_platform_admin: user.is_platform_admin },
+  [ownerRole.name],
+  false,
+  membership.id,    // membershipId from the created membership
+  tenant.id,        // tenantId from the created tenant
+);
+```
+If `register()` does NOT issue tokens (i.e., it only creates the user and sends an activation email), this is not needed — check the method before modifying.
 
 ---
 

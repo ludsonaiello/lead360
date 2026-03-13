@@ -1,29 +1,31 @@
-# Sprint 9 — Invite Email Job
+# Sprint 9 — Invite Email Template + Flow Verification
 **Module:** users
 **File:** ./documentation/sprints/users/sprint_9.md
-**Type:** Backend — Background Job
-**Depends On:** Sprint 7 (UsersService dispatches the job via jobsService)
-**Gate:** STOP — Invite email job must be processed by the queue worker and email must be sent. Verify via job queue logs before Sprint 10.
-**Estimated Complexity:** Medium
+**Type:** Backend — Email Template Setup
+**Depends On:** Sprint 7 (UsersService dispatches the email via JobQueueService.queueEmail())
+**Gate:** STOP — Invite email must be processed by the existing SendEmailProcessor and delivered (or logged if SMTP is not configured). Verify via job queue logs before Sprint 10.
+**Estimated Complexity:** Low
 
 ---
 
 ## Objective
 
-Implement the BullMQ job handler for the `user-invite` job that is dispatched by `UsersService.inviteUser()`. When a user is invited, the system queues a job with the invite details. This sprint creates the job processor that picks up that job and sends the invite email using the platform's existing email infrastructure.
+Create the `user-invite` email template in the database so the invite email flow works end-to-end. Sprint 6's `UsersService.inviteUser()` calls `jobQueueService.queueEmail({ templateKey: 'user-invite', ... })`. The existing email pipeline (`JobQueueService` → `'email'` queue → `SendEmailProcessor` → `EmailService.sendTemplatedEmail()` → `SmtpService`) handles delivery. This sprint creates the template record that `EmailService` looks up by key.
+
+No custom processor is needed. The platform's existing email infrastructure handles everything.
 
 ---
 
 ## Pre-Sprint Checklist
-- [ ] Sprint 7 gate verified (invite endpoint creates membership, dispatches job)
-- [ ] Read `src/modules/jobs/jobs.service.ts` — understand how to dispatch and register jobs
-- [ ] Read `src/modules/jobs/jobs.module.ts` — know the module structure
-- [ ] Check if a `user-invite` job name already exists: `grep -rn "user-invite\|userInvite\|invite" /var/www/lead360.app/api/src/modules/jobs/ --include="*.ts"`
-- [ ] Read an existing job processor in the codebase to understand the pattern (e.g., `src/modules/audit/jobs/audit-log-write.job.ts`)
-- [ ] Understand the email sending pattern — check `src/modules/communication/` or `src/modules/jobs/` for how emails are sent (look for `EmailService`, `MailService`, or a nodemailer/SES call)
+- [ ] Sprint 7 gate verified (invite endpoint creates membership, dispatches email job)
+- [ ] Read `src/modules/jobs/services/email.service.ts` — understand how `sendTemplatedEmail()` renders templates
+- [ ] Read `src/modules/jobs/services/email-template.service.ts` — understand how templates are fetched by key
+- [ ] Read `src/modules/jobs/processors/send-email.processor.ts` — confirm it processes `'send-email'` jobs from the `'email'` queue
+- [ ] Check the `email_template` table schema: `mysql -u lead360_user -p'978@F32c' -h 127.0.0.1 lead360 -e "DESCRIBE email_template;"`
+- [ ] Check existing templates: `mysql -u lead360_user -p'978@F32c' -h 127.0.0.1 lead360 -e "SELECT id, \`key\`, subject FROM email_template;"`
+- [ ] Understand the template variable syntax used by `EmailTemplateService` (e.g., `{{variable}}`, `{variable}`, or Handlebars-style `{{variable}}`)
 - [ ] Check `.env` for SMTP config: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`
-- [ ] Check existing email templates — look for `templates/` directory or `handlebars` template files
-- [ ] Confirm the FRONTEND_URL env variable: this is the base URL for the invite link (e.g., `https://app.lead360.app`)
+- [ ] Confirm the `FRONTEND_URL` env variable exists
 
 ---
 
@@ -62,142 +64,125 @@ BEFORE marking the sprint COMPLETE:
 
 ## Tasks
 
-### Task 1 — Understand the Existing Job Infrastructure
+### Task 1 — Understand the Email Template System
 
-**What:** Before writing any code:
+**What:** Before creating the template, read how existing templates work:
 
-1. Read `src/modules/jobs/jobs.service.ts` completely. Identify:
-   - The method signature for dispatching a job (is it `addJob(name, data)`, `dispatch(name, data)`, `add(name, data)`, or `queue.add(name, data)`)
-   - How the BullMQ queue is configured (queue name)
+1. Read `src/modules/jobs/services/email-template.service.ts` FULLY — identify:
+   - How templates are fetched (by `key` field? by `id`?)
+   - What variable syntax is used (e.g., `{{variable_name}}` or `{variable_name}`)
+   - Whether templates are stored in the DB (`email_template` table) or as files
 
-2. List all existing job processors: `ls /var/www/lead360.app/api/src/modules/jobs/processors/ 2>/dev/null || ls /var/www/lead360.app/api/src/modules/jobs/ | grep -i job`
-
-3. Read one existing processor to understand the `@Processor` and `@Process` decorator pattern (or `@OnWorkerEvent` if using BullMQ workers)
-
-4. Understand the email-sending mechanism:
+2. Inspect the `email_template` table:
    ```bash
-   grep -rn "sendMail\|transporter\|nodemailer\|MailService\|EmailService\|email_queue" \
-     /var/www/lead360.app/api/src/modules/ --include="*.ts" -l
+   mysql -u lead360_user -p'978@F32c' -h 127.0.0.1 lead360 \
+     -e "DESCRIBE email_template;"
    ```
 
-After this audit, implement the job using the same pattern as the existing jobs.
+3. Read an existing template record to understand the structure:
+   ```bash
+   mysql -u lead360_user -p'978@F32c' -h 127.0.0.1 lead360 \
+     -e "SELECT \`key\`, subject, html_body FROM email_template LIMIT 1\G"
+   ```
+
+Record the exact column names, variable syntax, and any required fields.
 
 ---
 
-### Task 2 — Create the User Invite Job Processor
+### Task 2 — Create the user-invite Email Template
 
-**What:** Based on the patterns found in Task 1, create the job processor. The job name is `'user-invite'` (this must match exactly what `UsersService.inviteUser()` dispatches).
+**What:** Insert the `user-invite` template into the `email_template` table. The variable names must match exactly what Sprint 6's `UsersService.inviteUser()` passes in the `variables` object:
 
-The job payload shape (dispatched from Sprint 6, `inviteUser()`):
-```typescript
-interface UserInviteJobPayload {
-  email: string;
-  first_name: string;
-  last_name: string;
-  raw_token: string;        // The raw token — embed in the invite link
-  tenant_id: string;
-  invited_by_user_id: string;
-  role_name: string;
-  expires_at: string;       // ISO datetime string
-}
+Variables passed by `inviteUser()`:
+- `first_name` — invitee's first name
+- `last_name` — invitee's last name
+- `invite_link` — full URL: `{FRONTEND_URL}/invite/{raw_token}`
+- `tenant_name` — company name of the inviting tenant
+- `inviter_name` — full name of the person who sent the invite
+- `role_name` — role being assigned (e.g., "Employee", "Admin")
+- `expires_at` — human-readable expiry date string
+
+**Adapt the variable syntax to match** what you found in Task 1. The examples below use `{{variable}}` syntax — update if the codebase uses a different pattern.
+
+```sql
+INSERT INTO email_template (
+  id, `key`, name, subject, html_body, text_body,
+  description, is_system, is_active, created_at, updated_at
+) VALUES (
+  UUID(),
+  'user-invite',
+  'User Invitation',
+  'You''ve been invited to join {{tenant_name}} on Lead360',
+  '<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: #f8f9fa; border-radius: 8px; padding: 32px;">
+    <h2 style="color: #1a1a1a; margin-top: 0;">You''re Invited!</h2>
+    <p style="color: #333; font-size: 16px;">
+      Hello {{first_name}} {{last_name}},
+    </p>
+    <p style="color: #333; font-size: 16px;">
+      {{inviter_name}} has invited you to join <strong>{{tenant_name}}</strong> as a <strong>{{role_name}}</strong> on Lead360.
+    </p>
+    <div style="text-align: center; margin: 32px 0;">
+      <a href="{{invite_link}}"
+         style="background: #2563eb; color: #ffffff; padding: 14px 32px; border-radius: 6px;
+                text-decoration: none; font-size: 16px; font-weight: 600; display: inline-block;">
+        Accept Invitation
+      </a>
+    </div>
+    <p style="color: #666; font-size: 14px;">
+      This invitation link expires on <strong>{{expires_at}}</strong>.
+    </p>
+    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+    <p style="color: #999; font-size: 12px;">
+      If the button above doesn''t work, copy and paste this link into your browser:<br>
+      <a href="{{invite_link}}" style="color: #2563eb;">{{invite_link}}</a>
+    </p>
+    <p style="color: #999; font-size: 12px;">
+      If you did not expect this invitation, you can safely ignore this email.
+    </p>
+  </div>
+</body>
+</html>',
+  'Hello {{first_name}} {{last_name}},
+
+{{inviter_name}} has invited you to join {{tenant_name}} as a {{role_name}} on Lead360.
+
+Accept your invitation: {{invite_link}}
+
+This link expires on {{expires_at}}.
+
+If you did not expect this invitation, you can safely ignore this email.',
+  'Sent when an Owner or Admin invites a new user to the tenant',
+  true,
+  true,
+  NOW(),
+  NOW()
+);
 ```
 
-Create the processor file at `src/modules/jobs/processors/user-invite.job.ts` (or follow the existing naming convention):
-
-```typescript
-// Pattern based on existing job processors in the codebase
-// Use @Processor('queue-name') and @Process('user-invite') decorators
-// OR BullMQ Worker pattern — match the existing codebase pattern exactly
-
-import { Process, Processor } from '@nestjs/bull'; // or @nestjs/bullmq
-import { Job } from 'bull'; // or 'bullmq'
-import { ConfigService } from '@nestjs/config';
-// Import the email service or use nodemailer directly — match existing pattern
-
-@Processor('jobs') // Use the same queue name as existing processors
-export class UserInviteJob {
-  constructor(private readonly configService: ConfigService) {}
-
-  @Process('user-invite')
-  async handle(job: Job<UserInviteJobPayload>): Promise<void> {
-    const { email, first_name, last_name, raw_token, role_name, expires_at } = job.data;
-
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') ?? 'https://app.lead360.app';
-    const inviteLink = `${frontendUrl}/invite/${raw_token}`;
-    const expiryFormatted = new Date(expires_at).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-
-    // Use the existing email sending pattern from the codebase
-    // (Replace this block with the actual email service call found in Task 1)
-    await this.sendInviteEmail({
-      to: email,
-      subject: `You've been invited to join Lead360`,
-      inviteLink,
-      firstName: first_name,
-      lastName: last_name,
-      roleName: role_name,
-      expiryFormatted,
-    });
-  }
-
-  private async sendInviteEmail(params: {
-    to: string;
-    subject: string;
-    inviteLink: string;
-    firstName: string;
-    lastName: string;
-    roleName: string;
-    expiryFormatted: string;
-  }): Promise<void> {
-    // Implement using the email infrastructure discovered in Task 1
-    // The email HTML content must include:
-    // - Greeting: "Hello {first_name} {last_name}"
-    // - Body: "You've been invited to join as {role_name} on Lead360."
-    // - CTA button: "Accept Invitation" → {inviteLink}
-    // - Expiry note: "This link expires on {expiryFormatted}."
-    // - Plain text fallback with the raw link
-  }
-}
+**Run via:**
+```bash
+mysql -u lead360_user -p'978@F32c' -h 127.0.0.1 lead360 < /tmp/user-invite-template.sql
 ```
 
-**If the email infrastructure uses a different pattern** (e.g., an `EmailQueueService`, an existing `email_queue` table in the DB, or a direct SMTP call), use that instead. The important thing is that the email is delivered.
+Or inline (save the SQL to a temp file first for readability, then execute).
+
+**Verify template was created:**
+```bash
+mysql -u lead360_user -p'978@F32c' -h 127.0.0.1 lead360 \
+  -e "SELECT id, \`key\`, subject, is_active FROM email_template WHERE \`key\` = 'user-invite';"
+```
+
+Must return exactly one row with `is_active = 1`.
+
+**Adapt the SQL:** If the `email_template` table has different column names (e.g., `template_key` instead of `key`), adapt the INSERT accordingly. Use the schema from Task 1.
 
 ---
 
-### Task 3 — Reconcile the jobsService.dispatch() Call in UsersService
-
-**What:** In Sprint 6, `usersService.inviteUser()` calls:
-```typescript
-await this.jobsService.dispatch('user-invite', { ... });
-```
-
-Now that you've read `jobs.service.ts`, verify the method signature is correct. If the method is named differently (e.g., `add()`, `addJob()`, `queue.add()`), update the call in `usersService.inviteUser()` to match.
-
-Also verify the queue name matches. If BullMQ queues are identified by name (e.g., `'jobs'`, `'email'`, `'notifications'`), use the correct queue name in both the job processor `@Processor` decorator and the dispatch call.
-
----
-
-### Task 4 — Register the Job Processor
-
-**What:** Register `UserInviteJob` in the Jobs module. Open `src/modules/jobs/jobs.module.ts`.
-
-Following the existing pattern for registering job processors, add `UserInviteJob` to the `providers` array:
-```typescript
-providers: [
-  // ... existing providers
-  UserInviteJob,
-],
-```
-
-If the module uses `BullModule.registerQueue()` or similar, verify the queue configuration includes the `'jobs'` queue (or whatever queue name the processor uses).
-
----
-
-### Task 5 — Test the Invite Email Flow End-to-End
+### Task 3 — Test the Invite Email Flow End-to-End
 
 **What:** With the dev server running:
 
@@ -220,84 +205,92 @@ curl -s -X POST http://localhost:8000/api/v1/users/invite \
   }" | jq .
 ```
 
-**Verify job was enqueued:**
-- Watch the dev server logs — look for the BullMQ job being processed
-- Or check Redis: `redis-cli keys "bull:*" | grep invite`
+**Verify the flow worked — check all three stages:**
 
-**Verify membership was created with INVITED status:**
+1. **Membership created:**
+   ```bash
+   mysql -u lead360_user -p'978@F32c' -h 127.0.0.1 lead360 \
+     -e "SELECT id, status, invite_token_expires_at FROM user_tenant_membership ORDER BY created_at DESC LIMIT 3;"
+   ```
+   Must show a row with `status = 'INVITED'`.
+
+2. **Job was queued and processed:**
+   ```bash
+   # Check dev server logs for SendEmailProcessor output:
+   # "🔄 PROCESSING: Email job {jobId} to sprinttest...@example.com"
+   #
+   # Or check the email_queue table:
+   mysql -u lead360_user -p'978@F32c' -h 127.0.0.1 lead360 \
+     -e "SELECT id, template_key, to_email, status FROM email_queue ORDER BY created_at DESC LIMIT 3;"
+   ```
+   Must show a row with `template_key = 'user-invite'`.
+
+3. **Email sent (if SMTP is configured):**
+   Check the inbox of the test email address. If SMTP is not configured locally, verify the job completed without errors in the logs — this is acceptable for dev.
+
+**Note:** If SMTP is not configured, the SendEmailProcessor will throw an error and BullMQ will retry (3 attempts). This is expected behavior — the job infrastructure is working correctly. The email will be sent once SMTP is configured in production.
+
+---
+
+### Task 4 — Verify Template Rendering
+
+**What:** Check that the template variables were rendered correctly by inspecting the `email_queue` record:
+
 ```bash
 mysql -u lead360_user -p'978@F32c' -h 127.0.0.1 lead360 \
-  -e "SELECT id, status, invite_token_expires_at FROM user_tenant_membership ORDER BY created_at DESC LIMIT 3;"
+  -e "SELECT subject, LEFT(html_body, 500) AS html_preview FROM email_queue WHERE template_key = 'user-invite' ORDER BY created_at DESC LIMIT 1\G"
 ```
 
-**Verify invite link works:**
-```bash
-# Get the raw token from the membership (for testing — in production it's only in the email)
-INVITE_ID=$(mysql -u lead360_user -p'978@F32c' -h 127.0.0.1 lead360 -s -N \
-  -e "SELECT id FROM user_tenant_membership WHERE status='INVITED' ORDER BY created_at DESC LIMIT 1;")
+**Expected:**
+- `subject` should contain the actual tenant name (not `{{tenant_name}}`)
+- `html_body` should contain the actual invite link (not `{{invite_link}}`)
+- All `{{variable}}` placeholders should be replaced with real values
 
-# The raw token is sent via email and NOT stored in the DB (only the hash is stored)
-# To test: trigger the invite, capture the raw_token from job logs (if logged at DEBUG level)
-# OR: in dev only, temporarily log the raw_token in the job processor
-```
-
-**Note:** If SMTP is not configured in the local environment, the email will fail silently. This is acceptable — verify the job was processed in BullMQ logs. The email content correctness can be verified by logging the HTML in dev mode.
+If placeholders are NOT replaced, the variable syntax in the template doesn't match what `EmailTemplateService` expects. Go back to Task 1, verify the syntax, and update the template.
 
 ---
 
 ## Email Content Requirements
 
-Per the contract, the invite email must include:
-- Invite link: `https://app.lead360.app/invite/{raw_token}` (use `FRONTEND_URL` env var)
-- Tenant name (load from DB in the job processor using `tenant_id`)
-- Inviter name (load from DB using `invited_by_user_id`)
-- Role name (from `role_name` in the job payload)
-- Expiry note: link expires 72 hours after creation (from `expires_at` field)
+Per the contract (§12), the invite email must include:
+- ✅ Invite link: `{FRONTEND_URL}/invite/{raw_token}` — passed as `invite_link` variable
+- ✅ Tenant name — passed as `tenant_name` variable (resolved in Sprint 6 `inviteUser()`)
+- ✅ Inviter name — passed as `inviter_name` variable (resolved in Sprint 6 `inviteUser()`)
+- ✅ Role name — passed as `role_name` variable
+- ✅ Expiry note — passed as `expires_at` variable (human-readable formatted string)
 
-**Update the job payload to load tenant name and inviter name:**
-
-In the job processor `handle()` method, load these from the database:
-```typescript
-const tenant = await this.prisma.tenant.findUnique({
-  where: { id: job.data.tenant_id },
-  select: { company_name: true },
-});
-
-const inviter = await this.prisma.user.findUnique({
-  where: { id: job.data.invited_by_user_id },
-  select: { first_name: true, last_name: true },
-});
-
-const tenantName = tenant?.company_name ?? 'Lead360';
-const inviterName = inviter
-  ? `${inviter.first_name} ${inviter.last_name}`
-  : 'Your administrator';
-```
+All five content requirements are satisfied because Sprint 6 resolves tenant/inviter names before dispatching and passes all values as template variables.
 
 ---
 
 ## Patterns to Apply
 
-### BullMQ Job Pattern (NestJS Bull)
-```typescript
-// Using @nestjs/bull (check package.json for bull vs bullmq):
-@Processor('queue-name')
-export class MyJobProcessor {
-  @Process('job-name')
-  async handle(job: Job<JobDataType>): Promise<void> {
-    // job.data contains the payload
-    // Throw to trigger retry; return void for success
-  }
-}
+### Email Template Pipeline (This Codebase)
+```
+UsersService.inviteUser()
+  → jobQueueService.queueEmail({ to, templateKey: 'user-invite', variables })
+    → Creates a 'send-email' job on the 'email' BullMQ queue
+      → SendEmailProcessor.process(job) picks it up
+        → emailService.sendTemplatedEmail({ to, templateKey, variables })
+          → emailTemplateService.getTemplate('user-invite')  // fetches from DB
+          → emailTemplateService.renderTemplate(template, variables)  // replaces {{vars}}
+          → smtpService.sendEmail({ to, subject, html, text })  // delivers via SMTP
 ```
 
-### Job Retry Configuration
-If the job processor fails, BullMQ/Bull will retry based on the queue configuration. Do NOT wrap the processor body in a try/catch that swallows errors — let errors propagate so the queue retries. Only catch errors that are unrecoverable (like invalid job data) to avoid infinite retries.
+No custom processor needed. The existing pipeline handles everything.
+
+### Email Template Table
+```sql
+-- email_template table stores templates by 'key'
+-- Variables use the syntax discovered in Task 1 (likely {{variable_name}})
+-- is_system = true: template cannot be deleted by tenants
+-- is_active = true: template is available for use
+```
 
 ---
 
 ## Business Rules Enforced in This Sprint
-- **BR-05 (email delivery):** Contract states invite must include invite link, tenant name, inviter name, role name, expiry note
+- **BR-05 (email delivery):** Contract states invite must include invite link, tenant name, inviter name, role name, expiry note — all provided via template variables
 - **Email template:** `user-invite` — matches the contract's specified template name
 
 ---
@@ -305,21 +298,23 @@ If the job processor fails, BullMQ/Bull will retry based on the queue configurat
 ## Integration Points
 | What | Notes |
 |---|---|
-| `UsersService.inviteUser()` | Dispatches the job — must use correct method and queue name |
-| `JobsModule` | Register `UserInviteJob` in providers |
-| `PrismaService` | Load tenant name and inviter name in job processor |
-| Email infrastructure | Use existing pattern from codebase (nodemailer/SES/queue) |
-| `FRONTEND_URL` env var | Base URL for invite link |
+| `UsersService.inviteUser()` | Dispatches via `jobQueueService.queueEmail()` — Sprint 6 |
+| `email_template` table | Template record with `key = 'user-invite'` — created in this sprint |
+| `SendEmailProcessor` | Existing processor on `'email'` queue — no modification needed |
+| `EmailService.sendTemplatedEmail()` | Renders template + sends — no modification needed |
+| `FRONTEND_URL` env var | Used in Sprint 6 to construct the invite link before dispatching |
 
 ---
 
 ## Acceptance Criteria
-- [ ] `POST /api/v1/users/invite` returns 201 AND the job appears in the BullMQ queue (verify in logs or Redis)
-- [ ] Job processor handles the `user-invite` job without throwing errors
-- [ ] If SMTP is configured: invite email is received at the target address with the correct invite link
-- [ ] If SMTP is not configured: job completes without crashing the server (graceful error handling)
-- [ ] Invite link format: `{FRONTEND_URL}/invite/{raw_token}` — raw_token is 64-char hex string
+- [ ] `email_template` table contains a row with `key = 'user-invite'` and `is_active = true`
+- [ ] `POST /api/v1/users/invite` returns 201 AND a `'send-email'` job appears in the `'email'` queue (verify in logs or `email_queue` table)
+- [ ] Template variables are rendered correctly (no `{{variable}}` placeholders in the sent email)
+- [ ] If SMTP is configured: invite email is received at the target address with the correct invite link, tenant name, inviter name, role name, and expiry note
+- [ ] If SMTP is not configured: job is processed (may fail on SMTP) without crashing the server
+- [ ] Invite link format in the email: `{FRONTEND_URL}/invite/{64-char-hex-token}`
 - [ ] Dev server compiles with zero TypeScript errors
+- [ ] No code files modified in this sprint (template only)
 - [ ] No frontend code modified
 - [ ] Dev server shut down cleanly before marking sprint complete
 
@@ -327,13 +322,14 @@ If the job processor fails, BullMQ/Bull will retry based on the queue configurat
 
 ## Gate Marker
 **STOP** — Do not start Sprint 10 until:
-1. Invite endpoint triggers job queue (verified in logs)
-2. Job processor is registered and handles the job (no unhandled errors in logs)
-3. TypeScript compiles clean
+1. Email template exists in DB (verified by SELECT query)
+2. Invite endpoint triggers email job (verified in logs or `email_queue` table)
+3. Template rendering works (no raw `{{variable}}` in output)
 
 ---
 
 ## Handoff Notes
 - The `raw_token` is generated by `randomBytes(32).toString('hex')` — 64 characters. The invite link is `{FRONTEND_URL}/invite/{raw_token}`
-- Sprint 10 (Unit Tests) will mock the `JobsService` to avoid job dispatching in tests
+- Sprint 10 (Unit Tests) will mock `JobQueueService` to avoid email dispatching in tests
 - The invite email job failure should NOT block the invite creation — if the job fails after creation, the admin can resend by re-inviting (per contract: "Resend invite endpoint available; job failure logged")
+- No custom BullMQ processor was created — the existing `SendEmailProcessor` handles `'send-email'` jobs generically using the template system

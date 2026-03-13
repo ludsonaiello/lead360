@@ -3,7 +3,7 @@
 **File:** ./documentation/sprints/users/sprint_11.md
 **Type:** Backend — Documentation
 **Depends On:** Sprint 8 (all endpoints implemented and tested)
-**Gate:** NONE — Documentation is the final sprint. Once written, this module is ready for frontend development.
+**Gate:** STOP — API documentation must be complete before Sprint 12 (Integration Tests) can begin.
 **Estimated Complexity:** Low
 
 ---
@@ -745,12 +745,15 @@ If any endpoint is implemented but not documented, add it. If any field in the a
 ---
 
 ## Gate Marker
-**NONE** — This is the final backend sprint for the Users module.
+**STOP** — Do not start Sprint 12 until:
+1. `api/documentation/users_REST_API.md` exists with all endpoints documented
+2. All 13+ endpoints are documented with request/response shapes, status codes, and validation rules
+3. RBAC matrix is present and accurate
 
 ---
 
 ## Handoff Notes
-- **Backend is complete.** All endpoints are implemented, tested, and documented.
+- **Backend endpoints and unit tests are complete.** API documentation is now written. Sprint 12 (Integration Tests) is the final backend sprint.
 - **Frontend developer:** Read `api/documentation/users_REST_API.md` as the primary reference. Read `documentation/contracts/user-contract.md` for UI requirements.
 - **Frontend routes to build:**
   - `app/src/app/(dashboard)/settings/users/page.tsx` — Users list page (Owner/Admin only)

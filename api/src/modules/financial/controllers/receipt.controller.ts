@@ -168,6 +168,7 @@ export class ReceiptController {
     return this.receiptService.linkReceiptToEntry(
       req.user.tenant_id,
       id,
+      req.user.id,
       dto,
     );
   }
