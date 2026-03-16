@@ -471,7 +471,7 @@ export class DashboardService {
         id: true,
         _count: {
           select: {
-            user: true,
+            memberships: { where: { status: 'ACTIVE' } },
           },
         },
       },
@@ -482,7 +482,7 @@ export class DashboardService {
     let large = 0;
 
     tenants.forEach((tenant) => {
-      const userCount = tenant._count.user;
+      const userCount = tenant._count.memberships;
       if (userCount >= 1 && userCount <= 5) {
         small++;
       } else if (userCount >= 6 && userCount <= 20) {

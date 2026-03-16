@@ -162,7 +162,10 @@ export class AuditReaderService {
     // Verify user belongs to tenant (if not platform admin)
     if (!isPlatformAdmin && tenantId) {
       const user = await this.prisma.user.findFirst({
-        where: { id: userId, tenant_id: tenantId },
+        where: {
+          id: userId,
+          memberships: { some: { tenant_id: tenantId, status: 'ACTIVE' } },
+        },
       });
 
       if (!user) {

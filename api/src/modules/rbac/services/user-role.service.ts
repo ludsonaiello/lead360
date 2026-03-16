@@ -67,11 +67,11 @@ export class UserRoleService {
     roleId: string,
     assignedByUserId: string,
   ) {
-    // Verify user exists and belongs to tenant
+    // Verify user exists and belongs to tenant (via membership)
     const user = await this.prisma.user.findFirst({
       where: {
         id: userId,
-        tenant_id: tenantId,
+        memberships: { some: { tenant_id: tenantId, status: 'ACTIVE' } },
       },
     });
 
@@ -368,11 +368,11 @@ export class UserRoleService {
       throw new NotFoundException('One or more roles not found');
     }
 
-    // Verify all users exist in tenant
+    // Verify all users exist in tenant (via membership)
     const users = await this.prisma.user.findMany({
       where: {
         id: { in: userIds },
-        tenant_id: tenantId,
+        memberships: { some: { tenant_id: tenantId, status: 'ACTIVE' } },
       },
     });
 

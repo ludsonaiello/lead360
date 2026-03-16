@@ -30,7 +30,6 @@ async function assignOwnerRole() {
         email: true,
         first_name: true,
         last_name: true,
-        tenant_id: true,
         is_active: true,
         email_verified: true,
       },
@@ -59,20 +58,7 @@ async function assignOwnerRole() {
 
     console.log(`  ✓ Tenant found: ${tenant.company_name} (${tenant.subdomain})`);
 
-    // Verify user belongs to this tenant
-    if (user.tenant_id !== tenant.id) {
-      console.log(`  ⚠️  WARNING: User's tenant_id (${user.tenant_id}) doesn't match target tenant (${tenant.id})`);
-      console.log(`  → Updating user's tenant_id to ${tenant.id}`);
-
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { tenant_id: tenant.id },
-      });
-
-      console.log(`  ✓ Updated user's tenant_id`);
-    }
-
-    // Find Owner role
+    // Find Owner role (needed for both membership and role assignment)
     const ownerRole = await prisma.role.findFirst({
       where: { name: ASSIGNMENT.role_name },
       select: { id: true, name: true, is_active: true },
@@ -85,6 +71,28 @@ async function assignOwnerRole() {
     }
 
     console.log(`  ✓ Role found: ${ownerRole.name}`);
+
+    // Verify user belongs to this tenant via membership
+    const membership = await prisma.user_tenant_membership.findFirst({
+      where: { user_id: user.id, tenant_id: tenant.id, status: 'ACTIVE' },
+    });
+
+    if (!membership) {
+      console.log(`  ⚠️  WARNING: User has no active membership for tenant (${tenant.id})`);
+      console.log(`  → Creating membership for user`);
+
+      await prisma.user_tenant_membership.create({
+        data: {
+          user_id: user.id,
+          tenant_id: tenant.id,
+          role_id: ownerRole.id,
+          status: 'ACTIVE',
+          joined_at: new Date(),
+        },
+      });
+
+      console.log(`  ✓ Created tenant membership`);
+    }
 
     if (!ownerRole.is_active) {
       console.log(`  ⚠️  WARNING: Role "${ownerRole.name}" is not active`);

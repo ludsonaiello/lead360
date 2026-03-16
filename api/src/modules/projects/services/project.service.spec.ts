@@ -11,6 +11,7 @@ import { ProjectActivityService } from './project-activity.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { FinancialEntryService } from '../../financial/services/financial-entry.service';
+import { PortalAuthService } from '../../portal/services/portal-auth.service';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -167,6 +168,9 @@ const mockPrismaService = {
   task_dependency: {
     create: jest.fn(),
   },
+  receipt: {
+    count: jest.fn(),
+  },
   $transaction: jest.fn((fn) => fn(mockTx)),
 };
 
@@ -191,6 +195,10 @@ const mockProjectTemplateService = {
 
 const mockProjectActivityService = {
   logActivity: jest.fn(),
+};
+
+const mockPortalAuthService = {
+  createForLead: jest.fn().mockResolvedValue(null),
 };
 
 // ---------------------------------------------------------------------------
@@ -218,6 +226,10 @@ describe('ProjectService', () => {
         {
           provide: ProjectActivityService,
           useValue: mockProjectActivityService,
+        },
+        {
+          provide: PortalAuthService,
+          useValue: mockPortalAuthService,
         },
       ],
     }).compile();
@@ -824,7 +836,7 @@ describe('ProjectService', () => {
   // =========================================================================
 
   describe('getFinancialSummary()', () => {
-    it('should return combined financial summary', async () => {
+    it('should return combined financial summary with margins and receipt count', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue({
         id: PROJECT_ID,
         project_number: 'PRJ-2026-0001',
@@ -845,8 +857,9 @@ describe('ProjectService', () => {
         entry_count: 8,
       });
       mockPrismaService.project_task.count
-        .mockResolvedValueOnce(10)
-        .mockResolvedValueOnce(4);
+        .mockResolvedValueOnce(10)  // total tasks
+        .mockResolvedValueOnce(4);  // completed tasks
+      mockPrismaService.receipt.count.mockResolvedValue(5);
 
       const result = await service.getFinancialSummary(TENANT_ID, PROJECT_ID);
 
@@ -856,6 +869,77 @@ describe('ProjectService', () => {
       expect(result.total_actual_cost).toBe(12500.0);
       expect(result.task_count).toBe(10);
       expect(result.completed_task_count).toBe(4);
+      expect(result.receipt_count).toBe(5);
+      expect(result.margin_estimated).toBe(13000.0); // 45000 - 32000
+      expect(result.margin_actual).toBe(32500.0);    // 45000 - 12500
+    });
+
+    it('should return null margins when contract_value is null (standalone project)', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue({
+        id: PROJECT_ID,
+        project_number: 'PRJ-2026-0002',
+        contract_value: null,
+        estimated_cost: null,
+        progress_percent: 0,
+      });
+      mockFinancialEntryService.getProjectCostSummary.mockResolvedValue({
+        project_id: PROJECT_ID,
+        total_actual_cost: 500.0,
+        cost_by_category: {
+          labor: 300,
+          material: 200,
+          subcontractor: 0,
+          equipment: 0,
+          other: 0,
+        },
+        entry_count: 2,
+      });
+      mockPrismaService.project_task.count
+        .mockResolvedValueOnce(3)
+        .mockResolvedValueOnce(0);
+      mockPrismaService.receipt.count.mockResolvedValue(0);
+
+      const result = await service.getFinancialSummary(TENANT_ID, PROJECT_ID);
+
+      expect(result.contract_value).toBeNull();
+      expect(result.estimated_cost).toBeNull();
+      expect(result.margin_estimated).toBeNull();
+      expect(result.margin_actual).toBeNull();
+      expect(result.receipt_count).toBe(0);
+    });
+
+    it('should return null margin_estimated when estimated_cost is null but contract_value exists', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue({
+        id: PROJECT_ID,
+        project_number: 'PRJ-2026-0003',
+        contract_value: 20000.0,
+        estimated_cost: null,
+        progress_percent: 10,
+      });
+      mockFinancialEntryService.getProjectCostSummary.mockResolvedValue({
+        project_id: PROJECT_ID,
+        total_actual_cost: 3000.0,
+        cost_by_category: {
+          labor: 2000,
+          material: 1000,
+          subcontractor: 0,
+          equipment: 0,
+          other: 0,
+        },
+        entry_count: 3,
+      });
+      mockPrismaService.project_task.count
+        .mockResolvedValueOnce(5)
+        .mockResolvedValueOnce(1);
+      mockPrismaService.receipt.count.mockResolvedValue(2);
+
+      const result = await service.getFinancialSummary(TENANT_ID, PROJECT_ID);
+
+      expect(result.contract_value).toBe(20000.0);
+      expect(result.estimated_cost).toBeNull();
+      expect(result.margin_estimated).toBeNull(); // null because estimated_cost is null
+      expect(result.margin_actual).toBe(17000.0);  // 20000 - 3000
+      expect(result.receipt_count).toBe(2);
     });
 
     it('should throw NotFoundException for non-existent project', async () => {
@@ -1247,6 +1331,55 @@ describe('ProjectService', () => {
   });
 
   // =========================================================================
+  // getChangeOrdersRedirect — Sprint 24
+  // =========================================================================
+
+  describe('getChangeOrdersRedirect()', () => {
+    it('should return redirect URL when project has a linked quote', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue({
+        id: PROJECT_ID,
+        quote_id: QUOTE_ID,
+      });
+
+      const result = await service.getChangeOrdersRedirect(TENANT_ID, PROJECT_ID);
+
+      expect(result).toEqual({
+        redirect_url: `/quotes/${QUOTE_ID}?tab=change-orders`,
+      });
+
+      expect(mockPrismaService.project.findFirst).toHaveBeenCalledWith({
+        where: { id: PROJECT_ID, tenant_id: TENANT_ID },
+        select: { id: true, quote_id: true },
+      });
+    });
+
+    it('should throw 400 when project is standalone (no quote_id)', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue({
+        id: PROJECT_ID,
+        quote_id: null,
+      });
+
+      await expect(
+        service.getChangeOrdersRedirect(TENANT_ID, PROJECT_ID),
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        service.getChangeOrdersRedirect(TENANT_ID, PROJECT_ID),
+      ).rejects.toThrow(
+        'This project was not created from a quote. Change orders are not available for standalone projects.',
+      );
+    });
+
+    it('should throw 404 when project not found', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getChangeOrdersRedirect(TENANT_ID, 'nonexistent-uuid'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // =========================================================================
   // Tenant Isolation
   // =========================================================================
 
@@ -1272,6 +1405,14 @@ describe('ProjectService', () => {
 
       await expect(
         service.softDelete(TENANT_B_ID, PROJECT_ID, USER_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should not return change order redirect for other tenants', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getChangeOrdersRedirect(TENANT_B_ID, PROJECT_ID),
       ).rejects.toThrow(NotFoundException);
     });
   });

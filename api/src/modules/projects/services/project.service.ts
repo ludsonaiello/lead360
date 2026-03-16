@@ -14,6 +14,7 @@ import { ProjectActivityService } from './project-activity.service';
 import { CreateProjectDto } from '../dto/create-project.dto';
 import { CreateProjectFromQuoteDto } from '../dto/create-project-from-quote.dto';
 import { UpdateProjectDto } from '../dto/update-project.dto';
+import { PortalAuthService } from '../../portal/services/portal-auth.service';
 
 interface ListProjectsQuery {
   page?: number;
@@ -51,6 +52,7 @@ export class ProjectService {
     private readonly projectNumberGenerator: ProjectNumberGeneratorService,
     private readonly projectTemplateService: ProjectTemplateService,
     private readonly projectActivityService: ProjectActivityService,
+    private readonly portalAuthService: PortalAuthService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -202,10 +204,6 @@ export class ProjectService {
         }
       }
 
-      // TODO Sprint 31: wire portal account creation here via PortalAccountService
-      // When implemented, call PortalAccountService.createForLead(tenantId, quote.lead_id)
-      // to generate a portal_account for the lead+tenant if none exists.
-
       return newProject;
     });
 
@@ -219,6 +217,19 @@ export class ProjectService {
       after: project,
       description: `Created project ${project.project_number} from quote ${quoteId}`,
     });
+
+    // h. Create portal account for the lead (Sprint 31)
+    // Only for quote-based projects with a lead. Standalone projects are never eligible.
+    if (quote.lead_id) {
+      try {
+        await this.portalAuthService.createForLead(tenantId, quote.lead_id);
+      } catch (error) {
+        // Non-blocking: log but do not fail project creation
+        this.logger.warn(
+          `Failed to create portal account for lead ${quote.lead_id}: ${error.message}`,
+        );
+      }
+    }
 
     // Return full project with relations
     return this.findOne(tenantId, project.id);
@@ -614,7 +625,7 @@ export class ProjectService {
   /**
    * Get combined financial summary for a project.
    * Delegates cost breakdown to FinancialEntryService.
-   * Adds contract_value and estimated_cost from project record.
+   * Adds contract_value, estimated_cost, receipt_count, and margin calculations.
    */
   async getFinancialSummary(tenantId: string, projectId: string) {
     const project = await this.prisma.project.findFirst({
@@ -638,8 +649,8 @@ export class ProjectService {
       projectId,
     );
 
-    // Task counts
-    const [taskCount, completedTaskCount] = await Promise.all([
+    // Task counts + receipt count in parallel
+    const [taskCount, completedTaskCount, receiptCount] = await Promise.all([
       this.prisma.project_task.count({
         where: {
           tenant_id: tenantId,
@@ -655,29 +666,84 @@ export class ProjectService {
           deleted_at: null,
         },
       }),
+      this.prisma.receipt.count({
+        where: {
+          tenant_id: tenantId,
+          project_id: projectId,
+        },
+      }),
     ]);
 
     // costSummary already contains project_id — destructure to avoid duplication
     const { project_id: _pid, ...costBreakdown } = costSummary;
 
+    const contractValue = project.contract_value != null
+      ? Number(project.contract_value)
+      : null;
+    const estimatedCost = project.estimated_cost != null
+      ? Number(project.estimated_cost)
+      : null;
+    const totalActualCost = costBreakdown.total_actual_cost;
+
+    // Margin calculations — null when contract_value is not set (e.g. standalone projects)
+    const marginEstimated =
+      contractValue != null && estimatedCost != null
+        ? Math.round((contractValue - estimatedCost) * 100) / 100
+        : null;
+    const marginActual =
+      contractValue != null
+        ? Math.round((contractValue - totalActualCost) * 100) / 100
+        : null;
+
     return {
       project_id: project.id,
       project_number: project.project_number,
-      contract_value: project.contract_value
-        ? Number(project.contract_value)
-        : null,
-      estimated_cost: project.estimated_cost
-        ? Number(project.estimated_cost)
-        : null,
+      contract_value: contractValue,
+      estimated_cost: estimatedCost,
       progress_percent: Number(project.progress_percent),
       task_count: taskCount,
       completed_task_count: completedTaskCount,
       ...costBreakdown,
+      receipt_count: receiptCount,
+      margin_estimated: marginEstimated,
+      margin_actual: marginActual,
     };
   }
 
   // ---------------------------------------------------------------------------
-  // 8. recomputeProgress
+  // 8. getChangeOrdersRedirect — Sprint 24
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns the redirect URL for the Change Orders tab of the project's linked quote.
+   * Standalone projects (no quote_id) are rejected with 400.
+   */
+  async getChangeOrdersRedirect(
+    tenantId: string,
+    projectId: string,
+  ): Promise<{ redirect_url: string }> {
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, tenant_id: tenantId },
+      select: { id: true, quote_id: true },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    if (!project.quote_id) {
+      throw new BadRequestException(
+        'This project was not created from a quote. Change orders are not available for standalone projects.',
+      );
+    }
+
+    return {
+      redirect_url: `/quotes/${project.quote_id}?tab=change-orders`,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // 9. recomputeProgress
   // ---------------------------------------------------------------------------
 
   /**
@@ -725,7 +791,7 @@ export class ProjectService {
   }
 
   // ---------------------------------------------------------------------------
-  // 9. applyTemplate
+  // 10. applyTemplate
   // ---------------------------------------------------------------------------
 
   /**

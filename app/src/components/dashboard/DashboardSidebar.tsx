@@ -53,6 +53,7 @@ import {
   Receipt,
   Wrench,
   Calendar as CalendarIcon,
+  FolderKanban,
 } from 'lucide-react';
 import ProtectedMenuItem from '@/components/rbac/shared/ProtectedMenuItem';
 import { useAuth } from '@/contexts/AuthContext';
@@ -86,6 +87,7 @@ const navigation: (NavItem | NavGroup)[] = [
   { name: 'Leads', href: '/leads', icon: UserPlus, permission: 'leads:view' },
   { name: 'Customers', href: '/customers', icon: Users, permission: 'users:view' },
   { name: 'Calendar', href: '/calendar', icon: CalendarIcon, permission: 'calendar:view' },
+  { name: 'Projects', href: '/projects', icon: FolderKanban, permission: 'projects:view' },
   {
     name: 'Quotes',
     icon: Calculator,
@@ -140,10 +142,13 @@ const navigation: (NavItem | NavGroup)[] = [
       { name: 'Settings', href: '/communications/settings', icon: Settings, permission: 'communications:edit' },
     ],
   },
+  { name: 'Crew Members', href: '/crew', icon: Wrench, permission: 'projects:view' },
+  { name: 'Subcontractors', href: '/subcontractors', icon: Briefcase, permission: 'projects:view' },
   { name: 'Documents', href: '/documents', icon: FileText, permission: 'documents:view' },
   { name: 'Media', href: '/files', icon: Image, permission: 'files:view' },
   { name: 'Business Settings', href: '/settings/business', icon: Building2, permission: 'settings:edit' },
   { name: 'Webhooks', href: '/settings/webhooks', icon: Webhook, permission: 'leads:edit' },
+  { name: 'Users', href: '/settings/users', icon: Users, permission: 'settings:edit' },
   { name: 'Profile Settings', href: '/settings/profile', icon: Settings },
   { name: 'Audit Log', href: '/settings/audit-log', icon: ScrollText, permission: 'audit:view' },
   { name: 'Help', href: '/help', icon: HelpCircle },
@@ -265,6 +270,7 @@ const adminNavigationGroups: (NavItem | NavGroup)[] = [
     icon: Users,
     permission: 'rbac:view',
     items: [
+      { name: 'User Accounts', href: '/admin/users', icon: Users, permission: 'rbac:view' },
       { name: 'Roles', href: '/admin/rbac/roles', icon: Shield, permission: 'rbac:view' },
       { name: 'Permissions', href: '/admin/rbac/permissions', icon: Key, permission: 'rbac:view' },
       { name: 'Modules', href: '/admin/rbac/modules', icon: Layers, permission: 'rbac:view' },

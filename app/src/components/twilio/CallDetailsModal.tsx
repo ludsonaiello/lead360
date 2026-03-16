@@ -41,6 +41,7 @@ import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 import { getCallRecording, getCallTranscription, transcribeCallByCallId } from '@/lib/api/twilio-tenant';
+import { buildFileUrl } from '@/lib/api/files';
 import type { CallRecord, CallRecordingResponse, CallTranscriptionResponse } from '@/lib/types/twilio-tenant';
 
 interface CallDetailsModalProps {
@@ -193,17 +194,7 @@ export function CallDetailsModal({ call, isOpen, onClose }: CallDetailsModalProp
   };
 
   const getFullRecordingUrl = (url: string): string => {
-    // If URL is already absolute (starts with http:// or https://), return as-is
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
-    }
-
-    // Otherwise, construct full URL from relative path
-    // NEXT_PUBLIC_API_URL already includes /api/v1, but recording URLs start with /public
-    // So we need the base URL without /api/v1
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.lead360.app/api/v1';
-    const baseUrl = apiUrl.replace('/api/v1', '');
-    return `${baseUrl}${url}`;
+    return buildFileUrl(url) || url;
   };
 
   const handlePlayPause = () => {

@@ -13,6 +13,7 @@ const publicRoutes = [
   '/forgot-password',
   '/reset-password',
   '/activate',
+  '/invite', // Public invite accept page (no auth required)
   '/public/share', // Public share links (no auth required)
   '/public/quotes', // Public quote viewer (no auth required)
   '/webhooks', // All webhook endpoints (called by external services like Twilio)

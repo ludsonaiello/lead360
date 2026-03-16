@@ -119,7 +119,7 @@ export class AdminController {
           subscription_plan: true,
           _count: {
             select: {
-              user: true,
+              memberships: { where: { status: 'ACTIVE' } },
               tenant_address: true,
               tenant_license: true,
             },

@@ -33,7 +33,6 @@ export class PrismaService
    * This is the last line of defense against cross-tenant data leaks.
    *
    * Models that require tenant_id:
-   * - User
    * - TenantAddress
    * - TenantLicense
    * - TenantInsurance
@@ -64,7 +63,7 @@ export class PrismaService
 
     // Models that require tenant_id filtering
     const TENANT_SCOPED_MODELS = [
-      'User',
+      // 'User' removed — Sprint 4: user is now a global identity table (no tenant_id)
       'TenantAddress',
       'TenantLicense',
       'TenantInsurance',

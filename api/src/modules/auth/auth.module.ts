@@ -8,12 +8,14 @@ import { JwtStrategy, JwtRefreshStrategy } from './strategies';
 import { PrismaModule } from '../../core/database';
 import { AuditModule } from '../audit/audit.module';
 import { JobsModule } from '../jobs/jobs.module';
+import { TokenBlocklistModule } from '../../core/token-blocklist/token-blocklist.module';
 
 @Module({
   imports: [
     PrismaModule,
     AuditModule,
     JobsModule,
+    TokenBlocklistModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

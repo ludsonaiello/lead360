@@ -541,6 +541,28 @@ export class RoleService {
   }
 
   /**
+   * Get all active roles for dropdown/select usage (lightweight).
+   * Returns only id, name, description — no permissions, no counts.
+   * Used by tenant Owner/Admin for invite and role-change flows.
+   */
+  async listActiveRoles(): Promise<
+    Array<{ id: string; name: string; description: string | null }>
+  > {
+    return this.prisma.role.findMany({
+      where: {
+        is_active: true,
+        deleted_at: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+      },
+      orderBy: [{ is_system: 'desc' }, { name: 'asc' }],
+    });
+  }
+
+  /**
    * Get role by name
    */
   async getRoleByName(name: string) {

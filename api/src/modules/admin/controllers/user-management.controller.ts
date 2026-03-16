@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Param,
   Query,
@@ -9,6 +10,8 @@ import {
   UseGuards,
   ParseUUIDPipe,
   Request,
+  NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,6 +27,7 @@ import { PlatformAdminGuard } from '../guards/platform-admin.guard';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuthService } from '../../auth/auth.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
+import { TokenBlocklistService } from '../../../core/token-blocklist/token-blocklist.service';
 
 @ApiTags('Admin - User Management')
 @ApiBearerAuth()
@@ -34,6 +38,7 @@ export class UserManagementController {
     private readonly prisma: PrismaService,
     private readonly authService: AuthService,
     private readonly auditLogger: AuditLoggerService,
+    private readonly tokenBlocklist: TokenBlocklistService,
   ) {}
 
   /**
@@ -136,9 +141,14 @@ export class UserManagementController {
 
     const where: any = {};
 
-    // Tenant filter
+    // Tenant filter (via membership)
     if (filters.tenant_id) {
-      where.tenant_id = filters.tenant_id;
+      where.memberships = {
+        some: {
+          tenant_id: filters.tenant_id,
+          status: 'ACTIVE',
+        },
+      };
     }
 
     // Status filter
@@ -181,10 +191,13 @@ export class UserManagementController {
         take: limit,
         orderBy: { created_at: 'desc' },
         include: {
-          tenant: {
-            select: {
-              subdomain: true,
-              company_name: true,
+          memberships: {
+            where: { status: 'ACTIVE' },
+            take: 1,
+            include: {
+              tenant: {
+                select: { id: true, subdomain: true, company_name: true },
+              },
             },
           },
           user_role_user_role_user_idTouser: {
@@ -200,20 +213,23 @@ export class UserManagementController {
     ]);
 
     return {
-      data: users.map((user) => ({
-        id: user.id,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        is_active: user.is_active,
-        is_platform_admin: user.is_platform_admin,
-        tenant_id: user.tenant_id ?? undefined,
-        tenant_subdomain: user.tenant?.subdomain,
-        tenant_company_name: user.tenant?.company_name,
-        roles: user.user_role_user_role_user_idTouser.map((ur) => ur.role.name),
-        last_login_at: user.last_login_at,
-        created_at: user.created_at,
-      })),
+      data: users.map((user) => {
+        const activeMembership = user.memberships[0];
+        return {
+          id: user.id,
+          email: user.email,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          is_active: user.is_active,
+          is_platform_admin: user.is_platform_admin,
+          tenant_id: activeMembership?.tenant?.id ?? undefined,
+          tenant_subdomain: activeMembership?.tenant?.subdomain,
+          tenant_company_name: activeMembership?.tenant?.company_name,
+          roles: user.user_role_user_role_user_idTouser.map((ur) => ur.role.name),
+          last_login_at: user.last_login_at,
+          created_at: user.created_at,
+        };
+      }),
       pagination: {
         page,
         limit,
@@ -266,7 +282,15 @@ export class UserManagementController {
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: {
-        tenant: true,
+        memberships: {
+          where: { status: 'ACTIVE' },
+          take: 1,
+          include: {
+            tenant: {
+              select: { id: true, subdomain: true, company_name: true },
+            },
+          },
+        },
         user_role_user_role_user_idTouser: {
           include: {
             role: {
@@ -282,8 +306,10 @@ export class UserManagementController {
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
+
+    const activeMembership = user.memberships[0];
 
     return {
       id: user.id,
@@ -294,8 +320,8 @@ export class UserManagementController {
       is_active: user.is_active,
       is_platform_admin: user.is_platform_admin,
       email_verified: user.email_verified,
-      tenant_id: user.tenant_id ?? undefined,
-      tenant: user.tenant,
+      tenant_id: activeMembership?.tenant?.id ?? undefined,
+      tenant: activeMembership?.tenant ?? null,
       roles: user.user_role_user_role_user_idTouser.map((ur) => ({
         id: ur.role.id,
         name: ur.role.name,
@@ -328,11 +354,19 @@ export class UserManagementController {
   async resetPassword(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: { id: true, email: true, tenant_id: true },
+      select: {
+        id: true,
+        email: true,
+        memberships: {
+          where: { status: 'ACTIVE' },
+          take: 1,
+          select: { tenant_id: true },
+        },
+      },
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     // Use AuthService to send password reset email
@@ -340,7 +374,7 @@ export class UserManagementController {
 
     // Audit log
     await this.auditLogger.log({
-      tenant_id: user.tenant_id ?? undefined,
+      tenant_id: user.memberships[0]?.tenant_id ?? undefined,
       actor_user_id: req.user.id,
       actor_type: 'platform_admin',
       entity_type: 'user',
@@ -375,40 +409,84 @@ export class UserManagementController {
     description: 'Forbidden - Platform Admin access required',
   })
   async deactivateUser(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
+    return this.performDeactivation(id, req.user.id);
+  }
+
+  /**
+   * PATCH /admin/users/:id/deactivate
+   * Deactivate user account (PATCH variant per contract)
+   */
+  @Patch(':id/deactivate')
+  @ApiOperation({
+    summary: 'Deactivate user (PATCH)',
+    description: 'Set user account to inactive',
+  })
+  @ApiParam({ name: 'id', description: 'User ID (UUID)' })
+  @ApiResponse({ status: 200, description: 'User deactivated successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 409, description: 'User is already inactive' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
+  async deactivateUserPatch(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.performDeactivation(id, req.user.id);
+  }
+
+  /**
+   * Internal deactivation logic shared between POST and PATCH handlers
+   */
+  private async performDeactivation(userId: string, adminUserId: string) {
     const user = await this.prisma.user.findUnique({
-      where: { id },
-      select: { id: true, email: true, is_active: true, tenant_id: true },
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        is_active: true,
+        memberships: {
+          where: { status: 'ACTIVE' },
+          take: 1,
+          select: { tenant_id: true },
+        },
+      },
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     if (!user.is_active) {
-      throw new Error('User is already inactive');
+      throw new ConflictException('User is already inactive');
     }
 
     // Update user
     const updatedUser = await this.prisma.user.update({
-      where: { id },
+      where: { id: userId },
       data: {
         is_active: false,
         updated_at: new Date(),
       },
     });
 
-    // Invalidate user's sessions
+    // BR-13: Block active JWT tokens via token blocklist
+    await this.tokenBlocklist.blockUserTokens(userId);
+
+    // Invalidate user's refresh tokens
     await this.prisma.refresh_token.deleteMany({
-      where: { user_id: id },
+      where: { user_id: userId },
     });
 
     // Audit log
     await this.auditLogger.log({
-      tenant_id: user.tenant_id ?? undefined,
-      actor_user_id: req.user.id,
+      tenant_id: user.memberships[0]?.tenant_id ?? undefined,
+      actor_user_id: adminUserId,
       actor_type: 'platform_admin',
       entity_type: 'user',
-      entity_id: id,
+      entity_id: userId,
       action_type: 'updated',
       description: `User ${user.email} deactivated by Platform Admin`,
       before_json: { is_active: true },
@@ -447,15 +525,24 @@ export class UserManagementController {
   async activateUser(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: { id: true, email: true, is_active: true, tenant_id: true },
+      select: {
+        id: true,
+        email: true,
+        is_active: true,
+        memberships: {
+          where: { status: 'ACTIVE' },
+          take: 1,
+          select: { tenant_id: true },
+        },
+      },
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     if (user.is_active) {
-      throw new Error('User is already active');
+      throw new ConflictException('User is already active');
     }
 
     // Update user
@@ -469,7 +556,7 @@ export class UserManagementController {
 
     // Audit log
     await this.auditLogger.log({
-      tenant_id: user.tenant_id ?? undefined,
+      tenant_id: user.memberships[0]?.tenant_id ?? undefined,
       actor_user_id: req.user.id,
       actor_type: 'platform_admin',
       entity_type: 'user',
@@ -512,15 +599,24 @@ export class UserManagementController {
   async deleteUser(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: { id: true, email: true, deleted_at: true, tenant_id: true },
+      select: {
+        id: true,
+        email: true,
+        deleted_at: true,
+        memberships: {
+          where: { status: 'ACTIVE' },
+          take: 1,
+          select: { tenant_id: true },
+        },
+      },
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     if (user.deleted_at) {
-      throw new Error('User is already deleted');
+      throw new ConflictException('User is already deleted');
     }
 
     // Soft delete user
@@ -540,7 +636,7 @@ export class UserManagementController {
 
     // Audit log
     await this.auditLogger.log({
-      tenant_id: user.tenant_id ?? undefined,
+      tenant_id: user.memberships[0]?.tenant_id ?? undefined,
       actor_user_id: req.user.id,
       actor_type: 'platform_admin',
       entity_type: 'user',

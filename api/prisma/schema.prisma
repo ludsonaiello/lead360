@@ -90,6 +90,8 @@ model file {
   project_documents                                           project_document[]       @relation("project_document_file")
   project_photos                                              project_photo[]          @relation("project_photo_file")
   receipts                                                    receipt[]                @relation("receipt_file")
+  project_log_attachments                                     project_log_attachment[] @relation("project_log_attachment_file")
+  subcontractor_task_invoices                                  subcontractor_task_invoice[] @relation("subcontractor_task_invoice_file")
 
   @@index([file_id])
   @@index([tenant_id, category])
@@ -206,6 +208,7 @@ model role {
   deleted_at         DateTime?
   role_permission    role_permission[]
   user_role          user_role[]
+  memberships        user_tenant_membership[] @relation("role_memberships")
 
   @@index([is_system], map: "is_system")
   @@index([name], map: "name")
@@ -376,7 +379,6 @@ model tenant {
   tenant_payment_terms                    tenant_payment_terms?
   tenant_service                          tenant_service[]
   tenant_service_area                     tenant_service_area[]
-  user                                    user[]
   user_role                               user_role[]
   file_share_links                        file_share_link[]
   storage_config                          storage_config?
@@ -436,6 +438,23 @@ model tenant {
   project_documents                       project_document[]             @relation("project_document_tenant")
   project_photos                          project_photo[]                @relation("project_photo_tenant")
   task_dependencies                       task_dependency[]              @relation("task_dependency_tenant")
+  task_assignees                          task_assignee[]               @relation("task_assignee_tenant")
+  project_logs                            project_log[]                  @relation("project_log_tenant")
+  project_log_attachments                 project_log_attachment[]       @relation("project_log_attachment_tenant")
+  task_calendar_events                    task_calendar_event[]          @relation("task_calendar_event_tenant")
+  permits                                 permit[]                       @relation("permit_tenant")
+  inspections                             inspection[]                   @relation("inspection_tenant")
+  completion_checklist_templates          completion_checklist_template[]        @relation("checklist_template_tenant")
+  completion_checklist_template_items     completion_checklist_template_item[]   @relation("checklist_template_item_tenant")
+  memberships                             user_tenant_membership[]       @relation("tenant_memberships")
+  project_completion_checklists            project_completion_checklist[]         @relation("completion_checklist_tenant")
+  project_completion_checklist_items       project_completion_checklist_item[]    @relation("completion_checklist_item_tenant")
+  punch_list_items                         punch_list_item[]                      @relation("punch_list_item_tenant")
+  crew_payment_records                     crew_payment_record[]                  @relation("crew_payment_record_tenant")
+  crew_hour_logs                           crew_hour_log[]                        @relation("crew_hour_log_tenant")
+  subcontractor_payment_records            subcontractor_payment_record[]         @relation("subcontractor_payment_record_tenant")
+  subcontractor_task_invoices              subcontractor_task_invoice[]           @relation("subcontractor_task_invoice_tenant")
+  portal_accounts                          portal_account[]                       @relation("portal_account_tenant")
 
   @@index([ein])
   @@index([is_active])
@@ -623,8 +642,7 @@ model tenant_service_area {
 
 model user {
   id                                            String                         @id @db.VarChar(36)
-  tenant_id                                     String?                        @db.VarChar(36)
-  email                                         String                         @db.VarChar(255)
+  email                                         String                         @unique @db.VarChar(255)
   password_hash                                 String                         @db.VarChar(255)
   first_name                                    String                         @db.VarChar(100)
   last_name                                     String                         @db.VarChar(100)
@@ -648,7 +666,6 @@ model user {
   audit_log                                     audit_log[]
   file                                          file[]
   refresh_token                                 refresh_token[]
-  tenant                                        tenant?                        @relation(fields: [tenant_id], references: [id])
   user_role_user_role_assigned_by_user_idTouser user_role[]                    @relation("user_role_assigned_by_user_idTouser")
   user_role_user_role_user_idTouser             user_role[]                    @relation("user_role_user_idTouser")
   user_signature                                user_signature?
@@ -701,16 +718,34 @@ model user {
   project_documents_uploaded                     project_document[]             @relation("project_document_uploaded_by")
   project_photos_uploaded                        project_photo[]                @relation("project_photo_uploaded_by")
   task_dependencies_created                     task_dependency[]              @relation("task_dependency_created_by")
+  task_assignees_as_assignee                   task_assignee[]               @relation("task_assignee_user")
+  task_assignees_assigned_by                   task_assignee[]               @relation("task_assignee_assigned_by")
   receipts_uploaded                             receipt[]                      @relation("receipt_uploaded_by")
+  project_logs_authored                          project_log[]                  @relation("project_log_author")
+  task_calendar_events_created                   task_calendar_event[]          @relation("task_calendar_event_created_by")
+  permits_created                                permit[]                       @relation("permit_created_by")
+  inspections_performed                          inspection[]                   @relation("inspection_inspected_by")
+  checklist_templates_created                    completion_checklist_template[] @relation("checklist_template_created_by")
+  memberships                                    user_tenant_membership[]       @relation("user_memberships")
+  sent_invitations                               user_tenant_membership[]       @relation("membership_inviter")
+  completion_checklists_created                   project_completion_checklist[]  @relation("completion_checklist_created_by")
+  checklist_items_completed                       project_completion_checklist_item[] @relation("checklist_item_completed_by")
+  punch_list_items_reported                       punch_list_item[]              @relation("punch_list_item_reported_by")
+  punch_list_items_resolved                       punch_list_item[]              @relation("punch_list_item_resolved_by")
+  crew_payment_records_created                    crew_payment_record[]          @relation("crew_payment_record_created_by")
+  crew_hour_logs_created                          crew_hour_log[]                @relation("crew_hour_log_created_by")
+  subcontractor_payment_records_created           subcontractor_payment_record[] @relation("subcontractor_payment_record_created_by")
+  subcontractor_task_invoices_created             subcontractor_task_invoice[]   @relation("subcontractor_task_invoice_created_by")
 
-  @@unique([email, tenant_id])
   @@index([activation_token])
   @@index([email])
   @@index([oauth_provider, oauth_provider_id])
   @@index([password_reset_token])
-  @@index([tenant_id, is_active])
+  @@index([is_active])
 }
 
+/// @deprecated user_role is superseded by user_tenant_membership.
+/// Do NOT write new FK references to user_role. It is retained for historical data only.
 model user_role {
   id                                       String   @id @db.VarChar(36)
   user_id                                  String   @db.VarChar(36)
@@ -732,6 +767,34 @@ model user_role {
   @@index([tenant_id])
   @@index([user_id])
   @@index([user_id, tenant_id])
+}
+
+// ─── NEW TABLE ────────────────────────────────────────────────────────────────
+
+model user_tenant_membership {
+  id                      String           @id @default(uuid()) @db.VarChar(36)
+  user_id                 String           @db.VarChar(36)
+  tenant_id               String           @db.VarChar(36)
+  role_id                 String           @db.VarChar(36)
+  status                  MembershipStatus @default(INVITED)
+  invite_token_hash       String?          @unique @db.VarChar(255)
+  invite_token_expires_at DateTime?
+  invite_accepted_at      DateTime?
+  invited_by_user_id      String?          @db.VarChar(36)
+  joined_at               DateTime?
+  left_at                 DateTime?
+  created_at              DateTime         @default(now())
+  updated_at              DateTime         @updatedAt
+
+  user       user   @relation("user_memberships", fields: [user_id], references: [id], onDelete: Cascade)
+  tenant     tenant @relation("tenant_memberships", fields: [tenant_id], references: [id], onDelete: Cascade)
+  role       role   @relation("role_memberships", fields: [role_id], references: [id])
+  invited_by user?  @relation("membership_inviter", fields: [invited_by_user_id], references: [id])
+
+  @@index([user_id, status])
+  @@index([tenant_id, status])
+  @@index([tenant_id, role_id])
+  @@map("user_tenant_membership")
 }
 
 model user_signature {
@@ -1453,7 +1516,11 @@ model crew_member {
   user          user?  @relation("crew_member_user", fields: [user_id], references: [id], onDelete: SetNull)
   created_by    user   @relation("crew_member_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
   profile_photo     file?             @relation("crew_member_photo", fields: [profile_photo_file_id], references: [file_id], onDelete: SetNull)
-  financial_entries financial_entry[]  @relation("financial_entry_crew_member")
+  financial_entries      financial_entry[]         @relation("financial_entry_crew_member")
+  task_assignees         task_assignee[]           @relation("task_assignee_crew_member")
+  punch_list_assignments punch_list_item[]         @relation("punch_list_assigned_crew")
+  payment_records        crew_payment_record[]     @relation("crew_payment_record_crew_member")
+  hour_logs              crew_hour_log[]           @relation("crew_hour_log_crew_member")
 
   @@index([tenant_id, is_active])
   @@index([tenant_id, user_id])
@@ -1596,6 +1663,7 @@ model lead {
   voice_call_logs  voice_call_log[]
   appointments     appointment[]
   projects         project[]         @relation("project_lead")
+  portal_accounts  portal_account[]  @relation("portal_account_lead")
 
   @@index([tenant_id, status])
   @@index([tenant_id, created_at(sort: Desc)])
@@ -3195,7 +3263,10 @@ model subcontractor {
   created_by        user                     @relation("subcontractor_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
   contacts          subcontractor_contact[]
   documents         subcontractor_document[]
-  financial_entries financial_entry[]        @relation("financial_entry_subcontractor")
+  financial_entries  financial_entry[]              @relation("financial_entry_subcontractor")
+  task_assignees     task_assignee[]               @relation("task_assignee_subcontractor")
+  payment_records    subcontractor_payment_record[] @relation("subcontractor_payment_record_subcontractor")
+  task_invoices      subcontractor_task_invoice[]   @relation("subcontractor_task_invoice_subcontractor")
 
   // Indexes
   @@index([tenant_id, compliance_status])
@@ -3493,6 +3564,16 @@ model project {
   project_documents    project_document[]    @relation("project_documents")
   project_photos       project_photo[]       @relation("project_photos")
   receipts             receipt[]             @relation("receipt_project")
+  project_logs         project_log[]         @relation("project_log_project")
+  task_calendar_events task_calendar_event[] @relation("task_calendar_event_project")
+  permits              permit[]              @relation("permit_project")
+  inspections          inspection[]          @relation("inspection_project")
+  completion_checklists          project_completion_checklist[]  @relation("completion_checklist_project")
+  punch_list_items               punch_list_item[]              @relation("punch_list_project")
+  crew_payment_records           crew_payment_record[]          @relation("crew_payment_record_project")
+  crew_hour_logs                 crew_hour_log[]                @relation("crew_hour_log_project")
+  subcontractor_payment_records  subcontractor_payment_record[] @relation("subcontractor_payment_record_project")
+  subcontractor_task_invoices    subcontractor_task_invoice[]   @relation("subcontractor_task_invoice_project")
 
   // Indexes
   @@index([tenant_id, status])
@@ -3547,11 +3628,17 @@ model project_task {
   dependencies            task_dependency[] @relation("task_dependency_task")
   dependent_on_this       task_dependency[] @relation("task_dependency_depends_on")
   receipts                receipt[]         @relation("receipt_task")
+  task_assignees          task_assignee[]  @relation("task_assignee_task")
+  project_logs            project_log[]    @relation("project_log_task")
+  calendar_events         task_calendar_event[] @relation("task_calendar_event_task")
+  crew_hour_logs          crew_hour_log[]       @relation("crew_hour_log_task")
+  subcontractor_invoices  subcontractor_task_invoice[] @relation("subcontractor_task_invoice_task")
 
   // Indexes
   @@index([tenant_id, project_id])
   @@index([tenant_id, project_id, status])
   @@index([tenant_id, project_id, order_index])
+  @@index([tenant_id, is_delayed])
   @@map("project_task")
 }
 
@@ -3560,13 +3647,13 @@ model project_task {
 // ============================================================================
 
 model task_dependency {
-  id                  String   @id @default(uuid()) @db.VarChar(36)
-  tenant_id           String   @db.VarChar(36)
-  task_id             String   @db.VarChar(36)
-  depends_on_task_id  String   @db.VarChar(36)
-  dependency_type     String   @default("finish_to_start") @db.VarChar(20)
-  created_by_user_id  String   @db.VarChar(36)
-  created_at          DateTime @default(now())
+  id                  String               @id @default(uuid()) @db.VarChar(36)
+  tenant_id           String               @db.VarChar(36)
+  task_id             String               @db.VarChar(36)
+  depends_on_task_id  String               @db.VarChar(36)
+  dependency_type     task_dependency_type  @default(finish_to_start)
+  created_by_user_id  String               @db.VarChar(36)
+  created_at          DateTime             @default(now())
 
   // Relations
   tenant          tenant       @relation("task_dependency_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -3579,6 +3666,48 @@ model task_dependency {
   @@index([tenant_id, task_id])
   @@index([tenant_id, depends_on_task_id])
   @@map("task_dependency")
+}
+
+// ============================================================================
+// TASK ASSIGNEE — Sprint 12
+// ============================================================================
+
+enum task_assignee_type {
+  crew_member
+  subcontractor
+  user
+}
+
+enum task_dependency_type {
+  finish_to_start
+  start_to_start
+  finish_to_finish
+}
+
+model task_assignee {
+  id                  String             @id @default(uuid()) @db.VarChar(36)
+  tenant_id           String             @db.VarChar(36)
+  task_id             String             @db.VarChar(36)
+  assignee_type       task_assignee_type
+  crew_member_id      String?            @db.VarChar(36)
+  subcontractor_id    String?            @db.VarChar(36)
+  user_id             String?            @db.VarChar(36)
+  assigned_at         DateTime           @default(now())
+  assigned_by_user_id String             @db.VarChar(36)
+
+  // Relations
+  tenant        tenant        @relation("task_assignee_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  task          project_task  @relation("task_assignee_task", fields: [task_id], references: [id], onDelete: Cascade)
+  crew_member   crew_member?  @relation("task_assignee_crew_member", fields: [crew_member_id], references: [id], onDelete: SetNull)
+  subcontractor subcontractor? @relation("task_assignee_subcontractor", fields: [subcontractor_id], references: [id], onDelete: SetNull)
+  assignee_user user?         @relation("task_assignee_user", fields: [user_id], references: [id], onDelete: SetNull)
+  assigned_by   user          @relation("task_assignee_assigned_by", fields: [assigned_by_user_id], references: [id], onDelete: Restrict)
+
+  // Indexes
+  @@index([tenant_id, task_id])
+  @@index([tenant_id, crew_member_id])
+  @@index([tenant_id, subcontractor_id])
+  @@map("task_assignee")
 }
 
 // ============================================================================
@@ -3671,11 +3800,503 @@ model project_photo {
   task            project_task? @relation("project_photo_task", fields: [task_id], references: [id], onDelete: SetNull)
   uploaded_by_user user         @relation("project_photo_uploaded_by", fields: [uploaded_by_user_id], references: [id], onDelete: Restrict)
   file            file          @relation("project_photo_file", fields: [file_id], references: [file_id], onDelete: Restrict)
-
-  // Note: log_id is a plain column with NO @relation() — project_log model is created in Sprint 17.
+  log             project_log?  @relation("project_photo_log", fields: [log_id], references: [id], onDelete: SetNull)
 
   // Indexes
   @@index([tenant_id, project_id, is_public])
   @@index([tenant_id, project_id, task_id])
+  @@index([tenant_id, project_id, created_at(sort: Desc)])
+  @@index([tenant_id, log_id])
   @@map("project_photo")
+}
+
+// ============================================================================
+// PROJECT LOG — Sprint 17
+// ============================================================================
+
+enum log_attachment_file_type {
+  photo
+  pdf
+  document
+}
+
+model project_log {
+  id              String    @id @default(uuid()) @db.VarChar(36)
+  tenant_id       String    @db.VarChar(36)
+  project_id      String    @db.VarChar(36)
+  task_id         String?   @db.VarChar(36)
+  author_user_id  String    @db.VarChar(36)
+  log_date        DateTime  @db.Date
+  content         String    @db.Text
+  is_public       Boolean   @default(false)
+  weather_delay   Boolean   @default(false)
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  // Relations
+  tenant  tenant        @relation("project_log_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  project project       @relation("project_log_project", fields: [project_id], references: [id], onDelete: Cascade)
+  task    project_task?  @relation("project_log_task", fields: [task_id], references: [id], onDelete: SetNull)
+  author  user           @relation("project_log_author", fields: [author_user_id], references: [id], onDelete: Restrict)
+
+  // Reverse relations
+  attachments project_log_attachment[]
+  photos      project_photo[]            @relation("project_photo_log")
+
+  // Indexes
+  @@index([tenant_id, project_id, created_at])
+  @@index([tenant_id, project_id, is_public])
+  @@index([tenant_id, author_user_id])
+  @@map("project_log")
+}
+
+model project_log_attachment {
+  id              String                   @id @default(uuid()) @db.VarChar(36)
+  tenant_id       String                   @db.VarChar(36)
+  log_id          String                   @db.VarChar(36)
+  file_id         String                   @db.VarChar(36)
+  file_url        String                   @db.VarChar(500)
+  file_name       String                   @db.VarChar(255)
+  file_type       log_attachment_file_type
+  file_size_bytes Int?
+  created_at      DateTime                 @default(now())
+
+  // Relations
+  log    project_log @relation(fields: [log_id], references: [id], onDelete: Cascade)
+  file   file        @relation("project_log_attachment_file", fields: [file_id], references: [file_id], onDelete: Restrict)
+  tenant tenant      @relation("project_log_attachment_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, log_id])
+  @@map("project_log_attachment")
+}
+
+// ============================================================================
+// TASK CALENDAR EVENTS — Sprint 21
+// ============================================================================
+
+enum calendar_sync_status {
+  pending
+  synced
+  failed
+  local_only
+}
+
+model task_calendar_event {
+  id                    String                @id @default(uuid()) @db.VarChar(36)
+  tenant_id             String                @db.VarChar(36)
+  task_id               String                @db.VarChar(36)
+  project_id            String                @db.VarChar(36)
+  title                 String                @db.VarChar(300)
+  description           String?               @db.Text
+  start_datetime        DateTime
+  end_datetime          DateTime
+  google_event_id       String?               @db.VarChar(300)
+  internal_calendar_id  String?               @db.VarChar(36)
+  sync_status           calendar_sync_status  @default(pending)
+  created_by_user_id    String                @db.VarChar(36)
+  created_at            DateTime              @default(now())
+  updated_at            DateTime              @updatedAt
+
+  // Relations
+  tenant      tenant       @relation("task_calendar_event_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  task        project_task @relation("task_calendar_event_task", fields: [task_id], references: [id], onDelete: Cascade)
+  project     project      @relation("task_calendar_event_project", fields: [project_id], references: [id], onDelete: Cascade)
+  created_by  user         @relation("task_calendar_event_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+
+  // Indexes
+  @@index([tenant_id, task_id])
+  @@index([tenant_id, project_id])
+  @@index([tenant_id, sync_status])
+  @@map("task_calendar_event")
+}
+
+// ============================================================================
+// PERMIT TRACKING — Sprint 22
+// ============================================================================
+
+enum permit_status {
+  not_required
+  pending_application
+  submitted
+  approved
+  active
+  failed
+  closed
+}
+
+// ============================================================================
+// USER TENANT MEMBERSHIP — Sprint 2 (Users Module)
+// ============================================================================
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  INACTIVE
+}
+
+model permit {
+  id                 String        @id @default(uuid()) @db.VarChar(36)
+  tenant_id          String        @db.VarChar(36)
+  project_id         String        @db.VarChar(36)
+  permit_number      String?       @db.VarChar(100)
+  permit_type        String        @db.VarChar(200)
+  status             permit_status @default(pending_application)
+  submitted_date     DateTime?     @db.Date
+  approved_date      DateTime?     @db.Date
+  expiry_date        DateTime?     @db.Date
+  issuing_authority  String?       @db.VarChar(200)
+  notes              String?       @db.Text
+  created_by_user_id String        @db.VarChar(36)
+  deleted_at         DateTime?
+  created_at         DateTime      @default(now())
+  updated_at         DateTime      @updatedAt
+
+  // Relations
+  tenant      tenant       @relation("permit_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  project     project      @relation("permit_project", fields: [project_id], references: [id], onDelete: Cascade)
+  created_by  user         @relation("permit_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  inspections inspection[] @relation("inspection_permit")
+
+  // Indexes
+  @@index([tenant_id, project_id])
+  @@index([tenant_id, status])
+  @@map("permit")
+}
+
+// ============================================================================
+// INSPECTION LIFECYCLE — Sprint 23
+// ============================================================================
+
+enum inspection_result {
+  pass
+  fail
+  conditional
+  pending
+}
+
+model inspection {
+  id                     String             @id @default(uuid()) @db.VarChar(36)
+  tenant_id              String             @db.VarChar(36)
+  permit_id              String             @db.VarChar(36)
+  project_id             String             @db.VarChar(36)
+  inspection_type        String             @db.VarChar(200)
+  scheduled_date         DateTime?          @db.Date
+  inspector_name         String?            @db.VarChar(200)
+  result                 inspection_result?
+  reinspection_required  Boolean            @default(false)
+  reinspection_date      DateTime?          @db.Date
+  notes                  String?            @db.Text
+  inspected_by_user_id   String?            @db.VarChar(36)
+  deleted_at             DateTime?
+  created_at             DateTime           @default(now())
+  updated_at             DateTime           @updatedAt
+
+  // Relations
+  tenant       tenant  @relation("inspection_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  permit       permit  @relation("inspection_permit", fields: [permit_id], references: [id], onDelete: Cascade)
+  project      project @relation("inspection_project", fields: [project_id], references: [id], onDelete: Cascade)
+  inspected_by user?   @relation("inspection_inspected_by", fields: [inspected_by_user_id], references: [id], onDelete: SetNull)
+
+  // Indexes
+  @@index([tenant_id, permit_id])
+  @@index([tenant_id, project_id])
+  @@map("inspection")
+}
+
+model completion_checklist_template {
+  id                 String                              @id @default(uuid()) @db.VarChar(36)
+  tenant_id          String                              @db.VarChar(36)
+  name               String                              @db.VarChar(200)
+  description        String?                             @db.Text
+  is_active          Boolean                             @default(true)
+  created_by_user_id String                              @db.VarChar(36)
+  created_at         DateTime                            @default(now())
+  updated_at         DateTime                            @updatedAt
+
+  // Relations
+  tenant     tenant                              @relation("checklist_template_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by user                                @relation("checklist_template_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  items              completion_checklist_template_item[]
+  project_checklists project_completion_checklist[]
+
+  // Indexes
+  @@unique([tenant_id, name])
+  @@index([tenant_id, is_active])
+  @@map("completion_checklist_template")
+}
+
+model completion_checklist_template_item {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  template_id String   @db.VarChar(36)
+  tenant_id   String   @db.VarChar(36)
+  title       String   @db.VarChar(300)
+  description String?  @db.Text
+  is_required Boolean  @default(true)
+  order_index Int
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  // Relations
+  template        completion_checklist_template @relation(fields: [template_id], references: [id], onDelete: Cascade)
+  tenant          tenant                        @relation("checklist_template_item_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  checklist_items project_completion_checklist_item[]
+
+  // Indexes
+  @@index([tenant_id, template_id])
+  @@map("completion_checklist_template_item")
+}
+
+// ============================================================================
+// PROJECT COMPLETION — Sprint 26
+// ============================================================================
+
+enum punch_list_status {
+  open
+  in_progress
+  resolved
+}
+
+model project_completion_checklist {
+  id                  String    @id @default(uuid()) @db.VarChar(36)
+  tenant_id           String    @db.VarChar(36)
+  project_id          String    @db.VarChar(36)
+  template_id         String?   @db.VarChar(36)
+  completed_at        DateTime?
+  created_by_user_id  String?   @db.VarChar(36)
+  created_at          DateTime  @default(now())
+
+  // Relations
+  tenant     tenant                          @relation("completion_checklist_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  project    project                         @relation("completion_checklist_project", fields: [project_id], references: [id], onDelete: Cascade)
+  template   completion_checklist_template?  @relation(fields: [template_id], references: [id], onDelete: SetNull)
+  created_by user?                           @relation("completion_checklist_created_by", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+
+  // Reverse relations
+  items            project_completion_checklist_item[]
+  punch_list_items punch_list_item[]
+
+  // Indexes
+  @@unique([tenant_id, project_id])
+  @@map("project_completion_checklist")
+}
+
+model project_completion_checklist_item {
+  id                   String    @id @default(uuid()) @db.VarChar(36)
+  tenant_id            String    @db.VarChar(36)
+  checklist_id         String    @db.VarChar(36)
+  title                String    @db.VarChar(300)
+  is_required          Boolean
+  is_completed         Boolean   @default(false)
+  completed_at         DateTime?
+  completed_by_user_id String?   @db.VarChar(36)
+  notes                String?   @db.Text
+  template_item_id     String?   @db.VarChar(36)
+  order_index          Int
+  updated_at           DateTime  @updatedAt
+
+  // Relations
+  checklist     project_completion_checklist       @relation(fields: [checklist_id], references: [id], onDelete: Cascade)
+  template_item completion_checklist_template_item? @relation(fields: [template_item_id], references: [id], onDelete: SetNull)
+  tenant        tenant                              @relation("completion_checklist_item_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  completed_by  user?                               @relation("checklist_item_completed_by", fields: [completed_by_user_id], references: [id], onDelete: SetNull)
+
+  // Indexes
+  @@index([tenant_id, checklist_id])
+  @@map("project_completion_checklist_item")
+}
+
+model punch_list_item {
+  id                   String            @id @default(uuid()) @db.VarChar(36)
+  tenant_id            String            @db.VarChar(36)
+  checklist_id         String            @db.VarChar(36)
+  project_id           String            @db.VarChar(36)
+  title                String            @db.VarChar(300)
+  description          String?           @db.Text
+  status               punch_list_status @default(open)
+  assigned_to_crew_id  String?           @db.VarChar(36)
+  resolved_at          DateTime?
+  reported_by_user_id  String?           @db.VarChar(36)
+  resolved_by_user_id  String?           @db.VarChar(36)
+  created_at           DateTime          @default(now())
+  updated_at           DateTime          @updatedAt
+
+  // Relations
+  tenant          tenant                        @relation("punch_list_item_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  checklist       project_completion_checklist   @relation(fields: [checklist_id], references: [id], onDelete: Cascade)
+  project         project                        @relation("punch_list_project", fields: [project_id], references: [id], onDelete: Cascade)
+  reported_by     user?                          @relation("punch_list_item_reported_by", fields: [reported_by_user_id], references: [id], onDelete: SetNull)
+  resolved_by     user?                          @relation("punch_list_item_resolved_by", fields: [resolved_by_user_id], references: [id], onDelete: SetNull)
+  assigned_to_crew crew_member?                  @relation("punch_list_assigned_crew", fields: [assigned_to_crew_id], references: [id], onDelete: SetNull)
+
+  // Indexes
+  @@index([tenant_id, checklist_id])
+  @@index([tenant_id, project_id])
+  @@index([tenant_id, status])
+  @@map("punch_list_item")
+}
+
+// ============================================================================
+// FINANCIAL GATE 3 (Sprint 27)
+// ============================================================================
+
+enum hour_log_source {
+  manual
+  clockin_system
+}
+
+enum invoice_status {
+  pending
+  approved
+  paid
+}
+
+model crew_payment_record {
+  id                 String         @id @default(uuid()) @db.VarChar(36)
+  tenant_id          String         @db.VarChar(36)
+  crew_member_id     String         @db.VarChar(36)
+  project_id         String?        @db.VarChar(36)
+  amount             Decimal        @db.Decimal(12, 2)
+  payment_date       DateTime       @db.Date
+  payment_method     payment_method
+  reference_number   String?        @db.VarChar(200)
+  period_start_date  DateTime?      @db.Date
+  period_end_date    DateTime?      @db.Date
+  hours_paid         Decimal?       @db.Decimal(6, 2)
+  notes              String?        @db.Text
+  created_by_user_id String         @db.VarChar(36)
+  created_at         DateTime       @default(now())
+
+  // Relations
+  tenant      tenant       @relation("crew_payment_record_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  crew_member crew_member  @relation("crew_payment_record_crew_member", fields: [crew_member_id], references: [id], onDelete: Restrict)
+  project     project?     @relation("crew_payment_record_project", fields: [project_id], references: [id], onDelete: Cascade)
+  created_by  user         @relation("crew_payment_record_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+
+  // Indexes
+  @@index([tenant_id, crew_member_id])
+  @@index([tenant_id, crew_member_id, payment_date])
+  @@index([tenant_id, project_id])
+  @@map("crew_payment_record")
+}
+
+model crew_hour_log {
+  id                 String          @id @default(uuid()) @db.VarChar(36)
+  tenant_id          String          @db.VarChar(36)
+  crew_member_id     String          @db.VarChar(36)
+  project_id         String          @db.VarChar(36)
+  task_id            String?         @db.VarChar(36)
+  log_date           DateTime        @db.Date
+  hours_regular      Decimal         @db.Decimal(5, 2)
+  hours_overtime     Decimal         @default(0.00) @db.Decimal(5, 2)
+  source             hour_log_source @default(manual)
+  clockin_event_id   String?         @db.VarChar(36)
+  notes              String?         @db.Text
+  created_by_user_id String          @db.VarChar(36)
+  created_at         DateTime        @default(now())
+  updated_at         DateTime        @updatedAt
+
+  // Relations
+  tenant      tenant       @relation("crew_hour_log_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  crew_member crew_member  @relation("crew_hour_log_crew_member", fields: [crew_member_id], references: [id], onDelete: Restrict)
+  project     project      @relation("crew_hour_log_project", fields: [project_id], references: [id], onDelete: Cascade)
+  task        project_task? @relation("crew_hour_log_task", fields: [task_id], references: [id], onDelete: Cascade)
+  created_by  user         @relation("crew_hour_log_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+
+  // Indexes
+  @@index([tenant_id, crew_member_id, log_date])
+  @@index([tenant_id, project_id])
+  @@index([tenant_id, task_id])
+  @@map("crew_hour_log")
+}
+
+model subcontractor_payment_record {
+  id                 String         @id @default(uuid()) @db.VarChar(36)
+  tenant_id          String         @db.VarChar(36)
+  subcontractor_id   String         @db.VarChar(36)
+  project_id         String?        @db.VarChar(36)
+  amount             Decimal        @db.Decimal(12, 2)
+  payment_date       DateTime       @db.Date
+  payment_method     payment_method
+  reference_number   String?        @db.VarChar(200)
+  notes              String?        @db.Text
+  created_by_user_id String         @db.VarChar(36)
+  created_at         DateTime       @default(now())
+
+  // Relations
+  tenant        tenant        @relation("subcontractor_payment_record_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  subcontractor subcontractor @relation("subcontractor_payment_record_subcontractor", fields: [subcontractor_id], references: [id], onDelete: Restrict)
+  project       project?      @relation("subcontractor_payment_record_project", fields: [project_id], references: [id], onDelete: Cascade)
+  created_by    user          @relation("subcontractor_payment_record_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+
+  // Indexes
+  @@index([tenant_id, subcontractor_id])
+  @@index([tenant_id, subcontractor_id, payment_date])
+  @@index([tenant_id, project_id])
+  @@map("subcontractor_payment_record")
+}
+
+model subcontractor_task_invoice {
+  id                 String         @id @default(uuid()) @db.VarChar(36)
+  tenant_id          String         @db.VarChar(36)
+  subcontractor_id   String         @db.VarChar(36)
+  task_id            String         @db.VarChar(36)
+  project_id         String         @db.VarChar(36)
+  invoice_number     String?        @db.VarChar(100)
+  invoice_date       DateTime?      @db.Date
+  amount             Decimal        @db.Decimal(12, 2)
+  status             invoice_status @default(pending)
+  notes              String?        @db.Text
+  file_id            String?        @db.VarChar(36)
+  file_url           String?        @db.VarChar(500)
+  file_name          String?        @db.VarChar(255)
+  created_by_user_id String         @db.VarChar(36)
+  created_at         DateTime       @default(now())
+  updated_at         DateTime       @updatedAt
+
+  // Relations
+  tenant        tenant        @relation("subcontractor_task_invoice_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  subcontractor subcontractor @relation("subcontractor_task_invoice_subcontractor", fields: [subcontractor_id], references: [id], onDelete: Restrict)
+  task          project_task  @relation("subcontractor_task_invoice_task", fields: [task_id], references: [id], onDelete: Cascade)
+  project       project       @relation("subcontractor_task_invoice_project", fields: [project_id], references: [id], onDelete: Cascade)
+  file          file?         @relation("subcontractor_task_invoice_file", fields: [file_id], references: [file_id], onDelete: SetNull)
+  created_by    user          @relation("subcontractor_task_invoice_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+
+  // Indexes
+  @@unique([tenant_id, invoice_number])
+  @@index([tenant_id, subcontractor_id])
+  @@index([tenant_id, task_id])
+  @@index([tenant_id, project_id])
+  @@index([tenant_id, status])
+  @@map("subcontractor_task_invoice")
+}
+
+// ============================================================================
+// PORTAL ACCOUNTS — Sprint 31
+// ============================================================================
+
+model portal_account {
+  id                    String    @id @default(uuid()) @db.VarChar(36)
+  tenant_id             String    @db.VarChar(36)
+  lead_id               String    @db.VarChar(36)
+  email                 String    @db.VarChar(255)
+  customer_slug         String    @db.VarChar(200)
+  password_hash         String    @db.Text
+  must_change_password  Boolean   @default(true)
+  last_login_at         DateTime?
+  reset_token           String?   @db.VarChar(200)
+  reset_token_expires_at DateTime?
+  is_active             Boolean   @default(true)
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  // Relations
+  tenant tenant @relation("portal_account_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  lead   lead   @relation("portal_account_lead", fields: [lead_id], references: [id], onDelete: Restrict)
+
+  // Indexes — one portal account per lead per tenant; unique email & slug per tenant
+  @@unique([tenant_id, lead_id])
+  @@unique([tenant_id, email])
+  @@unique([tenant_id, customer_slug])
+  @@index([tenant_id, is_active])
+  @@map("portal_account")
 }

@@ -582,7 +582,10 @@ export class TenantService {
       insuranceStatus,
     ] = await Promise.all([
       this.prisma.user.count({
-        where: { tenant_id: tenantId, is_active: true },
+        where: {
+          is_active: true,
+          memberships: { some: { tenant_id: tenantId, status: 'ACTIVE' } },
+        },
       }),
       this.prisma.tenant_address.count({ where: { tenant_id: tenantId } }),
       this.prisma.tenant_license.count({ where: { tenant_id: tenantId } }),

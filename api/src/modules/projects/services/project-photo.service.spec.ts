@@ -541,6 +541,453 @@ describe('ProjectPhotoService', () => {
   });
 
   // -----------------------------------------------------------------------
+  // getTimeline()
+  // -----------------------------------------------------------------------
+
+  describe('getTimeline()', () => {
+    const LOG_ID = 'log-uuid-001';
+
+    const mockTimelinePhoto = (overrides: any = {}) => ({
+      ...mockPhoto(),
+      task: null,
+      log: null,
+      uploaded_by_user: { first_name: 'Jane', last_name: 'Admin' },
+      ...overrides,
+    });
+
+    it('should return photos grouped by date', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      mockPrismaService.project_photo.findMany.mockResolvedValue([
+        mockTimelinePhoto({
+          id: 'p1',
+          taken_at: new Date('2026-03-12T00:00:00.000Z'),
+          created_at: new Date('2026-03-12T10:00:00.000Z'),
+        }),
+        mockTimelinePhoto({
+          id: 'p2',
+          taken_at: new Date('2026-03-10T00:00:00.000Z'),
+          created_at: new Date('2026-03-11T10:00:00.000Z'),
+        }),
+      ]);
+
+      const result = await service.getTimeline(TENANT_A, PROJECT_ID);
+
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0].date).toBe('2026-03-12');
+      expect(result.data[0].photos).toHaveLength(1);
+      expect(result.data[1].date).toBe('2026-03-10');
+      expect(result.data[1].photos).toHaveLength(1);
+    });
+
+    it('should order by taken_at DESC with fallback to created_at', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      mockPrismaService.project_photo.findMany.mockResolvedValue([
+        mockTimelinePhoto({
+          id: 'p1',
+          taken_at: new Date('2026-03-08T00:00:00.000Z'),
+          created_at: new Date('2026-03-15T10:00:00.000Z'),
+        }),
+        mockTimelinePhoto({
+          id: 'p2',
+          taken_at: null,
+          created_at: new Date('2026-03-12T10:00:00.000Z'),
+        }),
+        mockTimelinePhoto({
+          id: 'p3',
+          taken_at: new Date('2026-03-14T00:00:00.000Z'),
+          created_at: new Date('2026-03-14T16:00:00.000Z'),
+        }),
+      ]);
+
+      const result = await service.getTimeline(TENANT_A, PROJECT_ID);
+
+      // Order: p3 (taken 3/14) → p2 (created 3/12, no taken_at) → p1 (taken 3/8)
+      const allPhotos = result.data.flatMap((g) => g.photos);
+      expect(allPhotos[0].id).toBe('p3');
+      expect(allPhotos[1].id).toBe('p2');
+      expect(allPhotos[2].id).toBe('p1');
+    });
+
+    it('should include task, log, and uploaded_by info', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      mockPrismaService.project_photo.findMany.mockResolvedValue([
+        mockTimelinePhoto({
+          task: { id: TASK_ID, title: 'Foundation Pour' },
+          log: { id: LOG_ID },
+          uploaded_by_user: { first_name: 'Jane', last_name: 'Admin' },
+        }),
+      ]);
+
+      const result = await service.getTimeline(TENANT_A, PROJECT_ID);
+      const photo = result.data[0].photos[0];
+
+      expect(photo.task).toEqual({ id: TASK_ID, title: 'Foundation Pour' });
+      expect(photo.log).toEqual({ id: LOG_ID });
+      expect(photo.uploaded_by).toEqual({
+        first_name: 'Jane',
+        last_name: 'Admin',
+      });
+    });
+
+    it('should return null for task and log when not linked', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      mockPrismaService.project_photo.findMany.mockResolvedValue([
+        mockTimelinePhoto({ task: null, log: null }),
+      ]);
+
+      const result = await service.getTimeline(TENANT_A, PROJECT_ID);
+      const photo = result.data[0].photos[0];
+
+      expect(photo.task).toBeNull();
+      expect(photo.log).toBeNull();
+    });
+
+    it('should filter by task_id', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      mockPrismaService.project_photo.findMany.mockResolvedValue([]);
+
+      await service.getTimeline(TENANT_A, PROJECT_ID, { task_id: TASK_ID });
+
+      expect(mockPrismaService.project_photo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ task_id: TASK_ID }),
+        }),
+      );
+    });
+
+    it('should filter by is_public', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      mockPrismaService.project_photo.findMany.mockResolvedValue([]);
+
+      await service.getTimeline(TENANT_A, PROJECT_ID, { is_public: true });
+
+      expect(mockPrismaService.project_photo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ is_public: true }),
+        }),
+      );
+    });
+
+    it('should filter by date range using effective date (OR logic)', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      mockPrismaService.project_photo.findMany.mockResolvedValue([]);
+
+      await service.getTimeline(TENANT_A, PROJECT_ID, {
+        date_from: '2026-03-01',
+        date_to: '2026-03-31',
+      });
+
+      expect(mockPrismaService.project_photo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: [
+              {
+                taken_at: {
+                  gte: expect.any(Date),
+                  lte: expect.any(Date),
+                },
+              },
+              {
+                taken_at: null,
+                created_at: {
+                  gte: expect.any(Date),
+                  lte: expect.any(Date),
+                },
+              },
+            ],
+          }),
+        }),
+      );
+    });
+
+    it('should paginate correctly', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      // Create 5 photos
+      const photos = Array.from({ length: 5 }, (_, i) =>
+        mockTimelinePhoto({
+          id: `p${i + 1}`,
+          taken_at: new Date(`2026-03-${15 - i}T00:00:00.000Z`),
+          created_at: new Date(`2026-03-${15 - i}T10:00:00.000Z`),
+        }),
+      );
+      mockPrismaService.project_photo.findMany.mockResolvedValue(photos);
+
+      const result = await service.getTimeline(TENANT_A, PROJECT_ID, {
+        page: 2,
+        limit: 2,
+      });
+
+      expect(result.meta).toEqual({
+        total: 5,
+        page: 2,
+        limit: 2,
+        totalPages: 3,
+      });
+      // Page 2 should have photos p3 and p4
+      const allPhotos = result.data.flatMap((g) => g.photos);
+      expect(allPhotos).toHaveLength(2);
+      expect(allPhotos[0].id).toBe('p3');
+      expect(allPhotos[1].id).toBe('p4');
+    });
+
+    it('should enforce max limit of 100', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      mockPrismaService.project_photo.findMany.mockResolvedValue([]);
+
+      const result = await service.getTimeline(TENANT_A, PROJECT_ID, {
+        limit: 500,
+      });
+
+      expect(result.meta.limit).toBe(100);
+    });
+
+    it('should return correct meta with defaults', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      mockPrismaService.project_photo.findMany.mockResolvedValue([
+        mockTimelinePhoto(),
+      ]);
+
+      const result = await service.getTimeline(TENANT_A, PROJECT_ID);
+
+      expect(result.meta.page).toBe(1);
+      expect(result.meta.limit).toBe(20);
+      expect(result.meta.total).toBe(1);
+      expect(result.meta.totalPages).toBe(1);
+    });
+
+    it('should throw NotFoundException for nonexistent project', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getTimeline(TENANT_A, PROJECT_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should include relations in Prisma query', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      mockPrismaService.project_photo.findMany.mockResolvedValue([]);
+
+      await service.getTimeline(TENANT_A, PROJECT_ID);
+
+      expect(mockPrismaService.project_photo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: {
+            task: { select: { id: true, title: true } },
+            log: { select: { id: true } },
+            uploaded_by_user: {
+              select: { first_name: true, last_name: true },
+            },
+          },
+        }),
+      );
+    });
+
+    it('should group multiple photos on the same date together', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      mockPrismaService.project_photo.findMany.mockResolvedValue([
+        mockTimelinePhoto({
+          id: 'p1',
+          taken_at: new Date('2026-03-10T00:00:00.000Z'),
+          created_at: new Date('2026-03-10T08:00:00.000Z'),
+        }),
+        mockTimelinePhoto({
+          id: 'p2',
+          taken_at: new Date('2026-03-10T00:00:00.000Z'),
+          created_at: new Date('2026-03-10T14:00:00.000Z'),
+        }),
+      ]);
+
+      const result = await service.getTimeline(TENANT_A, PROJECT_ID);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].date).toBe('2026-03-10');
+      expect(result.data[0].photos).toHaveLength(2);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // batchUpload()
+  // -----------------------------------------------------------------------
+
+  describe('batchUpload()', () => {
+    const mockFiles = (): Express.Multer.File[] => [
+      {
+        fieldname: 'files',
+        originalname: 'photo1.jpg',
+        encoding: '7bit',
+        mimetype: 'image/jpeg',
+        buffer: Buffer.from('fake-image-1'),
+        size: 2048,
+      } as Express.Multer.File,
+      {
+        fieldname: 'files',
+        originalname: 'photo2.jpg',
+        encoding: '7bit',
+        mimetype: 'image/jpeg',
+        buffer: Buffer.from('fake-image-2'),
+        size: 3072,
+      } as Express.Multer.File,
+    ];
+
+    it('should upload multiple photos and return array', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      mockFilesService.uploadFile.mockResolvedValue(mockUploadResult());
+      mockPrismaService.file.findFirst.mockResolvedValue(mockFileRecord());
+      mockPrismaService.project_photo.create
+        .mockResolvedValueOnce(mockPhoto({ id: 'batch-p1' }))
+        .mockResolvedValueOnce(mockPhoto({ id: 'batch-p2' }));
+
+      const result = await service.batchUpload(
+        TENANT_A,
+        PROJECT_ID,
+        USER_ID,
+        mockFiles(),
+        { caption: 'Batch photos', is_public: false },
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result[0].id).toBe('batch-p1');
+      expect(result[1].id).toBe('batch-p2');
+    });
+
+    it('should call FilesService for each file', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      mockFilesService.uploadFile.mockResolvedValue(mockUploadResult());
+      mockPrismaService.file.findFirst.mockResolvedValue(mockFileRecord());
+      mockPrismaService.project_photo.create.mockResolvedValue(mockPhoto());
+
+      await service.batchUpload(
+        TENANT_A,
+        PROJECT_ID,
+        USER_ID,
+        mockFiles(),
+        {},
+      );
+
+      expect(mockFilesService.uploadFile).toHaveBeenCalledTimes(2);
+    });
+
+    it('should throw BadRequestException when no files provided', async () => {
+      await expect(
+        service.batchUpload(TENANT_A, PROJECT_ID, USER_ID, [], {}),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException when files is null', async () => {
+      await expect(
+        service.batchUpload(TENANT_A, PROJECT_ID, USER_ID, null as any, {}),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw NotFoundException for nonexistent project', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.batchUpload(
+          TENANT_A,
+          PROJECT_ID,
+          USER_ID,
+          mockFiles(),
+          {},
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should validate task_id when provided', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      mockPrismaService.project_task.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.batchUpload(TENANT_A, PROJECT_ID, USER_ID, mockFiles(), {
+          task_id: 'nonexistent-task',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should create audit log for each photo', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      mockFilesService.uploadFile.mockResolvedValue(mockUploadResult());
+      mockPrismaService.file.findFirst.mockResolvedValue(mockFileRecord());
+      mockPrismaService.project_photo.create.mockResolvedValue(mockPhoto());
+
+      await service.batchUpload(
+        TENANT_A,
+        PROJECT_ID,
+        USER_ID,
+        mockFiles(),
+        {},
+      );
+
+      expect(mockAuditLoggerService.logTenantChange).toHaveBeenCalledTimes(2);
+      expect(mockAuditLoggerService.logTenantChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'created',
+          entityType: 'project_photo',
+          tenantId: TENANT_A,
+        }),
+      );
+    });
+
+    it('should log batch activity', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      mockFilesService.uploadFile.mockResolvedValue(mockUploadResult());
+      mockPrismaService.file.findFirst.mockResolvedValue(mockFileRecord());
+      mockPrismaService.project_photo.create.mockResolvedValue(mockPhoto());
+
+      await service.batchUpload(
+        TENANT_A,
+        PROJECT_ID,
+        USER_ID,
+        mockFiles(),
+        {},
+      );
+
+      expect(mockProjectActivityService.logActivity).toHaveBeenCalledWith(
+        TENANT_A,
+        expect.objectContaining({
+          project_id: PROJECT_ID,
+          activity_type: 'photos_batch_added',
+          description: 'Batch uploaded 2 photos',
+        }),
+      );
+    });
+
+    it('should apply shared metadata to all photos in batch', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
+      mockPrismaService.project_task.findFirst.mockResolvedValue(mockTask());
+      mockFilesService.uploadFile.mockResolvedValue(mockUploadResult());
+      mockPrismaService.file.findFirst.mockResolvedValue(mockFileRecord());
+      mockPrismaService.project_photo.create.mockResolvedValue(
+        mockPhoto({ task_id: TASK_ID, is_public: true }),
+      );
+
+      await service.batchUpload(
+        TENANT_A,
+        PROJECT_ID,
+        USER_ID,
+        mockFiles(),
+        {
+          task_id: TASK_ID,
+          is_public: true,
+          taken_at: '2026-03-10',
+        },
+      );
+
+      // Both create calls should have the same metadata
+      expect(mockPrismaService.project_photo.create).toHaveBeenCalledTimes(2);
+      for (const call of mockPrismaService.project_photo.create.mock.calls) {
+        expect(call[0].data).toEqual(
+          expect.objectContaining({
+            task_id: TASK_ID,
+            is_public: true,
+            taken_at: new Date('2026-03-10'),
+          }),
+        );
+      }
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // Tenant Isolation
   // -----------------------------------------------------------------------
 
@@ -570,6 +1017,45 @@ describe('ProjectPhotoService', () => {
           where: expect.objectContaining({ tenant_id: TENANT_B }),
         }),
       );
+    });
+
+    it('getTimeline: filters by tenant_id', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(
+        mockProject({ tenant_id: TENANT_B }),
+      );
+      mockPrismaService.project_photo.findMany.mockResolvedValue([]);
+
+      await service.getTimeline(TENANT_B, PROJECT_ID);
+
+      expect(mockPrismaService.project_photo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenant_id: TENANT_B }),
+        }),
+      );
+    });
+
+    it('getTimeline: rejects project from another tenant', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getTimeline(TENANT_B, PROJECT_ID),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockPrismaService.project.findFirst).toHaveBeenCalledWith({
+        where: { id: PROJECT_ID, tenant_id: TENANT_B },
+      });
+    });
+
+    it('batchUpload: verifies project belongs to tenant', async () => {
+      mockPrismaService.project.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.batchUpload(TENANT_B, PROJECT_ID, USER_ID, [mockFile()], {}),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockPrismaService.project.findFirst).toHaveBeenCalledWith({
+        where: { id: PROJECT_ID, tenant_id: TENANT_B },
+      });
     });
 
     it('update: verifies photo belongs to tenant', async () => {

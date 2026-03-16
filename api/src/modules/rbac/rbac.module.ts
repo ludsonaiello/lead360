@@ -13,6 +13,7 @@ import { RoleTemplateService } from './services/role-template.service';
 // Controllers
 import { UserRolesController } from './controllers/user-roles.controller';
 import { AdminController } from './controllers/admin.controller';
+import { RolesController } from './controllers/roles.controller';
 
 // Guards
 import { RolesGuard } from './guards/roles.guard';
@@ -21,7 +22,7 @@ import { PlatformAdminGuard } from './guards/platform-admin.guard';
 
 @Module({
   imports: [PrismaModule, forwardRef(() => AuditModule)],
-  controllers: [UserRolesController, AdminController],
+  controllers: [UserRolesController, AdminController, RolesController],
   providers: [
     // Services
     RBACService,

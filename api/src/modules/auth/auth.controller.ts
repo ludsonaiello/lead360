@@ -95,6 +95,7 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @Public()
   @UseGuards(JwtRefreshGuard)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
@@ -109,7 +110,7 @@ export class AuthController {
     description: 'Invalid or expired refresh token',
   })
   async refresh(@Req() request: Request) {
-    const userId = request.user?.id;
+    const userId = (request.user as any)?.userId;
     if (!userId) {
       throw new UnauthorizedException('User not authenticated');
     }

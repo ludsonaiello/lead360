@@ -86,11 +86,25 @@ async issueTokensForMembership(
     membershipId,
     tenantId,
   );
+
+  // CRITICAL: Store refresh token hash in DB so JwtRefreshStrategy can validate it.
+  // login() does the same after generateTokens(). Without this, the returned
+  // refresh_token will be rejected with 401 when the user tries to use it.
+  const tokenHash = this.hashToken(refreshToken);
+  await this.prisma.refresh_token.create({
+    data: {
+      id: randomUUID(),
+      user_id: userId,
+      token_hash: tokenHash,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+    },
+  });
+
   return { access_token: accessToken, refresh_token: refreshToken };
 }
 ```
 
-**Note:** `generateTokens()` was updated in Sprint 3 to accept `membershipId` and `tenantId`. This method wraps it cleanly for external callers.
+**Note:** `generateTokens()` was updated in Sprint 3 to accept `membershipId` and `tenantId`. This method wraps it cleanly for external callers. `this.hashToken()` and `this.prisma` are already available in `AuthService`. `randomUUID` is already imported (added in Sprint 1).
 
 **Also export `AuthService` from `AuthModule`** if it isn't already (it should be, check auth.module.ts).
 

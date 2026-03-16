@@ -109,7 +109,7 @@ export class NotificationRulesService {
       const users = await this.prisma.user.findMany({
         where: {
           id: { in: dto.specific_user_ids },
-          tenant_id: tenantId,
+          memberships: { some: { tenant_id: tenantId, status: 'ACTIVE' } },
         },
       });
 
@@ -217,7 +217,7 @@ export class NotificationRulesService {
       const users = await this.prisma.user.findMany({
         where: {
           id: { in: specificUserIds },
-          tenant_id: tenantId,
+          memberships: { some: { tenant_id: tenantId, status: 'ACTIVE' } },
         },
       });
 

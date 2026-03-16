@@ -9,6 +9,8 @@ import {
   Query,
   UseGuards,
   Request,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -32,6 +34,8 @@ import {
   SuspendTenantDto,
   TenantListFiltersDto,
 } from '../dto';
+import { ListUsersQueryDto } from '../../users/dto/list-users-query.dto';
+import { CreateUserAdminDto } from '../../users/dto/create-user-admin.dto';
 import { TenantServiceAreaService } from '../../tenant/services/tenant-service-area.service';
 import { TenantPaymentTermsService } from '../../tenant/services/tenant-payment-terms.service';
 import { TenantService } from '../../tenant/services/tenant.service';
@@ -718,5 +722,75 @@ export class TenantManagementController {
   })
   async getSubscriptionHistory(@Param('id') tenantId: string) {
     return this.tenantManagementService.getSubscriptionHistory(tenantId);
+  }
+
+  /**
+   * GET /admin/tenants/:tenantId/users
+   * List all user memberships in a specific tenant (platform admin)
+   */
+  @Get(':tenantId/users')
+  @ApiOperation({
+    summary: 'List all user memberships in a specific tenant (platform admin)',
+  })
+  @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['INVITED', 'ACTIVE', 'INACTIVE'],
+  })
+  @ApiQuery({
+    name: 'role_id',
+    required: false,
+    type: String,
+    description: 'Filter by role UUID',
+  })
+  @ApiResponse({ status: 200, description: 'Paginated membership list' })
+  @ApiResponse({ status: 404, description: 'Tenant not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
+  async getTenantUsers(
+    @Param('tenantId') tenantId: string,
+    @Query() query: ListUsersQueryDto,
+  ) {
+    return this.tenantManagementService.getTenantUsers(tenantId, query);
+  }
+
+  /**
+   * POST /admin/tenants/:tenantId/users
+   * Create a user + membership directly (bypasses invite flow)
+   */
+  @Post(':tenantId/users')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Create a user + membership directly (bypasses invite flow)',
+  })
+  @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
+  @ApiResponse({ status: 201, description: 'User and membership created' })
+  @ApiResponse({ status: 404, description: 'Tenant or role not found' })
+  @ApiResponse({
+    status: 409,
+    description:
+      'Email already exists in this tenant or user active in another org',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Platform Admin access required',
+  })
+  async createUserInTenant(
+    @Request() req,
+    @Param('tenantId') tenantId: string,
+    @Body() dto: CreateUserAdminDto,
+  ) {
+    return this.tenantManagementService.createUserInTenant(
+      tenantId,
+      dto,
+      req.user.id,
+    );
   }
 }

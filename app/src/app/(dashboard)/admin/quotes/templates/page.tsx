@@ -40,6 +40,7 @@ import { Modal, ModalContent, ModalActions } from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import ToggleSwitch from '@/components/ui/ToggleSwitch';
 import { toast } from 'react-hot-toast';
+import { buildFileUrl } from '@/lib/api/files';
 import {
   listBuilderTemplates,
   deleteBuilderTemplate,
@@ -661,7 +662,7 @@ function TemplateCard({
       <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 relative overflow-hidden">
         {template.thumbnail_url ? (
           <img
-            src={template.thumbnail_url}
+            src={buildFileUrl(template.thumbnail_url)}
             alt={template.name}
             className="w-full h-full object-cover"
           />

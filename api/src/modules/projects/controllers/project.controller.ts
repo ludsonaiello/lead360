@@ -26,6 +26,8 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { TenantId } from '../../auth/decorators/tenant-id.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ProjectService } from '../services/project.service';
+import { ProjectTaskService } from '../services/project-task.service';
+import { GanttDataService } from '../services/gantt-data.service';
 import { CreateProjectDto } from '../dto/create-project.dto';
 import { CreateProjectFromQuoteDto } from '../dto/create-project-from-quote.dto';
 import { UpdateProjectDto } from '../dto/update-project.dto';
@@ -35,7 +37,11 @@ import { UpdateProjectDto } from '../dto/update-project.dto';
 @Controller('projects')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ProjectController {
-  constructor(private readonly projectService: ProjectService) {}
+  constructor(
+    private readonly projectService: ProjectService,
+    private readonly projectTaskService: ProjectTaskService,
+    private readonly ganttDataService: GanttDataService,
+  ) {}
 
   // -------------------------------------------------------------------------
   // POST /projects — Create standalone project
@@ -104,6 +110,47 @@ export class ProjectController {
       assigned_pm_user_id,
       search,
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // GET /projects/dashboard/delays — Sprint 16: Delay counts per project
+  // -------------------------------------------------------------------------
+  @Get('dashboard/delays')
+  @Roles('Owner', 'Admin', 'Manager')
+  @ApiOperation({
+    summary: 'Get delayed task counts per project for the tenant',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Delay dashboard with counts per project',
+    schema: {
+      type: 'object',
+      properties: {
+        total_delayed_tasks: { type: 'number', example: 12 },
+        projects_with_delays: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              project_id: {
+                type: 'string',
+                example: '550e8400-e29b-41d4-a716-446655440000',
+              },
+              project_name: {
+                type: 'string',
+                example: 'Kitchen Remodel',
+              },
+              delayed_task_count: { type: 'number', example: 3 },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
+  async getDelayDashboard(@TenantId() tenantId: string) {
+    return this.projectTaskService.getDelayDashboard(tenantId);
   }
 
   // -------------------------------------------------------------------------
@@ -199,6 +246,135 @@ export class ProjectController {
       message: 'Template applied successfully',
       ...result,
     };
+  }
+
+  // -------------------------------------------------------------------------
+  // GET /projects/:id/change-orders-redirect — Sprint 24
+  // -------------------------------------------------------------------------
+  @Get(':id/change-orders-redirect')
+  @Roles('Owner', 'Admin', 'Manager')
+  @ApiOperation({
+    summary: 'Get redirect URL for change orders tab on the linked quote',
+    description:
+      'Returns the frontend route to the Change Orders tab of the quote linked to this project. ' +
+      'Returns 400 if the project is standalone (not created from a quote).',
+  })
+  @ApiParam({ name: 'id', description: 'Project UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Redirect URL for change orders tab',
+    schema: {
+      type: 'object',
+      properties: {
+        redirect_url: {
+          type: 'string',
+          example: '/quotes/550e8400-e29b-41d4-a716-446655440000?tab=change-orders',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Project is standalone — no quote linked',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
+  @ApiResponse({ status: 404, description: 'Project not found' })
+  async getChangeOrdersRedirect(
+    @TenantId() tenantId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.projectService.getChangeOrdersRedirect(tenantId, id);
+  }
+
+  // -------------------------------------------------------------------------
+  // GET /projects/:id/gantt — Sprint 35: Single project Gantt data
+  // -------------------------------------------------------------------------
+  @Get(':id/gantt')
+  @Roles('Owner', 'Admin', 'Manager')
+  @ApiOperation({
+    summary: 'Get single project Gantt chart data',
+    description:
+      'Returns all tasks for a project structured for Gantt chart rendering. ' +
+      'Each task includes estimated/actual dates, computed delay status, ' +
+      'assignees (flattened to type + name), dependencies (upstream), and ' +
+      'dependents (downstream) for arrow rendering.',
+  })
+  @ApiParam({ name: 'id', description: 'Project UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Project Gantt data with tasks, dependencies, and assignees',
+    schema: {
+      type: 'object',
+      properties: {
+        project: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+            name: { type: 'string', example: 'Kitchen Remodel' },
+            start_date: { type: 'string', example: '2026-04-01', nullable: true },
+            target_completion_date: { type: 'string', example: '2026-06-15', nullable: true },
+            progress_percent: { type: 'number', example: 45.0 },
+          },
+        },
+        tasks: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              title: { type: 'string', example: 'Demo existing kitchen' },
+              status: { type: 'string', enum: ['not_started', 'in_progress', 'blocked', 'done'] },
+              estimated_start_date: { type: 'string', example: '2026-04-01', nullable: true },
+              estimated_end_date: { type: 'string', example: '2026-04-03', nullable: true },
+              actual_start_date: { type: 'string', example: '2026-04-01', nullable: true },
+              actual_end_date: { type: 'string', example: '2026-04-03', nullable: true },
+              is_delayed: { type: 'boolean', example: false },
+              order_index: { type: 'number', example: 0 },
+              assignees: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    type: { type: 'string', enum: ['crew_member', 'subcontractor', 'user'] },
+                    name: { type: 'string', example: 'Mike Johnson' },
+                  },
+                },
+              },
+              dependencies: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    depends_on_task_id: { type: 'string' },
+                    type: { type: 'string', enum: ['finish_to_start', 'start_to_start', 'finish_to_finish'] },
+                  },
+                },
+              },
+              dependents: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    task_id: { type: 'string' },
+                    type: { type: 'string', enum: ['finish_to_start', 'start_to_start', 'finish_to_finish'] },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
+  @ApiResponse({ status: 404, description: 'Project not found' })
+  async getProjectGantt(
+    @TenantId() tenantId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.ganttDataService.getProjectGantt(tenantId, id);
   }
 
   // -------------------------------------------------------------------------

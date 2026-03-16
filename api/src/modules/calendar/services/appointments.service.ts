@@ -108,12 +108,19 @@ export class AppointmentsService {
       }
     }
 
-    // Validate: Assigned user (if provided) exists and belongs to tenant
+    // Validate: Assigned user (if provided) exists and belongs to tenant via membership
     if (createDto.assigned_user_id) {
       const assignedUser = await this.prisma.user.findFirst({
         where: {
           id: createDto.assigned_user_id,
-          tenant_id: tenantId,
+          is_active: true,
+          deleted_at: null,
+          memberships: {
+            some: {
+              tenant_id: tenantId,
+              status: 'ACTIVE',
+            },
+          },
         },
       });
 
@@ -519,12 +526,19 @@ export class AppointmentsService {
     // Verify appointment exists and belongs to tenant
     const existingAppointment = await this.findOne(tenantId, appointmentId);
 
-    // Validate: Assigned user (if provided) exists and belongs to tenant
+    // Validate: Assigned user (if provided) exists and belongs to tenant via membership
     if (updateDto.assigned_user_id) {
       const assignedUser = await this.prisma.user.findFirst({
         where: {
           id: updateDto.assigned_user_id,
-          tenant_id: tenantId,
+          is_active: true,
+          deleted_at: null,
+          memberships: {
+            some: {
+              tenant_id: tenantId,
+              status: 'ACTIVE',
+            },
+          },
         },
       });
 

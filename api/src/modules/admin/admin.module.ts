@@ -5,6 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 // Core imports
 import { PrismaModule } from '../../core/database/prisma.module';
 import { FileStorageModule } from '../../core/file-storage/file-storage.module';
+import { TokenBlocklistModule } from '../../core/token-blocklist/token-blocklist.module';
 
 // Other module imports
 import { AuditModule } from '../audit/audit.module';
@@ -56,6 +57,7 @@ import { ExportProcessorProcessor } from './processors/export-processor.processo
     // Core modules
     PrismaModule,
     FileStorageModule,
+    TokenBlocklistModule,
 
     // Other modules
     AuditModule,

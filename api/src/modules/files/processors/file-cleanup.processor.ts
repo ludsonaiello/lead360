@@ -67,11 +67,13 @@ export class FileCleanupProcessor extends WorkerHost {
 
           // Step 2: Move orphans to trash (30+ days after being marked orphan)
           // Get tenant owner for audit logging (automated cleanup on behalf of owner)
+          // User table no longer has tenant_id — resolve owner via membership
           const tenantOwner = await this.prisma.user.findFirst({
             where: {
-              tenant_id: tenant.id,
-              user_role_user_role_user_idTouser: {
+              memberships: {
                 some: {
+                  tenant_id: tenant.id,
+                  status: 'ACTIVE',
                   role: {
                     name: 'Owner',
                   },

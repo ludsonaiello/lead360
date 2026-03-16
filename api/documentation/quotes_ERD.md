@@ -254,6 +254,22 @@ done done
     
 
 
+        task_assignee_type {
+            crew_member crew_member
+subcontractor subcontractor
+user user
+        }
+    
+
+
+        task_dependency_type {
+            finish_to_start finish_to_start
+start_to_start start_to_start
+finish_to_finish finish_to_finish
+        }
+    
+
+
         project_document_type {
             contract contract
 permit permit
@@ -261,6 +277,75 @@ blueprint blueprint
 agreement agreement
 photo photo
 other other
+        }
+    
+
+
+        log_attachment_file_type {
+            photo photo
+pdf pdf
+document document
+        }
+    
+
+
+        calendar_sync_status {
+            pending pending
+synced synced
+failed failed
+local_only local_only
+        }
+    
+
+
+        permit_status {
+            not_required not_required
+pending_application pending_application
+submitted submitted
+approved approved
+active active
+failed failed
+closed closed
+        }
+    
+
+
+        MembershipStatus {
+            INVITED INVITED
+ACTIVE ACTIVE
+INACTIVE INACTIVE
+        }
+    
+
+
+        inspection_result {
+            pass pass
+fail fail
+conditional conditional
+pending pending
+        }
+    
+
+
+        punch_list_status {
+            open open
+in_progress in_progress
+resolved resolved
+        }
+    
+
+
+        hour_log_source {
+            manual manual
+clockin_system clockin_system
+        }
+    
+
+
+        invoice_status {
+            pending pending
+approved approved
+paid paid
         }
     
   "audit_log" {
@@ -674,6 +759,19 @@ other other
     String id "🗝️"
     DateTime created_at 
     DateTime assigned_at 
+    DateTime updated_at 
+    }
+  
+
+  "user_tenant_membership" {
+    String id "🗝️"
+    MembershipStatus status 
+    String invite_token_hash "❓"
+    DateTime invite_token_expires_at "❓"
+    DateTime invite_accepted_at "❓"
+    DateTime joined_at "❓"
+    DateTime left_at "❓"
+    DateTime created_at 
     DateTime updated_at 
     }
   
@@ -2139,8 +2237,15 @@ other other
 
   "task_dependency" {
     String id "🗝️"
-    String dependency_type 
+    task_dependency_type dependency_type 
     DateTime created_at 
+    }
+  
+
+  "task_assignee" {
+    String id "🗝️"
+    task_assignee_type assignee_type 
+    DateTime assigned_at 
     }
   
 
@@ -2167,12 +2272,195 @@ other other
 
   "project_photo" {
     String id "🗝️"
-    String log_id "❓"
     String file_url 
     String thumbnail_url "❓"
     String caption "❓"
     Boolean is_public 
     DateTime taken_at "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "project_log" {
+    String id "🗝️"
+    DateTime log_date 
+    String content 
+    Boolean is_public 
+    Boolean weather_delay 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "project_log_attachment" {
+    String id "🗝️"
+    String file_url 
+    String file_name 
+    log_attachment_file_type file_type 
+    Int file_size_bytes "❓"
+    DateTime created_at 
+    }
+  
+
+  "task_calendar_event" {
+    String id "🗝️"
+    String title 
+    String description "❓"
+    DateTime start_datetime 
+    DateTime end_datetime 
+    String google_event_id "❓"
+    String internal_calendar_id "❓"
+    calendar_sync_status sync_status 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "permit" {
+    String id "🗝️"
+    String permit_number "❓"
+    String permit_type 
+    permit_status status 
+    DateTime submitted_date "❓"
+    DateTime approved_date "❓"
+    DateTime expiry_date "❓"
+    String issuing_authority "❓"
+    String notes "❓"
+    DateTime deleted_at "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "inspection" {
+    String id "🗝️"
+    String inspection_type 
+    DateTime scheduled_date "❓"
+    String inspector_name "❓"
+    inspection_result result "❓"
+    Boolean reinspection_required 
+    DateTime reinspection_date "❓"
+    String notes "❓"
+    DateTime deleted_at "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "completion_checklist_template" {
+    String id "🗝️"
+    String name 
+    String description "❓"
+    Boolean is_active 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "completion_checklist_template_item" {
+    String id "🗝️"
+    String title 
+    String description "❓"
+    Boolean is_required 
+    Int order_index 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "project_completion_checklist" {
+    String id "🗝️"
+    DateTime completed_at "❓"
+    DateTime created_at 
+    }
+  
+
+  "project_completion_checklist_item" {
+    String id "🗝️"
+    String title 
+    Boolean is_required 
+    Boolean is_completed 
+    DateTime completed_at "❓"
+    String notes "❓"
+    Int order_index 
+    DateTime updated_at 
+    }
+  
+
+  "punch_list_item" {
+    String id "🗝️"
+    String title 
+    String description "❓"
+    punch_list_status status 
+    DateTime resolved_at "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "crew_payment_record" {
+    String id "🗝️"
+    Decimal amount 
+    DateTime payment_date 
+    payment_method payment_method 
+    String reference_number "❓"
+    DateTime period_start_date "❓"
+    DateTime period_end_date "❓"
+    Decimal hours_paid "❓"
+    String notes "❓"
+    DateTime created_at 
+    }
+  
+
+  "crew_hour_log" {
+    String id "🗝️"
+    DateTime log_date 
+    Decimal hours_regular 
+    Decimal hours_overtime 
+    hour_log_source source 
+    String clockin_event_id "❓"
+    String notes "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "subcontractor_payment_record" {
+    String id "🗝️"
+    Decimal amount 
+    DateTime payment_date 
+    payment_method payment_method 
+    String reference_number "❓"
+    String notes "❓"
+    DateTime created_at 
+    }
+  
+
+  "subcontractor_task_invoice" {
+    String id "🗝️"
+    String invoice_number "❓"
+    DateTime invoice_date "❓"
+    Decimal amount 
+    invoice_status status 
+    String notes "❓"
+    String file_url "❓"
+    String file_name "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "portal_account" {
+    String id "🗝️"
+    String email 
+    String customer_slug 
+    String password_hash 
+    Boolean must_change_password 
+    DateTime last_login_at "❓"
+    String reset_token "❓"
+    DateTime reset_token_expires_at "❓"
+    Boolean is_active 
     DateTime created_at 
     DateTime updated_at 
     }
@@ -2208,11 +2496,15 @@ other other
     "tenant_service" }o--|| "service" : "service"
     "tenant_service" }o--|| "tenant" : "tenant"
     "tenant_service_area" }o--|| "tenant" : "tenant"
-    "user" }o--|o "tenant" : "tenant"
     "user_role" }o--|o "user" : "user_user_role_assigned_by_user_idTouser"
     "user_role" }o--|| "role" : "role"
     "user_role" }o--|| "tenant" : "tenant"
     "user_role" }o--|| "user" : "user_user_role_user_idTouser"
+    "user_tenant_membership" |o--|| "MembershipStatus" : "enum:status"
+    "user_tenant_membership" }o--|| "user" : "user"
+    "user_tenant_membership" }o--|| "tenant" : "tenant"
+    "user_tenant_membership" }o--|| "role" : "role"
+    "user_tenant_membership" }o--|o "user" : "invited_by"
     "user_signature" |o--|| "user" : "user"
     "file_share_link" }o--|| "file" : "file"
     "file_share_link" }o--|| "user" : "creator"
@@ -2431,10 +2723,18 @@ other other
     "project_task" }o--|| project : "project"
     "project_task" }o--|o quote_item : "quote_item"
     "project_task" }o--|| "user" : "created_by"
+    "task_dependency" |o--|| "task_dependency_type" : "enum:dependency_type"
     "task_dependency" }o--|| "tenant" : "tenant"
     "task_dependency" }o--|| project_task : "task"
     "task_dependency" }o--|| project_task : "depends_on_task"
     "task_dependency" }o--|| "user" : "created_by"
+    "task_assignee" |o--|| "task_assignee_type" : "enum:assignee_type"
+    "task_assignee" }o--|| "tenant" : "tenant"
+    "task_assignee" }o--|| project_task : "task"
+    "task_assignee" }o--|o crew_member : "crew_member"
+    "task_assignee" }o--|o subcontractor : "subcontractor"
+    "task_assignee" }o--|o "user" : "assignee_user"
+    "task_assignee" }o--|| "user" : "assigned_by"
     "project_activity" }o--|| "tenant" : "tenant"
     "project_activity" }o--|| project : "project"
     "project_activity" }o--|o "user" : "user"
@@ -2448,4 +2748,71 @@ other other
     "project_photo" }o--|o project_task : "task"
     "project_photo" }o--|| "user" : "uploaded_by_user"
     "project_photo" }o--|| "file" : "file"
+    "project_photo" }o--|o project_log : "log"
+    "project_log" }o--|| "tenant" : "tenant"
+    "project_log" }o--|| project : "project"
+    "project_log" }o--|o project_task : "task"
+    "project_log" }o--|| "user" : "author"
+    "project_log_attachment" |o--|| "log_attachment_file_type" : "enum:file_type"
+    "project_log_attachment" }o--|| project_log : "log"
+    "project_log_attachment" }o--|| "file" : "file"
+    "project_log_attachment" }o--|| "tenant" : "tenant"
+    "task_calendar_event" |o--|| "calendar_sync_status" : "enum:sync_status"
+    "task_calendar_event" }o--|| "tenant" : "tenant"
+    "task_calendar_event" }o--|| project_task : "task"
+    "task_calendar_event" }o--|| project : "project"
+    "task_calendar_event" }o--|| "user" : "created_by"
+    "permit" |o--|| "permit_status" : "enum:status"
+    "permit" }o--|| "tenant" : "tenant"
+    "permit" }o--|| project : "project"
+    "permit" }o--|| "user" : "created_by"
+    "inspection" |o--|o "inspection_result" : "enum:result"
+    "inspection" }o--|| "tenant" : "tenant"
+    "inspection" }o--|| permit : "permit"
+    "inspection" }o--|| project : "project"
+    "inspection" }o--|o "user" : "inspected_by"
+    "completion_checklist_template" }o--|| "tenant" : "tenant"
+    "completion_checklist_template" }o--|| "user" : "created_by"
+    "completion_checklist_template_item" }o--|| completion_checklist_template : "template"
+    "completion_checklist_template_item" }o--|| "tenant" : "tenant"
+    "project_completion_checklist" }o--|| "tenant" : "tenant"
+    "project_completion_checklist" }o--|| project : "project"
+    "project_completion_checklist" }o--|o completion_checklist_template : "template"
+    "project_completion_checklist" }o--|o "user" : "created_by"
+    "project_completion_checklist_item" }o--|| project_completion_checklist : "checklist"
+    "project_completion_checklist_item" }o--|o completion_checklist_template_item : "template_item"
+    "project_completion_checklist_item" }o--|| "tenant" : "tenant"
+    "project_completion_checklist_item" }o--|o "user" : "completed_by"
+    "punch_list_item" |o--|| "punch_list_status" : "enum:status"
+    "punch_list_item" }o--|| "tenant" : "tenant"
+    "punch_list_item" }o--|| project_completion_checklist : "checklist"
+    "punch_list_item" }o--|| project : "project"
+    "punch_list_item" }o--|o "user" : "reported_by"
+    "punch_list_item" }o--|o "user" : "resolved_by"
+    "punch_list_item" }o--|o crew_member : "assigned_to_crew"
+    "crew_payment_record" |o--|| "payment_method" : "enum:payment_method"
+    "crew_payment_record" }o--|| "tenant" : "tenant"
+    "crew_payment_record" }o--|| crew_member : "crew_member"
+    "crew_payment_record" }o--|o project : "project"
+    "crew_payment_record" }o--|| "user" : "created_by"
+    "crew_hour_log" |o--|| "hour_log_source" : "enum:source"
+    "crew_hour_log" }o--|| "tenant" : "tenant"
+    "crew_hour_log" }o--|| crew_member : "crew_member"
+    "crew_hour_log" }o--|| project : "project"
+    "crew_hour_log" }o--|o project_task : "task"
+    "crew_hour_log" }o--|| "user" : "created_by"
+    "subcontractor_payment_record" |o--|| "payment_method" : "enum:payment_method"
+    "subcontractor_payment_record" }o--|| "tenant" : "tenant"
+    "subcontractor_payment_record" }o--|| subcontractor : "subcontractor"
+    "subcontractor_payment_record" }o--|o project : "project"
+    "subcontractor_payment_record" }o--|| "user" : "created_by"
+    "subcontractor_task_invoice" |o--|| "invoice_status" : "enum:status"
+    "subcontractor_task_invoice" }o--|| "tenant" : "tenant"
+    "subcontractor_task_invoice" }o--|| subcontractor : "subcontractor"
+    "subcontractor_task_invoice" }o--|| project_task : "task"
+    "subcontractor_task_invoice" }o--|| project : "project"
+    "subcontractor_task_invoice" }o--|o "file" : "file"
+    "subcontractor_task_invoice" }o--|| "user" : "created_by"
+    "portal_account" }o--|| "tenant" : "tenant"
+    "portal_account" }o--|| lead : "lead"
 ```

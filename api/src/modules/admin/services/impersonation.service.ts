@@ -47,11 +47,17 @@ export class ImpersonationService {
       const impersonatedUser = await this.prisma.user.findUnique({
         where: { id: impersonatedUserId },
         include: {
-          tenant: {
-            select: {
-              id: true,
-              subdomain: true,
-              company_name: true,
+          memberships: {
+            where: { status: 'ACTIVE' },
+            take: 1,
+            include: {
+              tenant: {
+                select: {
+                  id: true,
+                  subdomain: true,
+                  company_name: true,
+                },
+              },
             },
           },
         },
@@ -61,11 +67,14 @@ export class ImpersonationService {
         throw new NotFoundException('User not found');
       }
 
-      if (!impersonatedUser.tenant_id) {
+      const activeMembership = impersonatedUser.memberships[0];
+      if (!activeMembership) {
         throw new ForbiddenException(
           'Cannot impersonate users without a tenant',
         );
       }
+
+      const impersonatedTenantId = activeMembership.tenant_id;
 
       // End any existing impersonation session for this admin
       await this.prisma.impersonation_session.deleteMany({
@@ -80,7 +89,7 @@ export class ImpersonationService {
         data: {
           admin_user_id: adminUserId,
           impersonated_user_id: impersonatedUserId,
-          impersonated_tenant_id: impersonatedUser.tenant_id,
+          impersonated_tenant_id: impersonatedTenantId,
           session_token: sessionToken,
           expires_at: expiresAt,
         },
@@ -88,7 +97,7 @@ export class ImpersonationService {
 
       // Audit log
       await this.auditLogger.log({
-        tenant_id: impersonatedUser.tenant_id,
+        tenant_id: impersonatedTenantId,
         actor_user_id: adminUserId,
         actor_type: 'platform_admin',
         entity_type: 'impersonation_session',
@@ -97,7 +106,7 @@ export class ImpersonationService {
         description: `Started impersonating ${impersonatedUser.first_name} ${impersonatedUser.last_name} (${impersonatedUser.email})`,
         after_json: {
           impersonated_user_id: impersonatedUserId,
-          impersonated_tenant_id: impersonatedUser.tenant_id,
+          impersonated_tenant_id: impersonatedTenantId,
           expires_at: expiresAt,
         },
         status: 'success',
@@ -115,8 +124,8 @@ export class ImpersonationService {
           email: impersonatedUser.email,
           first_name: impersonatedUser.first_name,
           last_name: impersonatedUser.last_name,
-          tenant_id: impersonatedUser.tenant_id,
-          tenant: impersonatedUser.tenant,
+          tenant_id: impersonatedTenantId,
+          tenant: activeMembership.tenant,
         },
       };
     } catch (error) {
@@ -151,7 +160,6 @@ export class ImpersonationService {
               email: true,
               first_name: true,
               last_name: true,
-              tenant_id: true,
               is_active: true,
             },
           },

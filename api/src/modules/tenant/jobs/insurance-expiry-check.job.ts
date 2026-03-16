@@ -122,8 +122,8 @@ export class InsuranceExpiryCheckJob {
       // Get Owner and Admin users for this tenant
       const allUsers = await this.prisma.user.findMany({
         where: {
-          tenant_id: tenantId,
           is_active: true,
+          memberships: { some: { tenant_id: tenantId, status: 'ACTIVE' } },
         },
         include: {
           user_role_user_role_user_idTouser: {

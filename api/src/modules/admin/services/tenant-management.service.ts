@@ -6,11 +6,14 @@ import {
   Logger,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { FileStorageService } from '../../../core/file-storage/file-storage.service';
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
+import { ListUsersQueryDto } from '../../users/dto/list-users-query.dto';
+import { CreateUserAdminDto } from '../../users/dto/create-user-admin.dto';
 
 @Injectable()
 export class TenantManagementService {
@@ -186,11 +189,10 @@ export class TenantManagementService {
           },
         });
 
-        // Create owner user
+        // Create owner user (global identity — no tenant_id on user)
         const ownerUser = await tx.user.create({
           data: {
             id: randomBytes(16).toString('hex'),
-            tenant_id: tenant.id,
             email: createDto.owner_email,
             password_hash: passwordHash,
             first_name: createDto.owner_first_name,
@@ -202,6 +204,17 @@ export class TenantManagementService {
               ? new Date()
               : null,
             updated_at: new Date(),
+          },
+        });
+
+        // Create tenant membership for the owner
+        await tx.user_tenant_membership.create({
+          data: {
+            user_id: ownerUser.id,
+            tenant_id: tenant.id,
+            role_id: ownerRole.id,
+            status: 'ACTIVE',
+            joined_at: new Date(),
           },
         });
 
@@ -291,11 +304,11 @@ export class TenantManagementService {
         },
       });
 
-      // Invalidate all active sessions for this tenant
+      // Invalidate all active sessions for this tenant's members
       await this.prisma.refresh_token.deleteMany({
         where: {
           user: {
-            tenant_id: tenantId,
+            memberships: { some: { tenant_id: tenantId, status: 'ACTIVE' } },
           },
         },
       });
@@ -407,11 +420,11 @@ export class TenantManagementService {
         },
       });
 
-      // Invalidate all sessions
+      // Invalidate all sessions for this tenant's members
       await this.prisma.refresh_token.deleteMany({
         where: {
           user: {
-            tenant_id: tenantId,
+            memberships: { some: { tenant_id: tenantId, status: 'ACTIVE' } },
           },
         },
       });
@@ -524,9 +537,11 @@ export class TenantManagementService {
         throw new NotFoundException('Tenant not found');
       }
 
-      // Get all users for this tenant BEFORE deletion
+      // Get all users for this tenant BEFORE deletion (via membership)
       const tenantUsers = await this.prisma.user.findMany({
-        where: { tenant_id: tenantId },
+        where: {
+          memberships: { some: { tenant_id: tenantId } },
+        },
         select: {
           id: true,
           email: true,
@@ -588,9 +603,17 @@ export class TenantManagementService {
         `Deleted ${filesDeleted} files, ${filesFailedToDelete} failed for tenant ${tenantId}`,
       );
 
-      // Delete all users for this tenant
-      const usersDeleted = await this.prisma.user.deleteMany({
+      // Delete memberships for this tenant first
+      await this.prisma.user_tenant_membership.deleteMany({
         where: { tenant_id: tenantId },
+      });
+
+      // Delete users who now have no remaining memberships in any tenant
+      const usersDeleted = await this.prisma.user.deleteMany({
+        where: {
+          id: { in: tenantUsers.map((u) => u.id) },
+          memberships: { none: {} },
+        },
       });
 
       this.logger.log(
@@ -679,7 +702,9 @@ export class TenantManagementService {
           },
           _count: {
             select: {
-              user: true,
+              memberships: {
+                where: { status: 'ACTIVE' },
+              },
               file_file_tenant_idTotenant: {
                 where: { is_trashed: false },
               },
@@ -692,9 +717,12 @@ export class TenantManagementService {
         throw new NotFoundException('Tenant not found');
       }
 
-      // Get users
+      // Get users (via membership)
       const users = await this.prisma.user.findMany({
-        where: { tenant_id: tenantId, deleted_at: null },
+        where: {
+          memberships: { some: { tenant_id: tenantId, status: 'ACTIVE' } },
+          deleted_at: null,
+        },
         select: {
           id: true,
           email: true,
@@ -703,7 +731,8 @@ export class TenantManagementService {
           is_active: true,
           last_login_at: true,
           created_at: true,
-          user_role_user_role_user_idTouser: {
+          memberships: {
+            where: { tenant_id: tenantId },
             include: {
               role: {
                 select: {
@@ -750,12 +779,12 @@ export class TenantManagementService {
           is_active: user.is_active,
           last_login_at: user.last_login_at,
           created_at: user.created_at,
-          roles: user.user_role_user_role_user_idTouser.map(
-            (ur) => ur.role.name,
+          roles: user.memberships.map(
+            (m) => m.role.name,
           ),
         })),
         stats: {
-          user_count: (tenant as any)._count?.user || 0,
+          user_count: (tenant as any)._count?.memberships || 0,
           file_count: (tenant as any)._count?.file_file_tenant_idTotenant || 0,
           storage_used_bytes: storageStats._sum.size_bytes || 0,
           storage_used_gb: (
@@ -874,7 +903,9 @@ export class TenantManagementService {
             },
             _count: {
               select: {
-                user: true,
+                memberships: {
+                  where: { status: 'ACTIVE' },
+                },
               },
             },
           },
@@ -905,7 +936,7 @@ export class TenantManagementService {
           deleted_at: tenant.deleted_at,
           primary_contact_email: tenant.primary_contact_email,
           primary_contact_phone: tenant.primary_contact_phone,
-          user_count: (tenant as any)._count?.user || 0,
+          user_count: (tenant as any)._count?.memberships || 0,
           created_at: tenant.created_at,
           updated_at: tenant.updated_at,
         })),
@@ -1221,6 +1252,192 @@ export class TenantManagementService {
       );
       throw error;
     }
+  }
+
+  /**
+   * List all user memberships in a specific tenant (platform admin)
+   */
+  async getTenantUsers(tenantId: string, query: ListUsersQueryDto) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+    if (!tenant) throw new NotFoundException('Tenant not found.');
+
+    const { page = 1, limit = 20, status, role_id } = query;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.user_tenant_membershipWhereInput = {
+      tenant_id: tenantId,
+    };
+    if (status) where.status = status;
+    if (role_id) where.role_id = role_id;
+
+    const [memberships, total] = await Promise.all([
+      this.prisma.user_tenant_membership.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          user: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              email: true,
+              phone: true,
+            },
+          },
+          role: {
+            select: { id: true, name: true },
+          },
+          invited_by: {
+            select: { id: true, first_name: true, last_name: true },
+          },
+        },
+        orderBy: { created_at: 'desc' },
+      }),
+      this.prisma.user_tenant_membership.count({ where }),
+    ]);
+
+    return {
+      data: memberships.map((m) => ({
+        id: m.id,
+        user_id: m.user_id,
+        first_name: m.user.first_name,
+        last_name: m.user.last_name,
+        email: m.user.email,
+        phone: m.user.phone ?? null,
+        role: { id: m.role.id, name: m.role.name },
+        status: m.status,
+        joined_at: m.joined_at?.toISOString() ?? null,
+        left_at: m.left_at?.toISOString() ?? null,
+        invited_by: m.invited_by
+          ? {
+              id: m.invited_by.id,
+              first_name: m.invited_by.first_name,
+              last_name: m.invited_by.last_name,
+            }
+          : null,
+        created_at: m.created_at.toISOString(),
+      })),
+      meta: {
+        total,
+        page,
+        limit,
+        total_pages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Create a user + membership directly, bypassing the invite flow (platform admin)
+   */
+  async createUserInTenant(
+    tenantId: string,
+    dto: CreateUserAdminDto,
+    adminUserId: string,
+  ) {
+    // Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+    if (!tenant) throw new NotFoundException('Tenant not found.');
+
+    // Verify role exists
+    const role = await this.prisma.role.findUnique({
+      where: { id: dto.role_id },
+    });
+    if (!role) throw new NotFoundException('Role not found.');
+
+    // Check for existing active membership in this tenant
+    const existing = await this.prisma.user_tenant_membership.findFirst({
+      where: {
+        tenant_id: tenantId,
+        status: 'ACTIVE',
+        user: { email: dto.email },
+      },
+    });
+    if (existing) {
+      throw new ConflictException(
+        'This email already has an active membership in this tenant.',
+      );
+    }
+
+    // Find or create user
+    let user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+
+    if (!user) {
+      const passwordHash = await bcrypt.hash(dto.password, this.SALT_ROUNDS);
+      user = await this.prisma.user.create({
+        data: {
+          id: randomBytes(16).toString('hex'),
+          email: dto.email,
+          first_name: dto.first_name,
+          last_name: dto.last_name,
+          password_hash: passwordHash,
+          phone: dto.phone ?? null,
+          is_active: true,
+          email_verified: true,
+          email_verified_at: new Date(),
+          updated_at: new Date(),
+        },
+      });
+    }
+
+    // BR-02: Verify user has no other ACTIVE membership
+    const otherActive = await this.prisma.user_tenant_membership.findFirst({
+      where: { user_id: user.id, status: 'ACTIVE' },
+    });
+    if (otherActive) {
+      throw new ConflictException(
+        'User is currently active in another organization.',
+      );
+    }
+
+    // Create ACTIVE membership
+    const membership = await this.prisma.user_tenant_membership.create({
+      data: {
+        user_id: user.id,
+        tenant_id: tenantId,
+        role_id: dto.role_id,
+        status: 'ACTIVE',
+        joined_at: new Date(),
+      },
+      include: { role: true },
+    });
+
+    // Audit log
+    await this.auditLogger.log({
+      tenant_id: tenantId,
+      actor_user_id: adminUserId,
+      actor_type: 'platform_admin',
+      entity_type: 'user_tenant_membership',
+      entity_id: membership.id,
+      action_type: 'created',
+      description: `User ${dto.email} added to tenant ${tenant.company_name} with role ${role.name} (bypassed invite flow)`,
+      after_json: {
+        user_id: user.id,
+        email: dto.email,
+        tenant_id: tenantId,
+        role_id: dto.role_id,
+        status: 'ACTIVE',
+      },
+      status: 'success',
+    });
+
+    return {
+      id: membership.id,
+      user_id: user.id,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      role: { id: role.id, name: role.name },
+      status: 'ACTIVE',
+      joined_at: membership.joined_at?.toISOString() ?? null,
+      created_at: membership.created_at.toISOString(),
+    };
   }
 
   /**

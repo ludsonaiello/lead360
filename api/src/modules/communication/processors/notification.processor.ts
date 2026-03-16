@@ -141,34 +141,23 @@ export class NotificationProcessor extends WorkerHost {
         // Get all active users in tenant
         const allUsers = await this.prisma.user.findMany({
           where: {
-            tenant_id: tenantId,
             is_active: true,
+            memberships: { some: { tenant_id: tenantId, status: 'ACTIVE' } },
           },
           select: { id: true },
         });
         return allUsers.map((u) => u.id);
 
       case 'owner':
-        // Get tenant owner through user_role join
-        const ownerRole = await this.prisma.role.findFirst({
-          where: {
-            name: 'Owner',
-            is_active: true,
-          },
-        });
-
-        if (!ownerRole) {
-          return [];
-        }
-
+        // Get tenant owner through membership role
         const owner = await this.prisma.user.findFirst({
           where: {
-            tenant_id: tenantId,
             is_active: true,
-            user_role_user_role_user_idTouser: {
+            memberships: {
               some: {
-                role_id: ownerRole.id,
                 tenant_id: tenantId,
+                status: 'ACTIVE',
+                role: { name: 'Owner' },
               },
             },
           },

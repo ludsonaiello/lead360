@@ -1,4 +1,4 @@
-import { randomBytes } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import {
   Injectable,
   UnauthorizedException,
@@ -26,6 +26,7 @@ import {
 import { JwtPayload } from './entities/jwt-payload.entity';
 import { AuditLoggerService } from '../audit/services/audit-logger.service';
 import { JobQueueService } from '../jobs/services/job-queue.service';
+import { TokenBlocklistService } from '../../core/token-blocklist/token-blocklist.service';
 
 @Injectable()
 export class AuthService {
@@ -42,6 +43,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly auditLogger: AuditLoggerService,
     private readonly jobQueue: JobQueueService,
+    private readonly tokenBlocklist: TokenBlocklistService,
   ) {}
 
   /**
@@ -131,17 +133,18 @@ export class AuthService {
 
       await tx.tenant_business_hours.create({
         data: {
+          id: randomBytes(16).toString('hex'),
           tenant_id: tenant.id,
+          updated_at: new Date(),
           ...businessHoursData,
         } as any,
       });
 
-      // Create user
+      // Create user (global identity — no tenant_id; tenant link via user_tenant_membership)
       const user = await tx.user.create({
         data: {
           id: randomBytes(16).toString('hex'),
           updated_at: new Date(),
-          tenant_id: tenant.id,
           email: registerDto.email,
           password_hash: passwordHash,
           first_name: registerDto.first_name,
@@ -154,7 +157,7 @@ export class AuthService {
         },
       });
 
-      // Assign Owner role to user
+      // Assign Owner role to user (legacy — kept for backward compatibility)
       await tx.user_role.create({
         data: {
           id: randomBytes(16).toString('hex'),
@@ -162,6 +165,17 @@ export class AuthService {
           role_id: ownerRole.id,
           tenant_id: tenant.id,
           assigned_by_user_id: user.id, // Self-assigned during registration
+        },
+      });
+
+      // Create active membership for the new owner (Sprint 3)
+      await tx.user_tenant_membership.create({
+        data: {
+          user_id: user.id,
+          tenant_id: tenant.id,
+          role_id: ownerRole.id,
+          status: 'ACTIVE',
+          joined_at: new Date(),
         },
       });
 
@@ -231,13 +245,6 @@ export class AuthService {
         email: loginDto.email,
         deleted_at: null,
       },
-      include: {
-        user_role_user_role_user_idTouser: {
-          include: {
-            role: true,
-          },
-        },
-      },
     });
 
     if (!user) {
@@ -251,11 +258,12 @@ export class AuthService {
     );
 
     if (!isPasswordValid) {
-      // Create audit log for failed login
+      // Resolve tenant from membership for audit (user no longer has tenant_id)
+      const failedLoginTenantId = await this.resolveUserTenantId(user.id);
       await this.auditLogger.logAuth({
         event: 'login',
         userId: user.id,
-        tenantId: user.tenant_id,
+        tenantId: failedLoginTenantId,
         status: 'failure',
         errorMessage: 'Invalid password',
         ipAddress,
@@ -279,16 +287,36 @@ export class AuthService {
       );
     }
 
-    // Get user roles
-    const roles = user.user_role_user_role_user_idTouser.map(
-      (ur) => ur.role.name,
-    );
+    // Resolve tenant context from active membership (Sprint 3)
+    const membership = await this.prisma.user_tenant_membership.findFirst({
+      where: {
+        user_id: user.id,
+        status: 'ACTIVE',
+      },
+      include: {
+        role: true,
+      },
+    });
 
-    // Generate tokens
+    // Platform admins can log in without a membership (they operate cross-tenant)
+    if (!membership && !user.is_platform_admin) {
+      throw new ForbiddenException(
+        'No active tenant membership found for this user.',
+      );
+    }
+
+    // Derive roles and tenant context from membership, or defaults for platform admins
+    const roles = membership ? [membership.role.name] : [];
+    const resolvedMembershipId = membership?.id ?? null;
+    const resolvedTenantId = membership?.tenant_id ?? null;
+
+    // Generate tokens using membership-resolved data
     const { accessToken, refreshToken, expiresIn } = await this.generateTokens(
-      user,
+      { id: user.id, email: user.email, is_platform_admin: user.is_platform_admin },
       roles,
       loginDto.remember_me || false,
+      resolvedMembershipId,
+      resolvedTenantId,
     );
 
     // Store refresh token hash
@@ -315,11 +343,11 @@ export class AuthService {
       data: { last_login_at: new Date() },
     });
 
-    // Create audit log
+    // Create audit log (use membership-resolved tenant)
     await this.auditLogger.logAuth({
       event: 'login',
       userId: user.id,
-      tenantId: user.tenant_id,
+      tenantId: resolvedTenantId,
       status: 'success',
       ipAddress,
       userAgent,
@@ -336,7 +364,7 @@ export class AuthService {
         first_name: user.first_name,
         last_name: user.last_name,
         phone: user.phone,
-        tenant_id: user.tenant_id,
+        tenant_id: resolvedTenantId,
         roles,
         is_platform_admin: user.is_platform_admin,
         email_verified: user.email_verified,
@@ -350,19 +378,12 @@ export class AuthService {
    * Refresh access token using refresh token
    */
   async refresh(userId: string) {
-    // Get user with roles
+    // Get user (no role include — roles now come from membership)
     const user = await this.prisma.user.findFirst({
       where: {
         id: userId,
         is_active: true,
         deleted_at: null,
-      },
-      include: {
-        user_role_user_role_user_idTouser: {
-          include: {
-            role: true,
-          },
-        },
       },
     });
 
@@ -370,23 +391,41 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    const roles = user.user_role_user_role_user_idTouser.map(
-      (ur) => ur.role.name,
-    );
+    // Resolve tenant context from active membership (Sprint 3)
+    const membership = await this.prisma.user_tenant_membership.findFirst({
+      where: {
+        user_id: user.id,
+        status: 'ACTIVE',
+      },
+      include: { role: true },
+    });
+
+    // Platform admins can refresh without a membership
+    if (!membership && !user.is_platform_admin) {
+      throw new UnauthorizedException('No active tenant membership.');
+    }
+
+    const roles = membership ? [membership.role.name] : [];
 
     // Generate new access token only
+    const jti = randomUUID();
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
-      tenant_id: user.tenant_id,
+      tenant_id: membership?.tenant_id ?? null,
+      membershipId: membership?.id ?? null,
       roles,
       is_platform_admin: user.is_platform_admin,
+      jti,
     };
 
     const accessToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_SECRET'),
       expiresIn: this.ACCESS_TOKEN_EXPIRY,
     });
+
+    const expTimestamp = Math.floor(Date.now() / 1000) + 86400; // matches ACCESS_TOKEN_EXPIRY = '24h'
+    await this.tokenBlocklist.trackToken(user.id, jti, expTimestamp);
 
     return {
       access_token: accessToken,
@@ -410,19 +449,14 @@ export class AuthService {
       },
     });
 
-    // Create audit log
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+    // Create audit log (resolve tenant from membership)
+    const logoutTenantId = await this.resolveUserTenantId(userId);
+    await this.auditLogger.logAuth({
+      event: 'logout',
+      userId,
+      tenantId: logoutTenantId,
+      status: 'success',
     });
-
-    if (user) {
-      await this.auditLogger.logAuth({
-        event: 'logout',
-        userId,
-        tenantId: user.tenant_id,
-        status: 'success',
-      });
-    }
 
     return { message: 'Logged out successfully' };
   }
@@ -441,20 +475,15 @@ export class AuthService {
       },
     });
 
-    // Create audit log
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+    // Create audit log (resolve tenant from membership)
+    const logoutAllTenantId = await this.resolveUserTenantId(userId);
+    await this.auditLogger.logAuth({
+      event: 'logout_all',
+      userId,
+      tenantId: logoutAllTenantId,
+      status: 'success',
+      metadata: { sessions_revoked: result.count },
     });
-
-    if (user) {
-      await this.auditLogger.logAuth({
-        event: 'logout_all',
-        userId,
-        tenantId: user.tenant_id,
-        status: 'success',
-        metadata: { sessions_revoked: result.count },
-      });
-    }
 
     return {
       message: 'Logged out from all devices successfully',
@@ -494,11 +523,13 @@ export class AuthService {
       },
     });
 
-    // Create audit log
+    // Resolve tenant from membership for audit & email
+    const forgotTenantId = await this.resolveUserTenantId(user.id);
+
     await this.auditLogger.logAuth({
       event: 'password_reset_requested',
       userId: user.id,
-      tenantId: user.tenant_id,
+      tenantId: forgotTenantId,
       status: 'success',
     });
 
@@ -513,7 +544,7 @@ export class AuthService {
         user_name: user.first_name,
         reset_link: `${frontendUrl}/reset-password?token=${resetToken}`,
       },
-      tenantId: user.tenant_id ?? undefined,
+      tenantId: forgotTenantId ?? undefined,
     });
 
     return { message: successMessage };
@@ -564,11 +595,12 @@ export class AuthService {
       },
     });
 
-    // Create audit log
+    // Create audit log (resolve tenant from membership)
+    const resetTenantId = await this.resolveUserTenantId(user.id);
     await this.auditLogger.logAuth({
       event: 'password_reset',
       userId: user.id,
-      tenantId: user.tenant_id,
+      tenantId: resetTenantId,
       status: 'success',
     });
 
@@ -614,11 +646,12 @@ export class AuthService {
       },
     });
 
-    // Create audit log
+    // Create audit log (resolve tenant from membership)
+    const activateTenantId = await this.resolveUserTenantId(user.id);
     await this.auditLogger.logAuth({
       event: 'account_activated',
       userId: user.id,
-      tenantId: user.tenant_id,
+      tenantId: activateTenantId,
       status: 'success',
     });
 
@@ -662,11 +695,13 @@ export class AuthService {
       },
     });
 
-    // Create audit log
+    // Resolve tenant from membership for audit & email
+    const resendTenantId = await this.resolveUserTenantId(user.id);
+
     await this.auditLogger.logAuth({
       event: 'activation_resent',
       userId: user.id,
-      tenantId: user.tenant_id,
+      tenantId: resendTenantId,
       status: 'success',
     });
 
@@ -681,7 +716,7 @@ export class AuthService {
         user_name: user.first_name,
         activation_link: `${frontendUrl}/activate?token=${activationToken}`,
       },
-      tenantId: user.tenant_id ?? undefined,
+      tenantId: resendTenantId ?? undefined,
     });
 
     return { message: successMessage };
@@ -713,13 +748,16 @@ export class AuthService {
       (ur) => ur.role.name,
     );
 
+    // Resolve tenant from active membership (user no longer has tenant_id)
+    const profileTenantId = await this.resolveUserTenantId(userId);
+
     return {
       id: user.id,
       email: user.email,
       first_name: user.first_name,
       last_name: user.last_name,
       phone: user.phone,
-      tenant_id: user.tenant_id,
+      tenant_id: profileTenantId,
       roles,
       is_platform_admin: user.is_platform_admin,
       email_verified: user.email_verified,
@@ -764,12 +802,13 @@ export class AuthService {
       data: updateData,
     });
 
-    // Create audit log
+    // Create audit log (resolve tenant from membership)
+    const updateTenantId = await this.resolveUserTenantId(userId);
     await this.auditLogger.logTenantChange({
       action: 'updated',
       entityType: 'user',
       entityId: userId,
-      tenantId: user.tenant_id,
+      tenantId: updateTenantId,
       actorUserId: userId,
       before: {
         first_name: user.first_name,
@@ -868,11 +907,12 @@ export class AuthService {
       });
     }
 
-    // Create audit log
+    // Create audit log (resolve tenant from membership)
+    const changePwTenantId = await this.resolveUserTenantId(userId);
     await this.auditLogger.logAuth({
       event: 'password_changed',
       userId,
-      tenantId: user.tenant_id,
+      tenantId: changePwTenantId,
       status: 'success',
     });
 
@@ -933,20 +973,15 @@ export class AuthService {
       data: { revoked_at: new Date() },
     });
 
-    // Create audit log
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+    // Create audit log (resolve tenant from membership)
+    const revokeTenantId = await this.resolveUserTenantId(userId);
+    await this.auditLogger.logAuth({
+      event: 'logout',
+      userId,
+      tenantId: revokeTenantId,
+      status: 'success',
+      metadata: { session_id: sessionId, reason: 'manually_revoked' },
     });
-
-    if (user) {
-      await this.auditLogger.logAuth({
-        event: 'logout',
-        userId,
-        tenantId: user.tenant_id,
-        status: 'success',
-        metadata: { session_id: sessionId, reason: 'manually_revoked' },
-      });
-    }
 
     return { message: 'Session revoked successfully' };
   }
@@ -966,6 +1001,46 @@ export class AuthService {
   }
 
   // ==========================================
+  // Public helpers for external callers
+  // ==========================================
+
+  /**
+   * Issue access + refresh tokens for a user based on their active membership.
+   * Called after invite acceptance to return a full auth response.
+   */
+  async issueTokensForMembership(
+    userId: string,
+    membershipId: string,
+    tenantId: string,
+    roles: string[],
+    userEmail: string,
+    isPlatformAdmin: boolean = false,
+  ): Promise<{ access_token: string; refresh_token: string }> {
+    const { accessToken, refreshToken } = await this.generateTokens(
+      { id: userId, email: userEmail, is_platform_admin: isPlatformAdmin },
+      roles,
+      false, // rememberMe = false for invite acceptance
+      membershipId,
+      tenantId,
+    );
+
+    // Store refresh token hash in DB so JwtRefreshStrategy can validate it.
+    // login() does the same after generateTokens(). Without this, the returned
+    // refresh_token will be rejected with 401 when the user tries to use it.
+    const tokenHash = this.hashToken(refreshToken);
+    await this.prisma.refresh_token.create({
+      data: {
+        id: randomBytes(16).toString('hex'),
+        user_id: userId,
+        token_hash: tokenHash,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      },
+    });
+
+    return { access_token: accessToken, refresh_token: refreshToken };
+  }
+
+  // ==========================================
   // Private helper methods
   // ==========================================
 
@@ -973,24 +1048,31 @@ export class AuthService {
     user: {
       id: string;
       email: string;
-      tenant_id: string | null;
       is_platform_admin: boolean;
     },
     roles: string[],
     rememberMe: boolean,
+    membershipId: string | null,
+    tenantId: string | null,
   ) {
+    const jti = randomUUID();
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
-      tenant_id: user.tenant_id,
+      tenant_id: tenantId,
+      membershipId,
       roles,
       is_platform_admin: user.is_platform_admin,
+      jti,
     };
 
     const accessToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_SECRET'),
       expiresIn: this.ACCESS_TOKEN_EXPIRY,
     });
+
+    const expTimestamp = Math.floor(Date.now() / 1000) + 86400; // matches ACCESS_TOKEN_EXPIRY = '24h'
+    await this.tokenBlocklist.trackToken(user.id, jti, expTimestamp);
 
     const refreshToken = this.jwtService.sign(
       { sub: user.id },
@@ -1015,6 +1097,19 @@ export class AuthService {
 
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  /**
+   * Resolve tenant_id from the user's active membership.
+   * After Sprint 4, the user table no longer carries tenant_id.
+   * Tenant context is always derived from user_tenant_membership.
+   */
+  private async resolveUserTenantId(userId: string): Promise<string | null> {
+    const membership = await this.prisma.user_tenant_membership.findFirst({
+      where: { user_id: userId, status: 'ACTIVE' },
+      select: { tenant_id: true },
+    });
+    return membership?.tenant_id ?? null;
   }
 
   private parseDeviceName(userAgent?: string): string | undefined {

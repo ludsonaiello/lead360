@@ -35,7 +35,7 @@ async function seedPlatformAdmin() {
   try {
     // Check if user already exists
     const existingUser = await prisma.user.findFirst({
-      where: { email: PLATFORM_ADMIN_USER.email, tenant_id: null },
+      where: { email: PLATFORM_ADMIN_USER.email },
     });
 
     if (existingUser) {
@@ -70,7 +70,6 @@ async function seedPlatformAdmin() {
         is_platform_admin: true,
         is_active: true,
         email_verified: true,
-        tenant_id: null, // No tenant = Platform Admin
       },
     });
 

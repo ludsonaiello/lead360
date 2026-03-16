@@ -419,7 +419,7 @@ async listUsers(
       skip,
       take: limit,
       include: {
-        user: true,
+        user: { where: { deleted_at: null } }, // BR-07: exclude soft-deleted users
         role: true,
         invited_by: { select: { id: true, first_name: true, last_name: true } },
       },

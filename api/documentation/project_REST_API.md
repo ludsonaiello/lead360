@@ -18,6 +18,7 @@
 | PATCH | `/projects/:id` | Owner, Admin, Manager | Update project |
 | DELETE | `/projects/:id` | Owner, Admin | Soft delete project |
 | POST | `/projects/:id/apply-template/:templateId` | Owner, Admin, Manager | Apply template to project |
+| GET | `/projects/:id/change-orders-redirect` | Owner, Admin, Manager | Get redirect URL for quote's change orders tab |
 | GET | `/projects/:id/summary` | Owner, Admin, Manager, Bookkeeper | Get financial summary |
 
 ---
@@ -443,7 +444,74 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ---
 
-## 7. GET /projects/:id/summary — Financial Summary
+## 7. GET /projects/:id/change-orders-redirect — Change Orders Redirect
+
+Returns the frontend route to the Change Orders tab of the quote linked to this project. This is a read-only endpoint — no mutations. Returns HTTP 400 if the project is standalone (not created from a quote).
+
+**Use case**: When a user clicks "Add Change Order" from a project view, the frontend calls this endpoint and navigates to the returned URL to manage change orders within the existing Quotes module.
+
+### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | string (UUID) | Project UUID |
+
+### Request
+
+**Headers**:
+```
+Authorization: Bearer {jwt_token}
+```
+
+**Roles**: Owner, Admin, Manager
+
+### Success Response (200)
+
+```json
+{
+  "redirect_url": "/quotes/550e8400-e29b-41d4-a716-446655440000?tab=change-orders"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| redirect_url | string | Frontend route to the quote's Change Orders tab |
+
+### Error Responses
+
+| Status | Condition | Message |
+|--------|-----------|---------|
+| 400 | Project is standalone (no linked quote) | "This project was not created from a quote. Change orders are not available for standalone projects." |
+| 401 | Missing or invalid JWT token | "Unauthorized" |
+| 403 | User role not Owner, Admin, or Manager | "Forbidden" |
+| 404 | Project not found (or belongs to different tenant) | "Project not found" |
+
+### Example
+
+**Request**:
+```http
+GET /api/v1/projects/550e8400-e29b-41d4-a716-446655440000/change-orders-redirect
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+**Response (200)** — Project linked to a quote:
+```json
+{
+  "redirect_url": "/quotes/a1b2c3d4-e5f6-7890-abcd-ef1234567890?tab=change-orders"
+}
+```
+
+**Response (400)** — Standalone project:
+```json
+{
+  "statusCode": 400,
+  "message": "This project was not created from a quote. Change orders are not available for standalone projects."
+}
+```
+
+---
+
+## 8. GET /projects/:id/summary — Financial Summary
 
 Returns a combined financial summary for the project. Includes contract value, estimated cost, progress, task counts, and actual cost breakdown by category.
 
@@ -508,7 +576,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ---
 
-## 8. Apply Template to Project
+## 9. Apply Template to Project
 
 **POST** `/api/v1/projects/:projectId/apply-template/:templateId`
 

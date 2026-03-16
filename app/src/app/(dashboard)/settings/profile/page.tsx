@@ -18,6 +18,9 @@ import { ChangePasswordModal } from '@/components/auth/ChangePasswordModal';
 import { Modal, ModalContent, ModalActions } from '@/components/ui/Modal';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { authApi } from '@/lib/api/auth';
+import { getMe } from '@/lib/api/users';
+import type { UserMeResponse } from '@/lib/types/users';
+import { Badge } from '@/components/ui/Badge';
 import { Session } from '@/lib/types/auth';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -38,6 +41,7 @@ export default function ProfileSettingsPage() {
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [showLogoutAllModal, setShowLogoutAllModal] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
+  const [membership, setMembership] = useState<UserMeResponse['membership'] | null>(null);
 
   const {
     register,
@@ -65,6 +69,7 @@ export default function ProfileSettingsPage() {
     }
 
     loadSessions();
+    getMe().then(data => setMembership(data.membership)).catch(() => {});
   }, [user, reset]);
 
   const loadSessions = async () => {
@@ -180,6 +185,35 @@ export default function ProfileSettingsPage() {
               </div>
             </form>
           </div>
+
+          {/* Current Membership Section */}
+          {membership && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Current Membership</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Role</p>
+                  <Badge variant="info">{membership.role.name}</Badge>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Status</p>
+                  <Badge variant="success">{membership.status}</Badge>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Member Since</p>
+                  <p className="text-sm text-gray-900 dark:text-gray-100 font-medium">
+                    {membership.joined_at
+                      ? new Date(membership.joined_at).toLocaleDateString('en-US', {
+                          month: 'long',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })
+                      : '\u2014'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Password Section */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-6">

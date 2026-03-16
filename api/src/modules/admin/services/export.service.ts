@@ -512,7 +512,7 @@ export class ExportService {
       where,
       include: {
         _count: {
-          select: { user: true },
+          select: { memberships: { where: { status: 'ACTIVE' } } },
         },
       },
     });
@@ -522,7 +522,7 @@ export class ExportService {
       subdomain: t.subdomain,
       company_name: t.company_name,
       is_active: t.is_active,
-      user_count: t._count.user,
+      user_count: t._count.memberships,
       primary_contact_email: t.primary_contact_email,
       created_at: t.created_at,
       deleted_at: t.deleted_at,
@@ -532,17 +532,27 @@ export class ExportService {
   private async fetchUsersData(filters: any): Promise<any[]> {
     const where: any = {};
 
-    if (filters.tenant_id) where.tenant_id = filters.tenant_id;
+    if (filters.tenant_id) {
+      where.memberships = {
+        some: { tenant_id: filters.tenant_id, status: 'ACTIVE' },
+      };
+    }
     if (filters.is_active !== undefined) where.is_active = filters.is_active;
     if (filters.deleted_at === null) where.deleted_at = null;
 
     const users = await this.prisma.user.findMany({
       where,
       include: {
-        tenant: {
-          select: {
-            subdomain: true,
-            company_name: true,
+        memberships: {
+          where: { status: 'ACTIVE' },
+          take: 1,
+          include: {
+            tenant: {
+              select: {
+                subdomain: true,
+                company_name: true,
+              },
+            },
           },
         },
         user_role_user_role_user_idTouser: {
@@ -561,7 +571,7 @@ export class ExportService {
       first_name: u.first_name,
       last_name: u.last_name,
       is_active: u.is_active,
-      tenant_subdomain: u.tenant?.subdomain,
+      tenant_subdomain: u.memberships[0]?.tenant?.subdomain,
       roles: u.user_role_user_role_user_idTouser
         .map((ur) => ur.role.name)
         .join(', '),
