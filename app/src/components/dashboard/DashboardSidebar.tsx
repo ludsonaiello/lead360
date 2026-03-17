@@ -54,6 +54,7 @@ import {
   Wrench,
   Calendar as CalendarIcon,
   FolderKanban,
+  ClipboardCheck,
 } from 'lucide-react';
 import ProtectedMenuItem from '@/components/rbac/shared/ProtectedMenuItem';
 import { useAuth } from '@/contexts/AuthContext';
@@ -147,6 +148,7 @@ const navigation: (NavItem | NavGroup)[] = [
   { name: 'Documents', href: '/documents', icon: FileText, permission: 'documents:view' },
   { name: 'Media', href: '/files', icon: Image, permission: 'files:view' },
   { name: 'Business Settings', href: '/settings/business', icon: Building2, permission: 'settings:edit' },
+  { name: 'Checklist Templates', href: '/settings/checklist-templates', icon: ClipboardCheck, permission: 'settings:edit' },
   { name: 'Webhooks', href: '/settings/webhooks', icon: Webhook, permission: 'leads:edit' },
   { name: 'Users', href: '/settings/users', icon: Users, permission: 'settings:edit' },
   { name: 'Profile Settings', href: '/settings/profile', icon: Settings },

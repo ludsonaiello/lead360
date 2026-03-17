@@ -472,3 +472,130 @@ export interface UpdatePhotoDto {
   caption?: string;
   is_public?: boolean;
 }
+
+// ========== COMPLETION CHECKLIST ==========
+
+export interface CompletionChecklistItem {
+  id: string;
+  title: string;
+  is_required: boolean;
+  is_completed: boolean;
+  completed_at: string | null;
+  completed_by_user_id: string | null;
+  notes: string | null;
+  order_index: number;
+  template_item_id: string | null;
+}
+
+export interface PunchListAssignedCrew {
+  id: string;
+  first_name: string;
+  last_name: string;
+}
+
+export type PunchListStatus = 'open' | 'in_progress' | 'resolved';
+
+export interface PunchListItem {
+  id: string;
+  title: string;
+  description: string | null;
+  status: PunchListStatus;
+  assigned_to_crew: PunchListAssignedCrew | null;
+  resolved_at: string | null;
+  reported_by_user_id: string | null;
+  resolved_by_user_id: string | null;
+  created_at: string;
+}
+
+export interface CompletionChecklist {
+  id: string;
+  project_id: string;
+  template_id: string | null;
+  completed_at: string | null;
+  created_at: string;
+  items: CompletionChecklistItem[];
+  punch_list: PunchListItem[];
+}
+
+export interface StartCompletionDto {
+  template_id?: string;
+}
+
+export interface CompleteItemDto {
+  notes?: string;
+}
+
+export interface AddManualItemDto {
+  title: string;
+  is_required?: boolean;
+  order_index: number;
+}
+
+export interface AddPunchListItemDto {
+  title: string;
+  description?: string;
+  assigned_to_crew_id?: string;
+}
+
+export interface UpdatePunchListItemDto {
+  status?: PunchListStatus;
+  description?: string;
+  assigned_to_crew_id?: string;
+}
+
+export interface CompleteProjectResponse {
+  project_id: string;
+  status: string;
+  actual_completion_date: string;
+  checklist_completed_at: string;
+}
+
+export interface CompleteProjectError {
+  message: string;
+  incomplete_checklist_items: { id: string; title: string }[];
+  unresolved_punch_list_items: { id: string; title: string; status: string }[];
+}
+
+// ========== CHECKLIST TEMPLATES (for dropdown) ==========
+
+export interface ChecklistTemplateItem {
+  id: string;
+  title: string;
+  description: string | null;
+  is_required: boolean;
+  order_index: number;
+}
+
+export interface ChecklistTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  items: ChecklistTemplateItem[];
+  created_at: string;
+}
+
+export interface ListChecklistTemplatesResponse {
+  data: ChecklistTemplate[];
+  meta: PaginationMeta;
+}
+
+export interface CreateChecklistTemplateItemDto {
+  title: string;
+  description?: string | null;
+  is_required?: boolean;
+  order_index: number;
+}
+
+export interface CreateChecklistTemplateDto {
+  name: string;
+  description?: string | null;
+  items: CreateChecklistTemplateItemDto[];
+}
+
+export interface UpdateChecklistTemplateDto {
+  name?: string;
+  description?: string | null;
+  is_active?: boolean;
+  items?: CreateChecklistTemplateItemDto[];
+}

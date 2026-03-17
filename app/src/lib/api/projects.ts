@@ -33,6 +33,17 @@ import type {
   ProjectPhoto,
   PhotoTimelineResponse,
   UpdatePhotoDto,
+  CompletionChecklist,
+  StartCompletionDto,
+  CompleteItemDto,
+  AddManualItemDto,
+  AddPunchListItemDto,
+  UpdatePunchListItemDto,
+  CompleteProjectResponse,
+  ListChecklistTemplatesResponse,
+  ChecklistTemplate,
+  CreateChecklistTemplateDto,
+  UpdateChecklistTemplateDto,
 } from '@/lib/types/projects';
 
 // ========== DASHBOARD ==========
@@ -437,4 +448,127 @@ export const deleteProjectPhoto = async (projectId: string, photoId: string): Pr
 export const getFileUrl = (relativePath: string | null): string | null => {
   if (!relativePath) return null;
   return buildFileUrl(relativePath);
+};
+
+// ========== COMPLETION CHECKLIST ==========
+
+/** Get completion checklist for a project */
+export const getCompletionChecklist = async (projectId: string): Promise<CompletionChecklist> => {
+  const { data } = await apiClient.get<CompletionChecklist>(`/projects/${projectId}/completion`);
+  return data;
+};
+
+/** Start a completion checklist (optionally from template) */
+export const startCompletionChecklist = async (
+  projectId: string,
+  dto?: StartCompletionDto,
+): Promise<CompletionChecklist> => {
+  const { data } = await apiClient.post<CompletionChecklist>(`/projects/${projectId}/completion`, dto || {});
+  return data;
+};
+
+/** Mark a checklist item as completed */
+export const completeChecklistItem = async (
+  projectId: string,
+  itemId: string,
+  dto?: CompleteItemDto,
+): Promise<CompletionChecklist> => {
+  const { data } = await apiClient.patch<CompletionChecklist>(
+    `/projects/${projectId}/completion/items/${itemId}`,
+    dto || {},
+  );
+  return data;
+};
+
+/** Add a manual checklist item */
+export const addManualChecklistItem = async (
+  projectId: string,
+  dto: AddManualItemDto,
+): Promise<CompletionChecklist> => {
+  const { data } = await apiClient.post<CompletionChecklist>(
+    `/projects/${projectId}/completion/items`,
+    dto,
+  );
+  return data;
+};
+
+/** Add a punch list item */
+export const addPunchListItem = async (
+  projectId: string,
+  dto: AddPunchListItemDto,
+): Promise<CompletionChecklist> => {
+  const { data } = await apiClient.post<CompletionChecklist>(
+    `/projects/${projectId}/completion/punch-list`,
+    dto,
+  );
+  return data;
+};
+
+/** Update a punch list item (status, description, assignment) */
+export const updatePunchListItem = async (
+  projectId: string,
+  itemId: string,
+  dto: UpdatePunchListItemDto,
+): Promise<CompletionChecklist> => {
+  const { data } = await apiClient.patch<CompletionChecklist>(
+    `/projects/${projectId}/completion/punch-list/${itemId}`,
+    dto,
+  );
+  return data;
+};
+
+/** Finalize project completion */
+export const completeProject = async (projectId: string): Promise<CompleteProjectResponse> => {
+  const { data } = await apiClient.post<CompleteProjectResponse>(`/projects/${projectId}/complete`);
+  return data;
+};
+
+/** List active checklist templates (for dropdown when starting completion) */
+export const listChecklistTemplates = async (): Promise<ListChecklistTemplatesResponse> => {
+  const { data } = await apiClient.get<ListChecklistTemplatesResponse>(
+    '/settings/checklist-templates',
+    { params: { is_active: true, limit: 100 } },
+  );
+  return data;
+};
+
+// ========== CHECKLIST TEMPLATE SETTINGS (CRUD) ==========
+
+/** List all checklist templates (paginated, for settings page) */
+export const listAllChecklistTemplates = async (
+  params?: { page?: number; limit?: number; is_active?: boolean },
+): Promise<ListChecklistTemplatesResponse> => {
+  const { data } = await apiClient.get<ListChecklistTemplatesResponse>(
+    '/settings/checklist-templates',
+    { params },
+  );
+  return data;
+};
+
+/** Get a single checklist template by ID */
+export const getChecklistTemplate = async (id: string): Promise<ChecklistTemplate> => {
+  const { data } = await apiClient.get<ChecklistTemplate>(`/settings/checklist-templates/${id}`);
+  return data;
+};
+
+/** Create a new checklist template */
+export const createChecklistTemplate = async (
+  dto: CreateChecklistTemplateDto,
+): Promise<ChecklistTemplate> => {
+  const { data } = await apiClient.post<ChecklistTemplate>('/settings/checklist-templates', dto);
+  return data;
+};
+
+/** Update a checklist template */
+export const updateChecklistTemplate = async (
+  id: string,
+  dto: UpdateChecklistTemplateDto,
+): Promise<ChecklistTemplate> => {
+  const { data } = await apiClient.patch<ChecklistTemplate>(`/settings/checklist-templates/${id}`, dto);
+  return data;
+};
+
+/** Delete a checklist template */
+export const deleteChecklistTemplate = async (id: string): Promise<void> => {
+  await apiClient.delete(`/settings/checklist-templates/${id}`);
 };

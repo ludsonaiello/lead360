@@ -24,6 +24,8 @@ import ProjectOverviewTab from './components/ProjectOverviewTab';
 import TasksTab from './components/TasksTab';
 import LogsTab from './components/LogsTab';
 import PhotosTab from './components/PhotosTab';
+import CompletionTab from './components/CompletionTab';
+import FinancialTab from './components/financial/FinancialTab';
 import EditProjectModal from './components/EditProjectModal';
 import StatusChangeModal from './components/StatusChangeModal';
 
@@ -127,10 +129,12 @@ export default function ProjectDetailPage() {
         return <LogsTab projectId={projectId} />;
       case 'photos':
         return <PhotosTab projectId={projectId} />;
+      case 'completion':
+        return <CompletionTab projectId={projectId} />;
+      case 'financial':
+        return <FinancialTab projectId={projectId} />;
       case 'documents':
       case 'permits':
-      case 'financial':
-      case 'completion':
         return (
           <Card className="p-12 text-center mt-6">
             <div className="mx-auto w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
