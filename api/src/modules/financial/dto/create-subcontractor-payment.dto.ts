@@ -46,11 +46,11 @@ export class CreateSubcontractorPaymentDto {
 
   @ApiProperty({
     description: 'Payment method',
-    enum: ['cash', 'check', 'bank_transfer', 'venmo', 'zelle'],
+    enum: ['cash', 'check', 'bank_transfer', 'venmo', 'zelle', 'credit_card', 'debit_card', 'ACH'],
     example: 'bank_transfer',
   })
-  @IsEnum(['cash', 'check', 'bank_transfer', 'venmo', 'zelle'], {
-    message: 'payment_method must be one of: cash, check, bank_transfer, venmo, zelle',
+  @IsEnum(['cash', 'check', 'bank_transfer', 'venmo', 'zelle', 'credit_card', 'debit_card', 'ACH'], {
+    message: 'payment_method must be one of: cash, check, bank_transfer, venmo, zelle, credit_card, debit_card, ACH',
   })
   payment_method: string;
 

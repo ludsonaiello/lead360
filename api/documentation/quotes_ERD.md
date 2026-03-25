@@ -168,6 +168,52 @@ check check
 bank_transfer bank_transfer
 venmo venmo
 zelle zelle
+credit_card credit_card
+debit_card debit_card
+ACH ACH
+        }
+    
+
+
+        financial_category_classification {
+            cost_of_goods_sold cost_of_goods_sold
+operating_expense operating_expense
+        }
+    
+
+
+        milestone_status {
+            pending pending
+invoiced invoiced
+paid paid
+        }
+    
+
+
+        invoice_status_extended {
+            draft draft
+sent sent
+partial partial
+paid paid
+voided voided
+        }
+    
+
+
+        export_type {
+            quickbooks_expenses quickbooks_expenses
+quickbooks_invoices quickbooks_invoices
+xero_expenses xero_expenses
+xero_invoices xero_invoices
+pl_csv pl_csv
+entries_csv entries_csv
+        }
+    
+
+
+        accounting_platform {
+            quickbooks quickbooks
+xero xero
         }
     
 
@@ -207,6 +253,13 @@ other other
 material material
 subcontractor subcontractor
 equipment equipment
+insurance insurance
+fuel fuel
+utilities utilities
+office office
+marketing marketing
+taxes taxes
+tools tools
 other other
         }
     
@@ -215,6 +268,32 @@ other other
         financial_entry_type {
             expense expense
 income income
+        }
+    
+
+
+        expense_submission_status {
+            pending_review pending_review
+confirmed confirmed
+        }
+    
+
+
+        recurring_frequency {
+            daily daily
+weekly weekly
+monthly monthly
+quarterly quarterly
+annual annual
+        }
+    
+
+
+        recurring_rule_status {
+            active active
+paused paused
+completed completed
+cancelled cancelled
         }
     
 
@@ -2151,6 +2230,7 @@ paid paid
     String id "🗝️"
     String name 
     financial_category_type type 
+    financial_category_classification classification 
     String description "❓"
     Boolean is_active 
     Boolean is_system_default 
@@ -2161,13 +2241,59 @@ paid paid
 
   "financial_entry" {
     String id "🗝️"
-    String task_id "❓"
     financial_entry_type entry_type 
     Decimal amount 
     DateTime entry_date 
     String vendor_name "❓"
     String notes "❓"
     Boolean has_receipt 
+    payment_method payment_method "❓"
+    DateTime entry_time "❓"
+    Decimal tax_amount "❓"
+    expense_submission_status submission_status 
+    String rejection_reason "❓"
+    DateTime rejected_at "❓"
+    Boolean is_recurring_instance 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "recurring_expense_rule" {
+    String id "🗝️"
+    String name 
+    String description "❓"
+    Decimal amount 
+    Decimal tax_amount "❓"
+    String vendor_name "❓"
+    recurring_frequency frequency 
+    Int interval 
+    Int day_of_month "❓"
+    Int day_of_week "❓"
+    DateTime start_date 
+    DateTime end_date "❓"
+    Int recurrence_count "❓"
+    Int occurrences_generated 
+    DateTime next_due_date 
+    Boolean auto_confirm 
+    String notes "❓"
+    recurring_rule_status status 
+    DateTime last_generated_at "❓"
+    String last_generated_entry_id "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "payment_method_registry" {
+    String id "🗝️"
+    String nickname 
+    payment_method type 
+    String bank_name "❓"
+    String last_four "❓"
+    String notes "❓"
+    Boolean is_default 
+    Boolean is_active 
     DateTime created_at 
     DateTime updated_at 
     }
@@ -2465,6 +2591,143 @@ paid paid
     DateTime updated_at 
     }
   
+
+  "supplier_category" {
+    String id "🗝️"
+    String name 
+    String description "❓"
+    String color "❓"
+    Boolean is_active 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "supplier_category_assignment" {
+    String id "🗝️"
+    DateTime created_at 
+    }
+  
+
+  "supplier" {
+    String id "🗝️"
+    String name 
+    String legal_name "❓"
+    String website "❓"
+    String phone "❓"
+    String email "❓"
+    String contact_name "❓"
+    String address_line1 "❓"
+    String address_line2 "❓"
+    String city "❓"
+    String state "❓"
+    String zip_code "❓"
+    String country 
+    Decimal latitude "❓"
+    Decimal longitude "❓"
+    String google_place_id "❓"
+    String notes "❓"
+    Boolean is_preferred 
+    Boolean is_active 
+    Decimal total_spend 
+    DateTime last_purchase_date "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "supplier_product" {
+    String id "🗝️"
+    String name 
+    String description "❓"
+    String unit_of_measure 
+    Decimal unit_price "❓"
+    DateTime price_last_updated_at "❓"
+    String sku "❓"
+    Boolean is_active 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "supplier_product_price_history" {
+    String id "🗝️"
+    Decimal previous_price "❓"
+    Decimal new_price 
+    DateTime changed_at 
+    String notes "❓"
+    }
+  
+
+  "project_draw_milestone" {
+    String id "🗝️"
+    Int draw_number 
+    String description 
+    draw_calculation_type calculation_type 
+    Decimal value 
+    Decimal calculated_amount 
+    milestone_status status 
+    DateTime invoiced_at "❓"
+    DateTime paid_at "❓"
+    String notes "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "project_invoice" {
+    String id "🗝️"
+    String invoice_number 
+    String description 
+    Decimal amount 
+    Decimal tax_amount "❓"
+    Decimal amount_paid 
+    Decimal amount_due 
+    invoice_status_extended status 
+    DateTime due_date "❓"
+    DateTime sent_at "❓"
+    DateTime paid_at "❓"
+    DateTime voided_at "❓"
+    String voided_reason "❓"
+    String notes "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "project_invoice_payment" {
+    String id "🗝️"
+    Decimal amount 
+    DateTime payment_date 
+    payment_method payment_method 
+    String payment_method_registry_id "❓"
+    String reference_number "❓"
+    String notes "❓"
+    DateTime created_at 
+    }
+  
+
+  "financial_export_log" {
+    String id "🗝️"
+    export_type export_type 
+    DateTime date_from "❓"
+    DateTime date_to "❓"
+    Int record_count 
+    String file_name 
+    String filters_applied "❓"
+    DateTime created_at 
+    }
+  
+
+  "financial_category_account_mapping" {
+    String id "🗝️"
+    accounting_platform platform 
+    String account_name 
+    String account_code "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
     "audit_log" |o--|| "audit_log_actor_type" : "enum:actor_type"
     "audit_log" |o--|| "audit_log_status" : "enum:status"
     "audit_log" }o--|o "user" : "user"
@@ -2693,16 +2956,38 @@ paid paid
     "project_template_task" }o--|| project_template : "template"
     "project_template_task" }o--|| "tenant" : "tenant"
     "financial_category" |o--|| "financial_category_type" : "enum:type"
+    "financial_category" |o--|| "financial_category_classification" : "enum:classification"
     "financial_category" }o--|| "tenant" : "tenant"
     "financial_category" }o--|o "user" : "created_by"
     "financial_entry" |o--|| "financial_entry_type" : "enum:entry_type"
+    "financial_entry" |o--|o "payment_method" : "enum:payment_method"
+    "financial_entry" |o--|| "expense_submission_status" : "enum:submission_status"
     "financial_entry" }o--|| "tenant" : "tenant"
     "financial_entry" }o--|| financial_category : "category"
     "financial_entry" }o--|| "user" : "created_by"
     "financial_entry" }o--|o "user" : "updated_by"
     "financial_entry" }o--|o crew_member : "crew_member"
     "financial_entry" }o--|o subcontractor : "subcontractor"
-    "financial_entry" }o--|| project : "project"
+    "financial_entry" }o--|o project : "project"
+    "financial_entry" }o--|o project_task : "task"
+    "financial_entry" }o--|o "user" : "purchased_by_user"
+    "financial_entry" }o--|o crew_member : "purchased_by_crew_member"
+    "financial_entry" }o--|o supplier : "supplier"
+    "financial_entry" }o--|o payment_method_registry : "payment_method_registry_rel"
+    "financial_entry" }o--|o "user" : "rejected_by"
+    "financial_entry" }o--|o recurring_expense_rule : "recurring_rule"
+    "recurring_expense_rule" |o--|| "recurring_frequency" : "enum:frequency"
+    "recurring_expense_rule" |o--|| "recurring_rule_status" : "enum:status"
+    "recurring_expense_rule" }o--|| "tenant" : "tenant"
+    "recurring_expense_rule" }o--|| financial_category : "category"
+    "recurring_expense_rule" }o--|o supplier : "supplier"
+    "recurring_expense_rule" }o--|o payment_method_registry : "payment_method"
+    "recurring_expense_rule" }o--|| "user" : "created_by"
+    "recurring_expense_rule" }o--|o "user" : "updated_by"
+    "payment_method_registry" |o--|| "payment_method" : "enum:type"
+    "payment_method_registry" }o--|| "tenant" : "tenant"
+    "payment_method_registry" }o--|| "user" : "created_by"
+    "payment_method_registry" }o--|o "user" : "updated_by"
     "receipt" |o--|| "receipt_file_type" : "enum:file_type"
     "receipt" |o--|| "receipt_ocr_status" : "enum:ocr_status"
     "receipt" }o--|| "tenant" : "tenant"
@@ -2815,4 +3100,46 @@ paid paid
     "subcontractor_task_invoice" }o--|| "user" : "created_by"
     "portal_account" }o--|| "tenant" : "tenant"
     "portal_account" }o--|| lead : "lead"
+    "supplier_category" }o--|| "tenant" : "tenant"
+    "supplier_category" }o--|| "user" : "created_by"
+    "supplier_category_assignment" }o--|| supplier : "supplier"
+    "supplier_category_assignment" }o--|| supplier_category : "supplier_category"
+    "supplier_category_assignment" }o--|| "tenant" : "tenant"
+    "supplier" }o--|| "tenant" : "tenant"
+    "supplier" }o--|| "user" : "created_by"
+    "supplier" }o--|o "user" : "updated_by"
+    "supplier_product" }o--|| "tenant" : "tenant"
+    "supplier_product" }o--|| supplier : "supplier"
+    "supplier_product" }o--|| "user" : "created_by"
+    "supplier_product" }o--|o "user" : "price_last_updated_by"
+    "supplier_product_price_history" }o--|| "tenant" : "tenant"
+    "supplier_product_price_history" }o--|| supplier_product : "supplier_product"
+    "supplier_product_price_history" }o--|| supplier : "supplier"
+    "supplier_product_price_history" }o--|| "user" : "changed_by"
+    "project_draw_milestone" |o--|| "draw_calculation_type" : "enum:calculation_type"
+    "project_draw_milestone" |o--|| "milestone_status" : "enum:status"
+    "project_draw_milestone" }o--|| "tenant" : "tenant"
+    "project_draw_milestone" }o--|| project : "project"
+    "project_draw_milestone" }o--|o draw_schedule_entry : "quote_draw_entry"
+    "project_draw_milestone" }o--|o project_invoice : "invoice"
+    "project_draw_milestone" }o--|| "user" : "created_by"
+    "project_invoice" |o--|| "invoice_status_extended" : "enum:status"
+    "project_invoice" }o--|| "tenant" : "tenant"
+    "project_invoice" }o--|| project : "project"
+    "project_invoice" }o--|o project_draw_milestone : "milestone"
+    "project_invoice" }o--|| "user" : "created_by"
+    "project_invoice" }o--|o "user" : "updated_by"
+    "project_invoice_payment" |o--|| "payment_method" : "enum:payment_method"
+    "project_invoice_payment" }o--|| "tenant" : "tenant"
+    "project_invoice_payment" }o--|| project_invoice : "invoice"
+    "project_invoice_payment" }o--|| project : "project"
+    "project_invoice_payment" }o--|| "user" : "created_by"
+    "financial_export_log" |o--|| "export_type" : "enum:export_type"
+    "financial_export_log" }o--|| "tenant" : "tenant"
+    "financial_export_log" }o--|| "user" : "exported_by"
+    "financial_category_account_mapping" |o--|| "accounting_platform" : "enum:platform"
+    "financial_category_account_mapping" }o--|| "tenant" : "tenant"
+    "financial_category_account_mapping" }o--|| financial_category : "category"
+    "financial_category_account_mapping" }o--|| "user" : "created_by"
+    "financial_category_account_mapping" }o--|o "user" : "updated_by"
 ```

@@ -474,7 +474,7 @@ return {
 3. **Validate category_ids if provided:**
    ```typescript
    if (dto.category_ids !== undefined) {
-     if (dto.category_ids.length > 0) {
+     if (dto.category_ids && dto.category_ids.length > 0) {
        const categories = await this.prisma.supplier_category.findMany({
          where: {
            id: { in: dto.category_ids },
@@ -569,7 +569,7 @@ return {
        });
 
        // Create new assignments
-       if (dto.category_ids.length > 0) {
+       if (dto.category_ids && dto.category_ids.length > 0) {
          await tx.supplier_category_assignment.createMany({
            data: dto.category_ids.map((catId) => ({
              id: randomUUID(),

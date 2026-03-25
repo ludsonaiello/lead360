@@ -16,6 +16,9 @@ export enum PaymentMethod {
   BANK_TRANSFER = 'bank_transfer',
   VENMO = 'venmo',
   ZELLE = 'zelle',
+  CREDIT_CARD = 'credit_card',
+  DEBIT_CARD = 'debit_card',
+  ACH = 'ACH',
 }
 
 export class CreateSubcontractorDto {

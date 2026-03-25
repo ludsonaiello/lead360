@@ -109,6 +109,7 @@ export function VariableSelector({
     { id: 'subscription', label: 'Subscription' },
     { id: 'billing', label: 'Billing' },
     { id: 'system', label: 'System' },
+    { id: 'portal', label: 'Portal' },
   ];
 
   // Get badge variant for variable type

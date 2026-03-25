@@ -161,6 +161,7 @@ describe('FinancialCategoryService', () => {
           tenant_id: TENANT_ID,
           name: dto.name,
           type: dto.type,
+          classification: 'cost_of_goods_sold',
           description: dto.description,
           is_system_default: false,
           created_by_user_id: USER_ID,
@@ -226,6 +227,51 @@ describe('FinancialCategoryService', () => {
       expect(result.id).toBe('new-cat-uuid');
       expect(result.name).toBe('Materials - Concrete');
       expect(result.type).toBe('material');
+    });
+
+    it('should create category with explicit classification', async () => {
+      mockPrismaService.financial_category.create.mockResolvedValue({
+        id: 'cat-001',
+        tenant_id: TENANT_ID,
+        name: 'Vehicle Insurance',
+        type: 'insurance',
+        classification: 'operating_expense',
+        is_system_default: false,
+      });
+
+      const result = await service.createCategory(TENANT_ID, USER_ID, {
+        name: 'Vehicle Insurance',
+        type: 'insurance' as any,
+        classification: 'operating_expense' as any,
+      });
+
+      expect(mockPrismaService.financial_category.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            classification: 'operating_expense',
+          }),
+        }),
+      );
+    });
+
+    it('should default classification to cost_of_goods_sold when not provided', async () => {
+      mockPrismaService.financial_category.create.mockResolvedValue({
+        id: 'cat-002',
+        classification: 'cost_of_goods_sold',
+      });
+
+      await service.createCategory(TENANT_ID, USER_ID, {
+        name: 'Custom Labor',
+        type: 'labor' as any,
+      });
+
+      expect(mockPrismaService.financial_category.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            classification: 'cost_of_goods_sold',
+          }),
+        }),
+      );
     });
   });
 
@@ -364,6 +410,49 @@ describe('FinancialCategoryService', () => {
         where: { id: CATEGORY_ID, tenant_id: 'other-tenant-uuid' },
       });
     });
+
+    it('should throw BadRequestException when changing classification of system-default category', async () => {
+      mockPrismaService.financial_category.findFirst.mockResolvedValue({
+        id: 'cat-system',
+        tenant_id: TENANT_ID,
+        is_system_default: true,
+        classification: 'cost_of_goods_sold',
+      });
+
+      await expect(
+        service.updateCategory(TENANT_ID, 'cat-system', USER_ID, {
+          classification: 'operating_expense' as any,
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrismaService.financial_category.update).not.toHaveBeenCalled();
+    });
+
+    it('should allow classification change on custom (non-system-default) category', async () => {
+      mockPrismaService.financial_category.findFirst.mockResolvedValue({
+        id: 'cat-custom',
+        tenant_id: TENANT_ID,
+        is_system_default: false,
+        classification: 'cost_of_goods_sold',
+      });
+
+      mockPrismaService.financial_category.update.mockResolvedValue({
+        id: 'cat-custom',
+        classification: 'operating_expense',
+      });
+
+      await service.updateCategory(TENANT_ID, 'cat-custom', USER_ID, {
+        classification: 'operating_expense' as any,
+      });
+
+      expect(mockPrismaService.financial_category.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            classification: 'operating_expense',
+          }),
+        }),
+      );
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -487,17 +576,17 @@ describe('FinancialCategoryService', () => {
   // -----------------------------------------------------------------------
 
   describe('seedDefaultCategories()', () => {
-    it('should create all 9 default categories when none exist', async () => {
+    it('should create all 16 default categories when none exist', async () => {
       mockPrismaService.financial_category.count.mockResolvedValue(0);
       mockPrismaService.financial_category.findMany.mockResolvedValue([]);
-      mockPrismaService.financial_category.createMany.mockResolvedValue({ count: 9 });
+      mockPrismaService.financial_category.createMany.mockResolvedValue({ count: 16 });
 
       await service.seedDefaultCategories(TENANT_ID);
 
       expect(mockPrismaService.financial_category.createMany).toHaveBeenCalledTimes(1);
 
       const createManyCall = mockPrismaService.financial_category.createMany.mock.calls[0][0];
-      expect(createManyCall.data).toHaveLength(9);
+      expect(createManyCall.data).toHaveLength(16);
 
       // Verify each record has required fields
       for (const record of createManyCall.data) {
@@ -511,13 +600,14 @@ describe('FinancialCategoryService', () => {
     it('should include all expected default category names and types', async () => {
       mockPrismaService.financial_category.count.mockResolvedValue(0);
       mockPrismaService.financial_category.findMany.mockResolvedValue([]);
-      mockPrismaService.financial_category.createMany.mockResolvedValue({ count: 9 });
+      mockPrismaService.financial_category.createMany.mockResolvedValue({ count: 16 });
 
       await service.seedDefaultCategories(TENANT_ID);
 
       const createManyCall = mockPrismaService.financial_category.createMany.mock.calls[0][0];
       const createdNames = createManyCall.data.map((d: any) => d.name);
 
+      // COGS categories
       expect(createdNames).toContain('Labor - General');
       expect(createdNames).toContain('Labor - Crew Overtime');
       expect(createdNames).toContain('Materials - General');
@@ -528,7 +618,16 @@ describe('FinancialCategoryService', () => {
       expect(createdNames).toContain('Fuel & Transportation');
       expect(createdNames).toContain('Miscellaneous');
 
-      // Verify types are correct
+      // Overhead categories
+      expect(createdNames).toContain('Insurance');
+      expect(createdNames).toContain('Fuel & Vehicle');
+      expect(createdNames).toContain('Utilities');
+      expect(createdNames).toContain('Office & Admin');
+      expect(createdNames).toContain('Marketing & Advertising');
+      expect(createdNames).toContain('Taxes & Licenses');
+      expect(createdNames).toContain('Tools & Equipment Purchase');
+
+      // Verify types — COGS
       const laborGeneral = createManyCall.data.find((d: any) => d.name === 'Labor - General');
       expect(laborGeneral.type).toBe('labor');
 
@@ -543,10 +642,32 @@ describe('FinancialCategoryService', () => {
 
       const fuelTransport = createManyCall.data.find((d: any) => d.name === 'Fuel & Transportation');
       expect(fuelTransport.type).toBe('other');
+
+      // Verify types — Overhead
+      const insurance = createManyCall.data.find((d: any) => d.name === 'Insurance');
+      expect(insurance.type).toBe('insurance');
+
+      const fuelVehicle = createManyCall.data.find((d: any) => d.name === 'Fuel & Vehicle');
+      expect(fuelVehicle.type).toBe('fuel');
+
+      const utilities = createManyCall.data.find((d: any) => d.name === 'Utilities');
+      expect(utilities.type).toBe('utilities');
+
+      const office = createManyCall.data.find((d: any) => d.name === 'Office & Admin');
+      expect(office.type).toBe('office');
+
+      const marketing = createManyCall.data.find((d: any) => d.name === 'Marketing & Advertising');
+      expect(marketing.type).toBe('marketing');
+
+      const taxes = createManyCall.data.find((d: any) => d.name === 'Taxes & Licenses');
+      expect(taxes.type).toBe('taxes');
+
+      const tools = createManyCall.data.find((d: any) => d.name === 'Tools & Equipment Purchase');
+      expect(tools.type).toBe('tools');
     });
 
-    it('should skip seeding entirely when all 9 defaults already exist', async () => {
-      mockPrismaService.financial_category.count.mockResolvedValue(9);
+    it('should skip seeding entirely when all 16 defaults already exist', async () => {
+      mockPrismaService.financial_category.count.mockResolvedValue(16);
 
       await service.seedDefaultCategories(TENANT_ID);
 
@@ -554,8 +675,8 @@ describe('FinancialCategoryService', () => {
       expect(mockPrismaService.financial_category.createMany).not.toHaveBeenCalled();
     });
 
-    it('should skip seeding when count exceeds 9', async () => {
-      mockPrismaService.financial_category.count.mockResolvedValue(12);
+    it('should skip seeding when count exceeds 16', async () => {
+      mockPrismaService.financial_category.count.mockResolvedValue(20);
 
       await service.seedDefaultCategories(TENANT_ID);
 
@@ -570,14 +691,14 @@ describe('FinancialCategoryService', () => {
         { name: 'Materials - General' },
         { name: 'Miscellaneous' },
       ]);
-      mockPrismaService.financial_category.createMany.mockResolvedValue({ count: 6 });
+      mockPrismaService.financial_category.createMany.mockResolvedValue({ count: 13 });
 
       await service.seedDefaultCategories(TENANT_ID);
 
       expect(mockPrismaService.financial_category.createMany).toHaveBeenCalledTimes(1);
 
       const createManyCall = mockPrismaService.financial_category.createMany.mock.calls[0][0];
-      expect(createManyCall.data).toHaveLength(6);
+      expect(createManyCall.data).toHaveLength(13);
 
       const createdNames = createManyCall.data.map((d: any) => d.name);
       expect(createdNames).not.toContain('Labor - General');
@@ -590,12 +711,19 @@ describe('FinancialCategoryService', () => {
       expect(createdNames).toContain('Subcontractor - General');
       expect(createdNames).toContain('Equipment Rental');
       expect(createdNames).toContain('Fuel & Transportation');
+      // Overhead categories should also be present
+      expect(createdNames).toContain('Insurance');
+      expect(createdNames).toContain('Fuel & Vehicle');
+      expect(createdNames).toContain('Utilities');
+      expect(createdNames).toContain('Office & Admin');
+      expect(createdNames).toContain('Marketing & Advertising');
+      expect(createdNames).toContain('Taxes & Licenses');
+      expect(createdNames).toContain('Tools & Equipment Purchase');
     });
 
-    it('should not call createMany when existing names cover all defaults (count < 9 but names match)', async () => {
-      // Edge case: count is less than 9 but all names are accounted for
-      // This could happen if count query is eventually consistent or a race condition
-      mockPrismaService.financial_category.count.mockResolvedValue(8);
+    it('should not call createMany when existing names cover all defaults (count < 16 but names match)', async () => {
+      // Edge case: count is less than 16 but all names are accounted for
+      mockPrismaService.financial_category.count.mockResolvedValue(15);
       mockPrismaService.financial_category.findMany.mockResolvedValue([
         { name: 'Labor - General' },
         { name: 'Labor - Crew Overtime' },
@@ -606,6 +734,13 @@ describe('FinancialCategoryService', () => {
         { name: 'Equipment Rental' },
         { name: 'Fuel & Transportation' },
         { name: 'Miscellaneous' },
+        { name: 'Insurance' },
+        { name: 'Fuel & Vehicle' },
+        { name: 'Utilities' },
+        { name: 'Office & Admin' },
+        { name: 'Marketing & Advertising' },
+        { name: 'Taxes & Licenses' },
+        { name: 'Tools & Equipment Purchase' },
       ]);
 
       await service.seedDefaultCategories(TENANT_ID);
@@ -616,7 +751,7 @@ describe('FinancialCategoryService', () => {
     it('should query only system default categories for the given tenant', async () => {
       mockPrismaService.financial_category.count.mockResolvedValue(0);
       mockPrismaService.financial_category.findMany.mockResolvedValue([]);
-      mockPrismaService.financial_category.createMany.mockResolvedValue({ count: 9 });
+      mockPrismaService.financial_category.createMany.mockResolvedValue({ count: 16 });
 
       await service.seedDefaultCategories(TENANT_ID);
 
@@ -639,7 +774,7 @@ describe('FinancialCategoryService', () => {
     it('should set tenant_id on every created default category record', async () => {
       mockPrismaService.financial_category.count.mockResolvedValue(0);
       mockPrismaService.financial_category.findMany.mockResolvedValue([]);
-      mockPrismaService.financial_category.createMany.mockResolvedValue({ count: 9 });
+      mockPrismaService.financial_category.createMany.mockResolvedValue({ count: 16 });
 
       const customTenantId = 'different-tenant-uuid';
       await service.seedDefaultCategories(customTenantId);
@@ -648,6 +783,37 @@ describe('FinancialCategoryService', () => {
       for (const record of createManyCall.data) {
         expect(record.tenant_id).toBe(customTenantId);
       }
+    });
+
+    it('should seed 16 default categories (9 COGS + 7 overhead) for a new tenant', async () => {
+      mockPrismaService.financial_category.count.mockResolvedValue(0);
+      mockPrismaService.financial_category.findMany.mockResolvedValue([]);
+      mockPrismaService.financial_category.createMany.mockResolvedValue({ count: 16 });
+
+      await service.seedDefaultCategories(TENANT_ID);
+
+      expect(mockPrismaService.financial_category.createMany).toHaveBeenCalled();
+
+      const createManyArg = mockPrismaService.financial_category.createMany.mock.calls[0][0];
+      expect(createManyArg.data).toHaveLength(16);
+
+      // Verify COGS categories
+      const cogsCategories = createManyArg.data.filter((c: any) => c.classification === 'cost_of_goods_sold');
+      expect(cogsCategories.length).toBe(9);
+
+      // Verify overhead categories
+      const overheadCategories = createManyArg.data.filter((c: any) => c.classification === 'operating_expense');
+      expect(overheadCategories.length).toBe(7);
+
+      // Verify specific overhead types
+      const overheadTypes = overheadCategories.map((c: any) => c.type);
+      expect(overheadTypes).toContain('insurance');
+      expect(overheadTypes).toContain('fuel');
+      expect(overheadTypes).toContain('utilities');
+      expect(overheadTypes).toContain('office');
+      expect(overheadTypes).toContain('marketing');
+      expect(overheadTypes).toContain('taxes');
+      expect(overheadTypes).toContain('tools');
     });
   });
 });

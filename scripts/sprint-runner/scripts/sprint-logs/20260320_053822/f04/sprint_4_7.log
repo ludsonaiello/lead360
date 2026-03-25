@@ -1,0 +1,258 @@
+./run_sprints.sh: line 142: /var/www/lead360.app/api/.env: Permission denied
+./run_sprints.sh: line 142: FinancialEntryService: command not found
+./run_sprints.sh: line 142: /var/www/lead360.app/api/src/modules/financial/services/financial-entry.service.spec.ts: Permission denied
+./run_sprints.sh: line 142: financial-entry.service.ts: command not found
+./run_sprints.sh: line 143: CHECK: command not found
+./run_sprints.sh: line 146: If: command not found
+./run_sprints.sh: line 147: kill: {PID}: arguments must be process or job IDs
+./run_sprints.sh: line 148: If: command not found
+./run_sprints.sh: line 150: Wait: command not found
+lsof: status error on ←: No such file or directory
+lsof: status error on must: No such file or directory
+lsof: status error on return: No such file or directory
+lsof: status error on nothing: No such file or directory
+lsof: status error on before: No such file or directory
+lsof: status error on proceeding: No such file or directory
+./run_sprints.sh: line 153: Tests: command not found
+./run_sprints.sh: line 155: Run: command not found
+PASS src/modules/financial/services/financial-entry.service.spec.ts
+  FinancialEntryService
+    getEnrichedInclude() — via fetchEntryOrFail()
+      ✓ should use enriched include with all joins when fetching entry (15 ms)
+    transformToEnrichedResponse() — via getEntryById()
+      ✓ should produce flat enriched response with all human-readable labels (5 ms)
+      ✓ should return null for optional relations that are not set (4 ms)
+    isPrivilegedRole() — via getEntryById()
+      ✓ should allow Owner to view any entry (4 ms)
+      ✓ should allow Admin to view any entry (4 ms)
+      ✓ should allow Manager to view any entry (3 ms)
+      ✓ should allow Bookkeeper to view any entry (3 ms)
+      ✓ should allow user with multiple roles including a privileged one (3 ms)
+    fetchEntryOrFail() — via getEntryById()
+      ✓ should throw NotFoundException when entry does not exist (77 ms)
+      ✓ should throw NotFoundException when entry belongs to different tenant (2 ms)
+    getEntryById() — Sprint 4_3 rebuild
+      ✓ should return enriched response for privileged user viewing any entry (1 ms)
+      ✓ should allow Employee to view their own entry (2 ms)
+      ✓ should throw ForbiddenException when Employee tries to view another user's entry (2 ms)
+      ✓ should throw NotFoundException before ForbiddenException (entry must exist first) (2 ms)
+    getEntries()
+      ✓ should enforce Employee scoping — silently add created_by_user_id filter (2 ms)
+      ✓ should NOT add created_by_user_id filter for privileged roles (2 ms)
+      ✓ should NOT add created_by_user_id filter for Bookkeeper (1 ms)
+      ✓ should NOT add created_by_user_id filter for Manager (1 ms)
+      ✓ should apply project_id filter (1 ms)
+      ✓ should apply task_id filter (1 ms)
+      ✓ should apply category_id filter (1 ms)
+      ✓ should apply entry_type filter (1 ms)
+      ✓ should apply supplier_id filter (1 ms)
+      ✓ should apply payment_method filter (2 ms)
+      ✓ should apply submission_status filter (2 ms)
+      ✓ should apply purchased_by_user_id filter (1 ms)
+      ✓ should apply purchased_by_crew_member_id filter (2 ms)
+      ✓ should apply category_type filter via join (2 ms)
+      ✓ should apply classification filter via join (1 ms)
+      ✓ should apply both category_type and classification filters together (2 ms)
+      ✓ should apply date range filters (4 ms)
+      ✓ should apply has_receipt boolean filter (1 ms)
+      ✓ should apply is_recurring_instance boolean filter (2 ms)
+      ✓ should apply search filter across vendor_name and notes (1 ms)
+      ✓ should support sorting by entry_date desc (default) (2 ms)
+      ✓ should support sorting by amount asc (2 ms)
+      ✓ should support sorting by created_at (1 ms)
+      ✓ should calculate pagination correctly (1 ms)
+      ✓ should cap limit at 100 (2 ms)
+      ✓ should return summary block with aggregated totals from full result set (2 ms)
+      ✓ should return enriched response data for each entry (1 ms)
+      ✓ should handle zero results gracefully (2 ms)
+      ✓ should always include tenant_id in where clause (1 ms)
+    getPendingEntries()
+      ✓ should pre-filter by submission_status = pending_review (2 ms)
+      ✓ should apply submitted_by_user_id filter (maps to created_by_user_id) (1 ms)
+      ✓ should apply date range filters (1 ms)
+      ✓ should return enriched response with summary block (1 ms)
+      ✓ should order by entry_date desc (1 ms)
+      ✓ should calculate pagination correctly (1 ms)
+      ✓ should cap limit at 100 (2 ms)
+      ✓ should always include tenant_id in where clause (1 ms)
+      ✓ should use enriched include clause (2 ms)
+    createEntry() — Role-based submission_status
+      ✓ should force submission_status to pending_review for Employee role (2 ms)
+      ✓ should default submission_status to confirmed for Owner role (1 ms)
+      ✓ should default submission_status to confirmed for Admin role (2 ms)
+      ✓ should default submission_status to confirmed for Manager role (1 ms)
+      ✓ should default submission_status to confirmed for Bookkeeper role (2 ms)
+      ✓ should allow Owner to explicitly set submission_status to pending_review (1 ms)
+      ✓ should ignore Employee submission_status override attempt — always pending_review (1 ms)
+    createEntry() — Validation
+      ✓ should throw 400 when both purchased_by_user_id and purchased_by_crew_member_id provided (2 ms)
+      ✓ should throw 400 when tax_amount >= amount (2 ms)
+      ✓ should throw 404 when category_id not found in tenant (2 ms)
+      ✓ should throw 404 when project_id not found in tenant (1 ms)
+      ✓ should throw 404 when task_id not found in tenant (1 ms)
+      ✓ should throw 404 when supplier_id not found or inactive (2 ms)
+      ✓ should throw 404 when payment_method_registry_id not found or inactive (2 ms)
+      ✓ should throw 404 when purchased_by_user_id not in tenant (1 ms)
+      ✓ should throw 404 when purchased_by_crew_member_id not in tenant (1 ms)
+      ✓ should auto-copy payment_method type from registry when payment_method_registry_id provided (2 ms)
+      ✓ should call updateSupplierSpendTotals when supplier_id is provided (1 ms)
+      ✓ should NOT call updateSupplierSpendTotals when supplier_id is not provided (1 ms)
+      ✓ should validate category with tenant_id and is_active (2 ms)
+      ✓ should create entry with correct data shape and enriched include (2 ms)
+      ✓ should return enriched (transformed) response, not raw DB record (1 ms)
+      ✓ should create entry without project_id (business-level expense) (2 ms)
+      ✓ should throw BadRequestException when entry_date is in the future (2 ms)
+      ✓ should allow entry_date that is today (1 ms)
+      ✓ should accept tax_amount when it is less than amount (2 ms)
+      ✓ should log audit with correct action and entity info (1 ms)
+      ✓ should use business-level description in audit log when project_id is omitted (1 ms)
+    getProjectEntries()
+      ✓ should return paginated results with tenant_id filter and category included (2 ms)
+      ✓ should apply task_id filter when provided (2 ms)
+      ✓ should cap limit at 100 even if a higher value is requested (1 ms)
+    getTaskEntries()
+      ✓ should return entries filtered by tenant_id and task_id with category included (2 ms)
+      ✓ should return empty array when no entries exist for task (2 ms)
+    updateEntry() — Role enforcement
+      ✓ should allow Owner to edit any entry in any status (2 ms)
+      ✓ should allow Manager to edit any entry in any status (1 ms)
+      ✓ should allow Bookkeeper to edit any entry in any status (1 ms)
+      ✓ should allow Employee to edit own pending_review entry (3 ms)
+      ✓ should throw ForbiddenException when Employee edits another user entry (2 ms)
+      ✓ should throw ForbiddenException when Employee edits own confirmed entry (1 ms)
+      ✓ should throw NotFoundException when entry does not exist (2 ms)
+      ✓ should set updated_by_user_id on update (1 ms)
+      ✓ should update supplier spend when supplier_id changes (1 ms)
+      ✓ should update BOTH old and new supplier spend on supplier change (2 ms)
+      ✓ should re-copy payment method type when payment_method_registry_id changes (2 ms)
+      ✓ should log audit with before/after data (1 ms)
+      ✓ should use enriched include in the update call (2 ms)
+    deleteEntry() — Role enforcement
+      ✓ should allow Owner to delete any entry (1 ms)
+      ✓ should allow Admin to delete any entry (1 ms)
+      ✓ should throw ForbiddenException for Manager (2 ms)
+      ✓ should throw ForbiddenException for Bookkeeper (2 ms)
+      ✓ should allow Employee to delete own pending_review entry (1 ms)
+      ✓ should throw ForbiddenException when Employee deletes own confirmed entry (2 ms)
+      ✓ should throw ForbiddenException when Employee deletes another user entry (1 ms)
+      ✓ should throw NotFoundException when entry does not exist (2 ms)
+      ✓ should call updateSupplierSpendTotals when deleted entry had supplier_id (1 ms)
+      ✓ should NOT call updateSupplierSpendTotals when deleted entry had no supplier_id (1 ms)
+      ✓ should log audit with before data on delete (1 ms)
+    getProjectCostSummary()
+      ✓ should aggregate costs by category type and return correct totals (2 ms)
+      ✓ should return zeroes when project has no entries (2 ms)
+    getTaskCostSummary()
+      ✓ should return total cost and entry count for a task (1 ms)
+      ✓ should return zero cost and zero count when task has no entries (2 ms)
+    approveEntry()
+      ✓ should set submission_status to confirmed when entry is pending_review (1 ms)
+      ✓ should NOT clear rejection fields — preserves audit trail (BR-23) (2 ms)
+      ✓ should throw BadRequestException when entry is already confirmed (BR-17) (2 ms)
+      ✓ should throw NotFoundException when entry does not exist (1 ms)
+      ✓ should log audit with EXPENSE_APPROVED workflow action (2 ms)
+      ✓ should use enriched include in the update call (1 ms)
+      ✓ should use fetchEntryOrFail with tenant_id scoping (2 ms)
+    rejectEntry()
+      ✓ should set rejection fields without changing submission_status (BR-19) (2 ms)
+      ✓ should throw BadRequestException when entry is already confirmed (BR-18) (1 ms)
+      ✓ should throw BadRequestException when rejection_reason is empty (defense-in-depth) (2 ms)
+      ✓ should throw NotFoundException when entry does not exist (2 ms)
+      ✓ should log audit with EXPENSE_REJECTED workflow action and rejection_reason (1 ms)
+      ✓ should use fetchEntryOrFail with tenant_id scoping (2 ms)
+    resubmitEntry()
+      ✓ should clear all three rejection fields (BR-21) (2 ms)
+      ✓ should keep submission_status as pending_review (BR-22) (2 ms)
+      ✓ should throw BadRequestException when entry was not rejected (BR-20) (1 ms)
+      ✓ should throw BadRequestException when entry is confirmed with historical rejection (2 ms)
+      ✓ should throw ForbiddenException when Employee tries to resubmit another user's entry (2 ms)
+      ✓ should allow Employee to resubmit their own entry (2 ms)
+      ✓ should allow privileged user to resubmit any entry (no ownership check) (1 ms)
+      ✓ should apply optional field updates when resubmitting (1 ms)
+      ✓ should validate tax vs amount on RESULTING state (1 ms)
+      ✓ should validate purchased_by mutual exclusion on RESULTING state (1 ms)
+      ✓ should update supplier spend when supplier changes (1 ms)
+      ✓ should log audit with EXPENSE_RESUBMITTED workflow action (1 ms)
+      ✓ should throw NotFoundException when entry does not exist (1 ms)
+    exportEntries()
+      ✓ should return CSV string with correct header row (1 ms)
+      ✓ should throw BadRequestException when result set exceeds 10,000 rows (BR-24) (1 ms)
+      ✓ should allow exactly 10,000 rows (boundary) (2 ms)
+      ✓ should format entry data correctly in CSV rows (2 ms)
+      ✓ should properly escape commas and quotes in CSV fields (1 ms)
+      ✓ should handle entries with null optional fields (1 ms)
+      ✓ should enforce Employee scoping in filter (1 ms)
+      ✓ should use select (not include) for efficiency (4 ms)
+      ✓ should order by entry_date desc (1 ms)
+      ✓ should NOT paginate — fetches all matching records (BR-25) (2 ms)
+      ✓ should apply query filters (same as getEntries) (1 ms)
+      ✓ should resolve purchased_by from crew_member when user is null (2 ms)
+      ✓ should include all required CSV columns (2 ms)
+    Tenant isolation
+      ✓ should always include tenant_id in getEntries where clause (2 ms)
+      ✓ should always include tenant_id in getEntryById where clause (1 ms)
+      ✓ should always include tenant_id in getPendingEntries where clause (1 ms)
+      ✓ should always include tenant_id in createEntry data (2 ms)
+      ✓ should not return entry when queried with different tenant_id (2 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       157 passed, 157 total
+Snapshots:   0 total
+Time:        1.509 s, estimated 2 s
+Ran all test suites matching src/modules/financial/services/financial-entry.service.spec.ts.
+./run_sprints.sh: line 158: BEFORE: command not found
+./run_sprints.sh: command substitution: line 160: syntax error near unexpected token `('
+./run_sprints.sh: command substitution: line 160: `  kill {PID} (if running)'
+./run_sprints.sh: line 142: /var/www/lead360.app/api/src/modules/financial/services/financial-entry.service.spec.ts: Permission denied
+./run_sprints.sh: line 142: SupplierService: command not found
+./run_sprints.sh: line 142: typescript: command not found
+./run_sprints.sh: line 143: const: command not found
+./run_sprints.sh: line 144: const: command not found
+./run_sprints.sh: line 145: const: command not found
+./run_sprints.sh: line 146: const: command not found
+./run_sprints.sh: line 147: const: command not found
+./run_sprints.sh: line 148: const: command not found
+./run_sprints.sh: line 149: const: command not found
+./run_sprints.sh: line 150: const: command not found
+./run_sprints.sh: line 151: const: command not found
+./run_sprints.sh: line 152: const: command not found
+./run_sprints.sh: line 154: const: command not found
+./run_sprints.sh: line 155: const: command not found
+./run_sprints.sh: line 156: const: command not found
+./run_sprints.sh: line 157: const: command not found
+./run_sprints.sh: line 158: const: command not found
+./run_sprints.sh: command substitution: line 160: syntax error near unexpected token `('
+./run_sprints.sh: command substitution: line 160: `const mockCategory = (overrides: any = {}) => ({'
+./run_sprints.sh: line 142: typescript: command not found
+./run_sprints.sh: line 143: const: command not found
+./run_sprints.sh: line 144: financial_entry:: command not found
+./run_sprints.sh: command substitution: line 145: syntax error near unexpected token `('
+./run_sprints.sh: command substitution: line 145: `    create: jest.fn(),'
+./run_sprints.sh: command substitution: line 143: syntax error: unexpected end of file
+./run_sprints.sh: command substitution: line 143: syntax error near unexpected token `'createEntry() — Role-based submission_status','
+./run_sprints.sh: command substitution: line 143: `describe('createEntry() — Role-based submission_status', () => {'
+./run_sprints.sh: command substitution: line 142: syntax error near unexpected token `TENANT_ID,'
+./run_sprints.sh: command substitution: line 142: `service.createEntry(TENANT_ID, USER_ID, [role], dto)'
+./run_sprints.sh: line 142: create: command not found
+./run_sprints.sh: line 142: submission_status: command not found
+./run_sprints.sh: command substitution: line 143: syntax error: unexpected end of file
+./run_sprints.sh: command substitution: line 143: syntax error near unexpected token `'createEntry() — Validation','
+./run_sprints.sh: command substitution: line 143: `describe('createEntry() — Validation', () => {'
+./run_sprints.sh: command substitution: line 143: syntax error: unexpected end of file
+./run_sprints.sh: command substitution: line 143: syntax error near unexpected token `'getEntries() — Employee scoping','
+./run_sprints.sh: command substitution: line 143: `describe('getEntries() — Employee scoping', () => {'
+./run_sprints.sh: command substitution: line 143: syntax error: unexpected end of file
+./run_sprints.sh: command substitution: line 143: syntax error near unexpected token `'getEntryById() — Role enforcement','
+./run_sprints.sh: command substitution: line 143: `describe('getEntryById() — Role enforcement', () => {'
+./run_sprints.sh: command substitution: line 143: syntax error: unexpected end of file
+./run_sprints.sh: command substitution: line 143: syntax error near unexpected token `'updateEntry() — Role enforcement','
+./run_sprints.sh: command substitution: line 143: `describe('updateEntry() — Role enforcement', () => {'
+./run_sprints.sh: command substitution: line 143: syntax error: unexpected end of file
+./run_sprints.sh: command substitution: line 143: syntax error near unexpected token `'deleteEntry() — Role enforcement','
+./run_sprints.sh: command substitution: line 143: `describe('deleteEntry() — Role enforcement', () => {'
+./run_sprints.sh: command substitution: line 143: syntax error near unexpected token `'approveEntry()','
+./run_sprints.sh: command substitution: line 143: `describe('approveEntry()', () => {'
+./run_sprints.sh: command substitution: line 143: syntax error near unexpected token `'exportEntries()','
+./run_sprints.sh: command substitution: line 143: `describe('exportEntries()', () => {'
+./run_sprints.sh: command substitution: line 143: syntax error near unexpected token `'Tenant isolation','
+./run_sprints.sh: command substitution: line 143: `describe('Tenant isolation', () => {'

@@ -62,6 +62,12 @@ export class PrismaService
     }
 
     // Models that require tenant_id filtering
+    // NOTE: These use PascalCase which does NOT match Prisma's runtime model names (snake_case).
+    // This means the middleware currently serves as documentation, not active enforcement.
+    // Active tenant_id enforcement happens at the service layer.
+    // DO NOT change to snake_case without first auditing every model — some entries
+    // (role, permission, role_permission, refresh_token) have NO tenant_id column,
+    // and others (audit_log, call_record) have NULLABLE tenant_id.
     const TENANT_SCOPED_MODELS = [
       // 'User' removed — Sprint 4: user is now a global identity table (no tenant_id)
       'TenantAddress',
@@ -106,6 +112,15 @@ export class PrismaService
       'CalendarProviderConnection',
       'CalendarExternalBlock',
       'CalendarSyncLog',
+      // Financial Module Models
+      'FinancialCategory',
+      'FinancialEntry',
+      // Supplier Registry Models (Sprint F-02)
+      'SupplierCategory',
+      'SupplierCategoryAssignment',
+      'Supplier',
+      'SupplierProduct',
+      'SupplierProductPriceHistory',
     ];
 
     // Models exempt from tenant_id check (admin/system tables)

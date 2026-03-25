@@ -78,13 +78,13 @@ BEFORE marking the sprint COMPLETE:
 
 **What:** Read these files completely before writing any code:
 
-1. `/var/www/lead360.app/api/src/modules/quotes/services/vendor.service.ts` — especially the `setDefault()` method (around lines 379–408) and the create method's default handling (around lines 84–89)
+1. `/var/www/lead360.app/api/src/modules/quotes/services/vendor.service.ts` — especially the `setDefault()` method (around lines 379–408) and the create method's default handling (around lines 84–89). **Note:** The vendor service uses separate `updateMany` + `update` queries WITHOUT a `$transaction` wrapper. This sprint IMPROVES on that pattern by wrapping in `$transaction()` for atomicity, as required by the F-03 contract. Follow the explicit code in Tasks 3 and 8 below, not the vendor's non-transactional approach.
 2. `/var/www/lead360.app/api/src/modules/financial/services/financial-category.service.ts` — for list pattern and soft-delete
 3. `/var/www/lead360.app/api/src/modules/financial/services/crew-payment.service.ts` — for service constructor pattern
 
-**Why:** The service must follow established patterns exactly.
+**Why:** The service must follow established patterns for constructor, audit logging, and query structure. For `is_default` handling specifically, this sprint uses `$transaction()` (unlike the vendor service) to guarantee atomicity.
 
-**Do NOT:** Skip reading these files. The `setDefault()` pattern from vendor.service.ts is the reference implementation.
+**Do NOT:** Skip reading these files. Understand the vendor's `setDefault()` concept, but follow the transactional code specified in Tasks 3 and 8 below.
 
 ---
 
@@ -618,7 +618,7 @@ await this.auditLogger.logTenantChange({
 });
 ```
 
-### Default Atomicity Pattern (from `vendor.service.ts`)
+### Default Atomicity Pattern (improved over `vendor.service.ts` — adds `$transaction`)
 
 ```typescript
 await this.prisma.$transaction(async (tx) => {

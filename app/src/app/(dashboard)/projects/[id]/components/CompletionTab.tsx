@@ -71,7 +71,8 @@ export default function CompletionTab({ projectId }: CompletionTabProps) {
       setNotStarted(false);
     } catch (err: unknown) {
       const error = err as { status?: number };
-      if (error.status === 404) {
+      if (error.status === 404 || error.status === 400) {
+        // Expected — no checklist started yet
         setNotStarted(true);
       } else {
         toast.error('Failed to load completion checklist');

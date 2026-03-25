@@ -638,6 +638,64 @@ export class VariableRegistryService {
       example: 'https://app.lead360.com/activate?token=xyz789',
       required: false,
     },
+
+    // ==================== PORTAL/CUSTOMER VARIABLES ====================
+    customer_name: {
+      name: 'customer_name',
+      type: VariableDataType.STRING,
+      category: VariableCategory.PORTAL,
+      description: 'Customer full name (from lead record)',
+      example: 'John Smith',
+      required: false,
+    },
+    customer_email: {
+      name: 'customer_email',
+      type: VariableDataType.EMAIL,
+      category: VariableCategory.PORTAL,
+      description: 'Customer portal login email address',
+      example: 'john.smith@example.com',
+      required: false,
+    },
+    customer_slug: {
+      name: 'customer_slug',
+      type: VariableDataType.STRING,
+      category: VariableCategory.PORTAL,
+      description: 'URL-safe customer identifier used in portal URLs',
+      example: 'john-smith',
+      required: false,
+    },
+    portal_url: {
+      name: 'portal_url',
+      type: VariableDataType.URL,
+      category: VariableCategory.PORTAL,
+      description: 'Direct link to the customer portal projects page',
+      example: 'https://acme.lead360.app/public/john-smith/projects/',
+      required: false,
+    },
+    portal_login_url: {
+      name: 'portal_login_url',
+      type: VariableDataType.URL,
+      category: VariableCategory.PORTAL,
+      description: 'Portal login page URL for the tenant',
+      example: 'https://acme.lead360.app/public/login',
+      required: false,
+    },
+    temporary_password: {
+      name: 'temporary_password',
+      type: VariableDataType.STRING,
+      category: VariableCategory.PORTAL,
+      description: 'Auto-generated temporary password (must be changed on first login)',
+      example: 'Tmp!x9Kz4mQw',
+      required: false,
+    },
+    portal_reset_link: {
+      name: 'portal_reset_link',
+      type: VariableDataType.URL,
+      category: VariableCategory.PORTAL,
+      description: 'Portal password reset URL with embedded token (expires in 1 hour)',
+      example: 'https://acme.lead360.app/public/reset-password?token=abc123def456',
+      required: false,
+    },
   };
 
   /**

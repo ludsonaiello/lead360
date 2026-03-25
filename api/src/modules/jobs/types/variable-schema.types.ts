@@ -9,6 +9,7 @@ export enum VariableCategory {
   SUBSCRIPTION = 'subscription',
   BILLING = 'billing',
   SYSTEM = 'system',
+  PORTAL = 'portal',
   CUSTOM = 'custom',
 }
 

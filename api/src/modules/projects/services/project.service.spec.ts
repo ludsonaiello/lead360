@@ -12,6 +12,7 @@ import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { FinancialEntryService } from '../../financial/services/financial-entry.service';
 import { PortalAuthService } from '../../portal/services/portal-auth.service';
+import { DrawMilestoneService } from '../../financial/services/draw-milestone.service';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -201,6 +202,15 @@ const mockPortalAuthService = {
   createForLead: jest.fn().mockResolvedValue(null),
 };
 
+const mockDrawMilestoneService = {
+  seedFromQuote: jest.fn().mockResolvedValue(undefined),
+  findByProject: jest.fn(),
+  create: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
+  generateInvoice: jest.fn(),
+};
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -230,6 +240,10 @@ describe('ProjectService', () => {
         {
           provide: PortalAuthService,
           useValue: mockPortalAuthService,
+        },
+        {
+          provide: DrawMilestoneService,
+          useValue: mockDrawMilestoneService,
         },
       ],
     }).compile();

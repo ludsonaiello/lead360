@@ -11,7 +11,19 @@ export enum FinancialCategoryType {
   MATERIAL = 'material',
   SUBCONTRACTOR = 'subcontractor',
   EQUIPMENT = 'equipment',
+  INSURANCE = 'insurance',
+  FUEL = 'fuel',
+  UTILITIES = 'utilities',
+  OFFICE = 'office',
+  MARKETING = 'marketing',
+  TAXES = 'taxes',
+  TOOLS = 'tools',
   OTHER = 'other',
+}
+
+export enum FinancialCategoryClassification {
+  COST_OF_GOODS_SOLD = 'cost_of_goods_sold',
+  OPERATING_EXPENSE = 'operating_expense',
 }
 
 export class CreateFinancialCategoryDto {
@@ -31,6 +43,16 @@ export class CreateFinancialCategoryDto {
   })
   @IsEnum(FinancialCategoryType)
   type: FinancialCategoryType;
+
+  @ApiPropertyOptional({
+    description: 'Category classification for P&L reporting. Defaults to cost_of_goods_sold if omitted.',
+    enum: FinancialCategoryClassification,
+    example: FinancialCategoryClassification.COST_OF_GOODS_SOLD,
+    default: FinancialCategoryClassification.COST_OF_GOODS_SOLD,
+  })
+  @IsOptional()
+  @IsEnum(FinancialCategoryClassification)
+  classification?: FinancialCategoryClassification;
 
   @ApiPropertyOptional({
     description: 'Category description',

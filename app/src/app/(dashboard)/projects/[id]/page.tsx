@@ -24,6 +24,8 @@ import ProjectOverviewTab from './components/ProjectOverviewTab';
 import TasksTab from './components/TasksTab';
 import LogsTab from './components/LogsTab';
 import PhotosTab from './components/PhotosTab';
+import DocumentsTab from './components/DocumentsTab';
+import PermitsTab from './components/PermitsTab';
 import CompletionTab from './components/CompletionTab';
 import FinancialTab from './components/financial/FinancialTab';
 import EditProjectModal from './components/EditProjectModal';
@@ -134,20 +136,9 @@ export default function ProjectDetailPage() {
       case 'financial':
         return <FinancialTab projectId={projectId} />;
       case 'documents':
+        return <DocumentsTab projectId={projectId} />;
       case 'permits':
-        return (
-          <Card className="p-12 text-center mt-6">
-            <div className="mx-auto w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
-              <ClipboardList className="w-8 h-8 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400">
-              This tab will be available in a future sprint.
-            </p>
-          </Card>
-        );
+        return <PermitsTab projectId={projectId} />;
       default:
         return null;
     }

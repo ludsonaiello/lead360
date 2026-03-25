@@ -14,6 +14,7 @@ describe('TaskFinancialService', () => {
   const PROJECT_ID = 'project-uuid';
   const TASK_ID = 'task-uuid';
   const CATEGORY_ID = 'category-uuid';
+  const USER_ROLES = ['Owner'];
 
   const mockPrisma = {
     project: {
@@ -96,6 +97,7 @@ describe('TaskFinancialService', () => {
       const result = await service.createTaskCostEntry(
         TENANT_A,
         USER_ID,
+        USER_ROLES,
         PROJECT_ID,
         TASK_ID,
         dto,
@@ -105,15 +107,16 @@ describe('TaskFinancialService', () => {
       expect(mockFinancialEntryService.createEntry).toHaveBeenCalledWith(
         TENANT_A,
         USER_ID,
+        USER_ROLES,
         {
           project_id: PROJECT_ID,
           task_id: TASK_ID,
           category_id: CATEGORY_ID,
+          entry_type: 'expense',
           amount: 450.0,
           entry_date: '2026-03-10',
           vendor_name: 'Home Depot',
-          crew_member_id: undefined,
-          subcontractor_id: undefined,
+          purchased_by_crew_member_id: undefined,
           notes: 'Lumber for framing',
         },
       );
@@ -123,10 +126,10 @@ describe('TaskFinancialService', () => {
       mockPrisma.project.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.createTaskCostEntry(TENANT_A, USER_ID, PROJECT_ID, TASK_ID, dto),
+        service.createTaskCostEntry(TENANT_A, USER_ID, USER_ROLES, PROJECT_ID, TASK_ID, dto),
       ).rejects.toThrow(NotFoundException);
       await expect(
-        service.createTaskCostEntry(TENANT_A, USER_ID, PROJECT_ID, TASK_ID, dto),
+        service.createTaskCostEntry(TENANT_A, USER_ID, USER_ROLES, PROJECT_ID, TASK_ID, dto),
       ).rejects.toThrow('Project not found');
     });
 
@@ -138,10 +141,10 @@ describe('TaskFinancialService', () => {
       mockPrisma.project_task.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.createTaskCostEntry(TENANT_A, USER_ID, PROJECT_ID, TASK_ID, dto),
+        service.createTaskCostEntry(TENANT_A, USER_ID, USER_ROLES, PROJECT_ID, TASK_ID, dto),
       ).rejects.toThrow(NotFoundException);
       await expect(
-        service.createTaskCostEntry(TENANT_A, USER_ID, PROJECT_ID, TASK_ID, dto),
+        service.createTaskCostEntry(TENANT_A, USER_ID, USER_ROLES, PROJECT_ID, TASK_ID, dto),
       ).rejects.toThrow('Task not found in this project');
     });
   });
@@ -303,7 +306,7 @@ describe('TaskFinancialService', () => {
       mockPrisma.project.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.createTaskCostEntry(TENANT_B, USER_ID, PROJECT_ID, TASK_ID, dto),
+        service.createTaskCostEntry(TENANT_B, USER_ID, USER_ROLES, PROJECT_ID, TASK_ID, dto),
       ).rejects.toThrow(NotFoundException);
 
       // Verify the query included tenant_id filter

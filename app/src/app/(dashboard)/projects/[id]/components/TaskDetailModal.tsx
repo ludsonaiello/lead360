@@ -787,7 +787,7 @@ function CalendarSection({
     setLoading(true);
     try {
       const data = await getTaskCalendarEvents(projectId, task.id);
-      setEvents(data);
+      setEvents(Array.isArray(data) ? data : []);
     } catch {
       toast.error('Failed to load calendar events');
     } finally {

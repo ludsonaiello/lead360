@@ -26,21 +26,22 @@ export class TaskFinancialService {
   async createTaskCostEntry(
     tenantId: string,
     userId: string,
+    userRoles: string[],
     projectId: string,
     taskId: string,
     dto: CreateTaskCostEntryDto,
   ) {
     await this.validateTaskBelongsToProject(tenantId, projectId, taskId);
 
-    return this.financialEntryService.createEntry(tenantId, userId, {
+    return this.financialEntryService.createEntry(tenantId, userId, userRoles, {
       project_id: projectId,
       task_id: taskId,
       category_id: dto.category_id,
+      entry_type: 'expense',
       amount: dto.amount,
       entry_date: dto.entry_date,
       vendor_name: dto.vendor_name,
-      crew_member_id: dto.crew_member_id,
-      subcontractor_id: dto.subcontractor_id,
+      purchased_by_crew_member_id: dto.crew_member_id,
       notes: dto.notes,
     });
   }

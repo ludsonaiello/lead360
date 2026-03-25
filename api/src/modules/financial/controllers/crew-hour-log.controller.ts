@@ -55,7 +55,7 @@ export class CrewHourLogController {
   }
 
   @Patch('crew-hours/:id')
-  @Roles('Owner', 'Admin')
+  @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({ summary: 'Update a crew hour log entry' })
   @ApiParam({ name: 'id', description: 'Hour log UUID' })
   @ApiResponse({ status: 200, description: 'Hour log updated' })

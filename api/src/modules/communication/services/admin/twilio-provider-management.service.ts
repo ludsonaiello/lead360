@@ -858,15 +858,30 @@ export class TwilioProviderManagementService {
     this.logger.log(`Deallocating phone number ${sid} from tenant`);
 
     try {
+      // Resolve SID to actual phone number via Twilio API
+      const systemProvider = await this.loadSystemProvider();
+      if (!systemProvider) {
+        throw new BadRequestException(
+          'System Twilio provider not configured - cannot resolve phone number',
+        );
+      }
+      const client = twilio(
+        systemProvider.account_sid,
+        systemProvider.auth_token,
+      );
+      const phoneNumberDetails = await client.incomingPhoneNumbers(sid).fetch();
+      const phoneNumber = phoneNumberDetails.phoneNumber;
+      this.logger.debug(`Resolved SID ${sid} to phone number ${phoneNumber}`);
+
       // Find configurations using this phone number
       const smsConfigs = await this.prisma.tenant_sms_config.findMany({
-        where: { from_phone: { contains: sid } },
+        where: { from_phone: phoneNumber },
         include: { tenant: true },
       });
 
       const whatsappConfigs = await this.prisma.tenant_whatsapp_config.findMany(
         {
-          where: { from_phone: { contains: sid } },
+          where: { from_phone: phoneNumber },
           include: { tenant: true },
         },
       );
@@ -884,10 +899,10 @@ export class TwilioProviderManagementService {
         // Delete configurations
         await this.prisma.$transaction([
           this.prisma.tenant_sms_config.deleteMany({
-            where: { from_phone: { contains: sid } },
+            where: { from_phone: phoneNumber },
           }),
           this.prisma.tenant_whatsapp_config.deleteMany({
-            where: { from_phone: { contains: sid } },
+            where: { from_phone: phoneNumber },
           }),
         ]);
 
@@ -897,11 +912,11 @@ export class TwilioProviderManagementService {
         // Just mark as inactive
         await this.prisma.$transaction([
           this.prisma.tenant_sms_config.updateMany({
-            where: { from_phone: { contains: sid } },
+            where: { from_phone: phoneNumber },
             data: { is_active: false },
           }),
           this.prisma.tenant_whatsapp_config.updateMany({
-            where: { from_phone: { contains: sid } },
+            where: { from_phone: phoneNumber },
             data: { is_active: false },
           }),
         ]);

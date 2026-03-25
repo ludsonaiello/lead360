@@ -15,6 +15,7 @@ import { CreateProjectDto } from '../dto/create-project.dto';
 import { CreateProjectFromQuoteDto } from '../dto/create-project-from-quote.dto';
 import { UpdateProjectDto } from '../dto/update-project.dto';
 import { PortalAuthService } from '../../portal/services/portal-auth.service';
+import { DrawMilestoneService } from '../../financial/services/draw-milestone.service';
 
 interface ListProjectsQuery {
   page?: number;
@@ -22,6 +23,7 @@ interface ListProjectsQuery {
   status?: string;
   assigned_pm_user_id?: string;
   search?: string;
+  quote_id?: string;
 }
 
 /**
@@ -53,6 +55,7 @@ export class ProjectService {
     private readonly projectTemplateService: ProjectTemplateService,
     private readonly projectActivityService: ProjectActivityService,
     private readonly portalAuthService: PortalAuthService,
+    private readonly drawMilestoneService: DrawMilestoneService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -204,10 +207,19 @@ export class ProjectService {
         }
       }
 
+      // g. Seed draw milestones from quote draw schedule (Sprint F-08)
+      await this.drawMilestoneService.seedFromQuote(
+        tenantId,
+        newProject.id,
+        quoteId,
+        userId,
+        tx,
+      );
+
       return newProject;
     });
 
-    // g. Audit log (outside transaction for non-blocking behavior)
+    // h. Audit log (outside transaction for non-blocking behavior)
     await this.auditLogger.logTenantChange({
       action: 'created',
       entityType: 'project',
@@ -218,7 +230,7 @@ export class ProjectService {
       description: `Created project ${project.project_number} from quote ${quoteId}`,
     });
 
-    // h. Create portal account for the lead (Sprint 31)
+    // i. Create portal account for the lead (Sprint 31)
     // Only for quote-based projects with a lead. Standalone projects are never eligible.
     if (quote.lead_id) {
       try {
@@ -358,6 +370,10 @@ export class ProjectService {
         { name: { contains: query.search } },
         { project_number: { contains: query.search } },
       ];
+    }
+
+    if (query.quote_id) {
+      where.quote_id = query.quote_id;
     }
 
     const [projects, total] = await Promise.all([

@@ -55,7 +55,7 @@ export class FinancialCategoryController {
   }
 
   @Patch(':id')
-  @Roles('Owner', 'Admin')
+  @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({ summary: 'Update a financial category (type cannot be changed)' })
   @ApiParam({ name: 'id', description: 'Category UUID' })
   @ApiResponse({ status: 200, description: 'Category updated' })
@@ -74,7 +74,7 @@ export class FinancialCategoryController {
   }
 
   @Delete(':id')
-  @Roles('Owner', 'Admin')
+  @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({ summary: 'Deactivate a financial category (system defaults cannot be deactivated)' })
   @ApiParam({ name: 'id', description: 'Category UUID' })
   @ApiResponse({ status: 200, description: 'Category deactivated' })

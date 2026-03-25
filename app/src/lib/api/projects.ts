@@ -14,6 +14,7 @@ import type {
   ProjectFinancialSummary,
   ProjectGanttData,
   CreateProjectDto,
+  CreateProjectFromQuoteDto,
   UpdateProjectDto,
   ProjectTask,
   ListTasksParams,
@@ -44,6 +45,15 @@ import type {
   ChecklistTemplate,
   CreateChecklistTemplateDto,
   UpdateChecklistTemplateDto,
+  ProjectDocument,
+  DocumentType,
+  Permit,
+  PermitStatus,
+  CreatePermitDto,
+  UpdatePermitDto,
+  Inspection,
+  CreateInspectionDto,
+  UpdateInspectionDto,
 } from '@/lib/types/projects';
 
 // ========== DASHBOARD ==========
@@ -94,6 +104,25 @@ export const createProject = async (dto: CreateProjectDto): Promise<Project> => 
 };
 
 /**
+ * Create project from an accepted quote
+ * @endpoint POST /projects/from-quote/:quoteId
+ * @roles Owner, Admin, Manager
+ * @param quoteId - UUID of the quote to convert
+ * @param dto - Optional overrides (name, dates, PM, template)
+ * @returns Created project with tasks seeded from quote items
+ * @throws 400 - Quote status is not approved/started/concluded
+ * @throws 404 - Quote not found
+ * @throws 409 - A project already exists for this quote
+ */
+export const createProjectFromQuote = async (
+  quoteId: string,
+  dto?: CreateProjectFromQuoteDto,
+): Promise<Project> => {
+  const { data } = await apiClient.post<Project>(`/projects/from-quote/${quoteId}`, dto || {});
+  return data;
+};
+
+/**
  * List projects (paginated)
  * @endpoint GET /projects
  * @roles Owner, Admin, Manager, Field
@@ -105,6 +134,7 @@ export const getProjects = async (params?: ListProjectsParams): Promise<ListProj
   if (params?.status) queryParams.status = params.status;
   if (params?.assigned_pm_user_id) queryParams.assigned_pm_user_id = params.assigned_pm_user_id;
   if (params?.search) queryParams.search = params.search;
+  if (params?.quote_id) queryParams.quote_id = params.quote_id;
 
   const { data } = await apiClient.get<ListProjectsResponse>('/projects', { params: queryParams });
   return data;
@@ -137,6 +167,21 @@ export const updateProject = async (id: string, dto: UpdateProjectDto): Promise<
  */
 export const deleteProject = async (id: string): Promise<{ message: string }> => {
   const { data } = await apiClient.delete<{ message: string }>(`/projects/${id}`);
+  return data;
+};
+
+/**
+ * List active project templates (for dropdown selection)
+ * @endpoint GET /project-templates
+ * @roles Owner, Admin, Manager
+ */
+export const getProjectTemplates = async (): Promise<{
+  data: Array<{ id: string; name: string; description: string | null; is_active: boolean }>;
+  meta: { total: number; page: number; limit: number; totalPages: number };
+}> => {
+  const { data } = await apiClient.get('/project-templates', {
+    params: { is_active: true, limit: 100 },
+  });
   return data;
 };
 
@@ -173,6 +218,211 @@ export const getProjectGanttData = async (id: string): Promise<ProjectGanttData>
  */
 export const getChangeOrdersRedirect = async (id: string): Promise<{ redirect_url: string }> => {
   const { data } = await apiClient.get<{ redirect_url: string }>(`/projects/${id}/change-orders-redirect`);
+  return data;
+};
+
+// ========== PROJECT DOCUMENTS ==========
+
+/**
+ * List documents for a project, optionally filtered by type
+ * @endpoint GET /projects/:projectId/documents
+ * @roles Owner, Admin, Manager
+ */
+export const getProjectDocuments = async (
+  projectId: string,
+  params?: { document_type?: DocumentType },
+): Promise<ProjectDocument[]> => {
+  const queryParams: Record<string, string> = {};
+  if (params?.document_type) queryParams.document_type = params.document_type;
+
+  const { data } = await apiClient.get<ProjectDocument[]>(
+    `/projects/${projectId}/documents`,
+    { params: queryParams },
+  );
+  return data;
+};
+
+/**
+ * Upload a document to a project (multipart/form-data)
+ * @endpoint POST /projects/:projectId/documents
+ * @roles Owner, Admin, Manager
+ */
+export const uploadProjectDocument = async (
+  projectId: string,
+  formData: FormData,
+): Promise<ProjectDocument> => {
+  const { data } = await apiClient.post<ProjectDocument>(
+    `/projects/${projectId}/documents`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return data;
+};
+
+/**
+ * Delete a document from a project
+ * @endpoint DELETE /projects/:projectId/documents/:id
+ * @roles Owner, Admin
+ */
+export const deleteProjectDocument = async (
+  projectId: string,
+  documentId: string,
+): Promise<{ message: string }> => {
+  const { data } = await apiClient.delete<{ message: string }>(
+    `/projects/${projectId}/documents/${documentId}`,
+  );
+  return data;
+};
+
+// ========== PERMITS ==========
+
+/**
+ * List permits for a project
+ * @endpoint GET /projects/:projectId/permits
+ * @roles Owner, Admin, Manager
+ */
+export const getProjectPermits = async (
+  projectId: string,
+  params?: { status?: PermitStatus },
+): Promise<Permit[]> => {
+  const queryParams: Record<string, string> = {};
+  if (params?.status) queryParams.status = params.status;
+
+  const { data } = await apiClient.get<Permit[]>(
+    `/projects/${projectId}/permits`,
+    { params: queryParams },
+  );
+  return data;
+};
+
+/**
+ * Get a single permit by ID
+ * @endpoint GET /projects/:projectId/permits/:id
+ * @roles Owner, Admin, Manager
+ */
+export const getProjectPermitById = async (
+  projectId: string,
+  permitId: string,
+): Promise<Permit> => {
+  const { data } = await apiClient.get<Permit>(
+    `/projects/${projectId}/permits/${permitId}`,
+  );
+  return data;
+};
+
+/**
+ * Create a permit for a project
+ * @endpoint POST /projects/:projectId/permits
+ * @roles Owner, Admin, Manager
+ */
+export const createProjectPermit = async (
+  projectId: string,
+  dto: CreatePermitDto,
+): Promise<Permit> => {
+  const { data } = await apiClient.post<Permit>(
+    `/projects/${projectId}/permits`,
+    dto,
+  );
+  return data;
+};
+
+/**
+ * Update a permit
+ * @endpoint PATCH /projects/:projectId/permits/:id
+ * @roles Owner, Admin, Manager
+ */
+export const updateProjectPermit = async (
+  projectId: string,
+  permitId: string,
+  dto: UpdatePermitDto,
+): Promise<Permit> => {
+  const { data } = await apiClient.patch<Permit>(
+    `/projects/${projectId}/permits/${permitId}`,
+    dto,
+  );
+  return data;
+};
+
+/**
+ * Delete a permit (hard delete)
+ * @endpoint DELETE /projects/:projectId/permits/:id
+ * @roles Owner, Admin
+ */
+export const deleteProjectPermit = async (
+  projectId: string,
+  permitId: string,
+): Promise<{ message: string }> => {
+  const { data } = await apiClient.delete<{ message: string }>(
+    `/projects/${projectId}/permits/${permitId}`,
+  );
+  return data;
+};
+
+// ========== INSPECTIONS ==========
+
+/**
+ * List inspections for a permit
+ * @endpoint GET /projects/:projectId/permits/:permitId/inspections
+ * @roles Owner, Admin, Manager
+ */
+export const getPermitInspections = async (
+  projectId: string,
+  permitId: string,
+): Promise<Inspection[]> => {
+  const { data } = await apiClient.get<Inspection[]>(
+    `/projects/${projectId}/permits/${permitId}/inspections`,
+  );
+  return data;
+};
+
+/**
+ * Create an inspection for a permit
+ * @endpoint POST /projects/:projectId/permits/:permitId/inspections
+ * @roles Owner, Admin, Manager
+ */
+export const createPermitInspection = async (
+  projectId: string,
+  permitId: string,
+  dto: CreateInspectionDto,
+): Promise<Inspection> => {
+  const { data } = await apiClient.post<Inspection>(
+    `/projects/${projectId}/permits/${permitId}/inspections`,
+    dto,
+  );
+  return data;
+};
+
+/**
+ * Update an inspection
+ * @endpoint PATCH /projects/:projectId/permits/:permitId/inspections/:id
+ * @roles Owner, Admin, Manager
+ */
+export const updatePermitInspection = async (
+  projectId: string,
+  permitId: string,
+  inspectionId: string,
+  dto: UpdateInspectionDto,
+): Promise<Inspection> => {
+  const { data } = await apiClient.patch<Inspection>(
+    `/projects/${projectId}/permits/${permitId}/inspections/${inspectionId}`,
+    dto,
+  );
+  return data;
+};
+
+/**
+ * Delete an inspection (hard delete)
+ * @endpoint DELETE /projects/:projectId/permits/:permitId/inspections/:id
+ * @roles Owner, Admin
+ */
+export const deletePermitInspection = async (
+  projectId: string,
+  permitId: string,
+  inspectionId: string,
+): Promise<{ message: string }> => {
+  const { data } = await apiClient.delete<{ message: string }>(
+    `/projects/${projectId}/permits/${permitId}/inspections/${inspectionId}`,
+  );
   return data;
 };
 

@@ -92,16 +92,15 @@ BEFORE marking the sprint COMPLETE:
   description: 'Supplier UUID — links this expense to a registered supplier',
   example: '550e8400-e29b-41d4-a716-446655440000',
 })
-@IsString()
 @IsOptional()
-@IsUUID('4')
+@IsString()
+@IsUUID()
 supplier_id?: string;
 ```
 
-**Required imports to add** (if not already present):
-```typescript
-import { IsUUID } from 'class-validator';
-```
+**IMPORTANT:** The existing file uses `@IsUUID()` without a version argument and puts `@IsOptional()` before `@IsString()`. Match this convention exactly. Do NOT use `@IsUUID('4')` — the existing fields in this file use `@IsUUID()`.
+
+**Required imports:** `IsUUID` is already imported in this file (used by `project_id`, `task_id`, etc.). No new import needed.
 
 **Do NOT:** Remove or modify any existing fields. Only add the new field.
 
@@ -111,7 +110,7 @@ import { IsUUID } from 'class-validator';
 
 **File:** `api/src/modules/financial/dto/update-financial-entry.dto.ts`
 
-**Check if this DTO extends `PartialType(CreateFinancialEntryDto)`.** If yes, `supplier_id` is automatically inherited and nothing needs to change.
+**Check if this DTO extends `PartialType(CreateFinancialEntryDto)`.** The real file uses `PartialType(OmitType(CreateFinancialEntryDto, ['project_id'] as const))`. Since `supplier_id` is NOT in the OmitType list, it is automatically inherited as an optional field. **No changes needed to this file.**
 
 **If the DTO defines fields manually** (not using PartialType), add the same field:
 
@@ -120,9 +119,9 @@ import { IsUUID } from 'class-validator';
   description: 'Supplier UUID — links this expense to a registered supplier',
   example: '550e8400-e29b-41d4-a716-446655440000',
 })
-@IsString()
 @IsOptional()
-@IsUUID('4')
+@IsString()
+@IsUUID()
 supplier_id?: string;
 ```
 
@@ -348,8 +347,9 @@ supplier: {
 
 ## Handoff Notes
 
-**For Sprint 2.8 (Verification Gate + API Documentation):**
+**For Sprint 2.8 (Unit + Integration Tests):**
 - All supplier endpoints are now fully functional
 - Financial entry integration is wired — creating entries with supplier_id updates supplier spend
-- The complete feature is ready for end-to-end verification
-- API documentation must cover all 16 supplier endpoints + the updated financial entry endpoints
+- All 3 services (SupplierCategoryService, SupplierService, SupplierProductService) are ready for unit testing
+- Existing test files in `api/src/modules/financial/services/*.spec.ts` provide the pattern to follow
+- Tests must cover: service methods, tenant isolation, RBAC, Google Places mocking, price history auto-creation

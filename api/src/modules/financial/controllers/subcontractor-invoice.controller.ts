@@ -72,7 +72,7 @@ export class SubcontractorInvoiceController {
   }
 
   @Patch('subcontractor-invoices/:id')
-  @Roles('Owner', 'Admin', 'Bookkeeper')
+  @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
   @ApiOperation({ summary: 'Update a subcontractor invoice (status, amount, notes)' })
   @ApiParam({ name: 'id', description: 'Invoice UUID' })
   @ApiResponse({ status: 200, description: 'Invoice updated' })

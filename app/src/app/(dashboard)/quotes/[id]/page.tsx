@@ -55,6 +55,8 @@ import {
   isQuoteNearExpiration,
   isQuoteExpired,
 } from '@/lib/api/quotes';
+import { getProjects } from '@/lib/api/projects';
+import CreateProjectFromQuoteModal from '@/components/quotes/CreateProjectFromQuoteModal';
 import {
   getQuoteItems,
   deleteQuoteItem,
@@ -104,6 +106,7 @@ import {
   Library,
   Package,
   Folder,
+  FolderPlus,
   Shield,
   History,
   FileEdit,
@@ -195,6 +198,10 @@ export default function QuoteDetailPage() {
   // Approval thresholds state
   const [approvalThresholds, setApprovalThresholds] = useState<any>(null);
   const [approvalThresholdsLoading, setApprovalThresholdsLoading] = useState(false);
+
+  // Sprint 41d: Create Project from Quote
+  const [linkedProject, setLinkedProject] = useState<{ id: string; project_number: string; name: string } | null>(null);
+  const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
 
   // Skip approval modal
   const [skipApprovalModalOpen, setSkipApprovalModalOpen] = useState(false);
@@ -341,6 +348,27 @@ export default function QuoteDetailPage() {
       loadPublicAccessStatus();
       loadProfitabilityAnalysis();
     }
+  }, [quote?.id]);
+
+  // Sprint 41d: Detect if a project already exists for this quote
+  useEffect(() => {
+    if (!quote?.id) {
+      setLinkedProject(null);
+      return;
+    }
+    getProjects({ quote_id: quote.id, limit: 1 })
+      .then((res) => {
+        if (res.data && res.data.length > 0) {
+          setLinkedProject({
+            id: res.data[0].id,
+            project_number: res.data[0].project_number,
+            name: res.data[0].name,
+          });
+        } else {
+          setLinkedProject(null);
+        }
+      })
+      .catch(() => setLinkedProject(null));
   }, [quote?.id]);
 
   const loadQuote = async () => {
@@ -502,6 +530,12 @@ export default function QuoteDetailPage() {
     } catch (err: any) {
       showError(err.message || 'Failed to clone quote');
     }
+  };
+
+  // Sprint 41d: Handle project created from quote
+  const handleProjectCreated = (projectId: string) => {
+    setShowCreateProjectModal(false);
+    router.push(`/projects/${projectId}`);
   };
 
   const handleDelete = async () => {
@@ -850,6 +884,12 @@ export default function QuoteDetailPage() {
   const expired = isQuoteExpired(quote.expires_at);
   const editable = isQuoteEditable();
 
+  // Sprint 41d: Project creation visibility rules
+  const hasLinkedProject = !!linkedProject;
+  const PROJECT_ELIGIBLE_STATUSES = ['approved', 'started', 'concluded'];
+  const showCreateProjectButton = PROJECT_ELIGIBLE_STATUSES.includes(quote.status) && !hasLinkedProject;
+  const showViewProjectLink = hasLinkedProject;
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Header */}
@@ -869,6 +909,14 @@ export default function QuoteDetailPage() {
               </h1>
               <div className="flex items-center gap-2">
                 <QuoteStatusBadge status={quote.status} className="w-fit" />
+
+                {/* Sprint 41d: Project Created Badge */}
+                {hasLinkedProject && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded text-xs font-medium">
+                    <Folder className="w-3 h-3" />
+                    Project Created
+                  </span>
+                )}
 
                 {/* Status Update Dropdown - Show if there are available transitions */}
                 {getAvailableStatusTransitions().length > 0 && (
@@ -952,6 +1000,26 @@ export default function QuoteDetailPage() {
           <Trash2 className="w-4 h-4" />
           Delete
         </Button>
+
+        {/* Sprint 41d: Create Project / View Project buttons */}
+        {showCreateProjectButton && (
+          <Button
+            variant="secondary"
+            onClick={() => setShowCreateProjectModal(true)}
+          >
+            <FolderPlus className="w-4 h-4" />
+            Create Project
+          </Button>
+        )}
+
+        {showViewProjectLink && linkedProject && (
+          <Link href={`/projects/${linkedProject.id}`}>
+            <Button variant="secondary">
+              <Folder className="w-4 h-4" />
+              View Project
+            </Button>
+          </Link>
+        )}
 
         {/* Sprint 5: PDF Actions - Only show if ready, sent, or approved */}
         {(quote.status === 'ready' || quote.status === 'approved' || quote.status === 'sent' || quote.status === 'delivered' || quote.status === 'read' || quote.status === 'opened' || quote.status === 'downloaded' || quote.status === 'started' || quote.status === 'concluded') && (
@@ -2171,6 +2239,19 @@ export default function QuoteDetailPage() {
           isOpen={showAnalyticsModal}
           onClose={() => setShowAnalyticsModal(false)}
           quoteId={quote.id}
+        />
+      )}
+
+      {/* Sprint 41d: Create Project from Quote Modal */}
+      {quote && (
+        <CreateProjectFromQuoteModal
+          isOpen={showCreateProjectModal}
+          onClose={() => setShowCreateProjectModal(false)}
+          onSuccess={handleProjectCreated}
+          quoteId={quote.id}
+          quoteName={quote.title}
+          quoteTotal={quote.total}
+          quoteNumber={quote.quote_number}
         />
       )}
     </div>

@@ -7,16 +7,17 @@ import {
   Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ListFinancialEntriesDto {
-  @ApiProperty({
-    description: 'Project ID (required)',
+  @ApiPropertyOptional({
+    description: 'Project ID — omit to list all tenant entries across all projects',
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
+  @IsOptional()
   @IsString()
   @IsUUID()
-  project_id: string;
+  project_id?: string;
 
   @ApiPropertyOptional({
     description: 'Filter by task ID',

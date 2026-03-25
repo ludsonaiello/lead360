@@ -284,7 +284,7 @@ export interface ApiError {
 // ============================================================================
 
 export type VariableType = 'string' | 'number' | 'boolean' | 'date' | 'url' | 'email' | 'phone' | 'currency' | 'array' | 'object';
-export type VariableCategory = 'user' | 'tenant' | 'subscription' | 'billing' | 'system' | 'custom';
+export type VariableCategory = 'user' | 'tenant' | 'subscription' | 'billing' | 'system' | 'portal' | 'custom';
 
 export interface VariableMetadata {
   name: string;

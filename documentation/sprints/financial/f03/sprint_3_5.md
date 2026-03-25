@@ -352,6 +352,100 @@ if (dto.payment_method_registry_id) {
 
 ---
 
+### Task 7 — Update Existing `financial-entry.service.spec.ts` (CRITICAL)
+
+**What:** Edit `/var/www/lead360.app/api/src/modules/financial/services/financial-entry.service.spec.ts` to fix test breakage caused by the new constructor dependency.
+
+**Why:** Adding `PaymentMethodRegistryService` to the `FinancialEntryService` constructor breaks the existing test file in two ways:
+1. The `TestingModule` doesn't provide a mock for `PaymentMethodRegistryService` — NestJS DI will throw: `"Can't resolve dependencies of FinancialEntryService"`
+2. The exact-match assertion on `prisma.financial_entry.create` data (around line 130) doesn't include the two new fields — the assertion will fail
+
+**Step 1: Add the import at the top of the test file:**
+
+```typescript
+import { PaymentMethodRegistryService } from './payment-method-registry.service';
+```
+
+**Step 2: Add a mock for `PaymentMethodRegistryService`:**
+
+Below the existing `mockAuditLoggerService`, add:
+
+```typescript
+const mockPaymentMethodRegistryService = {
+  findOne: jest.fn(),
+  findAll: jest.fn(),
+  findDefault: jest.fn(),
+  create: jest.fn(),
+  update: jest.fn(),
+  softDelete: jest.fn(),
+  setDefault: jest.fn(),
+};
+```
+
+**Step 3: Register the mock in the `TestingModule` providers (around line 84-88):**
+
+Add to the providers array:
+
+```typescript
+{ provide: PaymentMethodRegistryService, useValue: mockPaymentMethodRegistryService },
+```
+
+So the full providers array becomes:
+```typescript
+providers: [
+  FinancialEntryService,
+  { provide: PrismaService, useValue: mockPrismaService },
+  { provide: AuditLoggerService, useValue: mockAuditLoggerService },
+  { provide: PaymentMethodRegistryService, useValue: mockPaymentMethodRegistryService },
+],
+```
+
+**Step 4: Update the exact-match assertion for `createEntry` (around line 130-151):**
+
+The first `createEntry` test has an exact-match assertion on the `data` object. Add the two new fields to the expected data:
+
+```typescript
+expect(mockPrismaService.financial_entry.create).toHaveBeenCalledWith({
+  data: {
+    tenant_id: TENANT_ID,
+    project_id: PROJECT_ID,
+    task_id: null,
+    category_id: CATEGORY_ID,
+    entry_type: 'expense',
+    amount: 450.0,
+    entry_date: new Date('2026-03-10'),
+    vendor_name: 'Home Depot',
+    crew_member_id: null,
+    subcontractor_id: null,
+    payment_method: null,                  // NEW — no payment method in dto
+    payment_method_registry_id: null,      // NEW — no registry ID in dto
+    notes: '2x4 studs for framing',
+    has_receipt: false,
+    created_by_user_id: USER_ID,
+  },
+  include: {
+    category: {
+      select: { id: true, name: true, type: true },
+    },
+  },
+});
+```
+
+**Step 5: Run the existing tests to verify they still pass:**
+
+```bash
+cd /var/www/lead360.app/api && npx jest --testPathPattern="financial-entry.service" --verbose
+```
+
+**Acceptance:** All existing tests pass. Zero failures.
+
+**Do NOT:**
+- Remove or modify any existing test cases
+- Skip adding the mock — the test WILL crash without it
+- Change the test assertions in ways that don't match the actual service behavior
+
+---
+
 ## Integration Points
 
 | Dependency | Import Path | What It Provides |
@@ -366,6 +460,7 @@ if (dto.payment_method_registry_id) {
 |---|---|
 | `api/src/modules/financial/dto/create-financial-entry.dto.ts` | Add `payment_method` and `payment_method_registry_id` optional fields |
 | `api/src/modules/financial/services/financial-entry.service.ts` | Add auto-copy logic in `createEntry()`, add `PaymentMethodRegistryService` dependency |
+| `api/src/modules/financial/services/financial-entry.service.spec.ts` | Add `PaymentMethodRegistryService` mock to providers, update `createEntry` data assertion to include new fields |
 
 **Files That Must NOT Be Modified:**
 - `api/src/modules/financial/controllers/financial-entry.controller.ts` — no changes needed, the controller passes the DTO to the service
@@ -385,6 +480,7 @@ if (dto.payment_method_registry_id) {
 - [ ] Entry creation WITH `payment_method_registry_id` populates both `payment_method` and `payment_method_registry_id`
 - [ ] If `payment_method_registry_id` references a non-existent or wrong-tenant record, 404 is thrown
 - [ ] No existing service methods were broken
+- [ ] Existing `financial-entry.service.spec.ts` tests all pass with the updated mock
 - [ ] Dev server compiles without errors
 - [ ] No frontend code was modified
 - [ ] Dev server is shut down before sprint is marked complete
@@ -397,16 +493,14 @@ if (dto.payment_method_registry_id) {
 1. Auto-copy flow works correctly (tested via curl)
 2. Backward compatibility confirmed (existing entry creation still works)
 3. Direct payment method flow works (quick entry without registry)
-4. Dev server compiles and health check passes
+4. All existing `financial-entry.service.spec.ts` tests pass
+5. Dev server compiles and health check passes
 
 ---
 
 ## Handoff Notes
 
 **For Sprint 3_6 (Unit Tests):**
-- `FinancialEntryService` now depends on `PaymentMethodRegistryService` — tests must mock this dependency
-- Three entry creation scenarios to test:
-  1. With `payment_method_registry_id` — auto-copy happens
-  2. With raw `payment_method` only — direct storage
-  3. Without either — both null
-- The `PaymentMethodRegistryService.findOne()` method is called during auto-copy — it throws 404 if the record doesn't exist or doesn't belong to the tenant
+- Sprint 3_6 creates tests for `PaymentMethodRegistryService` (the new service) — NOT for `FinancialEntryService`
+- The existing `financial-entry.service.spec.ts` was already updated in this sprint (Task 7) to mock `PaymentMethodRegistryService` — no further changes needed there
+- The `PaymentMethodRegistryService` tests in Sprint 3_6 mock `PrismaService` and `AuditLoggerService` only — it has no dependency on `FinancialEntryService`

@@ -70,6 +70,7 @@ export class TaskFinancialController {
   async createCostEntry(
     @TenantId() tenantId: string,
     @CurrentUser('id') userId: string,
+    @CurrentUser('roles') userRoles: string[],
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Param('taskId', ParseUUIDPipe) taskId: string,
     @Body() dto: CreateTaskCostEntryDto,
@@ -77,6 +78,7 @@ export class TaskFinancialController {
     return this.taskFinancialService.createTaskCostEntry(
       tenantId,
       userId,
+      userRoles,
       projectId,
       taskId,
       dto,

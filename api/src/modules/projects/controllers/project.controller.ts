@@ -94,6 +94,7 @@ export class ProjectController {
   @ApiQuery({ name: 'status', required: false, description: 'Filter by status (planned, in_progress, on_hold, completed, canceled)' })
   @ApiQuery({ name: 'assigned_pm_user_id', required: false, description: 'Filter by assigned PM user ID' })
   @ApiQuery({ name: 'search', required: false, description: 'Search by name or project number' })
+  @ApiQuery({ name: 'quote_id', required: false, description: 'Filter by source quote ID (UUID)' })
   @ApiResponse({ status: 200, description: 'Paginated list of projects' })
   async findAll(
     @TenantId() tenantId: string,
@@ -102,6 +103,7 @@ export class ProjectController {
     @Query('status') status?: string,
     @Query('assigned_pm_user_id') assigned_pm_user_id?: string,
     @Query('search') search?: string,
+    @Query('quote_id') quote_id?: string,
   ) {
     return this.projectService.findAll(tenantId, {
       page: page ? parseInt(page, 10) : undefined,
@@ -109,6 +111,7 @@ export class ProjectController {
       status,
       assigned_pm_user_id,
       search,
+      quote_id,
     });
   }
 

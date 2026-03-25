@@ -787,3 +787,67 @@ If an agent encounters:
 **End of Master Coordination Guide**
 
 All agents must read this document before beginning work on Lead360.
+
+
+Claude Code — Sprint Runner Permissions
+This file configures what Claude Code is allowed to do when running automated sprints
+for the lead360.app backend project.
+Allowed Tools & Commands
+Claude Code has permission to run the following bash commands during sprints:
+File System
+
+ls, ls -la, find, tree, cat, head, tail, wc
+mkdir -p, cp, mv, touch
+grep, grep -r, grep -rn, awk, sed
+
+Node / NPM
+
+npm run start:dev   (port 8000 — backend API)
+npm run dev         (port 7000 — frontend / secondary service)
+npm install, npm run build, npm run lint, npm run test
+npx, node, ts-node
+kill $(lsof -t -i:8000) and kill $(lsof -t -i:7000) to stop servers
+
+Database
+
+psql — PostgreSQL queries and script execution
+mysql — MySQL queries and script execution
+SQL scripts in database/ or scripts/sql/
+
+Git (read-only during sprints)
+
+git status, git log, git diff, git branch
+
+Process & Port Management
+
+lsof -i :8000, lsof -i :7000
+ps aux | grep node
+kill, pkill
+
+Sprint Execution Rules
+
+Always read the sprint .md file fully before writing any code.
+Run npm run lint after completing each file.
+If you start a dev server to test, stop it before finishing the sprint.
+Never hardcode URLs — use environment variables from .env.
+No TODOs, no mock data, no placeholder code in final output.
+All SQL scripts must be idempotent (safe to run twice).
+After completing all tasks, run a final check:
+
+grep -r "TODO\|FIXME\|HACK\|XXX\|hardcoded" src/ --include="*.ts"
+npm run lint
+
+
+
+Project Structure
+/var/www/lead360.app/
+├── src/                    # NestJS backend source
+├── documentation/
+│   └── sprints/
+│       └── financial/
+│           ├── f04/
+│           └── f05/
+├── scripts/
+│   ├── sprint-runner.sh
+│   └── logs/
+└── package.json

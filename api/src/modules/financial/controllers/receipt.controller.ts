@@ -12,6 +12,8 @@ import {
   Request,
   ParseUUIDPipe,
   BadRequestException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -32,15 +34,19 @@ import { UploadReceiptDto } from '../dto/upload-receipt.dto';
 import { UpdateReceiptDto } from '../dto/update-receipt.dto';
 import { LinkReceiptDto } from '../dto/link-receipt.dto';
 import { ListReceiptsDto } from '../dto/list-receipts.dto';
+import { CreateEntryFromReceiptDto } from '../dto/create-entry-from-receipt.dto';
 
 /**
  * Receipt endpoints (all under /api/v1/financial/receipts)
  *
- * POST   /financial/receipts          — Upload a receipt file
- * GET    /financial/receipts          — List receipts (project or task scoped)
- * GET    /financial/receipts/:id      — Get single receipt
- * PATCH  /financial/receipts/:id/link — Link receipt to financial entry
- * PATCH  /financial/receipts/:id      — Update receipt metadata
+ * POST   /financial/receipts              — Upload a receipt file
+ * GET    /financial/receipts              — List receipts (project or task scoped)
+ * GET    /financial/receipts/:id/ocr-status    — Get OCR processing status
+ * POST   /financial/receipts/:id/create-entry  — Create entry from OCR data
+ * POST   /financial/receipts/:id/retry-ocr     — Retry failed OCR processing
+ * GET    /financial/receipts/:id              — Get single receipt
+ * PATCH  /financial/receipts/:id/link         — Link receipt to financial entry
+ * PATCH  /financial/receipts/:id              — Update receipt metadata
  */
 @ApiTags('Financial Receipts')
 @ApiBearerAuth()
@@ -62,7 +68,9 @@ export class ReceiptController {
     description:
       'Upload a receipt image (jpg/png/webp) or PDF (max 25 MB). ' +
       'Optionally associate with a project and/or task at upload time. ' +
-      'OCR is reserved for Phase 2 — ocr_status is always not_processed.',
+      'After upload, OCR processing is automatically enqueued. ' +
+      'The response returns ocr_status = processing. ' +
+      'Poll GET /financial/receipts/:id/ocr-status to check completion.',
   })
   @ApiBody({
     schema: {
@@ -124,6 +132,139 @@ export class ReceiptController {
   @ApiResponse({ status: 400, description: 'project_id or task_id is required' })
   async listReceipts(@Request() req, @Query() query: ListReceiptsDto) {
     return this.receiptService.getProjectReceipts(req.user.tenant_id, query);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // GET /financial/receipts/:id/ocr-status
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  @Get(':id/ocr-status')
+  @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper', 'Field')
+  @ApiOperation({
+    summary: 'Get OCR processing status for a receipt',
+    description:
+      'Poll this endpoint after upload to check OCR completion. ' +
+      'Frontend should poll at 2-second intervals, up to 30 seconds (15 attempts). ' +
+      'If still processing after 30 seconds, display manual entry form as fallback. ' +
+      'Employee (Field) role can only access their own receipts.',
+  })
+  @ApiParam({ name: 'id', description: 'Receipt UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'OCR status and parsed fields',
+    schema: {
+      type: 'object',
+      properties: {
+        receipt_id: { type: 'string', format: 'uuid' },
+        ocr_status: {
+          type: 'string',
+          enum: ['not_processed', 'processing', 'complete', 'failed'],
+        },
+        ocr_vendor: { type: 'string', nullable: true },
+        ocr_amount: { type: 'number', nullable: true },
+        ocr_date: { type: 'string', format: 'date', nullable: true },
+        has_suggestions: {
+          type: 'boolean',
+          description: 'True if at least one OCR field was successfully parsed',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Receipt not found' })
+  async getOcrStatus(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.receiptService.getOcrStatus(
+      req.user.tenant_id,
+      id,
+      req.user.id,
+      req.user.roles,
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // POST /financial/receipts/:id/create-entry
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  @Post(':id/create-entry')
+  @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper', 'Field')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Create a financial entry from OCR-parsed receipt data',
+    description:
+      'Creates a financial entry pre-populated from OCR suggestions. ' +
+      'The frontend pre-fills the form with OCR data; the user reviews, edits, and submits. ' +
+      'OCR fields are used as fallback when request body fields are not provided. ' +
+      'The receipt is automatically linked to the created entry (1:1). ' +
+      'Returns 400 if the receipt is already linked to an entry.',
+  })
+  @ApiParam({ name: 'id', description: 'Receipt UUID' })
+  @ApiResponse({
+    status: 201,
+    description: 'Financial entry created and receipt linked',
+    schema: {
+      type: 'object',
+      properties: {
+        entry: {
+          type: 'object',
+          description: 'The created financial entry (full enriched shape)',
+        },
+        receipt: {
+          type: 'object',
+          description: 'The linked receipt with updated status',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Receipt already linked or validation error' })
+  @ApiResponse({ status: 404, description: 'Receipt or category not found' })
+  async createEntryFromReceipt(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateEntryFromReceiptDto,
+  ) {
+    return this.receiptService.createEntryFromReceipt(
+      req.user.tenant_id,
+      id,
+      req.user.id,
+      req.user.roles,
+      dto,
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // POST /financial/receipts/:id/retry-ocr
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  @Post(':id/retry-ocr')
+  @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Retry OCR processing for a receipt',
+    description:
+      'Re-triggers OCR processing for a receipt that failed or was not processed. ' +
+      'Resets all OCR fields and enqueues a new processing job. ' +
+      'Only available for receipts with ocr_status = failed or not_processed. ' +
+      'Returns 400 if receipt is currently processing or already complete. ' +
+      'Not available to Employee (Field) role.',
+  })
+  @ApiParam({ name: 'id', description: 'Receipt UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'OCR retry triggered — receipt returned with ocr_status = processing',
+  })
+  @ApiResponse({ status: 400, description: 'Receipt is currently processing or already complete' })
+  @ApiResponse({ status: 404, description: 'Receipt not found' })
+  async retryOcr(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.receiptService.retryOcr(
+      req.user.tenant_id,
+      id,
+      req.user.id,
+    );
   }
 
   // ─────────────────────────────────────────────────────────────────────────────

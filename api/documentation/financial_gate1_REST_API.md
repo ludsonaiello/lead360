@@ -32,7 +32,7 @@ Authorization: Bearer <JWT_TOKEN>
 **RBAC Roles**:
 - `Owner` - Full access to all financial resources (categories + entries)
 - `Admin` - Full access to all financial resources (categories + entries)
-- `Manager` - Can create/read categories and create/read/update entries
+- `Manager` - Full access to all financial resources (categories + entries)
 - `Employee` - No access to financial module
 
 **Role Permissions Summary**:
@@ -41,8 +41,8 @@ Authorization: Bearer <JWT_TOKEN>
 |--------|-------|-------|---------|
 | Create Category | Yes | Yes | Yes |
 | List Categories | Yes | Yes | Yes |
-| Update Category | Yes | Yes | No |
-| Delete (Deactivate) Category | Yes | Yes | No |
+| Update Category | Yes | Yes | Yes |
+| Delete (Deactivate) Category | Yes | Yes | Yes |
 | Create Entry | Yes | Yes | Yes |
 | List Entries | Yes | Yes | Yes |
 | Get Entry | Yes | Yes | Yes |

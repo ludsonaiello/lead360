@@ -4,6 +4,8 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { FilesService } from '../../files/files.service';
@@ -12,6 +14,8 @@ import { UploadReceiptDto } from '../dto/upload-receipt.dto';
 import { UpdateReceiptDto } from '../dto/update-receipt.dto';
 import { LinkReceiptDto } from '../dto/link-receipt.dto';
 import { ListReceiptsDto } from '../dto/list-receipts.dto';
+import { CreateEntryFromReceiptDto } from '../dto/create-entry-from-receipt.dto';
+import { SupplierService } from './supplier.service';
 
 /** MIME types that map to receipt_file_type = 'photo' */
 const PHOTO_MIME_TYPES = new Set([
@@ -44,6 +48,8 @@ export class ReceiptService {
     private readonly prisma: PrismaService,
     private readonly auditLogger: AuditLoggerService,
     private readonly filesService: FilesService,
+    @InjectQueue('ocr-processing') private readonly ocrQueue: Queue,
+    private readonly supplierService: SupplierService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -57,7 +63,7 @@ export class ReceiptService {
    *  1. Validate file type and size.
    *  2. Delegate file storage to FilesService (category: 'receipt').
    *  3. Determine file_type (photo | pdf) from MIME.
-   *  4. Persist receipt row with ocr_status='not_processed', is_categorized=false.
+   *  4. Persist receipt row with ocr_status='processing', is_categorized=false.
    *  5. Write audit log.
    */
   async uploadReceipt(
@@ -141,7 +147,7 @@ export class ReceiptService {
         amount: dto.amount != null ? dto.amount : null,
         receipt_date: dto.receipt_date ? new Date(dto.receipt_date) : null,
         ocr_raw: null,
-        ocr_status: 'not_processed',
+        ocr_status: 'processing',
         ocr_vendor: null,
         ocr_amount: null,
         ocr_date: null,
@@ -158,6 +164,11 @@ export class ReceiptService {
       actorUserId: userId,
       after: receipt,
       description: `Receipt uploaded: ${file.originalname} (${fileType})`,
+    });
+
+    // Enqueue OCR job (non-blocking — receipt is returned immediately)
+    this.enqueueOcrJob(receipt.id, tenantId, receipt.file_id).catch((err) => {
+      this.logger.error(`Failed to enqueue OCR for receipt ${receipt.id}: ${err.message}`);
     });
 
     return this.formatReceiptResponse(receipt);
@@ -403,6 +414,360 @@ export class ReceiptService {
   }
 
   // ---------------------------------------------------------------------------
+  // 7. getOcrStatus
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get OCR processing status for a receipt.
+   * Used by the frontend to poll for OCR completion.
+   *
+   * Roles: All roles can access. Employee can only access their own receipts.
+   */
+  async getOcrStatus(
+    tenantId: string,
+    receiptId: string,
+    userId: string,
+    userRoles: string[],
+  ) {
+    // Build where clause — Employee can only see their own receipts
+    const where: Record<string, unknown> = {
+      id: receiptId,
+      tenant_id: tenantId,
+    };
+
+    const isEmployee = userRoles.length === 1 && userRoles[0] === 'Field';
+    if (isEmployee) {
+      where.uploaded_by_user_id = userId;
+    }
+
+    const receipt = await this.prisma.receipt.findFirst({
+      where,
+      select: {
+        id: true,
+        ocr_status: true,
+        ocr_vendor: true,
+        ocr_amount: true,
+        ocr_date: true,
+      },
+    });
+
+    if (!receipt) {
+      throw new NotFoundException('Receipt not found');
+    }
+
+    const hasSuggestions =
+      receipt.ocr_vendor != null ||
+      receipt.ocr_amount != null ||
+      receipt.ocr_date != null;
+
+    return {
+      receipt_id: receipt.id,
+      ocr_status: receipt.ocr_status,
+      ocr_vendor: receipt.ocr_vendor ?? null,
+      ocr_amount: receipt.ocr_amount != null ? Number(receipt.ocr_amount) : null,
+      ocr_date: receipt.ocr_date ?? null,
+      has_suggestions: hasSuggestions,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // 8. createEntryFromReceipt
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Create a financial entry from OCR-parsed receipt data.
+   * OCR fields are used as fallback when request body fields are not provided.
+   * Links the receipt to the newly created entry.
+   *
+   * Uses a Prisma interactive transaction to ensure atomicity:
+   * entry creation + receipt link must both succeed or neither persists.
+   */
+  async createEntryFromReceipt(
+    tenantId: string,
+    receiptId: string,
+    userId: string,
+    userRoles: string[],
+    dto: CreateEntryFromReceiptDto,
+  ) {
+    this.logger.log(
+      `Creating entry from receipt ${receiptId} (tenant: ${tenantId}, user: ${userId})`,
+    );
+
+    // 1. Fetch receipt
+    const receipt = await this.findReceiptOrThrow(tenantId, receiptId);
+
+    // 2. Guard: receipt already linked to an entry
+    // Check financial_entry_id alone (authoritative FK) — matches existing linkReceiptToEntry pattern.
+    // Do NOT use `is_categorized &&` — if state is inconsistent, the FK is the source of truth.
+    if (receipt.financial_entry_id) {
+      throw new BadRequestException(
+        'This receipt is already linked to a financial entry. Cannot create another entry from it.',
+      );
+    }
+
+    // 3. Resolve fields with OCR fallbacks
+    const resolvedAmount = dto.amount ?? (receipt.ocr_amount != null ? Number(receipt.ocr_amount) : null);
+    const resolvedVendor = dto.vendor_name ?? receipt.ocr_vendor ?? null;
+    const resolvedDate = dto.entry_date ?? (receipt.ocr_date ? receipt.ocr_date.toISOString().split('T')[0] : null);
+
+    // 4. Validate required fields (after OCR fallback resolution)
+    if (resolvedAmount == null || resolvedAmount <= 0) {
+      throw new BadRequestException(
+        'Amount is required. Provide it in the request body or ensure OCR detected an amount.',
+      );
+    }
+    if (!resolvedDate) {
+      throw new BadRequestException(
+        'Entry date is required. Provide it in the request body or ensure OCR detected a date.',
+      );
+    }
+
+    // 5. Validate category belongs to tenant
+    const category = await this.prisma.financial_category.findFirst({
+      where: { id: dto.category_id, tenant_id: tenantId },
+      select: { id: true, name: true, type: true },
+    });
+    if (!category) {
+      throw new NotFoundException('Financial category not found or does not belong to this tenant');
+    }
+
+    // 5b. Validate project belongs to tenant
+    const project = await this.prisma.project.findFirst({
+      where: { id: dto.project_id, tenant_id: tenantId },
+    });
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    // 5c. Validate task belongs to tenant (if provided in DTO)
+    if (dto.task_id) {
+      const task = await this.prisma.project_task.findFirst({
+        where: { id: dto.task_id, tenant_id: tenantId },
+      });
+      if (!task) {
+        throw new NotFoundException('Task not found');
+      }
+    }
+
+    // 6. Validate entry_date is not in the future
+    const entryDate = new Date(resolvedDate);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    if (entryDate > today) {
+      throw new BadRequestException('Entry date cannot be in the future');
+    }
+
+    // 7. Validate supplier belongs to tenant and is active (if provided)
+    if (dto.supplier_id) {
+      const supplier = await this.prisma.supplier.findFirst({
+        where: { id: dto.supplier_id, tenant_id: tenantId, is_active: true },
+      });
+      if (!supplier) {
+        throw new NotFoundException('Supplier not found or inactive');
+      }
+    }
+
+    // 8. Resolve payment_method from registry (if provided)
+    let resolvedPaymentMethod: string | null = dto.payment_method ?? null;
+    if (dto.payment_method_registry_id) {
+      const registry = await this.prisma.payment_method_registry.findFirst({
+        where: { id: dto.payment_method_registry_id, tenant_id: tenantId, is_active: true },
+      });
+      if (!registry) {
+        throw new NotFoundException('Payment method not found or inactive');
+      }
+      resolvedPaymentMethod = registry.type;
+    }
+
+    // 9. Validate purchased_by mutual exclusion
+    if (dto.purchased_by_user_id && dto.purchased_by_crew_member_id) {
+      throw new BadRequestException(
+        'Cannot assign purchase to both a user and a crew member. Provide only one.',
+      );
+    }
+
+    // 10. Validate purchased_by_user_id belongs to tenant
+    if (dto.purchased_by_user_id) {
+      const membership = await this.prisma.user_tenant_membership.findFirst({
+        where: { user_id: dto.purchased_by_user_id, tenant_id: tenantId, status: 'ACTIVE' },
+      });
+      if (!membership) {
+        throw new NotFoundException('User not found in this tenant');
+      }
+    }
+
+    // 11. Validate purchased_by_crew_member_id belongs to tenant
+    if (dto.purchased_by_crew_member_id) {
+      const member = await this.prisma.crew_member.findFirst({
+        where: { id: dto.purchased_by_crew_member_id, tenant_id: tenantId, is_active: true },
+      });
+      if (!member) {
+        throw new NotFoundException('Crew member not found or inactive');
+      }
+    }
+
+    // 12. Validate tax_amount < resolvedAmount (if both provided)
+    if (dto.tax_amount !== undefined && dto.tax_amount !== null) {
+      if (dto.tax_amount >= resolvedAmount) {
+        throw new BadRequestException('Tax amount must be less than the entry amount');
+      }
+    }
+
+    // 13. Determine submission_status based on role (BR-06 / BR-07)
+    const privilegedRoles = ['Owner', 'Admin', 'Manager', 'Bookkeeper'];
+    const isPrivileged = userRoles.some((r) => privilegedRoles.includes(r));
+    let resolvedSubmissionStatus: string;
+    if (!isPrivileged) {
+      // BR-06: Employee creates always get pending_review — forced, non-negotiable
+      resolvedSubmissionStatus = 'pending_review';
+    } else {
+      // BR-07: Owner/Admin/Manager/Bookkeeper default to confirmed, can opt for pending_review
+      resolvedSubmissionStatus = dto.submission_status || 'confirmed';
+    }
+
+    // 14. Execute in transaction: create entry + link receipt
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Create the financial entry
+      const entry = await tx.financial_entry.create({
+        data: {
+          tenant_id: tenantId,
+          project_id: dto.project_id,
+          task_id: dto.task_id ?? receipt.task_id ?? null,
+          category_id: dto.category_id,
+          entry_type: 'expense',
+          amount: resolvedAmount,
+          tax_amount: dto.tax_amount ?? null,
+          entry_date: entryDate,
+          entry_time: dto.entry_time ? new Date(`1970-01-01T${dto.entry_time}`) : null,
+          vendor_name: resolvedVendor,
+          supplier_id: dto.supplier_id ?? null,
+          payment_method: resolvedPaymentMethod as any,
+          payment_method_registry_id: dto.payment_method_registry_id ?? null,
+          purchased_by_user_id: dto.purchased_by_user_id ?? null,
+          purchased_by_crew_member_id: dto.purchased_by_crew_member_id ?? null,
+          crew_member_id: dto.crew_member_id ?? null,
+          subcontractor_id: dto.subcontractor_id ?? null,
+          submission_status: resolvedSubmissionStatus as any,
+          notes: dto.notes ?? null,
+          has_receipt: true,
+          created_by_user_id: userId,
+        },
+        include: {
+          category: {
+            select: { id: true, name: true, type: true },
+          },
+        },
+      });
+
+      // Link receipt to entry
+      const updatedReceipt = await tx.receipt.update({
+        where: { id: receiptId },
+        data: {
+          financial_entry_id: entry.id,
+          is_categorized: true,
+        },
+      });
+
+      return { entry, receipt: updatedReceipt };
+    });
+
+    // 15. Update supplier spend totals (outside transaction — non-critical)
+    if (dto.supplier_id) {
+      await this.supplierService.updateSpendTotals(tenantId, dto.supplier_id);
+    }
+
+    // 16. Audit log (outside transaction — audit log failure should not roll back the entry)
+    await this.auditLogger.logTenantChange({
+      action: 'created',
+      entityType: 'financial_entry',
+      entityId: result.entry.id,
+      tenantId,
+      actorUserId: userId,
+      after: result.entry,
+      metadata: { created_from_receipt: receiptId, ocr_used: true },
+      description: `Financial entry created from receipt OCR: $${resolvedAmount} at ${resolvedVendor || 'unknown vendor'}`,
+    });
+
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'receipt',
+      entityId: receiptId,
+      tenantId,
+      actorUserId: userId,
+      before: { financial_entry_id: null, is_categorized: false },
+      after: { financial_entry_id: result.entry.id, is_categorized: true },
+      description: `Receipt ${receiptId} linked to entry ${result.entry.id} via OCR create-entry`,
+    });
+
+    return {
+      entry: result.entry,
+      receipt: this.formatReceiptResponse(result.receipt),
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // 9. retryOcr
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Retry OCR processing for a failed or not-processed receipt.
+   * Resets OCR fields and enqueues a new processing job.
+   *
+   * Roles: Owner, Admin, Manager, Bookkeeper only (no Employee/Field).
+   */
+  async retryOcr(
+    tenantId: string,
+    receiptId: string,
+    userId: string,
+  ) {
+    this.logger.log(
+      `Retrying OCR for receipt ${receiptId} (tenant: ${tenantId}, user: ${userId})`,
+    );
+
+    const receipt = await this.findReceiptOrThrow(tenantId, receiptId);
+
+    // Guard: can only retry if status is 'failed' or 'not_processed'
+    if (receipt.ocr_status === 'processing') {
+      throw new BadRequestException(
+        'This receipt is currently being processed. Wait for processing to complete before retrying.',
+      );
+    }
+    if (receipt.ocr_status === 'complete') {
+      throw new BadRequestException(
+        'OCR processing is already complete for this receipt. No retry needed.',
+      );
+    }
+
+    // Reset OCR fields and set status to processing
+    const updated = await this.prisma.receipt.update({
+      where: { id: receiptId },
+      data: {
+        ocr_status: 'processing',
+        ocr_vendor: null,
+        ocr_amount: null,
+        ocr_date: null,
+        ocr_raw: null,
+      },
+    });
+
+    // Enqueue new OCR job
+    await this.enqueueOcrJob(receiptId, tenantId, receipt.file_id);
+
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'receipt',
+      entityId: receiptId,
+      tenantId,
+      actorUserId: userId,
+      before: { ocr_status: receipt.ocr_status },
+      after: { ocr_status: 'processing' },
+      description: `OCR retry triggered for receipt ${receiptId}`,
+    });
+
+    return this.formatReceiptResponse(updated);
+  }
+
+  // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
 
@@ -449,6 +814,46 @@ export class ReceiptService {
     throw new BadRequestException(`Unsupported MIME type: ${mimeType}`);
   }
 
+  // ---------------------------------------------------------------------------
+  // Private: enqueueOcrJob
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Enqueue an OCR processing job for a receipt.
+   * Called after receipt upload and on retry.
+   */
+  private async enqueueOcrJob(
+    receiptId: string,
+    tenantId: string,
+    fileId: string,
+  ): Promise<void> {
+    try {
+      await this.ocrQueue.add(
+        'process-receipt',
+        { receiptId, tenantId, fileId },
+        {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 100,
+          removeOnFail: 50,
+        },
+      );
+      this.logger.log(
+        `OCR job enqueued for receipt ${receiptId} (tenant: ${tenantId}, fileId: ${fileId})`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to enqueue OCR job for receipt ${receiptId}: ${error.message}`,
+      );
+      // Don't throw — receipt is still created, just won't get OCR
+      // Update status to indicate the enqueue failed
+      await this.prisma.receipt.update({
+        where: { id: receiptId },
+        data: { ocr_status: 'failed' },
+      });
+    }
+  }
+
   /**
    * Serialize a receipt Prisma record into the canonical API response shape.
    * Decimal values are converted to numbers for JSON serialization.
@@ -469,10 +874,9 @@ export class ReceiptService {
       amount: receipt.amount != null ? Number(receipt.amount) : null,
       receipt_date: receipt.receipt_date,
       ocr_status: receipt.ocr_status,
-      // OCR fields are reserved — always return null in Phase 1
-      ocr_vendor: null,
-      ocr_amount: null,
-      ocr_date: null,
+      ocr_vendor: receipt.ocr_vendor ?? null,
+      ocr_amount: receipt.ocr_amount != null ? Number(receipt.ocr_amount) : null,
+      ocr_date: receipt.ocr_date ?? null,
       is_categorized: receipt.is_categorized,
       uploaded_by_user_id: receipt.uploaded_by_user_id,
       created_at: receipt.created_at,

@@ -1,5 +1,6 @@
-import { IsString, IsOptional, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsEnum, MaxLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { FinancialCategoryClassification } from './create-financial-category.dto';
 
 // NOTE: `type` is intentionally NOT updatable (business rule).
 // We do NOT use PartialType(CreateFinancialCategoryDto) to prevent
@@ -22,4 +23,12 @@ export class UpdateFinancialCategoryDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({
+    description: 'Category classification — cannot be changed for system-default categories',
+    enum: FinancialCategoryClassification,
+  })
+  @IsOptional()
+  @IsEnum(FinancialCategoryClassification)
+  classification?: FinancialCategoryClassification;
 }

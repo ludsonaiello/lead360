@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
-import { SmtpService } from './smtp.service';
+import { EmailSenderService } from '../../communication/services/email-sender.service';
 import { EmailTemplateService } from './email-template.service';
 
 @Injectable()
@@ -9,9 +9,25 @@ export class EmailService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly smtp: SmtpService,
+    private readonly emailSender: EmailSenderService,
     private readonly templates: EmailTemplateService,
   ) {}
+
+  /**
+   * Load active email provider config from database
+   */
+  private async getActiveConfig() {
+    const config = await this.prisma.platform_email_config.findFirst({
+      where: { is_active: true },
+      include: { provider: true },
+    });
+
+    if (!config) {
+      throw new Error('No active email configuration found');
+    }
+
+    return config;
+  }
 
   async sendTemplatedEmail(options: {
     to: string;
@@ -34,17 +50,27 @@ export class EmailService {
       ? this.templates.renderTemplate(template.text_body, options.variables)
       : undefined;
 
-    const result = await this.smtp.sendEmail({
-      to: options.to,
-      cc: options.cc,
-      bcc: options.bcc,
-      subject,
-      html,
-      text,
-    });
+    const config = await this.getActiveConfig();
+
+    const result = await this.emailSender.send(
+      config.provider,
+      config.credentials,
+      config.provider_config,
+      {
+        to: options.to,
+        cc: options.cc,
+        bcc: options.bcc,
+        from_email: config.from_email,
+        from_name: config.from_name,
+        reply_to: config.reply_to_email || undefined,
+        subject,
+        html_body: html,
+        text_body: text,
+      },
+    );
 
     this.logger.log(
-      `Email sent to ${options.to} using template ${options.templateKey}`,
+      `Email sent to ${options.to} using template ${options.templateKey} via ${config.provider.provider_key}`,
     );
 
     return result;
@@ -58,6 +84,23 @@ export class EmailService {
     html: string;
     text?: string;
   }): Promise<{ messageId: string }> {
-    return this.smtp.sendEmail(options);
+    const config = await this.getActiveConfig();
+
+    return this.emailSender.send(
+      config.provider,
+      config.credentials,
+      config.provider_config,
+      {
+        to: options.to,
+        cc: options.cc,
+        bcc: options.bcc,
+        from_email: config.from_email,
+        from_name: config.from_name,
+        reply_to: config.reply_to_email || undefined,
+        subject: options.subject,
+        html_body: options.html,
+        text_body: options.text,
+      },
+    );
   }
 }

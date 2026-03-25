@@ -72,6 +72,7 @@ export interface ListProjectsParams {
   status?: ProjectStatus;
   assigned_pm_user_id?: string;
   search?: string;
+  quote_id?: string;
 }
 
 export interface PaginationMeta {
@@ -245,6 +246,17 @@ export interface CreateProjectDto {
   permit_required?: boolean;
   assigned_pm_user_id?: string;
   estimated_cost?: number;
+  notes?: string;
+  template_id?: string;
+}
+
+export interface CreateProjectFromQuoteDto {
+  name?: string;
+  description?: string;
+  start_date?: string;
+  target_completion_date?: string;
+  permit_required?: boolean;
+  assigned_pm_user_id?: string;
   notes?: string;
   template_id?: string;
 }
@@ -428,6 +440,112 @@ export interface ListLogsParams {
 export interface ListLogsResponse {
   data: ProjectLog[];
   meta: PaginationMeta;
+}
+
+// ========== PROJECT DOCUMENTS ==========
+
+export type DocumentType = 'contract' | 'permit' | 'blueprint' | 'agreement' | 'photo' | 'other';
+
+export interface ProjectDocument {
+  id: string;
+  project_id: string;
+  file_id: string;
+  file_url: string;
+  file_name: string;
+  document_type: DocumentType;
+  description: string | null;
+  is_public: boolean;
+  uploaded_by_user_id: string;
+  created_at: string;
+}
+
+// ========== PERMITS ==========
+
+export type PermitStatus =
+  | 'not_required'
+  | 'pending_application'
+  | 'submitted'
+  | 'approved'
+  | 'active'
+  | 'failed'
+  | 'closed';
+
+export type InspectionResult = 'pass' | 'fail' | 'conditional' | 'pending';
+
+export interface Inspection {
+  id: string;
+  permit_id: string;
+  project_id: string;
+  inspection_type: string;
+  scheduled_date: string | null;
+  inspector_name: string | null;
+  result: InspectionResult | null;
+  reinspection_required: boolean;
+  reinspection_date: string | null;
+  notes: string | null;
+  inspected_by_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Permit {
+  id: string;
+  project_id: string;
+  permit_number: string | null;
+  permit_type: string;
+  status: PermitStatus;
+  submitted_date: string | null;
+  approved_date: string | null;
+  expiry_date: string | null;
+  issuing_authority: string | null;
+  notes: string | null;
+  inspections: Inspection[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatePermitDto {
+  permit_type: string;
+  permit_number?: string;
+  status?: PermitStatus;
+  submitted_date?: string;
+  approved_date?: string;
+  expiry_date?: string;
+  issuing_authority?: string;
+  notes?: string;
+}
+
+export interface UpdatePermitDto {
+  permit_type?: string;
+  permit_number?: string;
+  status?: PermitStatus;
+  submitted_date?: string;
+  approved_date?: string;
+  expiry_date?: string;
+  issuing_authority?: string;
+  notes?: string;
+}
+
+export interface CreateInspectionDto {
+  inspection_type: string;
+  scheduled_date?: string;
+  inspector_name?: string;
+  result?: InspectionResult;
+  reinspection_required?: boolean;
+  reinspection_date?: string;
+  notes?: string;
+  inspected_by_user_id?: string;
+}
+
+export interface UpdateInspectionDto {
+  inspection_type?: string;
+  scheduled_date?: string;
+  inspector_name?: string;
+  result?: InspectionResult;
+  reinspection_required?: boolean;
+  reinspection_date?: string;
+  notes?: string;
+  inspected_by_user_id?: string;
 }
 
 // ========== PROJECT PHOTOS ==========

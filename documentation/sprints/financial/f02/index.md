@@ -9,4 +9,5 @@
 | 2.5 | Service Layer — SupplierProductService (Price History Tracking) |
 | 2.6 | Controllers + Module Registration + Tenant Isolation |
 | 2.7 | Financial Entry Integration — Supplier Spend Tracking |
-| 2.8 | Verification Gate + API Documentation (FINAL STOP GATE) |
+| 2.8 | Unit Tests + Integration Tests |
+| 2.9 | Verification Gate + API Documentation (FINAL STOP GATE) |

@@ -8,20 +8,33 @@ import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { CreateFinancialCategoryDto } from '../dto/create-financial-category.dto';
 import { UpdateFinancialCategoryDto } from '../dto/update-financial-category.dto';
+import type { financial_category_type, financial_category_classification } from '@prisma/client';
 
 /**
  * System default categories seeded per tenant.
  */
-const DEFAULT_CATEGORIES: { name: string; type: string }[] = [
-  { name: 'Labor - General', type: 'labor' },
-  { name: 'Labor - Crew Overtime', type: 'labor' },
-  { name: 'Materials - General', type: 'material' },
-  { name: 'Materials - Tools', type: 'equipment' },
-  { name: 'Materials - Safety Equipment', type: 'equipment' },
-  { name: 'Subcontractor - General', type: 'subcontractor' },
-  { name: 'Equipment Rental', type: 'equipment' },
-  { name: 'Fuel & Transportation', type: 'other' },
-  { name: 'Miscellaneous', type: 'other' },
+const DEFAULT_CATEGORIES: {
+  name: string;
+  type: financial_category_type;
+  classification: financial_category_classification;
+}[] = [
+  { name: 'Labor - General', type: 'labor', classification: 'cost_of_goods_sold' },
+  { name: 'Labor - Crew Overtime', type: 'labor', classification: 'cost_of_goods_sold' },
+  { name: 'Materials - General', type: 'material', classification: 'cost_of_goods_sold' },
+  { name: 'Materials - Tools', type: 'equipment', classification: 'cost_of_goods_sold' },
+  { name: 'Materials - Safety Equipment', type: 'equipment', classification: 'cost_of_goods_sold' },
+  { name: 'Subcontractor - General', type: 'subcontractor', classification: 'cost_of_goods_sold' },
+  { name: 'Equipment Rental', type: 'equipment', classification: 'cost_of_goods_sold' },
+  { name: 'Fuel & Transportation', type: 'other', classification: 'cost_of_goods_sold' },
+  { name: 'Miscellaneous', type: 'other', classification: 'cost_of_goods_sold' },
+  // Overhead categories (operating expenses)
+  { name: 'Insurance', type: 'insurance', classification: 'operating_expense' },
+  { name: 'Fuel & Vehicle', type: 'fuel', classification: 'operating_expense' },
+  { name: 'Utilities', type: 'utilities', classification: 'operating_expense' },
+  { name: 'Office & Admin', type: 'office', classification: 'operating_expense' },
+  { name: 'Marketing & Advertising', type: 'marketing', classification: 'operating_expense' },
+  { name: 'Taxes & Licenses', type: 'taxes', classification: 'operating_expense' },
+  { name: 'Tools & Equipment Purchase', type: 'tools', classification: 'operating_expense' },
 ];
 
 @Injectable()
@@ -59,6 +72,7 @@ export class FinancialCategoryService {
         tenant_id: tenantId,
         name: dto.name,
         type: dto.type,
+        classification: dto.classification ?? 'cost_of_goods_sold',
         description: dto.description ?? null,
         is_system_default: false,
         created_by_user_id: userId,
@@ -95,11 +109,19 @@ export class FinancialCategoryService {
       throw new NotFoundException('Financial category not found');
     }
 
+    // Prevent classification change on system-default categories
+    if (dto.classification !== undefined && existing.is_system_default) {
+      throw new BadRequestException(
+        'Cannot change the classification of a system-default category',
+      );
+    }
+
     const updated = await this.prisma.financial_category.update({
       where: { id: categoryId },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.classification !== undefined && { classification: dto.classification }),
       },
     });
 
@@ -159,7 +181,7 @@ export class FinancialCategoryService {
   }
 
   /**
-   * Seed 9 default categories for a tenant. Idempotent — skips if already seeded.
+   * Seed 16 default categories for a tenant. Idempotent — skips if already seeded.
    */
   async seedDefaultCategories(tenantId: string) {
     // Check if defaults already exist for this tenant
@@ -199,7 +221,8 @@ export class FinancialCategoryService {
       data: toCreate.map((cat) => ({
         tenant_id: tenantId,
         name: cat.name,
-        type: cat.type as any,
+        type: cat.type,
+        classification: cat.classification,
         is_system_default: true,
         is_active: true,
         created_by_user_id: null,

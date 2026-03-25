@@ -9,8 +9,9 @@ generator erd {
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider          = "mysql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 model audit_log {
@@ -455,6 +456,18 @@ model tenant {
   subcontractor_payment_records            subcontractor_payment_record[]         @relation("subcontractor_payment_record_tenant")
   subcontractor_task_invoices              subcontractor_task_invoice[]           @relation("subcontractor_task_invoice_tenant")
   portal_accounts                          portal_account[]                       @relation("portal_account_tenant")
+  supplier_categories                      supplier_category[]                    @relation("supplier_category_tenant")
+  supplier_category_assignments            supplier_category_assignment[]         @relation("supplier_category_assignment_tenant")
+  suppliers                                supplier[]                             @relation("supplier_tenant")
+  supplier_products                        supplier_product[]                     @relation("supplier_product_tenant")
+  supplier_price_history                   supplier_product_price_history[]       @relation("supplier_price_history_tenant")
+  payment_method_registries                payment_method_registry[]              @relation("payment_method_registry_tenant")
+  recurring_expense_rules                  recurring_expense_rule[]
+  project_draw_milestones                  project_draw_milestone[]               @relation("project_draw_milestone_tenant")
+  project_invoices                         project_invoice[]                      @relation("project_invoice_tenant")
+  project_invoice_payments                 project_invoice_payment[]              @relation("project_invoice_payment_tenant")
+  financial_export_logs                    financial_export_log[]                 @relation("financial_export_log_tenant")
+  category_account_mappings                financial_category_account_mapping[]   @relation("category_account_mapping_tenant")
 
   @@index([ein])
   @@index([is_active])
@@ -736,6 +749,25 @@ model user {
   crew_hour_logs_created                          crew_hour_log[]                @relation("crew_hour_log_created_by")
   subcontractor_payment_records_created           subcontractor_payment_record[] @relation("subcontractor_payment_record_created_by")
   subcontractor_task_invoices_created             subcontractor_task_invoice[]   @relation("subcontractor_task_invoice_created_by")
+  purchased_financial_entries                     financial_entry[]              @relation("financial_entry_purchased_by_user")
+  financial_entry_rejected                       financial_entry[]              @relation("financial_entry_rejected_by")
+  created_supplier_categories                    supplier_category[]            @relation("supplier_category_creator")
+  created_suppliers                              supplier[]                     @relation("supplier_creator")
+  updated_suppliers                              supplier[]                     @relation("supplier_updater")
+  created_supplier_products                      supplier_product[]             @relation("supplier_product_creator")
+  supplier_product_price_updates                 supplier_product[]             @relation("supplier_product_price_updater")
+  supplier_price_history_changes                 supplier_product_price_history[] @relation("supplier_price_history_changer")
+  payment_method_registries_created              payment_method_registry[]        @relation("payment_method_registry_created_by")
+  payment_method_registries_updated              payment_method_registry[]        @relation("payment_method_registry_updated_by")
+  recurring_rules_created                        recurring_expense_rule[]         @relation("recurring_rule_created_by")
+  recurring_rules_updated                        recurring_expense_rule[]         @relation("recurring_rule_updated_by")
+  draw_milestones_created                        project_draw_milestone[]         @relation("project_draw_milestone_created_by")
+  project_invoices_created                       project_invoice[]                @relation("project_invoice_created_by")
+  project_invoices_updated                       project_invoice[]                @relation("project_invoice_updated_by")
+  project_invoice_payments_created               project_invoice_payment[]        @relation("project_invoice_payment_created_by")
+  financial_export_logs                          financial_export_log[]           @relation("financial_export_log_user")
+  category_account_mappings_created              financial_category_account_mapping[] @relation("category_account_mapping_created_by")
+  category_account_mappings_updated              financial_category_account_mapping[] @relation("category_account_mapping_updated_by")
 
   @@index([activation_token])
   @@index([email])
@@ -1516,8 +1548,9 @@ model crew_member {
   user          user?  @relation("crew_member_user", fields: [user_id], references: [id], onDelete: SetNull)
   created_by    user   @relation("crew_member_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
   profile_photo     file?             @relation("crew_member_photo", fields: [profile_photo_file_id], references: [file_id], onDelete: SetNull)
-  financial_entries      financial_entry[]         @relation("financial_entry_crew_member")
-  task_assignees         task_assignee[]           @relation("task_assignee_crew_member")
+  financial_entries                financial_entry[]         @relation("financial_entry_crew_member")
+  purchased_financial_entries      financial_entry[]         @relation("financial_entry_purchased_by_crew_member")
+  task_assignees                   task_assignee[]           @relation("task_assignee_crew_member")
   punch_list_assignments punch_list_item[]         @relation("punch_list_assigned_crew")
   payment_records        crew_payment_record[]     @relation("crew_payment_record_crew_member")
   hour_logs              crew_hour_log[]           @relation("crew_hour_log_crew_member")
@@ -2970,6 +3003,9 @@ model draw_schedule_entry {
 
   quote quote @relation(fields: [quote_id], references: [id], onDelete: Cascade)
 
+  // Reverse: project milestones seeded from this draw entry
+  project_milestones  project_draw_milestone[]  @relation("project_draw_milestone_source")
+
   @@index([quote_id, order_index])
   @@map("draw_schedule_entry")
 }
@@ -3212,6 +3248,50 @@ enum payment_method {
   bank_transfer
   venmo
   zelle
+  credit_card
+  debit_card
+  ACH
+}
+
+enum financial_category_classification {
+  cost_of_goods_sold
+  operating_expense
+}
+
+// ============================================================================
+// DRAW MILESTONE + PROJECT INVOICE ENUMS — Sprint F-08
+// ============================================================================
+
+enum milestone_status {
+  pending
+  invoiced
+  paid
+}
+
+enum invoice_status_extended {
+  draft
+  sent
+  partial
+  paid
+  voided
+}
+
+// ============================================================================
+// FINANCIAL EXPORT (Sprint F-10)
+// ============================================================================
+
+enum export_type {
+  quickbooks_expenses
+  quickbooks_invoices
+  xero_expenses
+  xero_invoices
+  pl_csv
+  entries_csv
+}
+
+enum accounting_platform {
+  quickbooks
+  xero
 }
 
 // ============================================================================
@@ -3384,6 +3464,13 @@ enum financial_category_type {
   material
   subcontractor
   equipment
+  insurance
+  fuel
+  utilities
+  office
+  marketing
+  taxes
+  tools
   other
 }
 
@@ -3392,56 +3479,101 @@ enum financial_entry_type {
   income
 }
 
+enum expense_submission_status {
+  pending_review
+  confirmed
+}
+
+enum recurring_frequency {
+  daily
+  weekly
+  monthly
+  quarterly
+  annual
+}
+
+enum recurring_rule_status {
+  active
+  paused
+  completed
+  cancelled
+}
+
 model financial_category {
-  id                 String                   @id @default(uuid()) @db.VarChar(36)
-  tenant_id          String                   @db.VarChar(36)
-  name               String                   @db.VarChar(200)
+  id                 String                           @id @default(uuid()) @db.VarChar(36)
+  tenant_id          String                           @db.VarChar(36)
+  name               String                           @db.VarChar(200)
   type               financial_category_type
-  description        String?                  @db.Text
-  is_active          Boolean                  @default(true)
-  is_system_default  Boolean                  @default(false)
-  created_by_user_id String?                  @db.VarChar(36)
-  created_at         DateTime                 @default(now())
-  updated_at         DateTime                 @updatedAt
+  classification     financial_category_classification @default(cost_of_goods_sold)
+  description        String?                          @db.Text
+  is_active          Boolean                          @default(true)
+  is_system_default  Boolean                          @default(false)
+  created_by_user_id String?                          @db.VarChar(36)
+  created_at         DateTime                         @default(now())
+  updated_at         DateTime                         @updatedAt
 
   // Relations
   tenant     tenant  @relation("financial_category_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
   created_by user?   @relation("financial_category_created_by", fields: [created_by_user_id], references: [id], onDelete: SetNull)
   entries    financial_entry[]
+  recurring_expense_rules recurring_expense_rule[]
+  account_mappings financial_category_account_mapping[] @relation("category_account_mapping_category")
 
   // Indexes
   @@index([tenant_id, type])
   @@index([tenant_id, is_active])
+  @@index([tenant_id, classification])
   @@map("financial_category")
 }
 
 model financial_entry {
-  id                 String                @id @default(uuid()) @db.VarChar(36)
-  tenant_id          String                @db.VarChar(36)
-  project_id         String                @db.VarChar(36)
-  task_id            String?               @db.VarChar(36)
-  category_id        String                @db.VarChar(36)
-  entry_type         financial_entry_type  @default(expense)
-  amount             Decimal               @db.Decimal(12, 2)
-  entry_date         DateTime              @db.Date
-  vendor_name        String?               @db.VarChar(200)
-  crew_member_id     String?               @db.VarChar(36)
-  subcontractor_id   String?               @db.VarChar(36)
-  notes              String?               @db.Text
-  has_receipt         Boolean               @default(false)
-  created_by_user_id String                @db.VarChar(36)
-  updated_by_user_id String?               @db.VarChar(36)
-  created_at         DateTime              @default(now())
-  updated_at         DateTime              @updatedAt
+  id                           String                     @id @default(uuid()) @db.VarChar(36)
+  tenant_id                    String                     @db.VarChar(36)
+  project_id                   String?                    @db.VarChar(36)
+  task_id                      String?                    @db.VarChar(36)
+  category_id                  String                     @db.VarChar(36)
+  entry_type                   financial_entry_type       @default(expense)
+  amount                       Decimal                    @db.Decimal(12, 2)
+  entry_date                   DateTime                   @db.Date
+  vendor_name                  String?                    @db.VarChar(200)
+  crew_member_id               String?                    @db.VarChar(36)
+  subcontractor_id             String?                    @db.VarChar(36)
+  notes                        String?                    @db.Text
+  has_receipt                   Boolean                    @default(false)
+  payment_method               payment_method?
+  payment_method_registry_id   String?                    @db.VarChar(36)
+  supplier_id                  String?                    @db.VarChar(36)
+  purchased_by_user_id         String?                    @db.VarChar(36)
+  purchased_by_crew_member_id  String?                    @db.VarChar(36)
+  entry_time                   DateTime?                  @db.Time(0)
+  tax_amount                   Decimal?                   @db.Decimal(10, 2)
+  submission_status            expense_submission_status   @default(confirmed)
+  // Rejection workflow fields (F-04)
+  rejection_reason             String?                    @db.VarChar(500)
+  rejected_by_user_id          String?                    @db.VarChar(36)
+  rejected_at                  DateTime?
+  is_recurring_instance        Boolean                    @default(false)
+  recurring_rule_id            String?                    @db.VarChar(36)
+  created_by_user_id           String                     @db.VarChar(36)
+  updated_by_user_id           String?                    @db.VarChar(36)
+  created_at                   DateTime                   @default(now())
+  updated_at                   DateTime                   @updatedAt
 
   // Relations
-  tenant        tenant              @relation("financial_entry_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
-  category      financial_category  @relation(fields: [category_id], references: [id], onDelete: Restrict)
-  created_by    user                @relation("financial_entry_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
-  updated_by    user?               @relation("financial_entry_updated_by", fields: [updated_by_user_id], references: [id], onDelete: SetNull)
-  crew_member   crew_member?        @relation("financial_entry_crew_member", fields: [crew_member_id], references: [id], onDelete: SetNull)
-  subcontractor subcontractor?      @relation("financial_entry_subcontractor", fields: [subcontractor_id], references: [id], onDelete: SetNull)
-  project       project             @relation(fields: [project_id], references: [id], onDelete: Restrict)
+  tenant                   tenant              @relation("financial_entry_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  category                 financial_category  @relation(fields: [category_id], references: [id], onDelete: Restrict)
+  created_by               user                @relation("financial_entry_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  updated_by               user?               @relation("financial_entry_updated_by", fields: [updated_by_user_id], references: [id], onDelete: SetNull)
+  crew_member              crew_member?        @relation("financial_entry_crew_member", fields: [crew_member_id], references: [id], onDelete: SetNull)
+  subcontractor            subcontractor?      @relation("financial_entry_subcontractor", fields: [subcontractor_id], references: [id], onDelete: SetNull)
+  project                  project?            @relation(fields: [project_id], references: [id], onDelete: Restrict)
+  task                     project_task?       @relation("financial_entry_task", fields: [task_id], references: [id], onDelete: SetNull)
+  purchased_by_user        user?               @relation("financial_entry_purchased_by_user", fields: [purchased_by_user_id], references: [id], onDelete: SetNull)
+  purchased_by_crew_member crew_member?        @relation("financial_entry_purchased_by_crew_member", fields: [purchased_by_crew_member_id], references: [id], onDelete: SetNull)
+  supplier                 supplier?           @relation("financial_entry_supplier", fields: [supplier_id], references: [id], onDelete: SetNull)
+  payment_method_registry_rel payment_method_registry? @relation("financial_entry_payment_method_registry", fields: [payment_method_registry_id], references: [id], onDelete: SetNull)
+  rejected_by              user?               @relation("financial_entry_rejected_by", fields: [rejected_by_user_id], references: [id], onDelete: SetNull)
+  recurring_rule           recurring_expense_rule? @relation(fields: [recurring_rule_id], references: [id], onDelete: SetNull)
 
   // Reverse relations
   receipts receipt[] @relation("receipt_financial_entry")
@@ -3453,7 +3585,96 @@ model financial_entry {
   @@index([tenant_id, entry_date])
   @@index([tenant_id, crew_member_id])
   @@index([tenant_id, subcontractor_id])
+  @@index([tenant_id, supplier_id])
+  @@index([tenant_id, payment_method_registry_id])
+  @@index([tenant_id, rejected_at])
+  @@index([tenant_id, submission_status])
   @@map("financial_entry")
+}
+
+// ============================================================================
+// RECURRING EXPENSE RULE — Sprint F-06 (Recurring Expense Engine)
+// ============================================================================
+
+model recurring_expense_rule {
+  id                          String                  @id @default(uuid()) @db.VarChar(36)
+  tenant_id                   String                  @db.VarChar(36)
+  name                        String                  @db.VarChar(200)
+  description                 String?                 @db.Text
+  category_id                 String                  @db.VarChar(36)
+  amount                      Decimal                 @db.Decimal(12, 2)
+  tax_amount                  Decimal?                @db.Decimal(10, 2)
+  supplier_id                 String?                 @db.VarChar(36)
+  vendor_name                 String?                 @db.VarChar(200)
+  payment_method_registry_id  String?                 @db.VarChar(36)
+  frequency                   recurring_frequency
+  interval                    Int                     @default(1)
+  day_of_month                Int?                    @db.TinyInt
+  day_of_week                 Int?                    @db.TinyInt
+  start_date                  DateTime                @db.Date
+  end_date                    DateTime?               @db.Date
+  recurrence_count            Int?
+  occurrences_generated       Int                     @default(0)
+  next_due_date               DateTime                @db.Date
+  auto_confirm                Boolean                 @default(true)
+  notes                       String?                 @db.Text
+  status                      recurring_rule_status   @default(active)
+  last_generated_at           DateTime?
+  last_generated_entry_id     String?                 @db.VarChar(36)
+  created_by_user_id          String                  @db.VarChar(36)
+  updated_by_user_id          String?                 @db.VarChar(36)
+  created_at                  DateTime                @default(now())
+  updated_at                  DateTime                @updatedAt
+
+  // Relations
+  tenant                      tenant                  @relation(fields: [tenant_id], references: [id])
+  category                    financial_category      @relation(fields: [category_id], references: [id])
+  supplier                    supplier?               @relation(fields: [supplier_id], references: [id])
+  payment_method              payment_method_registry? @relation(fields: [payment_method_registry_id], references: [id])
+  created_by                  user                    @relation("recurring_rule_created_by", fields: [created_by_user_id], references: [id])
+  updated_by                  user?                   @relation("recurring_rule_updated_by", fields: [updated_by_user_id], references: [id])
+  generated_entries           financial_entry[]
+
+  @@index([tenant_id, status])
+  @@index([tenant_id, next_due_date])
+  @@index([tenant_id, status, next_due_date])
+  @@index([tenant_id, category_id])
+  @@index([tenant_id, created_at])
+  @@map("recurring_expense_rule")
+}
+
+// ============================================================================
+// PAYMENT METHOD REGISTRY — Sprint F-03 (Financial Gate 3)
+// ============================================================================
+
+model payment_method_registry {
+  id                 String          @id @default(uuid()) @db.VarChar(36)
+  tenant_id          String          @db.VarChar(36)
+  nickname           String          @db.VarChar(100)
+  type               payment_method
+  bank_name          String?         @db.VarChar(100)
+  last_four          String?         @db.VarChar(4)
+  notes              String?         @db.Text
+  is_default         Boolean         @default(false)
+  is_active          Boolean         @default(true)
+  created_by_user_id String          @db.VarChar(36)
+  updated_by_user_id String?         @db.VarChar(36)
+  created_at         DateTime        @default(now())
+  updated_at         DateTime        @updatedAt
+
+  // Relations
+  tenant             tenant          @relation("payment_method_registry_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by         user            @relation("payment_method_registry_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  updated_by         user?           @relation("payment_method_registry_updated_by", fields: [updated_by_user_id], references: [id], onDelete: SetNull)
+  financial_entries  financial_entry[] @relation("financial_entry_payment_method_registry")
+  recurring_expense_rules recurring_expense_rule[]
+
+  @@unique([tenant_id, nickname])
+  @@index([tenant_id, is_active])
+  @@index([tenant_id, type])
+  @@index([tenant_id, is_default])
+  @@index([tenant_id, created_at])
+  @@map("payment_method_registry")
 }
 
 // ============================================================================
@@ -3574,6 +3795,9 @@ model project {
   crew_hour_logs                 crew_hour_log[]                @relation("crew_hour_log_project")
   subcontractor_payment_records  subcontractor_payment_record[] @relation("subcontractor_payment_record_project")
   subcontractor_task_invoices    subcontractor_task_invoice[]   @relation("subcontractor_task_invoice_project")
+  draw_milestones                project_draw_milestone[]       @relation("project_draw_milestone_project")
+  project_invoices               project_invoice[]              @relation("project_invoice_project")
+  project_invoice_payments       project_invoice_payment[]      @relation("project_invoice_payment_project")
 
   // Indexes
   @@index([tenant_id, status])
@@ -3633,6 +3857,7 @@ model project_task {
   calendar_events         task_calendar_event[] @relation("task_calendar_event_task")
   crew_hour_logs          crew_hour_log[]       @relation("crew_hour_log_task")
   subcontractor_invoices  subcontractor_task_invoice[] @relation("subcontractor_task_invoice_task")
+  financial_entries       financial_entry[]            @relation("financial_entry_task")
 
   // Indexes
   @@index([tenant_id, project_id])
@@ -4299,4 +4524,326 @@ model portal_account {
   @@unique([tenant_id, customer_slug])
   @@index([tenant_id, is_active])
   @@map("portal_account")
+}
+
+// ============================================================================
+// SUPPLIER REGISTRY — Sprint F-02.1 (Financial)
+// ============================================================================
+
+model supplier_category {
+  id                 String    @id @default(uuid()) @db.VarChar(36)
+  tenant_id          String    @db.VarChar(36)
+  name               String    @db.VarChar(100)
+  description        String?   @db.Text
+  color              String?   @db.VarChar(7)
+  is_active          Boolean   @default(true)
+  created_by_user_id String    @db.VarChar(36)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+
+  // Relations
+  tenant      tenant @relation("supplier_category_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by  user   @relation("supplier_category_creator", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+
+  // Reverse relations
+  assignments supplier_category_assignment[]
+
+  // Indexes
+  @@index([tenant_id, is_active])
+  @@index([tenant_id, name])
+  @@unique([tenant_id, name])
+  @@map("supplier_category")
+}
+
+model supplier_category_assignment {
+  id                   String   @id @default(uuid()) @db.VarChar(36)
+  supplier_id          String   @db.VarChar(36)
+  supplier_category_id String   @db.VarChar(36)
+  tenant_id            String   @db.VarChar(36)
+  created_at           DateTime @default(now())
+
+  // Relations
+  supplier          supplier          @relation(fields: [supplier_id], references: [id], onDelete: Cascade)
+  supplier_category supplier_category @relation(fields: [supplier_category_id], references: [id], onDelete: Cascade)
+  tenant            tenant            @relation("supplier_category_assignment_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@unique([supplier_id, supplier_category_id])
+  @@index([tenant_id, supplier_id])
+  @@index([tenant_id, supplier_category_id])
+  @@map("supplier_category_assignment")
+}
+
+model supplier {
+  id                 String    @id @default(uuid()) @db.VarChar(36)
+  tenant_id          String    @db.VarChar(36)
+  name               String    @db.VarChar(200)
+  legal_name         String?   @db.VarChar(200)
+  website            String?   @db.VarChar(500)
+  phone              String?   @db.VarChar(20)
+  email              String?   @db.VarChar(255)
+  contact_name       String?   @db.VarChar(150)
+  address_line1      String?   @db.VarChar(255)
+  address_line2      String?   @db.VarChar(255)
+  city               String?   @db.VarChar(100)
+  state              String?   @db.VarChar(2)
+  zip_code           String?   @db.VarChar(10)
+  country            String    @default("US") @db.VarChar(2)
+  latitude           Decimal?  @db.Decimal(10, 8)
+  longitude          Decimal?  @db.Decimal(11, 8)
+  google_place_id    String?   @db.VarChar(255)
+  notes              String?   @db.Text
+  is_preferred       Boolean   @default(false)
+  is_active          Boolean   @default(true)
+  total_spend        Decimal   @default(0.00) @db.Decimal(14, 2)
+  last_purchase_date DateTime? @db.Date
+  created_by_user_id String    @db.VarChar(36)
+  updated_by_user_id String?   @db.VarChar(36)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+
+  // Relations
+  tenant     tenant @relation("supplier_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by user   @relation("supplier_creator", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  updated_by user?  @relation("supplier_updater", fields: [updated_by_user_id], references: [id], onDelete: SetNull)
+
+  // Reverse relations
+  category_assignments         supplier_category_assignment[]
+  products                     supplier_product[]
+  product_price_history        supplier_product_price_history[]
+  financial_entries            financial_entry[] @relation("financial_entry_supplier")
+  recurring_expense_rules      recurring_expense_rule[]
+
+  // Indexes
+  @@index([tenant_id, is_active])
+  @@index([tenant_id, is_preferred])
+  @@index([tenant_id, name])
+  @@index([tenant_id, last_purchase_date])
+  @@index([tenant_id, created_at])
+  @@map("supplier")
+}
+
+model supplier_product {
+  id                            String    @id @default(uuid()) @db.VarChar(36)
+  tenant_id                     String    @db.VarChar(36)
+  supplier_id                   String    @db.VarChar(36)
+  name                          String    @db.VarChar(200)
+  description                   String?   @db.Text
+  unit_of_measure               String    @db.VarChar(50)
+  unit_price                    Decimal?  @db.Decimal(12, 4)
+  price_last_updated_at         DateTime? @db.Date
+  price_last_updated_by_user_id String?   @db.VarChar(36)
+  sku                           String?   @db.VarChar(100)
+  is_active                     Boolean   @default(true)
+  created_by_user_id            String    @db.VarChar(36)
+  created_at                    DateTime  @default(now())
+  updated_at                    DateTime  @updatedAt
+
+  // Relations
+  tenant                   tenant    @relation("supplier_product_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  supplier                 supplier  @relation(fields: [supplier_id], references: [id], onDelete: Cascade)
+  created_by               user      @relation("supplier_product_creator", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  price_last_updated_by    user?     @relation("supplier_product_price_updater", fields: [price_last_updated_by_user_id], references: [id], onDelete: SetNull)
+
+  // Reverse relations
+  price_history supplier_product_price_history[]
+
+  // Indexes
+  @@index([tenant_id, supplier_id])
+  @@index([tenant_id, supplier_id, is_active])
+  @@index([supplier_id, name])
+  @@map("supplier_product")
+}
+
+model supplier_product_price_history {
+  id                   String   @id @default(uuid()) @db.VarChar(36)
+  tenant_id            String   @db.VarChar(36)
+  supplier_product_id  String   @db.VarChar(36)
+  supplier_id          String   @db.VarChar(36)
+  previous_price       Decimal? @db.Decimal(12, 4)
+  new_price            Decimal  @db.Decimal(12, 4)
+  changed_by_user_id   String   @db.VarChar(36)
+  changed_at           DateTime @default(now())
+  notes                String?  @db.VarChar(500)
+
+  // Relations
+  tenant            tenant            @relation("supplier_price_history_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  supplier_product  supplier_product  @relation(fields: [supplier_product_id], references: [id], onDelete: Cascade)
+  supplier          supplier          @relation(fields: [supplier_id], references: [id], onDelete: Cascade)
+  changed_by        user              @relation("supplier_price_history_changer", fields: [changed_by_user_id], references: [id], onDelete: Restrict)
+
+  // Indexes
+  @@index([tenant_id, supplier_product_id])
+  @@index([tenant_id, supplier_id])
+  @@index([supplier_product_id, changed_at])
+  @@map("supplier_product_price_history")
+}
+
+// ============================================================================
+// DRAW MILESTONES — Sprint F-08
+// ============================================================================
+
+model project_draw_milestone {
+  id                     String                @id @default(uuid()) @db.VarChar(36)
+  tenant_id              String                @db.VarChar(36)
+  project_id             String                @db.VarChar(36)
+  quote_draw_entry_id    String?               @db.VarChar(36)
+  draw_number            Int
+  description            String                @db.VarChar(255)
+  calculation_type       draw_calculation_type
+  value                  Decimal               @db.Decimal(10, 2)
+  calculated_amount      Decimal               @db.Decimal(12, 2)
+  status                 milestone_status      @default(pending)
+  invoice_id             String?               @db.VarChar(36)
+  invoiced_at            DateTime?
+  paid_at                DateTime?
+  notes                  String?               @db.Text
+  created_by_user_id     String                @db.VarChar(36)
+  created_at             DateTime              @default(now())
+  updated_at             DateTime              @updatedAt
+
+  // Relations
+  tenant              tenant                 @relation("project_draw_milestone_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  project             project                @relation("project_draw_milestone_project", fields: [project_id], references: [id], onDelete: Cascade)
+  quote_draw_entry    draw_schedule_entry?   @relation("project_draw_milestone_source", fields: [quote_draw_entry_id], references: [id], onDelete: SetNull)
+  invoice             project_invoice?       @relation("milestone_current_invoice", fields: [invoice_id], references: [id], onDelete: SetNull)
+  created_by          user                   @relation("project_draw_milestone_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+
+  // Reverse: invoices that reference this milestone via milestone_id
+  generated_invoices  project_invoice[]      @relation("invoice_source_milestone")
+
+  @@index([tenant_id, project_id])
+  @@index([tenant_id, project_id, status])
+  @@index([tenant_id, status])
+  @@unique([project_id, draw_number])
+  @@map("project_draw_milestone")
+}
+
+// ============================================================================
+// PROJECT INVOICES — Sprint F-08
+// ============================================================================
+
+model project_invoice {
+  id                     String                   @id @default(uuid()) @db.VarChar(36)
+  tenant_id              String                   @db.VarChar(36)
+  project_id             String                   @db.VarChar(36)
+  invoice_number         String                   @db.VarChar(50)
+  milestone_id           String?                  @db.VarChar(36)
+  description            String                   @db.VarChar(500)
+  amount                 Decimal                  @db.Decimal(12, 2)
+  tax_amount             Decimal?                 @db.Decimal(10, 2)
+  amount_paid            Decimal                  @default(0.00) @db.Decimal(12, 2)
+  amount_due             Decimal                  @db.Decimal(12, 2)
+  status                 invoice_status_extended  @default(draft)
+  due_date               DateTime?                @db.Date
+  sent_at                DateTime?
+  paid_at                DateTime?
+  voided_at              DateTime?
+  voided_reason          String?                  @db.VarChar(500)
+  notes                  String?                  @db.Text
+  created_by_user_id     String                   @db.VarChar(36)
+  updated_by_user_id     String?                  @db.VarChar(36)
+  created_at             DateTime                 @default(now())
+  updated_at             DateTime                 @updatedAt
+
+  // Relations
+  tenant              tenant                    @relation("project_invoice_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  project             project                   @relation("project_invoice_project", fields: [project_id], references: [id], onDelete: Cascade)
+  milestone           project_draw_milestone?   @relation("invoice_source_milestone", fields: [milestone_id], references: [id], onDelete: SetNull)
+  created_by          user                      @relation("project_invoice_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  updated_by          user?                     @relation("project_invoice_updated_by", fields: [updated_by_user_id], references: [id], onDelete: SetNull)
+
+  // Reverse: milestone currently referencing this invoice via invoice_id
+  referencing_milestones project_draw_milestone[] @relation("milestone_current_invoice")
+
+  // Reverse: payments against this invoice
+  payments            project_invoice_payment[]  @relation("project_invoice_payment_invoice")
+
+  @@index([tenant_id, project_id])
+  @@index([tenant_id, project_id, status])
+  @@index([tenant_id, status])
+  @@index([tenant_id, created_at])
+  @@unique([tenant_id, invoice_number])
+  @@map("project_invoice")
+}
+
+// ============================================================================
+// PROJECT INVOICE PAYMENTS — Sprint F-08
+// ============================================================================
+
+model project_invoice_payment {
+  id                          String         @id @default(uuid()) @db.VarChar(36)
+  tenant_id                   String         @db.VarChar(36)
+  invoice_id                  String         @db.VarChar(36)
+  project_id                  String         @db.VarChar(36)
+  amount                      Decimal        @db.Decimal(12, 2)
+  payment_date                DateTime       @db.Date
+  payment_method              payment_method
+  payment_method_registry_id  String?        @db.VarChar(36)
+  reference_number            String?        @db.VarChar(200)
+  notes                       String?        @db.Text
+  created_by_user_id          String         @db.VarChar(36)
+  created_at                  DateTime       @default(now())
+
+  // Relations
+  tenant      tenant           @relation("project_invoice_payment_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  invoice     project_invoice  @relation("project_invoice_payment_invoice", fields: [invoice_id], references: [id], onDelete: Cascade)
+  project     project          @relation("project_invoice_payment_project", fields: [project_id], references: [id], onDelete: Cascade)
+  created_by  user             @relation("project_invoice_payment_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+
+  @@index([tenant_id, invoice_id])
+  @@index([tenant_id, project_id])
+  @@index([tenant_id, payment_date])
+  @@map("project_invoice_payment")
+}
+
+// ============================================================================
+// FINANCIAL EXPORT (Sprint F-10)
+// ============================================================================
+
+model financial_export_log {
+  id                  String           @id @default(uuid()) @db.VarChar(36)
+  tenant_id           String           @db.VarChar(36)
+  export_type         export_type
+  date_from           DateTime?        @db.Date
+  date_to             DateTime?        @db.Date
+  record_count        Int
+  file_name           String           @db.VarChar(255)
+  filters_applied     String?          @db.Text
+  exported_by_user_id String           @db.VarChar(36)
+  created_at          DateTime         @default(now())
+
+  // Relations
+  tenant      tenant @relation("financial_export_log_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  exported_by user   @relation("financial_export_log_user", fields: [exported_by_user_id], references: [id], onDelete: Restrict)
+
+  // Indexes
+  @@index([tenant_id, export_type], map: "fin_export_log_tenant_export_type_idx")
+  @@index([tenant_id, created_at], map: "fin_export_log_tenant_created_at_idx")
+  @@index([tenant_id, exported_by_user_id], map: "fin_export_log_tenant_user_idx")
+  @@map("financial_export_log")
+}
+
+model financial_category_account_mapping {
+  id                 String              @id @default(uuid()) @db.VarChar(36)
+  tenant_id          String              @db.VarChar(36)
+  category_id        String              @db.VarChar(36)
+  platform           accounting_platform
+  account_name       String              @db.VarChar(200)
+  account_code       String?             @db.VarChar(50)
+  created_by_user_id String              @db.VarChar(36)
+  updated_by_user_id String?             @db.VarChar(36)
+  created_at         DateTime            @default(now())
+  updated_at         DateTime            @updatedAt
+
+  // Relations
+  tenant     tenant             @relation("category_account_mapping_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
+  category   financial_category @relation("category_account_mapping_category", fields: [category_id], references: [id], onDelete: Cascade)
+  created_by user               @relation("category_account_mapping_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  updated_by user?              @relation("category_account_mapping_updated_by", fields: [updated_by_user_id], references: [id], onDelete: SetNull)
+
+  // Indexes
+  @@index([tenant_id, platform], map: "fin_cat_acct_map_tenant_platform_idx")
+  @@unique([tenant_id, category_id, platform], map: "fin_cat_acct_map_tenant_cat_platform_key")
+  @@map("financial_category_account_mapping")
 }

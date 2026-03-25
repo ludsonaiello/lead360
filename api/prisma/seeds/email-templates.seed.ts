@@ -357,6 +357,210 @@ Best regards,
       description: 'Send quote to customer with PDF attachment',
       is_system: true,
     },
+    {
+      id: randomBytes(16).toString('hex'),
+      tenant_id: null,
+      template_key: 'portal-welcome',
+      subject: 'Your Project Portal Access - {{company_name}}',
+      html_body: `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background-color: #0066cc; color: white; padding: 20px; text-align: center; }
+    .content { padding: 20px; background-color: #f9f9f9; }
+    .credentials { background-color: white; padding: 15px; margin: 15px 0; border-left: 4px solid #0066cc; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #0066cc; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0; }
+    .warning { background-color: #fff3cd; padding: 12px; border-radius: 4px; font-size: 14px; margin: 15px 0; }
+    .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Welcome to Your Project Portal</h1>
+    </div>
+
+    <div class="content">
+      <p>Hello {{customer_name}},</p>
+
+      <p>{{company_name}} has set up a project portal for you. You can use it to track your project progress, view updates, photos, and documents at any time.</p>
+
+      <div class="credentials">
+        <h3>Your Login Credentials</h3>
+        <p><strong>Email:</strong> {{email}}</p>
+        <p><strong>Temporary Password:</strong> {{temporary_password}}</p>
+      </div>
+
+      <div class="warning">
+        <strong>Important:</strong> You will be asked to change your password when you first log in.
+      </div>
+
+      <div style="text-align: center;">
+        <a href="{{portal_url}}" class="button">Access Your Portal</a>
+      </div>
+
+      <p>If you have any questions about your project, please contact {{company_name}} directly.</p>
+    </div>
+
+    <div class="footer">
+      <p>This is an automated message from {{company_name}}.</p>
+    </div>
+  </div>
+</body>
+</html>
+      `,
+      text_body: `Welcome to Your Project Portal
+
+Hello {{customer_name}},
+
+{{company_name}} has set up a project portal for you. You can use it to track your project progress, view updates, photos, and documents at any time.
+
+Your Login Credentials:
+Email: {{email}}
+Temporary Password: {{temporary_password}}
+
+IMPORTANT: You will be asked to change your password when you first log in.
+
+Access your portal: {{portal_url}}
+
+If you have any questions about your project, please contact {{company_name}} directly.`,
+      variables: ['customer_name', 'company_name', 'portal_url', 'email', 'temporary_password'],
+      variable_schema: {
+        customer_name: {
+          name: 'customer_name',
+          type: 'string',
+          category: 'customer',
+          description: 'Customer full name',
+          example: 'John Smith',
+          required: true,
+        },
+        company_name: {
+          name: 'company_name',
+          type: 'string',
+          category: 'tenant',
+          description: 'Company/business name',
+          example: 'Acme Roofing Co.',
+          required: true,
+        },
+        portal_url: {
+          name: 'portal_url',
+          type: 'url',
+          category: 'system',
+          description: 'Direct link to the customer portal projects page',
+          example: 'https://acme.lead360.app/public/john-smith/projects/',
+          required: true,
+        },
+        email: {
+          name: 'email',
+          type: 'email',
+          category: 'customer',
+          description: 'Customer login email address',
+          example: 'john@example.com',
+          required: true,
+        },
+        temporary_password: {
+          name: 'temporary_password',
+          type: 'string',
+          category: 'system',
+          description: 'Auto-generated temporary password (must be changed on first login)',
+          example: 'Tmp!x9Kz4mQw',
+          required: true,
+        },
+      },
+      description: 'Welcome email sent when a portal account is created for a customer',
+      is_system: true,
+    },
+    {
+      id: randomBytes(16).toString('hex'),
+      tenant_id: null,
+      template_key: 'portal-password-reset',
+      subject: 'Reset Your Portal Password - {{company_name}}',
+      html_body: `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background-color: #0066cc; color: white; padding: 20px; text-align: center; }
+    .content { padding: 20px; background-color: #f9f9f9; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #0066cc; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0; }
+    .warning { background-color: #fff3cd; padding: 12px; border-radius: 4px; font-size: 14px; margin: 15px 0; }
+    .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Password Reset Request</h1>
+    </div>
+
+    <div class="content">
+      <p>Hello {{customer_name}},</p>
+
+      <p>We received a request to reset your portal password for {{company_name}}. Click the button below to set a new password:</p>
+
+      <div style="text-align: center;">
+        <a href="{{reset_link}}" class="button">Reset Your Password</a>
+      </div>
+
+      <div class="warning">
+        <strong>This link expires in 1 hour.</strong> If you did not request a password reset, you can safely ignore this email — your password will not be changed.
+      </div>
+
+      <p>If the button above doesn't work, copy and paste this link into your browser:</p>
+      <p style="word-break: break-all; font-size: 13px; color: #666;">{{reset_link}}</p>
+    </div>
+
+    <div class="footer">
+      <p>This is an automated message from {{company_name}}.</p>
+    </div>
+  </div>
+</body>
+</html>
+      `,
+      text_body: `Password Reset Request
+
+Hello {{customer_name}},
+
+We received a request to reset your portal password for {{company_name}}.
+
+Reset your password: {{reset_link}}
+
+This link expires in 1 hour. If you did not request a password reset, you can safely ignore this email.`,
+      variables: ['customer_name', 'company_name', 'reset_link'],
+      variable_schema: {
+        customer_name: {
+          name: 'customer_name',
+          type: 'string',
+          category: 'customer',
+          description: 'Customer full name',
+          example: 'John Smith',
+          required: true,
+        },
+        company_name: {
+          name: 'company_name',
+          type: 'string',
+          category: 'tenant',
+          description: 'Company/business name',
+          example: 'Acme Roofing Co.',
+          required: true,
+        },
+        reset_link: {
+          name: 'reset_link',
+          type: 'url',
+          category: 'system',
+          description: 'Password reset URL with embedded token (expires in 1 hour)',
+          example: 'https://acme.lead360.app/public/reset-password?token=abc123def456',
+          required: true,
+        },
+      },
+      description: 'Password reset email for customer portal accounts',
+      is_system: true,
+    },
   ];
 
   for (const template of templates) {
