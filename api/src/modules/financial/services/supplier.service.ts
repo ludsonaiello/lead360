@@ -551,6 +551,71 @@ export class SupplierService {
   }
 
   // ---------------------------------------------------------------------------
+  // HARD DELETE
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Permanently delete a supplier from the database.
+   * Only allowed when the supplier has ZERO financial data:
+   *   - No financial_entry references
+   *   - No recurring_expense_rule references
+   * Non-financial data (products, category assignments, price history) will be
+   * cascade-deleted automatically by Prisma onDelete: Cascade.
+   */
+  async hardDelete(
+    tenantId: string,
+    supplierId: string,
+    userId: string,
+  ) {
+    const supplier = await this.prisma.supplier.findFirst({
+      where: { id: supplierId, tenant_id: tenantId },
+    });
+
+    if (!supplier) {
+      throw new NotFoundException('Supplier not found.');
+    }
+
+    // Check for financial references only — these block hard delete
+    const [entryCount, recurringCount] = await Promise.all([
+      this.prisma.financial_entry.count({
+        where: { supplier_id: supplierId },
+      }),
+      this.prisma.recurring_expense_rule.count({
+        where: { supplier_id: supplierId },
+      }),
+    ]);
+
+    if (entryCount > 0 || recurringCount > 0) {
+      const references: string[] = [];
+      if (entryCount > 0) references.push(`${entryCount} financial entry(ies)`);
+      if (recurringCount > 0) references.push(`${recurringCount} recurring rule(s)`);
+      throw new BadRequestException(
+        `Cannot permanently delete: supplier is referenced by ${references.join(', ')}. Use soft delete instead.`,
+      );
+    }
+
+    // Hard delete — Prisma cascades will clean up:
+    //   supplier_product (onDelete: Cascade)
+    //   supplier_product_price_history (onDelete: Cascade via supplier)
+    //   supplier_category_assignment (onDelete: Cascade)
+    await this.prisma.supplier.delete({
+      where: { id: supplierId },
+    });
+
+    await this.auditLogger.logTenantChange({
+      action: 'deleted',
+      entityType: 'supplier',
+      entityId: supplierId,
+      tenantId,
+      actorUserId: userId,
+      before: supplier,
+      description: `Permanently deleted supplier: ${supplier.name}`,
+    });
+
+    return { message: `Supplier "${supplier.name}" permanently deleted` };
+  }
+
+  // ---------------------------------------------------------------------------
   // FIND FOR MAP
   // ---------------------------------------------------------------------------
 

@@ -166,8 +166,8 @@ export class AuditLoggerService {
 
     const logData: CreateAuditLogDto = {
       tenant_id: tenantId ?? undefined,
-      actor_user_id: actorUserId,
-      actor_type: 'user',
+      actor_user_id: actorUserId === 'system' ? undefined : actorUserId,
+      actor_type: actorUserId === 'system' ? 'system' : 'user',
       entity_type: entityType,
       entity_id: entityId,
       description,
@@ -201,8 +201,8 @@ export class AuditLoggerService {
 
     const logData: CreateAuditLogDto = {
       tenant_id: tenantId ?? undefined,
-      actor_user_id: actorUserId,
-      actor_type: 'user',
+      actor_user_id: actorUserId === 'system' ? undefined : actorUserId,
+      actor_type: actorUserId === 'system' ? 'system' : 'user',
       entity_type: entityType,
       entity_id: entityId,
       description,

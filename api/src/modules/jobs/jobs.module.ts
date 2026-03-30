@@ -19,6 +19,7 @@ import { ExpiryCheckHandler } from './handlers/expiry-check.handler';
 import { DataCleanupHandler } from './handlers/data-cleanup.handler';
 import { JobRetentionHandler } from './handlers/job-retention.handler';
 import { PartitionMaintenanceHandler } from './handlers/partition-maintenance.handler';
+import { ReceiptCleanupHandler } from './handlers/receipt-cleanup.handler';
 
 // Processors
 import { SendEmailProcessor } from './processors/send-email.processor';
@@ -71,6 +72,7 @@ import { EmailTemplatesController } from './controllers/email-templates.controll
     DataCleanupHandler,
     JobRetentionHandler,
     PartitionMaintenanceHandler,
+    ReceiptCleanupHandler,
 
     // Processors
     SendEmailProcessor,

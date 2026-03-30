@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   Request,
   ParseUUIDPipe,
@@ -16,6 +17,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -48,10 +50,15 @@ export class FinancialCategoryController {
 
   @Get()
   @Roles('Owner', 'Admin', 'Manager')
-  @ApiOperation({ summary: 'List all active financial categories' })
+  @ApiOperation({ summary: 'List financial categories (active by default)' })
+  @ApiQuery({ name: 'include_inactive', required: false, type: Boolean, description: 'Set to true to include deactivated categories' })
   @ApiResponse({ status: 200, description: 'List of categories' })
-  async findAll(@Request() req) {
-    return this.financialCategoryService.findAllForTenant(req.user.tenant_id);
+  async findAll(
+    @Request() req,
+    @Query('include_inactive') includeInactive?: string,
+  ) {
+    const showAll = includeInactive === 'true';
+    return this.financialCategoryService.findAllForTenant(req.user.tenant_id, showAll);
   }
 
   @Patch(':id')

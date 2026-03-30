@@ -46,6 +46,12 @@ export class UpdateFinancialEntryDto {
   @Min(0, { message: 'Tax amount must be 0 or greater' })
   tax_amount?: number;
 
+  @ApiPropertyOptional({ description: 'Discount amount' })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0, { message: 'Discount must be 0 or greater' })
+  discount?: number;
+
   @ApiPropertyOptional({ description: 'Entry date (YYYY-MM-DD)' })
   @IsOptional()
   @IsDateString()

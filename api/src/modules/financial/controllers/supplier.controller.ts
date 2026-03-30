@@ -17,6 +17,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -113,18 +114,28 @@ export class SupplierController {
     );
   }
 
-  // ========== SOFT DELETE ==========
+  // ========== DELETE ==========
 
   @Delete(':id')
   @Roles('Owner', 'Admin', 'Bookkeeper')
-  @ApiOperation({ summary: 'Soft-delete a supplier (set is_active = false)' })
+  @ApiOperation({ summary: 'Delete a supplier (soft by default, permanent with ?permanent=true)' })
   @ApiParam({ name: 'id', description: 'Supplier UUID' })
-  @ApiResponse({ status: 200, description: 'Supplier deactivated successfully' })
+  @ApiQuery({ name: 'permanent', required: false, type: Boolean, description: 'Set to true to permanently delete (only works if supplier has no financial data)' })
+  @ApiResponse({ status: 200, description: 'Supplier deactivated or permanently deleted' })
+  @ApiResponse({ status: 400, description: 'Cannot permanently delete — supplier has financial data' })
   @ApiResponse({ status: 404, description: 'Supplier not found' })
-  async softDelete(
+  async delete(
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
+    @Query('permanent') permanent?: string,
   ) {
+    if (permanent === 'true') {
+      return this.supplierService.hardDelete(
+        req.user.tenant_id,
+        id,
+        req.user.id,
+      );
+    }
     return this.supplierService.softDelete(
       req.user.tenant_id,
       id,

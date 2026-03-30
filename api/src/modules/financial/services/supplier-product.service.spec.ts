@@ -84,10 +84,12 @@ const mockPrismaService = {
     findMany: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    delete: jest.fn(),
   },
   supplier_product_price_history: {
     create: jest.fn(),
     findMany: jest.fn(),
+    deleteMany: jest.fn(),
   },
   $transaction: jest.fn(),
 };
@@ -1358,6 +1360,137 @@ describe('SupplierProductService', () => {
       expect(mockPrismaService.supplier.findFirst).toHaveBeenCalledWith({
         where: { id: SUPPLIER_ID, tenant_id: OTHER_TENANT_ID },
       });
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // hardDelete()
+  // -----------------------------------------------------------------------
+
+  describe('hardDelete()', () => {
+    it('should permanently delete product and its price history', async () => {
+      const existing = mockProductRecord();
+      mockPrismaService.supplier.findFirst.mockResolvedValue(
+        mockSupplierRecord(),
+      );
+      mockPrismaService.supplier_product.findFirst.mockResolvedValue(existing);
+      mockPrismaService.supplier_product_price_history.deleteMany.mockResolvedValue(
+        { count: 3 },
+      );
+      mockPrismaService.supplier_product.delete.mockResolvedValue(existing);
+
+      const result = await service.hardDelete(
+        TENANT_ID,
+        SUPPLIER_ID,
+        PRODUCT_ID,
+        USER_ID,
+      );
+
+      expect(result).toEqual({
+        message: `Product "${existing.name}" permanently deleted.`,
+      });
+    });
+
+    it('should delete price history before the product in a transaction', async () => {
+      const existing = mockProductRecord();
+      mockPrismaService.supplier.findFirst.mockResolvedValue(
+        mockSupplierRecord(),
+      );
+      mockPrismaService.supplier_product.findFirst.mockResolvedValue(existing);
+      mockPrismaService.supplier_product_price_history.deleteMany.mockResolvedValue(
+        { count: 0 },
+      );
+      mockPrismaService.supplier_product.delete.mockResolvedValue(existing);
+
+      await service.hardDelete(TENANT_ID, SUPPLIER_ID, PRODUCT_ID, USER_ID);
+
+      expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
+      expect(
+        mockPrismaService.supplier_product_price_history.deleteMany,
+      ).toHaveBeenCalledWith({
+        where: {
+          supplier_product_id: PRODUCT_ID,
+          tenant_id: TENANT_ID,
+        },
+      });
+      expect(mockPrismaService.supplier_product.delete).toHaveBeenCalledWith({
+        where: { id: PRODUCT_ID },
+      });
+    });
+
+    it('should throw NotFoundException when supplier does not exist', async () => {
+      mockPrismaService.supplier.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.hardDelete(TENANT_ID, SUPPLIER_ID, PRODUCT_ID, USER_ID),
+      ).rejects.toThrow(NotFoundException);
+      await expect(
+        service.hardDelete(TENANT_ID, SUPPLIER_ID, PRODUCT_ID, USER_ID),
+      ).rejects.toThrow('Supplier not found.');
+    });
+
+    it('should throw NotFoundException when product does not exist', async () => {
+      mockPrismaService.supplier.findFirst.mockResolvedValue(
+        mockSupplierRecord(),
+      );
+      mockPrismaService.supplier_product.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.hardDelete(TENANT_ID, SUPPLIER_ID, 'nonexistent', USER_ID),
+      ).rejects.toThrow(NotFoundException);
+      await expect(
+        service.hardDelete(TENANT_ID, SUPPLIER_ID, 'nonexistent', USER_ID),
+      ).rejects.toThrow('Supplier product not found.');
+    });
+
+    it('should call auditLogger with action "deleted" and before snapshot', async () => {
+      const existing = mockProductRecord();
+      mockPrismaService.supplier.findFirst.mockResolvedValue(
+        mockSupplierRecord(),
+      );
+      mockPrismaService.supplier_product.findFirst.mockResolvedValue(existing);
+      mockPrismaService.supplier_product_price_history.deleteMany.mockResolvedValue(
+        { count: 1 },
+      );
+      mockPrismaService.supplier_product.delete.mockResolvedValue(existing);
+
+      await service.hardDelete(TENANT_ID, SUPPLIER_ID, PRODUCT_ID, USER_ID);
+
+      expect(mockAuditLoggerService.logTenantChange).toHaveBeenCalledTimes(1);
+      expect(mockAuditLoggerService.logTenantChange).toHaveBeenCalledWith({
+        action: 'deleted',
+        entityType: 'supplier_product',
+        entityId: PRODUCT_ID,
+        tenantId: TENANT_ID,
+        actorUserId: USER_ID,
+        before: existing,
+        description: `Permanently deleted supplier product: ${existing.name}`,
+      });
+    });
+
+    it('should enforce cross-tenant isolation', async () => {
+      mockPrismaService.supplier.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.hardDelete(OTHER_TENANT_ID, SUPPLIER_ID, PRODUCT_ID, USER_ID),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockPrismaService.supplier.findFirst).toHaveBeenCalledWith({
+        where: { id: SUPPLIER_ID, tenant_id: OTHER_TENANT_ID },
+      });
+    });
+
+    it('should not call audit logger when product not found', async () => {
+      mockPrismaService.supplier.findFirst.mockResolvedValue(
+        mockSupplierRecord(),
+      );
+      mockPrismaService.supplier_product.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.hardDelete(TENANT_ID, SUPPLIER_ID, PRODUCT_ID, USER_ID),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockAuditLoggerService.logTenantChange).not.toHaveBeenCalled();
     });
   });
 });

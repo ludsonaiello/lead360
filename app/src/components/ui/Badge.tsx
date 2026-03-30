@@ -7,7 +7,7 @@ import React from 'react';
 import { LucideIcon } from 'lucide-react';
 
 interface BadgeProps {
-  variant?: 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'blue' | 'purple' | 'green' | 'gray' | 'yellow' | 'indigo' | 'cyan' | 'orange';
+  variant?: 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'blue' | 'purple' | 'green' | 'gray' | 'yellow' | 'indigo' | 'cyan' | 'orange' | 'pink' | 'amber';
   label?: string;
   icon?: LucideIcon;
   className?: string;
@@ -28,6 +28,8 @@ const variantClasses = {
   indigo: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
   cyan: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800',
   orange: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800',
+  pink: 'bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-300 border-pink-200 dark:border-pink-800',
+  amber: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800',
 };
 
 export function Badge({ variant = 'neutral', label, icon: Icon, className = '', children }: BadgeProps) {

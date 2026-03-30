@@ -51,7 +51,13 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace('#', '');
+      if (hash && TABS.some((t) => t.id === hash)) return hash;
+    }
+    return 'overview';
+  });
 
   // Modals
   const [showEditModal, setShowEditModal] = useState(false);

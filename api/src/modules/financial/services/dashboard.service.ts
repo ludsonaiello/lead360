@@ -105,7 +105,8 @@ export class DashboardService {
 
     // Run all 10 independent queries in parallel
     const [
-      incomeTotal,
+      invoiceIncomeTotal,
+      entryIncomeTotal,
       invoiceCount,
       byProject,
       expenseTotal,
@@ -116,12 +117,23 @@ export class DashboardService {
       byCategoryRaw,
       topSuppliersRaw,
     ] = await Promise.all([
-      // Query 1 — Total income (sum of payments received this month)
+      // Query 1a — Invoice payment income (sum of payments received this month)
       this.prisma.project_invoice_payment.aggregate({
         _sum: { amount: true },
         where: {
           tenant_id: tenantId,
           payment_date: { gte: monthStart, lt: monthEnd },
+        },
+      }),
+
+      // Query 1b — Financial entry income (entry_type = 'income', confirmed)
+      this.prisma.financial_entry.aggregate({
+        _sum: { amount: true },
+        where: {
+          tenant_id: tenantId,
+          entry_date: { gte: monthStart, lt: monthEnd },
+          submission_status: 'confirmed',
+          entry_type: 'income',
         },
       }),
 
@@ -145,17 +157,18 @@ export class DashboardService {
         },
       }),
 
-      // Query 4 — Total expenses (confirmed only)
+      // Query 4 — Total expenses (confirmed only, entry_type = 'expense')
       this.prisma.financial_entry.aggregate({
         _sum: { amount: true },
         where: {
           tenant_id: tenantId,
           entry_date: { gte: monthStart, lt: monthEnd },
           submission_status: 'confirmed',
+          entry_type: 'expense',
         },
       }),
 
-      // Query 5 — Total expenses with pending (confirmed + pending_review)
+      // Query 5 — Total expenses with pending (confirmed + pending_review, entry_type = 'expense')
       // Only runs the combined query when includePending is true; otherwise returns null
       // so total_with_pending falls back to the confirmed-only total
       includePending
@@ -165,6 +178,7 @@ export class DashboardService {
               tenant_id: tenantId,
               entry_date: { gte: monthStart, lt: monthEnd },
               submission_status: { in: ['confirmed', 'pending_review'] },
+              entry_type: 'expense',
             },
           })
         : Promise.resolve({ _sum: { amount: null } }),
@@ -176,6 +190,7 @@ export class DashboardService {
           tenant_id: tenantId,
           entry_date: { gte: monthStart, lt: monthEnd },
           submission_status: 'confirmed',
+          entry_type: 'expense',
         },
       }),
 
@@ -186,6 +201,7 @@ export class DashboardService {
           tenant_id: tenantId,
           entry_date: { gte: monthStart, lt: monthEnd },
           submission_status: 'confirmed',
+          entry_type: 'expense',
           category: { classification: 'cost_of_goods_sold' },
         },
       }),
@@ -197,11 +213,12 @@ export class DashboardService {
           tenant_id: tenantId,
           entry_date: { gte: monthStart, lt: monthEnd },
           submission_status: 'confirmed',
+          entry_type: 'expense',
           category: { classification: 'operating_expense' },
         },
       }),
 
-      // Query 9 — Expenses grouped by category
+      // Query 9 — Expenses grouped by category (expense entries only)
       this.prisma.financial_entry.groupBy({
         by: ['category_id'],
         _sum: { amount: true },
@@ -210,10 +227,11 @@ export class DashboardService {
           tenant_id: tenantId,
           entry_date: { gte: monthStart, lt: monthEnd },
           submission_status: 'confirmed',
+          entry_type: 'expense',
         },
       }),
 
-      // Query 10 — Top 5 suppliers by spend
+      // Query 10 — Top 5 suppliers by spend (expense entries only)
       this.prisma.financial_entry.groupBy({
         by: ['vendor_name'],
         _sum: { amount: true },
@@ -222,6 +240,7 @@ export class DashboardService {
           tenant_id: tenantId,
           entry_date: { gte: monthStart, lt: monthEnd },
           submission_status: 'confirmed',
+          entry_type: 'expense',
           vendor_name: { not: null },
         },
         orderBy: { _sum: { amount: 'desc' } },
@@ -295,7 +314,7 @@ export class DashboardService {
     // -----------------------------------------------------------------------
     // Monetary values
     // -----------------------------------------------------------------------
-    const incomeTotalNum = this.toNum(incomeTotal._sum.amount);
+    const incomeTotalNum = this.toNum(invoiceIncomeTotal._sum.amount) + this.toNum(entryIncomeTotal._sum.amount);
     const expenseTotalNum = this.toNum(expenseTotal._sum.amount);
     const expenseWithPendingNum = includePending
       ? this.toNum(expenseWithPending._sum.amount)
@@ -325,6 +344,8 @@ export class DashboardService {
       month_label: monthLabel,
       income: {
         total: incomeTotalNum,
+        invoice_payments: this.toNum(invoiceIncomeTotal._sum.amount),
+        entry_income: this.toNum(entryIncomeTotal._sum.amount),
         invoice_count: invoiceCount.length,
         by_project: incomeByProject,
       },

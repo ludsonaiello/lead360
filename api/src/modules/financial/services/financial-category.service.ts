@@ -47,13 +47,14 @@ export class FinancialCategoryService {
   ) {}
 
   /**
-   * Returns all active categories for a tenant, ordered by type then name.
+   * Returns categories for a tenant, ordered by type then name.
+   * By default only active categories are returned; pass includeInactive=true to include all.
    */
-  async findAllForTenant(tenantId: string) {
+  async findAllForTenant(tenantId: string, includeInactive = false) {
     return this.prisma.financial_category.findMany({
       where: {
         tenant_id: tenantId,
-        is_active: true,
+        ...(includeInactive ? {} : { is_active: true }),
       },
       orderBy: [{ type: 'asc' }, { name: 'asc' }],
     });
@@ -116,12 +117,20 @@ export class FinancialCategoryService {
       );
     }
 
+    // Prevent reactivation of system-default categories that were deactivated
+    if (dto.is_active === true && existing.is_system_default && !existing.is_active) {
+      throw new BadRequestException(
+        'Cannot reactivate a system-default category',
+      );
+    }
+
     const updated = await this.prisma.financial_category.update({
       where: { id: categoryId },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.classification !== undefined && { classification: dto.classification }),
+        ...(dto.is_active !== undefined && { is_active: dto.is_active }),
       },
     });
 

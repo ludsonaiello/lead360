@@ -111,17 +111,30 @@ export class PaymentMethodRegistryController {
   }
 
   // ---------------------------------------------------------------------------
-  // SOFT DELETE — DELETE /financial/payment-methods/:id
+  // DELETE — DELETE /financial/payment-methods/:id
   // ---------------------------------------------------------------------------
 
   @Delete('payment-methods/:id')
   @Roles('Owner', 'Admin')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Soft-delete (deactivate) a payment method' })
+  @ApiOperation({ summary: 'Delete a payment method (soft by default, permanent with ?permanent=true)' })
   @ApiParam({ name: 'id', description: 'Payment method UUID' })
-  @ApiResponse({ status: 200, description: 'Payment method deactivated. Returns the updated record.' })
+  @ApiQuery({ name: 'permanent', required: false, type: Boolean, description: 'Set to true to permanently delete (only works if payment method has zero usage)' })
+  @ApiResponse({ status: 200, description: 'Payment method deactivated or permanently deleted.' })
+  @ApiResponse({ status: 400, description: 'Cannot permanently delete — payment method is in use' })
   @ApiResponse({ status: 404, description: 'Payment method not found' })
-  async remove(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
+  async remove(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('permanent') permanent?: string,
+  ) {
+    if (permanent === 'true') {
+      return this.paymentMethodRegistryService.hardDelete(
+        req.user.tenant_id,
+        id,
+        req.user.id,
+      );
+    }
     return this.paymentMethodRegistryService.softDelete(
       req.user.tenant_id,
       id,

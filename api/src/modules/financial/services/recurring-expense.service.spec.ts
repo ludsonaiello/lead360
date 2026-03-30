@@ -736,6 +736,216 @@ describe('RecurringExpenseService', () => {
       expect(createCall.data.category_id).toBe(CATEGORY_ID);
       expect(createCall.data.has_receipt).toBe(false);
     });
+
+    // -----------------------------------------------------------------------
+    // Manual trigger (manualTrigger=true) vs automatic trigger
+    // -----------------------------------------------------------------------
+
+    it('should process rule even when next_due_date is in the future if manualTrigger=true', async () => {
+      // Scenario: Rule due April 1, manually triggered on March 28
+      const april1 = new Date(2026, 3, 1); // April 1, 2026
+
+      prisma.recurring_expense_rule.findFirst.mockResolvedValue(
+        mockRule({ next_due_date: april1, frequency: 'monthly', interval: 1, day_of_month: 1 }),
+      );
+      prisma.financial_entry.findFirst.mockResolvedValue(null);
+
+      const mockTx = {
+        financial_entry: {
+          create: jest.fn().mockResolvedValue({ id: ENTRY_ID }),
+        },
+        recurring_expense_rule: {
+          update: jest.fn().mockResolvedValue({}),
+        },
+      };
+      prisma.$transaction.mockImplementation(async (fn: any) => fn(mockTx));
+
+      const result = await service.processRule(RULE_ID, TENANT_ID, true);
+
+      // Should NOT skip — manualTrigger bypasses date guard
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({ id: ENTRY_ID });
+    });
+
+    it('should skip rule when next_due_date is in the future and manualTrigger is NOT set', async () => {
+      // Scenario: Same rule (April 1), auto-scheduler runs on March 28
+      const april1 = new Date(2026, 3, 1);
+
+      prisma.recurring_expense_rule.findFirst.mockResolvedValue(
+        mockRule({ next_due_date: april1 }),
+      );
+
+      const result = await service.processRule(RULE_ID, TENANT_ID);
+
+      // Should skip — not yet due
+      expect(result).toBeUndefined();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should skip rule when next_due_date is in the future and manualTrigger=false', async () => {
+      const april1 = new Date(2026, 3, 1);
+
+      prisma.recurring_expense_rule.findFirst.mockResolvedValue(
+        mockRule({ next_due_date: april1 }),
+      );
+
+      const result = await service.processRule(RULE_ID, TENANT_ID, false);
+
+      expect(result).toBeUndefined();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should use today as entry_date when manualTrigger=true (not the rule next_due_date)', async () => {
+      // Scenario: Rule due April 1, triggered March 28 — entry should be dated today
+      const april1 = new Date(2026, 3, 1);
+
+      prisma.recurring_expense_rule.findFirst.mockResolvedValue(
+        mockRule({ next_due_date: april1, frequency: 'monthly', interval: 1, day_of_month: 1 }),
+      );
+      prisma.financial_entry.findFirst.mockResolvedValue(null);
+
+      const mockTx = {
+        financial_entry: {
+          create: jest.fn().mockResolvedValue({ id: ENTRY_ID }),
+        },
+        recurring_expense_rule: {
+          update: jest.fn().mockResolvedValue({}),
+        },
+      };
+      prisma.$transaction.mockImplementation(async (fn: any) => fn(mockTx));
+
+      const beforeCall = new Date();
+      await service.processRule(RULE_ID, TENANT_ID, true);
+      const afterCall = new Date();
+
+      const createCall = mockTx.financial_entry.create.mock.calls[0][0];
+      const entryDate = new Date(createCall.data.entry_date);
+
+      // entry_date should be approximately "now", not April 1
+      expect(entryDate.getTime()).toBeGreaterThanOrEqual(beforeCall.getTime());
+      expect(entryDate.getTime()).toBeLessThanOrEqual(afterCall.getTime());
+      expect(entryDate.getMonth()).not.toBe(3); // NOT April (month index 3)
+    });
+
+    it('should use next_due_date as entry_date when auto-triggered (not manualTrigger)', async () => {
+      // Scenario: Scheduler triggers when rule is due today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dayOfMonth = today.getDate();
+
+      prisma.recurring_expense_rule.findFirst.mockResolvedValue(
+        mockRule({ next_due_date: today, frequency: 'monthly', interval: 1, day_of_month: dayOfMonth }),
+      );
+      prisma.financial_entry.findFirst.mockResolvedValue(null);
+
+      const mockTx = {
+        financial_entry: {
+          create: jest.fn().mockResolvedValue({ id: ENTRY_ID }),
+        },
+        recurring_expense_rule: {
+          update: jest.fn().mockResolvedValue({}),
+        },
+      };
+      prisma.$transaction.mockImplementation(async (fn: any) => fn(mockTx));
+
+      await service.processRule(RULE_ID, TENANT_ID); // no manualTrigger flag
+
+      const createCall = mockTx.financial_entry.create.mock.calls[0][0];
+      const entryDate = new Date(createCall.data.entry_date);
+
+      // entry_date should be the rule's next_due_date (today), not some other date
+      expect(entryDate.getFullYear()).toBe(today.getFullYear());
+      expect(entryDate.getMonth()).toBe(today.getMonth());
+      expect(entryDate.getDate()).toBe(today.getDate());
+    });
+
+    it('should advance next_due_date from rule schedule (not from today) on manual trigger', async () => {
+      // Scenario: Monthly rule due April 1, day_of_month=1, triggered March 28
+      // Next due should be May 1 (from April 1), NOT April 28 (from today)
+      const april1 = new Date(2026, 3, 1);
+
+      prisma.recurring_expense_rule.findFirst.mockResolvedValue(
+        mockRule({
+          next_due_date: april1,
+          frequency: 'monthly',
+          interval: 1,
+          day_of_month: 1,
+          occurrences_generated: 3,
+        }),
+      );
+      prisma.financial_entry.findFirst.mockResolvedValue(null);
+
+      const mockTx = {
+        financial_entry: {
+          create: jest.fn().mockResolvedValue({ id: ENTRY_ID }),
+        },
+        recurring_expense_rule: {
+          update: jest.fn().mockResolvedValue({}),
+        },
+      };
+      prisma.$transaction.mockImplementation(async (fn: any) => fn(mockTx));
+
+      await service.processRule(RULE_ID, TENANT_ID, true);
+
+      const updateCall = mockTx.recurring_expense_rule.update.mock.calls[0][0];
+      const nextDue = new Date(updateCall.data.next_due_date);
+
+      // Next due should be May 1 — calculated from April 1, not from March 28
+      expect(nextDue.getFullYear()).toBe(2026);
+      expect(nextDue.getMonth()).toBe(4); // May
+      expect(nextDue.getDate()).toBe(1);
+    });
+
+    it('should advance next_due_date from rule schedule on auto trigger', async () => {
+      // Scenario: Monthly rule due today, day_of_month=1, scheduler triggers
+      // Next due should be 1st of next month
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Use a past date that is <= today so the date guard passes
+      const dueDate = new Date(today);
+      dueDate.setDate(1); // 1st of current month
+
+      // If 1st of current month is in the future (today < 1st), use last month
+      if (dueDate > today) {
+        dueDate.setMonth(dueDate.getMonth() - 1);
+      }
+
+      prisma.recurring_expense_rule.findFirst.mockResolvedValue(
+        mockRule({
+          next_due_date: dueDate,
+          frequency: 'monthly',
+          interval: 1,
+          day_of_month: 1,
+          occurrences_generated: 3,
+        }),
+      );
+      prisma.financial_entry.findFirst.mockResolvedValue(null);
+
+      const mockTx = {
+        financial_entry: {
+          create: jest.fn().mockResolvedValue({ id: ENTRY_ID }),
+        },
+        recurring_expense_rule: {
+          update: jest.fn().mockResolvedValue({}),
+        },
+      };
+      prisma.$transaction.mockImplementation(async (fn: any) => fn(mockTx));
+
+      await service.processRule(RULE_ID, TENANT_ID);
+
+      const updateCall = mockTx.recurring_expense_rule.update.mock.calls[0][0];
+      const nextDue = new Date(updateCall.data.next_due_date);
+
+      // Next due should be 1st of the month AFTER dueDate
+      const expectedNext = new Date(dueDate);
+      expectedNext.setMonth(expectedNext.getMonth() + 1);
+      expectedNext.setDate(1);
+
+      expect(nextDue.getFullYear()).toBe(expectedNext.getFullYear());
+      expect(nextDue.getMonth()).toBe(expectedNext.getMonth());
+      expect(nextDue.getDate()).toBe(1);
+    });
   });
 
   // =========================================================================
@@ -1308,7 +1518,7 @@ describe('RecurringExpenseService', () => {
 
       expect(mockQueue.add).toHaveBeenCalledWith(
         'recurring-expense-generate',
-        { ruleId: RULE_ID, tenantId: TENANT_ID },
+        { ruleId: RULE_ID, tenantId: TENANT_ID, manualTrigger: true },
         expect.objectContaining({ priority: 1 }),
       );
       expect(result).toEqual({

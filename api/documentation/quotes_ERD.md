@@ -275,6 +275,7 @@ income income
         expense_submission_status {
             pending_review pending_review
 confirmed confirmed
+denied denied
         }
     
 
@@ -2250,10 +2251,25 @@ paid paid
     payment_method payment_method "❓"
     DateTime entry_time "❓"
     Decimal tax_amount "❓"
+    Decimal discount "❓"
     expense_submission_status submission_status 
     String rejection_reason "❓"
     DateTime rejected_at "❓"
     Boolean is_recurring_instance 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "financial_entry_line_item" {
+    String id "🗝️"
+    String description 
+    Decimal quantity 
+    Decimal unit_price 
+    Decimal total 
+    String unit_of_measure "❓"
+    Int order_index 
+    String notes "❓"
     DateTime created_at 
     DateTime updated_at 
     }
@@ -2313,6 +2329,13 @@ paid paid
     String ocr_vendor "❓"
     Decimal ocr_amount "❓"
     DateTime ocr_date "❓"
+    Decimal ocr_tax "❓"
+    Decimal ocr_discount "❓"
+    Decimal ocr_subtotal "❓"
+    String ocr_time "❓"
+    String ocr_entry_type "❓"
+    String ocr_line_items "❓"
+    String ocr_notes "❓"
     Boolean is_categorized 
     DateTime created_at 
     DateTime updated_at 
@@ -2976,6 +2999,9 @@ paid paid
     "financial_entry" }o--|o payment_method_registry : "payment_method_registry_rel"
     "financial_entry" }o--|o "user" : "rejected_by"
     "financial_entry" }o--|o recurring_expense_rule : "recurring_rule"
+    "financial_entry_line_item" }o--|| "tenant" : "tenant"
+    "financial_entry_line_item" }o--|| financial_entry : "financial_entry"
+    "financial_entry_line_item" }o--|o supplier_product : "supplier_product"
     "recurring_expense_rule" |o--|| "recurring_frequency" : "enum:frequency"
     "recurring_expense_rule" |o--|| "recurring_rule_status" : "enum:status"
     "recurring_expense_rule" }o--|| "tenant" : "tenant"

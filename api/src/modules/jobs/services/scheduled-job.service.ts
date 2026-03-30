@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { randomBytes } from 'crypto';
 import * as parser from 'cron-parser';
@@ -68,15 +68,16 @@ export class ScheduledJobService {
       timeout_seconds: number;
     }>,
   ) {
+    // Always verify the job exists first
+    const existing = await this.prisma.scheduled_job.findUnique({
+      where: { id: scheduleId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Scheduled job with ID ${scheduleId} not found`);
+    }
+
     if (updates.schedule) {
-      const existing = await this.prisma.scheduled_job.findUnique({
-        where: { id: scheduleId },
-      });
-
-      if (!existing) {
-        throw new Error(`Scheduled job with ID ${scheduleId} not found`);
-      }
-
       const timezone = updates.timezone || existing.timezone;
 
       try {

@@ -607,6 +607,14 @@ export class FilesService {
       throw new NotFoundException('File not found');
     }
 
+    // Check for references that would block deletion
+    const references = await this.findFileReferences(file.file_id);
+    if (references.length > 0) {
+      throw new BadRequestException(
+        `Cannot delete file — it is referenced by: ${references.join(', ')}. Remove the references first.`,
+      );
+    }
+
     // Hard delete from filesystem - delete main file
     await this.fileStorage.deleteFileByPath(file.storage_path);
 
@@ -903,6 +911,48 @@ export class FilesService {
    * @param tenantId - Tenant ID
    * @returns Array of file IDs that are linked as latest PDFs
    */
+  /**
+   * Check all tables that reference file.file_id and return human-readable
+   * descriptions of what is using this file. Returns empty array if no references.
+   */
+  private async findFileReferences(fileId: string): Promise<string[]> {
+    const refs: string[] = [];
+
+    const [
+      receipt,
+      projectDoc,
+      projectPhoto,
+      projectLogAttachment,
+      subcontractorDoc,
+      vendor,
+      subInvoice,
+    ] = await Promise.all([
+      this.prisma.receipt.findFirst({ where: { file_id: fileId }, select: { id: true, financial_entry_id: true } }),
+      this.prisma.project_document.findFirst({ where: { file_id: fileId }, select: { id: true } }),
+      this.prisma.project_photo.findFirst({ where: { file_id: fileId }, select: { id: true } }),
+      this.prisma.project_log_attachment.findFirst({ where: { file_id: fileId }, select: { id: true } }),
+      this.prisma.subcontractor_document.findFirst({ where: { file_id: fileId }, select: { id: true } }),
+      this.prisma.vendor.findFirst({ where: { signature_file_id: fileId }, select: { id: true } }),
+      this.prisma.subcontractor_task_invoice.findFirst({ where: { file_id: fileId }, select: { id: true } }),
+    ]);
+
+    if (receipt) {
+      if (receipt.financial_entry_id) {
+        refs.push('receipt (linked to financial entry)');
+      } else {
+        refs.push('receipt (unlinked)');
+      }
+    }
+    if (projectDoc) refs.push('project document');
+    if (projectPhoto) refs.push('project photo');
+    if (projectLogAttachment) refs.push('project log attachment');
+    if (subcontractorDoc) refs.push('subcontractor document');
+    if (vendor) refs.push('vendor signature');
+    if (subInvoice) refs.push('subcontractor invoice');
+
+    return refs;
+  }
+
   private async getLinkedPdfFileIds(tenantId: string): Promise<string[]> {
     const quotes = await this.prisma.quote.findMany({
       where: {
@@ -1373,6 +1423,20 @@ export class FilesService {
     if (files.length !== dto.file_ids.length) {
       throw new BadRequestException(
         'Some files not found or do not belong to this tenant',
+      );
+    }
+
+    // Check for references that would block deletion
+    const blockedFiles: string[] = [];
+    for (const file of files) {
+      const refs = await this.findFileReferences(file.file_id);
+      if (refs.length > 0) {
+        blockedFiles.push(`"${file.original_filename}" (used by ${refs.join(', ')})`);
+      }
+    }
+    if (blockedFiles.length > 0) {
+      throw new BadRequestException(
+        `Cannot delete files — some are still in use: ${blockedFiles.join('; ')}. Remove the references first.`,
       );
     }
 

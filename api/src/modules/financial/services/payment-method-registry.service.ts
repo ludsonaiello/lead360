@@ -311,6 +311,66 @@ export class PaymentMethodRegistryService {
   }
 
   // ---------------------------------------------------------------------------
+  // HARD DELETE
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Permanently delete a payment method from the database.
+   * Only allowed when the method has ZERO usage across:
+   *   - financial_entry
+   *   - recurring_expense_rule
+   *   - project_invoice_payment
+   * Throws 400 if the record is still referenced anywhere.
+   */
+  async hardDelete(tenantId: string, id: string, userId: string) {
+    // 1. Find existing record (throws 404 if not found)
+    const existing = await this.findOne(tenantId, id);
+
+    // 2. Check all tables that reference payment_method_registry_id
+    const [entryCount, recurringCount, invoicePaymentCount] = await Promise.all([
+      this.prisma.financial_entry.count({
+        where: { payment_method_registry_id: id },
+      }),
+      this.prisma.recurring_expense_rule.count({
+        where: { payment_method_registry_id: id },
+      }),
+      this.prisma.project_invoice_payment.count({
+        where: { payment_method_registry_id: id },
+      }),
+    ]);
+
+    const totalUsage = entryCount + recurringCount + invoicePaymentCount;
+
+    if (totalUsage > 0) {
+      const references: string[] = [];
+      if (entryCount > 0) references.push(`${entryCount} financial entry(ies)`);
+      if (recurringCount > 0) references.push(`${recurringCount} recurring rule(s)`);
+      if (invoicePaymentCount > 0) references.push(`${invoicePaymentCount} invoice payment(s)`);
+      throw new BadRequestException(
+        `Cannot permanently delete: payment method is referenced by ${references.join(', ')}`,
+      );
+    }
+
+    // 3. Hard delete
+    await this.prisma.payment_method_registry.delete({
+      where: { id },
+    });
+
+    // 4. Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'deleted',
+      entityType: 'payment_method_registry',
+      entityId: id,
+      tenantId,
+      actorUserId: userId,
+      before: existing,
+      description: `Permanently deleted payment method: ${existing.nickname}`,
+    });
+
+    return { message: `Payment method "${existing.nickname}" permanently deleted` };
+  }
+
+  // ---------------------------------------------------------------------------
   // SET DEFAULT
   // ---------------------------------------------------------------------------
 

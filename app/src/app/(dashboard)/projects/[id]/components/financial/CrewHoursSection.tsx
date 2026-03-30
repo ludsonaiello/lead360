@@ -15,8 +15,8 @@ import toast from 'react-hot-toast';
 import {
   getCrewHours,
   logCrewHours,
-  getCrewMembers,
 } from '@/lib/api/financial';
+import { getCrewMembers } from '@/lib/api/crew';
 import { getProjectTasks, formatDate } from '@/lib/api/projects';
 import type { CrewHourLog, CrewMember, PaginatedResponse } from '@/lib/types/financial';
 import type { ProjectTask } from '@/lib/types/projects';
@@ -110,8 +110,10 @@ export default function CrewHoursSection({ projectId, onDataChange }: CrewHoursS
 
     setSubmitting(true);
     try {
-      await logCrewHours(projectId, form.task_id, {
+      await logCrewHours({
         crew_member_id: form.crew_member_id,
+        project_id: projectId,
+        task_id: form.task_id || undefined,
         log_date: form.log_date,
         hours_regular: parseFloat(form.hours_regular),
         hours_overtime: form.hours_overtime ? parseFloat(form.hours_overtime) : undefined,
@@ -239,11 +241,11 @@ export default function CrewHoursSection({ projectId, onDataChange }: CrewHoursS
               })}
             </div>
 
-            {hours.meta.pages > 1 && (
+            {(hours.meta.pages ?? 0) > 1 && (
               <div className="mt-4">
                 <PaginationControls
                   currentPage={page}
-                  totalPages={hours.meta.pages}
+                  totalPages={hours.meta.pages ?? 1}
                   onNext={() => setPage((p) => p + 1)}
                   onPrevious={() => setPage((p) => p - 1)}
                 />

@@ -6,6 +6,7 @@ import { ExpiryCheckHandler } from '../handlers/expiry-check.handler';
 import { DataCleanupHandler } from '../handlers/data-cleanup.handler';
 import { JobRetentionHandler } from '../handlers/job-retention.handler';
 import { PartitionMaintenanceHandler } from '../handlers/partition-maintenance.handler';
+import { ReceiptCleanupHandler } from '../handlers/receipt-cleanup.handler';
 
 @Processor('scheduled')
 export class ScheduledJobsProcessor extends WorkerHost {
@@ -16,6 +17,7 @@ export class ScheduledJobsProcessor extends WorkerHost {
     private readonly dataCleanupHandler: DataCleanupHandler,
     private readonly jobRetentionHandler: JobRetentionHandler,
     private readonly partitionMaintenanceHandler: PartitionMaintenanceHandler,
+    private readonly receiptCleanupHandler: ReceiptCleanupHandler,
   ) {
     super();
     this.logger.log('🚀 ScheduledJobsProcessor worker initialized and ready');
@@ -41,6 +43,9 @@ export class ScheduledJobsProcessor extends WorkerHost {
             jobId,
             job.data,
           );
+
+        case 'receipt-cleanup':
+          return await this.receiptCleanupHandler.execute(jobId, job.data);
 
         default:
           this.logger.warn(`❌ Unknown job type: ${job.name} - skipping`);

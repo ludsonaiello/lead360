@@ -533,8 +533,10 @@ export class RecurringExpenseService {
       updateData.auto_confirm = dto.auto_confirm;
     if (dto.notes !== undefined) updateData.notes = dto.notes;
 
-    // 8. Recalculate next_due_date if schedule changed
-    if (scheduleFieldsChanged) {
+    // 8. Handle next_due_date: explicit override takes priority over recalculation
+    if (dto.next_due_date) {
+      updateData.next_due_date = new Date(dto.next_due_date);
+    } else if (scheduleFieldsChanged) {
       const newFrequency = dto.frequency ?? existing.frequency;
       const newInterval = dto.interval ?? existing.interval;
       const newDayOfMonth =
@@ -819,6 +821,7 @@ export class RecurringExpenseService {
       {
         ruleId,
         tenantId,
+        manualTrigger: true,
       },
       {
         priority: 1, // High priority — manual trigger should process quickly
@@ -851,7 +854,7 @@ export class RecurringExpenseService {
    * - BR-11: Duplicate prevention — checks if entry already exists for rule+date
    * - BR-7:  Termination checked after generation (end_date, recurrence_count)
    */
-  async processRule(ruleId: string, tenantId: string) {
+  async processRule(ruleId: string, tenantId: string, manualTrigger?: boolean) {
     const rule = await this.prisma.recurring_expense_rule.findFirst({
       where: { id: ruleId, tenant_id: tenantId },
     });
@@ -870,7 +873,7 @@ export class RecurringExpenseService {
       return;
     }
 
-    if (new Date(rule.next_due_date) > today) {
+    if (new Date(rule.next_due_date) > today && !manualTrigger) {
       this.logger.log(
         `Rule ${ruleId} not yet due (next: ${rule.next_due_date}) — skipping`,
       );
@@ -911,7 +914,7 @@ export class RecurringExpenseService {
           entry_type: 'expense',
           amount: rule.amount,
           tax_amount: rule.tax_amount,
-          entry_date: new Date(rule.next_due_date),
+          entry_date: manualTrigger ? new Date() : new Date(rule.next_due_date),
           vendor_name: rule.vendor_name,
           supplier_id: rule.supplier_id,
           payment_method_registry_id: rule.payment_method_registry_id,

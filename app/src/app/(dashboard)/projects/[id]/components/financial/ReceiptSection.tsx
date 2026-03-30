@@ -1,120 +1,127 @@
+/**
+ * ReceiptSection Component — Project Financial Tab
+ * Displays receipts grid for a project with upload (via ReceiptUploadModal),
+ * preview with OCR data, OCR status badges, and delete with confirmation.
+ *
+ * Sprint 12 Integration: Uses the shared ReceiptUploadModal that includes
+ * OCR polling, create-entry-from-receipt, link-to-entry, retry OCR,
+ * camera capture, and orphan cleanup.
+ */
+
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Card from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
+import Button from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Modal, ModalActions } from '@/components/ui/Modal';
-import { Select } from '@/components/ui/Select';
-import { MoneyInput } from '@/components/ui/MoneyInput';
-import { DatePicker } from '@/components/ui/DatePicker';
-import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { PaginationControls } from '@/components/ui/PaginationControls';
 import {
   Upload,
-  Camera,
   FileText,
-  Link2,
-  X,
   Eye,
+  Trash2,
+  AlertCircle,
+  Link2,
+  Unlink,
+  FileImage,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import {
-  uploadReceipt,
-  getReceipts,
-  linkReceiptToEntry,
-  getFinancialEntries,
-} from '@/lib/api/financial';
-import { formatCurrency, formatDate, getFileUrl } from '@/lib/api/projects';
-import type { Receipt, FinancialEntry, PaginatedResponse } from '@/lib/types/financial';
+import { useRBAC } from '@/contexts/RBACContext';
+import { getReceipts, deleteReceipt, unlinkReceipt } from '@/lib/api/financial';
+import { buildFileUrl } from '@/lib/api/files';
+import type { Receipt, PaginatedResponse, OcrStatus } from '@/lib/types/financial';
+import { getPageCount } from '@/lib/types/financial';
+import { ReceiptUploadModal } from '@/app/(dashboard)/financial/entries/components/ReceiptUploadModal';
+
+// ========== CONSTANTS ==========
+
+const PAGE_SIZE = 20;
+const CAN_DELETE_ROLES = ['Owner', 'Admin', 'Manager', 'Bookkeeper'];
+
+// ========== HELPERS ==========
+
+function formatCurrency(value: number | string | null): string {
+  if (value === null || value === undefined) return '-';
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(num)) return '-';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+  }).format(num);
+}
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return '-';
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function formatFileSize(bytes: number | null): string {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getOcrBadge(status: OcrStatus) {
+  switch (status) {
+    case 'complete':
+      return { variant: 'success' as const, label: 'OCR Complete' };
+    case 'processing':
+      return { variant: 'blue' as const, label: 'Processing' };
+    case 'failed':
+      return { variant: 'danger' as const, label: 'OCR Failed' };
+    case 'not_processed':
+      return { variant: 'gray' as const, label: 'Not Processed' };
+    default:
+      return { variant: 'gray' as const, label: status };
+  }
+}
+
+// ========== TYPES ==========
 
 interface ReceiptSectionProps {
   projectId: string;
   onDataChange: () => void;
 }
 
+// ========== COMPONENT ==========
+
 export default function ReceiptSection({ projectId, onDataChange }: ReceiptSectionProps) {
+  const { hasRole } = useRBAC();
+  const canDelete = hasRole(CAN_DELETE_ROLES);
+
   const [receipts, setReceipts] = useState<PaginatedResponse<Receipt> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [uploading, setUploading] = useState(false);
 
-  // Upload form
+  // Upload modal (uses shared ReceiptUploadModal)
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
-  const [uploadVendor, setUploadVendor] = useState('');
-  const [uploadAmount, setUploadAmount] = useState(0);
-  const [uploadDate, setUploadDate] = useState('');
-
-  // Link modal
-  const [showLinkModal, setShowLinkModal] = useState(false);
-  const [linkReceipt, setLinkReceipt] = useState<Receipt | null>(null);
-  const [entries, setEntries] = useState<FinancialEntry[]>([]);
-  const [selectedEntryId, setSelectedEntryId] = useState('');
-  const [linking, setLinking] = useState(false);
 
   // Preview modal
   const [previewReceipt, setPreviewReceipt] = useState<Receipt | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const dragCounterRef = useRef(0);
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState<Receipt | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    dragCounterRef.current++;
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    dragCounterRef.current--;
-    if (dragCounterRef.current === 0) {
-      setIsDragging(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    dragCounterRef.current = 0;
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (!file) return;
-
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
-    if (!validTypes.includes(file.type)) {
-      toast.error('Invalid file type. Accepted: JPG, PNG, WebP, PDF');
-      return;
-    }
-    if (file.size > 25 * 1024 * 1024) {
-      toast.error('File size must be under 25 MB');
-      return;
-    }
-
-    setUploadFile(file);
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = () => setUploadPreview(reader.result as string);
-      reader.readAsDataURL(file);
-    } else {
-      setUploadPreview(null);
-    }
-    setShowUploadModal(true);
-  };
-
+  // ===== LOAD RECEIPTS =====
   const loadReceipts = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     try {
-      const data = await getReceipts({ project_id: projectId, page, limit: 20 });
+      const data = await getReceipts({ project_id: projectId, page, limit: PAGE_SIZE });
       setReceipts(data);
     } catch {
+      setFetchError('Failed to load receipts');
       toast.error('Failed to load receipts');
     } finally {
       setLoading(false);
@@ -125,188 +132,94 @@ export default function ReceiptSection({ projectId, onDataChange }: ReceiptSecti
     loadReceipts();
   }, [loadReceipts]);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
-    if (!validTypes.includes(file.type)) {
-      toast.error('Invalid file type. Accepted: JPG, PNG, WebP, PDF');
-      return;
-    }
-    if (file.size > 25 * 1024 * 1024) {
-      toast.error('File size must be under 25 MB');
-      return;
-    }
-
-    setUploadFile(file);
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = () => setUploadPreview(reader.result as string);
-      reader.readAsDataURL(file);
-    } else {
-      setUploadPreview(null);
-    }
-    setShowUploadModal(true);
-  };
-
-  const handleUpload = async () => {
-    if (!uploadFile) return;
-
-    setUploading(true);
+  // ===== DELETE HANDLER =====
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      const formData = new FormData();
-      formData.append('file', uploadFile);
-      formData.append('project_id', projectId);
-      if (uploadVendor) formData.append('vendor_name', uploadVendor);
-      if (uploadAmount > 0) formData.append('amount', uploadAmount.toString());
-      if (uploadDate) formData.append('receipt_date', uploadDate);
-
-      await uploadReceipt(formData);
-      toast.success('Receipt uploaded');
-      resetUploadForm();
-      setShowUploadModal(false);
+      // If linked to an entry, unlink first (backend rejects delete on linked receipts)
+      if (deleteTarget.is_categorized && deleteTarget.financial_entry_id) {
+        await unlinkReceipt(deleteTarget.id);
+      }
+      await deleteReceipt(deleteTarget.id);
+      toast.success('Receipt deleted');
+      setDeleteTarget(null);
       loadReceipts();
       onDataChange();
     } catch (err: unknown) {
       const error = err as { message?: string };
-      toast.error(error.message || 'Failed to upload receipt');
+      toast.error(error.message || 'Failed to delete receipt');
     } finally {
-      setUploading(false);
+      setDeleting(false);
     }
   };
 
-  const resetUploadForm = () => {
-    setUploadFile(null);
-    setUploadPreview(null);
-    setUploadVendor('');
-    setUploadAmount(0);
-    setUploadDate('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
-  };
-
-  const openLinkModal = async (receipt: Receipt) => {
-    setLinkReceipt(receipt);
-    setSelectedEntryId('');
-    setShowLinkModal(true);
-
-    try {
-      const data = await getFinancialEntries({ project_id: projectId, limit: 100 });
-      // Only show entries that don't already have a receipt
-      setEntries(data.data.filter((e) => !e.has_receipt));
-    } catch {
-      toast.error('Failed to load cost entries');
-    }
-  };
-
-  const handleLink = async () => {
-    if (!linkReceipt || !selectedEntryId) return;
-
-    setLinking(true);
-    try {
-      await linkReceiptToEntry(linkReceipt.id, { financial_entry_id: selectedEntryId });
-      toast.success('Receipt linked to cost entry');
-      setShowLinkModal(false);
-      setLinkReceipt(null);
-      loadReceipts();
-      onDataChange();
-    } catch (err: unknown) {
-      const error = err as { message?: string };
-      toast.error(error.message || 'Failed to link receipt');
-    } finally {
-      setLinking(false);
-    }
-  };
-
+  // ===== RECEIPT IMAGE URL =====
   const getReceiptImageUrl = (receipt: Receipt): string | null => {
     if (receipt.file_type === 'photo') {
-      return getFileUrl(receipt.file_url);
+      return buildFileUrl(receipt.file_url);
     }
     return null;
   };
+
+  // ===== TOTAL PAGES =====
+  const totalPages = receipts ? getPageCount(receipts.meta) : 1;
 
   return (
     <>
       <Card className="p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Receipts</h3>
-          <div className="flex items-center gap-2">
-            {/* Hidden file inputs */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              capture="environment"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-
-            {/* Camera button (mobile) */}
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => cameraInputRef.current?.click()}
-              className="flex items-center gap-1.5 sm:hidden"
-            >
-              <Camera className="w-4 h-4" />
-              Camera
-            </Button>
-
-            <Button
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5"
-            >
-              <Upload className="w-4 h-4" />
-              Upload
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            onClick={() => setShowUploadModal(true)}
+            className="flex items-center gap-1.5"
+          >
+            <Upload className="w-4 h-4" />
+            Upload Receipt
+          </Button>
         </div>
 
         {loading ? (
           <div className="py-12"><LoadingSpinner size="lg" centered /></div>
+        ) : fetchError ? (
+          <div className="py-12 text-center">
+            <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
+            <p className="text-gray-700 dark:text-gray-300">{fetchError}</p>
+            <Button variant="secondary" size="sm" onClick={loadReceipts} className="mt-4">
+              Retry
+            </Button>
+          </div>
         ) : !receipts || receipts.data.length === 0 ? (
-          <div
-            className={`py-12 text-center border-2 border-dashed rounded-lg transition-colors cursor-pointer ${
-              isDragging
-                ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-            }`}
-            onDragOver={handleDragOver}
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-          >
+          /* Empty state */
+          <div className="py-12 text-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
             <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-3">
-              <Upload className="w-6 h-6 text-gray-400" />
+              <FileImage className="w-6 h-6 text-gray-400" />
             </div>
-            <p className="text-gray-500 dark:text-gray-400">
-              {isDragging ? 'Drop receipt here' : 'Drag & drop or click to upload'}
+            <p className="text-gray-500 dark:text-gray-400">No receipts uploaded yet</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+              Upload a receipt to get started with OCR analysis
             </p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">JPG, PNG, WebP, or PDF up to 25 MB</p>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setShowUploadModal(true)}
+              className="mt-4"
+            >
+              <Upload className="w-4 h-4" />
+              Upload Receipt
+            </Button>
           </div>
         ) : (
           <>
-            <div
-              className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 p-2 rounded-lg transition-colors ${
-                isDragging ? 'border-2 border-dashed border-blue-400 bg-blue-50 dark:bg-blue-900/20' : ''
-              }`}
-              onDragOver={handleDragOver}
-              onDragEnter={handleDragEnter}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-            >
+            {/* Receipt Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {receipts.data.map((receipt) => {
                 const imageUrl = getReceiptImageUrl(receipt);
+                const ocrBadge = getOcrBadge(receipt.ocr_status);
+                const displayVendor = receipt.vendor_name || receipt.ocr_vendor;
+                const displayAmount = receipt.amount ?? receipt.ocr_amount;
+
                 return (
                   <div
                     key={receipt.id}
@@ -316,11 +229,20 @@ export default function ReceiptSection({ projectId, onDataChange }: ReceiptSecti
                     <div
                       className="relative aspect-square bg-gray-100 dark:bg-gray-800 cursor-pointer"
                       onClick={() => setPreviewReceipt(receipt)}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Preview receipt: ${displayVendor || receipt.file_name}`}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setPreviewReceipt(receipt);
+                        }
+                      }}
                     >
                       {imageUrl ? (
                         <img
                           src={imageUrl}
-                          alt={receipt.file_name}
+                          alt={`Receipt: ${displayVendor || receipt.file_name}`}
                           className="w-full h-full object-cover"
                         />
                       ) : (
@@ -334,23 +256,43 @@ export default function ReceiptSection({ projectId, onDataChange }: ReceiptSecti
                     </div>
 
                     {/* Info */}
-                    <div className="p-2">
+                    <div className="p-2 space-y-1">
                       <p className="text-xs text-gray-900 dark:text-white font-medium truncate">
-                        {receipt.vendor_name || receipt.file_name}
+                        {displayVendor || receipt.file_name}
                       </p>
-                      <div className="flex items-center justify-between mt-1">
+                      <div className="flex items-center justify-between">
                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {receipt.amount !== null ? formatCurrency(receipt.amount) : '-'}
+                          {displayAmount !== null && displayAmount !== undefined
+                            ? formatCurrency(displayAmount)
+                            : '-'}
                         </span>
                         {receipt.is_categorized ? (
-                          <Badge variant="success" className="text-[10px] px-1.5 py-0.5">Linked</Badge>
+                          <Badge variant="success" className="text-[10px] px-1.5 py-0.5">
+                            <Link2 className="w-2.5 h-2.5 mr-0.5" />
+                            Linked
+                          </Badge>
                         ) : (
+                          <Badge variant="warning" className="text-[10px] px-1.5 py-0.5">
+                            <Unlink className="w-2.5 h-2.5 mr-0.5" />
+                            Unlinked
+                          </Badge>
+                        )}
+                      </div>
+                      {/* OCR status + delete */}
+                      <div className="flex items-center justify-between">
+                        <Badge variant={ocrBadge.variant} className="text-[10px] px-1.5 py-0.5">
+                          {ocrBadge.label}
+                        </Badge>
+                        {canDelete && (
                           <button
-                            onClick={() => openLinkModal(receipt)}
-                            className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteTarget(receipt);
+                            }}
+                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                            aria-label={`Delete receipt: ${displayVendor || receipt.file_name}`}
                           >
-                            <Link2 className="w-3 h-3" />
-                            Link
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>
@@ -360,13 +302,14 @@ export default function ReceiptSection({ projectId, onDataChange }: ReceiptSecti
               })}
             </div>
 
-            {receipts.meta.pages > 1 && (
+            {/* Pagination */}
+            {totalPages > 1 && (
               <div className="mt-4">
                 <PaginationControls
                   currentPage={page}
-                  totalPages={receipts.meta.pages}
-                  onNext={() => setPage((p) => p + 1)}
-                  onPrevious={() => setPage((p) => p - 1)}
+                  totalPages={totalPages}
+                  onNext={() => setPage((p) => Math.min(p + 1, totalPages))}
+                  onPrevious={() => setPage((p) => Math.max(p - 1, 1))}
                 />
               </div>
             )}
@@ -374,160 +317,85 @@ export default function ReceiptSection({ projectId, onDataChange }: ReceiptSecti
         )}
       </Card>
 
-      {/* Upload Modal */}
-      <Modal
+      {/* Upload Receipt Modal (shared component with OCR polling) */}
+      <ReceiptUploadModal
         isOpen={showUploadModal}
-        onClose={() => { setShowUploadModal(false); resetUploadForm(); }}
-        title="Upload Receipt"
-        size="lg"
-      >
-        <div className="space-y-4">
-          {/* Preview */}
-          {uploadPreview ? (
-            <div className="relative">
-              <img src={uploadPreview} alt="Receipt preview" className="max-h-48 rounded-lg mx-auto" />
-              <button
-                onClick={resetUploadForm}
-                className="absolute top-2 right-2 p-1 bg-gray-900/70 rounded-full text-white hover:bg-gray-900"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          ) : uploadFile ? (
-            <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <FileText className="w-8 h-8 text-gray-400" />
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">{uploadFile.name}</p>
-                <p className="text-xs text-gray-500">{(uploadFile.size / 1024).toFixed(0)} KB</p>
-              </div>
-            </div>
-          ) : null}
+        onClose={() => setShowUploadModal(false)}
+        onSuccess={() => {
+          setShowUploadModal(false);
+          loadReceipts();
+          onDataChange();
+        }}
+        defaultProjectId={projectId}
+      />
 
-          <Input
-            label="Vendor Name"
-            value={uploadVendor}
-            onChange={(e) => setUploadVendor(e.target.value)}
-            placeholder="e.g., Home Depot"
-            maxLength={200}
-          />
-
-          <MoneyInput
-            label="Amount"
-            value={uploadAmount}
-            onChange={setUploadAmount}
-          />
-
-          <DatePicker
-            label="Receipt Date"
-            value={uploadDate}
-            onChange={(e) => setUploadDate(e.target.value)}
-            max={new Date().toISOString().split('T')[0]}
-          />
-
-          <ModalActions>
-            <Button
-              variant="secondary"
-              onClick={() => { setShowUploadModal(false); resetUploadForm(); }}
-              disabled={uploading}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleUpload} loading={uploading} disabled={!uploadFile || uploading}>
-              Upload Receipt
-            </Button>
-          </ModalActions>
-        </div>
-      </Modal>
-
-      {/* Link Modal */}
-      <Modal
-        isOpen={showLinkModal}
-        onClose={() => { setShowLinkModal(false); setLinkReceipt(null); }}
-        title="Link Receipt to Cost Entry"
-        size="lg"
-      >
-        <div className="space-y-4">
-          {linkReceipt && (
-            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm">
-              <p className="font-medium text-gray-900 dark:text-white">{linkReceipt.vendor_name || linkReceipt.file_name}</p>
-              {linkReceipt.amount !== null && (
-                <p className="text-gray-500">{formatCurrency(linkReceipt.amount)}</p>
-              )}
-            </div>
-          )}
-
-          <Select
-            label="Select Cost Entry"
-            required
-            searchable
-            options={entries.map((e) => ({
-              value: e.id,
-              label: `${formatDate(e.entry_date)} - ${e.category.name} - ${formatCurrency(typeof e.amount === 'string' ? parseFloat(e.amount) : e.amount)}${e.vendor_name ? ` (${e.vendor_name})` : ''}`,
-            }))}
-            value={selectedEntryId}
-            onChange={setSelectedEntryId}
-            placeholder="Select a cost entry to link"
-          />
-
-          <ModalActions>
-            <Button
-              variant="secondary"
-              onClick={() => { setShowLinkModal(false); setLinkReceipt(null); }}
-              disabled={linking}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleLink} loading={linking} disabled={!selectedEntryId || linking}>
-              Link Receipt
-            </Button>
-          </ModalActions>
-        </div>
-      </Modal>
-
-      {/* Preview Modal */}
+      {/* Preview Modal with OCR data */}
       {previewReceipt && (
         <Modal
           isOpen={!!previewReceipt}
           onClose={() => setPreviewReceipt(null)}
-          title={previewReceipt.vendor_name || previewReceipt.file_name}
+          title={previewReceipt.vendor_name || previewReceipt.ocr_vendor || previewReceipt.file_name}
           size="xl"
         >
           <div className="space-y-4">
+            {/* Receipt image/PDF */}
             {previewReceipt.file_type === 'photo' ? (
-              <img
-                src={getFileUrl(previewReceipt.file_url) || ''}
-                alt={previewReceipt.file_name}
-                className="w-full rounded-lg"
-              />
+              <a
+                href={buildFileUrl(previewReceipt.file_url)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group relative block"
+                aria-label="View full-size receipt image"
+              >
+                <img
+                  src={buildFileUrl(previewReceipt.file_url)}
+                  alt={`Receipt: ${previewReceipt.file_name}`}
+                  className="w-full rounded-lg group-hover:opacity-90 transition-opacity"
+                />
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="bg-black/50 rounded-full p-3">
+                    <Eye className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </a>
             ) : (
               <div className="text-center py-8">
                 <FileText className="w-16 h-16 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500">PDF file</p>
+                <p className="text-gray-500 dark:text-gray-400">PDF Document</p>
+                {previewReceipt.file_size_bytes && (
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    {formatFileSize(previewReceipt.file_size_bytes)}
+                  </p>
+                )}
                 <a
-                  href={getFileUrl(previewReceipt.file_url) || '#'}
+                  href={buildFileUrl(previewReceipt.file_url)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline text-sm mt-2 inline-block"
+                  className="text-blue-600 dark:text-blue-400 hover:underline text-sm mt-2 inline-block"
                 >
                   Open PDF
                 </a>
               </div>
             )}
+
+            {/* Receipt metadata */}
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <span className="text-gray-500 dark:text-gray-400">Vendor:</span>
-                <span className="ml-2 text-gray-900 dark:text-white">{previewReceipt.vendor_name || '-'}</span>
+                <span className="ml-2 text-gray-900 dark:text-white">
+                  {previewReceipt.vendor_name || previewReceipt.ocr_vendor || '-'}
+                </span>
               </div>
               <div>
                 <span className="text-gray-500 dark:text-gray-400">Amount:</span>
                 <span className="ml-2 text-gray-900 dark:text-white">
-                  {previewReceipt.amount !== null ? formatCurrency(previewReceipt.amount) : '-'}
+                  {formatCurrency(previewReceipt.amount ?? previewReceipt.ocr_amount)}
                 </span>
               </div>
               <div>
                 <span className="text-gray-500 dark:text-gray-400">Date:</span>
                 <span className="ml-2 text-gray-900 dark:text-white">
-                  {previewReceipt.receipt_date ? formatDate(previewReceipt.receipt_date) : '-'}
+                  {formatDate(previewReceipt.receipt_date || previewReceipt.ocr_date)}
                 </span>
               </div>
               <div>
@@ -540,10 +408,171 @@ export default function ReceiptSection({ projectId, onDataChange }: ReceiptSecti
                   )}
                 </span>
               </div>
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">OCR:</span>
+                <span className="ml-2">
+                  <Badge variant={getOcrBadge(previewReceipt.ocr_status).variant}>
+                    {getOcrBadge(previewReceipt.ocr_status).label}
+                  </Badge>
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">File:</span>
+                <span className="ml-2 text-gray-900 dark:text-white">{previewReceipt.file_name}</span>
+              </div>
+              {previewReceipt.file_size_bytes && (
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400">Size:</span>
+                  <span className="ml-2 text-gray-900 dark:text-white">
+                    {formatFileSize(previewReceipt.file_size_bytes)}
+                  </span>
+                </div>
+              )}
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Uploaded:</span>
+                <span className="ml-2 text-gray-900 dark:text-white">
+                  {formatDate(previewReceipt.created_at)}
+                </span>
+              </div>
             </div>
+
+            {/* OCR Extracted Data (when OCR is complete) */}
+            {previewReceipt.ocr_status === 'complete' && (
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
+                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+                  OCR Extracted Data
+                </h4>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-2">
+                  {previewReceipt.ocr_vendor && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Vendor</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">
+                        {previewReceipt.ocr_vendor}
+                      </span>
+                    </div>
+                  )}
+                  {previewReceipt.ocr_date && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Date</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">
+                        {formatDate(previewReceipt.ocr_date)}
+                        {previewReceipt.ocr_time ? ` at ${previewReceipt.ocr_time}` : ''}
+                      </span>
+                    </div>
+                  )}
+                  {previewReceipt.ocr_entry_type && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Type</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100 capitalize">
+                        {previewReceipt.ocr_entry_type === 'refund' ? 'Refund (Income)' : 'Expense'}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Line items */}
+                  {previewReceipt.ocr_line_items && previewReceipt.ocr_line_items.length > 0 && (
+                    <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-600 space-y-1">
+                      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                        Items
+                      </span>
+                      {previewReceipt.ocr_line_items.map((item, idx) => (
+                        <div key={idx} className="flex justify-between text-sm">
+                          <span className="text-gray-700 dark:text-gray-300 truncate mr-2">
+                            {item.quantity > 1 ? `${item.quantity}\u00D7 ` : ''}
+                            {item.description}
+                          </span>
+                          <span className="font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                            {formatCurrency(item.total)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Totals */}
+                  <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-600 space-y-1">
+                    {previewReceipt.ocr_subtotal != null && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500 dark:text-gray-400">Subtotal</span>
+                        <span className="text-gray-900 dark:text-gray-100">
+                          {formatCurrency(previewReceipt.ocr_subtotal)}
+                        </span>
+                      </div>
+                    )}
+                    {previewReceipt.ocr_tax != null && previewReceipt.ocr_tax > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500 dark:text-gray-400">Tax</span>
+                        <span className="text-gray-900 dark:text-gray-100">
+                          {formatCurrency(previewReceipt.ocr_tax)}
+                        </span>
+                      </div>
+                    )}
+                    {previewReceipt.ocr_discount != null && previewReceipt.ocr_discount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500 dark:text-gray-400">Discount</span>
+                        <span className="text-green-600 dark:text-green-400">
+                          -{formatCurrency(previewReceipt.ocr_discount)}
+                        </span>
+                      </div>
+                    )}
+                    {previewReceipt.ocr_amount != null && (
+                      <div className="flex justify-between text-sm font-semibold">
+                        <span className="text-gray-700 dark:text-gray-300">Total</span>
+                        <span className="text-gray-900 dark:text-gray-100">
+                          {formatCurrency(previewReceipt.ocr_amount)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Notes */}
+                  {previewReceipt.ocr_notes && (
+                    <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-600">
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
+                        {previewReceipt.ocr_notes}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Delete from preview */}
+            {canDelete && (
+              <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => {
+                    setDeleteTarget(previewReceipt);
+                    setPreviewReceipt(null);
+                  }}
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Delete Receipt
+                </Button>
+              </div>
+            )}
           </div>
         </Modal>
       )}
+
+      {/* Delete Confirmation */}
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Delete Receipt"
+        message={
+          deleteTarget?.is_categorized
+            ? `"${deleteTarget?.vendor_name || deleteTarget?.ocr_vendor || deleteTarget?.file_name}" is linked to a financial entry. This will unlink the receipt from the entry and permanently delete the file. The financial entry will remain. This action cannot be undone.`
+            : `Are you sure you want to delete "${deleteTarget?.vendor_name || deleteTarget?.ocr_vendor || deleteTarget?.file_name}"? This will permanently remove the receipt and its file. This action cannot be undone.`
+        }
+        confirmText={deleteTarget?.is_categorized ? 'Unlink & Delete' : 'Delete'}
+        cancelText="Cancel"
+        variant="danger"
+        loading={deleting}
+      />
     </>
   );
 }

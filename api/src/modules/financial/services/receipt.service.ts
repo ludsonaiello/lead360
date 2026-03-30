@@ -264,6 +264,59 @@ export class ReceiptService {
   }
 
   // ---------------------------------------------------------------------------
+  // 2b. unlinkReceiptFromEntry
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Unlink a receipt from its financial entry.
+   * Sets receipt.financial_entry_id = null, is_categorized = false.
+   * Sets entry.has_receipt = false.
+   */
+  async unlinkReceiptFromEntry(
+    tenantId: string,
+    receiptId: string,
+    userId: string,
+  ) {
+    const receipt = await this.findReceiptOrThrow(tenantId, receiptId);
+
+    if (!receipt.financial_entry_id) {
+      throw new BadRequestException(
+        'This receipt is not linked to any financial entry.',
+      );
+    }
+
+    const entryId = receipt.financial_entry_id;
+
+    await this.prisma.$transaction([
+      this.prisma.receipt.update({
+        where: { id: receiptId },
+        data: {
+          financial_entry_id: null,
+          is_categorized: false,
+        },
+      }),
+      this.prisma.financial_entry.update({
+        where: { id: entryId },
+        data: { has_receipt: false },
+      }),
+    ]);
+
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'receipt',
+      entityId: receiptId,
+      tenantId,
+      actorUserId: userId,
+      before: { financial_entry_id: entryId, is_categorized: true },
+      after: { financial_entry_id: null, is_categorized: false },
+      description: `Receipt ${receiptId} unlinked from financial entry ${entryId}`,
+    });
+
+    const updated = await this.findReceiptOrThrow(tenantId, receiptId);
+    return this.formatReceiptResponse(updated);
+  }
+
+  // ---------------------------------------------------------------------------
   // 3. updateReceipt
   // ---------------------------------------------------------------------------
 
@@ -336,12 +389,6 @@ export class ReceiptService {
    * Results ordered by created_at DESC (most recent first).
    */
   async getProjectReceipts(tenantId: string, query: ListReceiptsDto) {
-    if (!query.project_id && !query.task_id) {
-      throw new BadRequestException(
-        'At least one of project_id or task_id is required',
-      );
-    }
-
     const page = query.page ?? 1;
     const limit = Math.min(query.limit ?? 20, 100);
     const skip = (page - 1) * limit;
@@ -509,6 +556,11 @@ export class ReceiptService {
     const resolvedAmount = dto.amount ?? (receipt.ocr_amount != null ? Number(receipt.ocr_amount) : null);
     const resolvedVendor = dto.vendor_name ?? receipt.ocr_vendor ?? null;
     const resolvedDate = dto.entry_date ?? (receipt.ocr_date ? receipt.ocr_date.toISOString().split('T')[0] : null);
+    const resolvedTax = dto.tax_amount ?? (receipt.ocr_tax != null ? Number(receipt.ocr_tax) : null);
+    const resolvedDiscount = dto.discount ?? (receipt.ocr_discount != null ? Number(receipt.ocr_discount) : null);
+    const resolvedTime = dto.entry_time ?? receipt.ocr_time ?? null;
+    const resolvedEntryType = receipt.ocr_entry_type === 'refund' ? 'income' : 'expense';
+    const resolvedNotes = dto.notes ?? receipt.ocr_notes ?? null;
 
     // 4. Validate required fields (after OCR fallback resolution)
     if (resolvedAmount == null || resolvedAmount <= 0) {
@@ -531,15 +583,22 @@ export class ReceiptService {
       throw new NotFoundException('Financial category not found or does not belong to this tenant');
     }
 
-    // 5b. Validate project belongs to tenant
-    const project = await this.prisma.project.findFirst({
-      where: { id: dto.project_id, tenant_id: tenantId },
-    });
-    if (!project) {
-      throw new NotFoundException('Project not found');
+    // 5b. Validate project belongs to tenant (if provided)
+    if (dto.project_id) {
+      const project = await this.prisma.project.findFirst({
+        where: { id: dto.project_id, tenant_id: tenantId },
+      });
+      if (!project) {
+        throw new NotFoundException('Project not found');
+      }
     }
 
-    // 5c. Validate task belongs to tenant (if provided in DTO)
+    // 5c. Validate task requires project_id
+    if (dto.task_id && !dto.project_id) {
+      throw new BadRequestException('task_id requires a project_id');
+    }
+
+    // 5d. Validate task belongs to tenant (if provided in DTO)
     if (dto.task_id) {
       const task = await this.prisma.project_task.findFirst({
         where: { id: dto.task_id, tenant_id: tenantId },
@@ -631,14 +690,15 @@ export class ReceiptService {
       const entry = await tx.financial_entry.create({
         data: {
           tenant_id: tenantId,
-          project_id: dto.project_id,
+          project_id: dto.project_id ?? null,
           task_id: dto.task_id ?? receipt.task_id ?? null,
           category_id: dto.category_id,
-          entry_type: 'expense',
+          entry_type: resolvedEntryType as any,
           amount: resolvedAmount,
-          tax_amount: dto.tax_amount ?? null,
+          tax_amount: resolvedTax,
+          discount: resolvedDiscount,
           entry_date: entryDate,
-          entry_time: dto.entry_time ? new Date(`1970-01-01T${dto.entry_time}`) : null,
+          entry_time: resolvedTime ? new Date(`1970-01-01T${resolvedTime}`) : null,
           vendor_name: resolvedVendor,
           supplier_id: dto.supplier_id ?? null,
           payment_method: resolvedPaymentMethod as any,
@@ -648,7 +708,7 @@ export class ReceiptService {
           crew_member_id: dto.crew_member_id ?? null,
           subcontractor_id: dto.subcontractor_id ?? null,
           submission_status: resolvedSubmissionStatus as any,
-          notes: dto.notes ?? null,
+          notes: resolvedNotes,
           has_receipt: true,
           created_by_user_id: userId,
         },
@@ -768,6 +828,65 @@ export class ReceiptService {
   }
 
   // ---------------------------------------------------------------------------
+  // deleteReceipt
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Delete a receipt that is NOT linked to a financial entry.
+   * Also deletes the associated file record and physical file.
+   * Receipts linked to an entry cannot be deleted — remove the entry first.
+   */
+  async deleteReceipt(
+    tenantId: string,
+    receiptId: string,
+    userId: string,
+  ) {
+    const receipt = await this.findReceiptOrThrow(tenantId, receiptId);
+
+    // Guard: cannot delete a receipt that is linked to a financial entry
+    if (receipt.financial_entry_id) {
+      throw new BadRequestException(
+        'Cannot delete a receipt that is linked to a financial entry. Remove the financial entry first.',
+      );
+    }
+
+    const fileId = receipt.file_id;
+
+    // Delete receipt record first (it has the FK to file)
+    await this.prisma.receipt.delete({
+      where: { id: receiptId },
+    });
+
+    // Now delete the associated file record + physical file
+    try {
+      await this.filesService.delete(tenantId, fileId, userId);
+    } catch (error) {
+      this.logger.warn(
+        `Receipt ${receiptId} deleted but file cleanup failed: ${error.message}`,
+      );
+      // Receipt is already gone — don't fail the request over file cleanup
+    }
+
+    await this.auditLogger.logTenantChange({
+      action: 'deleted',
+      entityType: 'receipt',
+      entityId: receiptId,
+      tenantId,
+      actorUserId: userId,
+      before: {
+        id: receipt.id,
+        file_id: receipt.file_id,
+        file_name: receipt.file_name,
+        ocr_status: receipt.ocr_status,
+        financial_entry_id: receipt.financial_entry_id,
+      },
+      description: `Receipt deleted: ${receipt.file_name}`,
+    });
+
+    return { message: 'Receipt deleted successfully.' };
+  }
+
+  // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
 
@@ -877,10 +996,25 @@ export class ReceiptService {
       ocr_vendor: receipt.ocr_vendor ?? null,
       ocr_amount: receipt.ocr_amount != null ? Number(receipt.ocr_amount) : null,
       ocr_date: receipt.ocr_date ?? null,
+      ocr_tax: receipt.ocr_tax != null ? Number(receipt.ocr_tax) : null,
+      ocr_discount: receipt.ocr_discount != null ? Number(receipt.ocr_discount) : null,
+      ocr_subtotal: receipt.ocr_subtotal != null ? Number(receipt.ocr_subtotal) : null,
+      ocr_time: receipt.ocr_time ?? null,
+      ocr_entry_type: receipt.ocr_entry_type ?? null,
+      ocr_line_items: receipt.ocr_line_items ? this.safeJsonParse(receipt.ocr_line_items) : null,
+      ocr_notes: receipt.ocr_notes ?? null,
       is_categorized: receipt.is_categorized,
       uploaded_by_user_id: receipt.uploaded_by_user_id,
       created_at: receipt.created_at,
       updated_at: receipt.updated_at,
     };
+  }
+
+  private safeJsonParse(value: string): any {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
   }
 }

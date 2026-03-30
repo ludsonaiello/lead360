@@ -6,6 +6,7 @@ import { RecurringExpenseService } from '../../financial/services/recurring-expe
 interface RecurringExpenseJobPayload {
   ruleId: string;
   tenantId: string;
+  manualTrigger?: boolean;
 }
 
 @Processor('recurring-expense-generation')
@@ -20,16 +21,17 @@ export class RecurringExpenseProcessor extends WorkerHost {
   }
 
   async process(job: Job<RecurringExpenseJobPayload>): Promise<any> {
-    const { ruleId, tenantId } = job.data;
+    const { ruleId, tenantId, manualTrigger } = job.data;
 
     this.logger.log(
-      `Processing recurring expense job: rule ${ruleId}, tenant ${tenantId}`,
+      `Processing recurring expense job: rule ${ruleId}, tenant ${tenantId}${manualTrigger ? ' (manual trigger)' : ''}`,
     );
 
     try {
       const entry = await this.recurringExpenseService.processRule(
         ruleId,
         tenantId,
+        manualTrigger,
       );
 
       if (entry) {

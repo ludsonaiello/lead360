@@ -19,9 +19,9 @@ import {
   createCrewPayment,
   getSubcontractorPayments,
   createSubcontractorPayment,
-  getCrewMembers,
-  getSubcontractors,
 } from '@/lib/api/financial';
+import { getCrewMembers } from '@/lib/api/crew';
+import { getSubcontractors } from '@/lib/api/subcontractors';
 import { formatCurrency, formatDate } from '@/lib/api/projects';
 import type {
   CrewPayment,
@@ -43,12 +43,18 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   bank_transfer: 'Bank Transfer',
   venmo: 'Venmo',
   zelle: 'Zelle',
+  credit_card: 'Credit Card',
+  debit_card: 'Debit Card',
+  ACH: 'ACH',
 };
 
 const PAYMENT_METHOD_OPTIONS = [
   { value: 'cash', label: 'Cash' },
   { value: 'check', label: 'Check' },
   { value: 'bank_transfer', label: 'Bank Transfer' },
+  { value: 'credit_card', label: 'Credit Card' },
+  { value: 'debit_card', label: 'Debit Card' },
+  { value: 'ACH', label: 'ACH' },
   { value: 'venmo', label: 'Venmo' },
   { value: 'zelle', label: 'Zelle' },
 ];
@@ -366,11 +372,11 @@ export default function PaymentSection({ projectId, onDataChange }: PaymentSecti
                 ))}
               </div>
 
-              {crewPayments.meta.pages > 1 && (
+              {(crewPayments.meta.pages ?? 0) > 1 && (
                 <div className="mt-4">
                   <PaginationControls
                     currentPage={crewPage}
-                    totalPages={crewPayments.meta.pages}
+                    totalPages={crewPayments.meta.pages ?? 1}
                     onNext={() => setCrewPage((p) => p + 1)}
                     onPrevious={() => setCrewPage((p) => p - 1)}
                   />
@@ -451,11 +457,11 @@ export default function PaymentSection({ projectId, onDataChange }: PaymentSecti
                 ))}
               </div>
 
-              {subPayments.meta.pages > 1 && (
+              {(subPayments.meta.pages ?? 0) > 1 && (
                 <div className="mt-4">
                   <PaginationControls
                     currentPage={subPage}
-                    totalPages={subPayments.meta.pages}
+                    totalPages={subPayments.meta.pages ?? 1}
                     onNext={() => setSubPage((p) => p + 1)}
                     onPrevious={() => setSubPage((p) => p - 1)}
                   />

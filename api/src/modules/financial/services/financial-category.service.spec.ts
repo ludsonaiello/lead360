@@ -93,7 +93,7 @@ describe('FinancialCategoryService', () => {
       expect(result).toHaveLength(3);
     });
 
-    it('should filter by tenant_id and is_active=true', async () => {
+    it('should filter by tenant_id and is_active=true by default', async () => {
       mockPrismaService.financial_category.findMany.mockResolvedValue([]);
 
       await service.findAllForTenant(TENANT_ID);
@@ -102,6 +102,19 @@ describe('FinancialCategoryService', () => {
         where: {
           tenant_id: TENANT_ID,
           is_active: true,
+        },
+        orderBy: [{ type: 'asc' }, { name: 'asc' }],
+      });
+    });
+
+    it('should include inactive categories when includeInactive is true', async () => {
+      mockPrismaService.financial_category.findMany.mockResolvedValue([]);
+
+      await service.findAllForTenant(TENANT_ID, true);
+
+      expect(mockPrismaService.financial_category.findMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_ID,
         },
         orderBy: [{ type: 'asc' }, { name: 'asc' }],
       });
@@ -452,6 +465,47 @@ describe('FinancialCategoryService', () => {
           }),
         }),
       );
+    });
+
+    it('should reactivate a deactivated custom category when is_active=true', async () => {
+      const existing = mockCategoryRecord({ is_system_default: false, is_active: false });
+      const reactivated = mockCategoryRecord({ is_system_default: false, is_active: true });
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(existing);
+      mockPrismaService.financial_category.update.mockResolvedValue(reactivated);
+
+      const result = await service.updateCategory(TENANT_ID, CATEGORY_ID, USER_ID, {
+        is_active: true,
+      } as any);
+
+      expect(mockPrismaService.financial_category.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            is_active: true,
+          }),
+        }),
+      );
+      expect(result.is_active).toBe(true);
+    });
+
+    it('should throw BadRequestException when reactivating a deactivated system-default category', async () => {
+      mockPrismaService.financial_category.findFirst.mockResolvedValue({
+        id: 'cat-system',
+        tenant_id: TENANT_ID,
+        is_system_default: true,
+        is_active: false,
+      });
+
+      await expect(
+        service.updateCategory(TENANT_ID, 'cat-system', USER_ID, {
+          is_active: true,
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        service.updateCategory(TENANT_ID, 'cat-system', USER_ID, {
+          is_active: true,
+        } as any),
+      ).rejects.toThrow('Cannot reactivate a system-default category');
     });
   });
 

@@ -355,6 +355,7 @@ export class FinancialEntryService {
         entry_type: dto.entry_type as any,
         amount: dto.amount,
         tax_amount: dto.tax_amount ?? null,
+        discount: dto.discount ?? null,
         entry_date: new Date(dto.entry_date),
         entry_time: dto.entry_time ? new Date(`1970-01-01T${dto.entry_time}`) : null,
         vendor_name: dto.vendor_name ?? null,
@@ -419,9 +420,9 @@ export class FinancialEntryService {
           'Access denied. You can only edit your own entries.',
         );
       }
-      if (existing.submission_status !== 'pending_review') {
+      if (existing.submission_status !== 'pending_review' && existing.submission_status !== 'denied') {
         throw new ForbiddenException(
-          'Access denied. You can only edit entries with pending_review status.',
+          'Access denied. You can only edit entries with pending_review or denied status.',
         );
       }
     }
@@ -508,6 +509,7 @@ export class FinancialEntryService {
     if (dto.entry_type !== undefined) data.entry_type = dto.entry_type;
     if (dto.amount !== undefined) data.amount = dto.amount;
     if (dto.tax_amount !== undefined) data.tax_amount = dto.tax_amount ?? null;
+    if (dto.discount !== undefined) data.discount = dto.discount ?? null;
     if (dto.entry_date !== undefined) data.entry_date = new Date(dto.entry_date);
     if (dto.entry_time !== undefined) {
       data.entry_time = dto.entry_time
@@ -605,9 +607,9 @@ export class FinancialEntryService {
           'Access denied. You can only delete your own entries.',
         );
       }
-      if (existing.submission_status !== 'pending_review') {
+      if (existing.submission_status !== 'pending_review' && existing.submission_status !== 'denied') {
         throw new ForbiddenException(
-          'Access denied. You can only delete entries with pending_review status.',
+          'Access denied. You can only delete entries with pending_review or denied status.',
         );
       }
     }
@@ -644,7 +646,7 @@ export class FinancialEntryService {
   // ===========================================================================
 
   /**
-   * Approve a pending_review entry — sets submission_status to 'confirmed'.
+   * Approve a pending_review or denied entry — sets submission_status to 'confirmed'.
    * Does NOT clear rejection fields — preserves audit trail per BR-23.
    */
   async approveEntry(
@@ -656,10 +658,10 @@ export class FinancialEntryService {
     // 1. Fetch entry with enriched include
     const existing = await this.fetchEntryOrFail(tenantId, entryId);
 
-    // 2. Verify entry is pending_review (BR-17)
-    if (existing.submission_status !== 'pending_review') {
+    // 2. Verify entry is pending_review or denied (BR-17)
+    if (existing.submission_status !== 'pending_review' && existing.submission_status !== 'denied') {
       throw new BadRequestException(
-        'Entry is not in pending_review status. Only pending entries can be approved.',
+        'Only pending or denied entries can be approved.',
       );
     }
 
@@ -691,9 +693,8 @@ export class FinancialEntryService {
   }
 
   /**
-   * Reject a pending_review entry — attaches rejection reason and metadata.
-   * DOES NOT change submission_status — entry stays 'pending_review' per BR-19.
-   * The entry remains in the pending queue with rejection reason visible.
+   * Reject a pending_review entry — sets submission_status to 'denied' and
+   * attaches rejection reason and metadata.
    */
   async rejectEntry(
     tenantId: string,
@@ -717,10 +718,11 @@ export class FinancialEntryService {
       throw new BadRequestException('Rejection reason is required');
     }
 
-    // 4. Update rejection fields — submission_status STAYS 'pending_review'
+    // 4. Update rejection fields and set submission_status to 'denied'
     const updated = await this.prisma.financial_entry.update({
       where: { id: entryId },
       data: {
+        submission_status: 'denied',
         rejection_reason: dto.rejection_reason,
         rejected_by_user_id: rejectorId,
         rejected_at: new Date(),
@@ -747,9 +749,10 @@ export class FinancialEntryService {
   }
 
   /**
-   * Resubmit a rejected entry — clears rejection fields and optionally updates entry data.
+   * Resubmit a denied entry — clears rejection fields, resets status to
+   * pending_review, and optionally updates entry data.
    * Employees can only resubmit their own entries. Privileged roles can resubmit any.
-   * Only entries with rejected_at populated AND still in pending_review can be resubmitted.
+   * Only entries with submission_status = 'denied' can be resubmitted.
    */
   async resubmitEntry(
     tenantId: string,
@@ -770,28 +773,20 @@ export class FinancialEntryService {
       }
     }
 
-    // 3. Verify entry was rejected (BR-20) — rejected_at must be populated
-    if (!existing.rejected_at) {
+    // 3. Verify entry is denied — only denied entries can be resubmitted
+    if (existing.submission_status !== 'denied') {
       throw new BadRequestException(
-        'Only rejected entries can be resubmitted. This entry has not been rejected.',
+        'Only denied entries can be resubmitted.',
       );
     }
 
-    // 3b. Guard: entry must still be pending_review — a confirmed entry with
-    //     historical rejected_at (per BR-23) cannot be resubmitted
-    if (existing.submission_status !== 'pending_review') {
-      throw new BadRequestException(
-        'Entry is not in pending_review status. Only pending rejected entries can be resubmitted.',
-      );
-    }
-
-    // 4. Build update data — start with rejection clearing fields (BR-21)
+    // 4. Build update data — clear rejection fields and reset to pending_review
     const data: any = {
+      submission_status: 'pending_review',
       rejection_reason: null,
       rejected_by_user_id: null,
       rejected_at: null,
       updated_by_user_id: userId,
-      // submission_status stays 'pending_review' (BR-22)
     };
 
     // 5. Validate and apply optional field updates (same logic as updateEntry)
@@ -869,6 +864,7 @@ export class FinancialEntryService {
     if (dto.entry_type !== undefined) data.entry_type = dto.entry_type;
     if (dto.amount !== undefined) data.amount = dto.amount;
     if (dto.tax_amount !== undefined) data.tax_amount = dto.tax_amount ?? null;
+    if (dto.discount !== undefined) data.discount = dto.discount ?? null;
     if (dto.entry_date !== undefined) data.entry_date = new Date(dto.entry_date);
     if (dto.entry_time !== undefined) {
       data.entry_time = dto.entry_time
@@ -963,6 +959,7 @@ export class FinancialEntryService {
         entry_type: true,
         amount: true,
         tax_amount: true,
+        discount: true,
         vendor_name: true,
         payment_method: true,
         submission_status: true,
@@ -982,7 +979,7 @@ export class FinancialEntryService {
 
     // 5. Build CSV string
     const header =
-      'Date,Time,Type,Category,Classification,Project,Task,Supplier,Vendor Name,Amount,Tax Amount,Payment Method,Payment Account,Purchased By,Submitted By,Status,Notes,Created At';
+      'Date,Time,Type,Category,Classification,Project,Task,Supplier,Vendor Name,Amount,Tax Amount,Discount,Payment Method,Payment Account,Purchased By,Submitted By,Status,Notes,Created At';
 
     const rows = entries.map((entry) => {
       // Format date as YYYY-MM-DD
@@ -1021,6 +1018,7 @@ export class FinancialEntryService {
         this.escapeCsvField(entry.vendor_name),
         entry.amount != null ? String(entry.amount) : '',
         entry.tax_amount != null ? String(entry.tax_amount) : '',
+        entry.discount != null ? String(entry.discount) : '',
         this.escapeCsvField(entry.payment_method),
         this.escapeCsvField(entry.payment_method_registry_rel?.nickname),
         this.escapeCsvField(purchasedBy || null),
@@ -1194,6 +1192,20 @@ export class FinancialEntryService {
           last_name: true,
         },
       },
+      line_items: {
+        select: {
+          id: true,
+          description: true,
+          quantity: true,
+          unit_price: true,
+          total: true,
+          unit_of_measure: true,
+          supplier_product_id: true,
+          order_index: true,
+          notes: true,
+        },
+        orderBy: { order_index: 'asc' as const },
+      },
     };
   }
 
@@ -1242,11 +1254,19 @@ export class FinancialEntryService {
       is_recurring_instance: entry.is_recurring_instance,
       recurring_rule_id: entry.recurring_rule_id,
       has_receipt: entry.has_receipt,
+      discount: entry.discount,
       notes: entry.notes,
       created_by_user_id: entry.created_by_user_id,
       created_by_name: `${entry.created_by.first_name} ${entry.created_by.last_name}`,
       created_at: entry.created_at,
       updated_at: entry.updated_at,
+      // Line items
+      line_items: entry.line_items ?? [],
+      has_line_items: (entry.line_items?.length ?? 0) > 0,
+      items_subtotal: (entry.line_items ?? []).reduce(
+        (sum: number, item: any) => sum + Number(item.total ?? 0),
+        0,
+      ),
     };
   }
 

@@ -26,13 +26,13 @@ import {
   getSubcontractorInvoices,
   createSubcontractorInvoice,
   updateSubcontractorInvoice,
-  getSubcontractors,
 } from '@/lib/api/financial';
+import { getSubcontractors } from '@/lib/api/subcontractors';
 import { getProjectTasks, formatDate, formatCurrency } from '@/lib/api/projects';
 import type {
   SubcontractorInvoice,
   Subcontractor,
-  InvoiceStatus,
+  SubcontractorInvoiceStatus,
   PaginatedResponse,
 } from '@/lib/types/financial';
 import type { ProjectTask } from '@/lib/types/projects';
@@ -42,7 +42,7 @@ interface InvoiceSectionProps {
   onDataChange: () => void;
 }
 
-const STATUS_CONFIG: Record<InvoiceStatus, { label: string; variant: 'warning' | 'blue' | 'success' }> = {
+const STATUS_CONFIG: Record<SubcontractorInvoiceStatus, { label: string; variant: 'warning' | 'blue' | 'success' }> = {
   pending: { label: 'Pending', variant: 'warning' },
   approved: { label: 'Approved', variant: 'blue' },
   paid: { label: 'Paid', variant: 'success' },
@@ -73,7 +73,7 @@ export default function InvoiceSection({ projectId, onDataChange }: InvoiceSecti
 
   // Status change modal
   const [statusInvoice, setStatusInvoice] = useState<SubcontractorInvoice | null>(null);
-  const [newStatus, setNewStatus] = useState<InvoiceStatus | ''>('');
+  const [newStatus, setNewStatus] = useState<SubcontractorInvoiceStatus | ''>('');
   const [changingStatus, setChangingStatus] = useState(false);
 
   const loadInvoices = useCallback(async () => {
@@ -171,7 +171,7 @@ export default function InvoiceSection({ projectId, onDataChange }: InvoiceSecti
     }
   };
 
-  const getNextStatus = (current: InvoiceStatus): InvoiceStatus | null => {
+  const getNextStatus = (current: SubcontractorInvoiceStatus): SubcontractorInvoiceStatus | null => {
     if (current === 'pending') return 'approved';
     if (current === 'approved') return 'paid';
     return null;
@@ -189,7 +189,7 @@ export default function InvoiceSection({ projectId, onDataChange }: InvoiceSecti
 
     setChangingStatus(true);
     try {
-      await updateSubcontractorInvoice(statusInvoice.id, { status: newStatus });
+      await updateSubcontractorInvoice(statusInvoice.id, { status: newStatus as SubcontractorInvoiceStatus });
       toast.success(`Invoice ${newStatus === 'approved' ? 'approved' : 'marked as paid'}`);
       setStatusInvoice(null);
       setNewStatus('');
@@ -352,11 +352,11 @@ export default function InvoiceSection({ projectId, onDataChange }: InvoiceSecti
               })}
             </div>
 
-            {invoices.meta.pages > 1 && (
+            {(invoices.meta.pages ?? 0) > 1 && (
               <div className="mt-4">
                 <PaginationControls
                   currentPage={page}
-                  totalPages={invoices.meta.pages}
+                  totalPages={invoices.meta.pages ?? 1}
                   onNext={() => setPage((p) => p + 1)}
                   onPrevious={() => setPage((p) => p - 1)}
                 />
@@ -484,8 +484,8 @@ export default function InvoiceSection({ projectId, onDataChange }: InvoiceSecti
                 {STATUS_CONFIG[statusInvoice.status].label}
               </Badge>
               {' '}to{' '}
-              <Badge variant={STATUS_CONFIG[newStatus as InvoiceStatus].variant}>
-                {STATUS_CONFIG[newStatus as InvoiceStatus].label}
+              <Badge variant={STATUS_CONFIG[newStatus as SubcontractorInvoiceStatus].variant}>
+                {STATUS_CONFIG[newStatus as SubcontractorInvoiceStatus].label}
               </Badge>
               ?
             </p>

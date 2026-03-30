@@ -245,6 +245,20 @@ describe('FinancialEntryService', () => {
           purchased_by_crew_member: { select: { id: true, first_name: true, last_name: true } },
           created_by: { select: { id: true, first_name: true, last_name: true } },
           rejected_by: { select: { id: true, first_name: true, last_name: true } },
+          line_items: {
+            select: {
+              id: true,
+              description: true,
+              quantity: true,
+              unit_price: true,
+              total: true,
+              unit_of_measure: true,
+              supplier_product_id: true,
+              order_index: true,
+              notes: true,
+            },
+            orderBy: { order_index: 'asc' },
+          },
         },
       });
     });
@@ -1466,6 +1480,7 @@ describe('FinancialEntryService', () => {
           entry_type: 'expense',
           amount: 450.0,
           tax_amount: null,
+          discount: null,
           entry_date: new Date('2026-03-10'),
           entry_time: null,
           vendor_name: 'Home Depot',
@@ -1812,7 +1827,7 @@ describe('FinancialEntryService', () => {
 
       await expect(
         service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, EMPLOYEE_ROLES, { amount: 500 }),
-      ).rejects.toThrow('Access denied. You can only edit entries with pending_review status.');
+      ).rejects.toThrow('Access denied. You can only edit entries with pending_review or denied status.');
     });
 
     it('should throw NotFoundException when entry does not exist', async () => {
@@ -2027,7 +2042,7 @@ describe('FinancialEntryService', () => {
 
       await expect(
         service.deleteEntry(TENANT_ID, ENTRY_ID, USER_ID, EMPLOYEE_ROLES),
-      ).rejects.toThrow('Access denied. You can only delete entries with pending_review status.');
+      ).rejects.toThrow('Access denied. You can only delete entries with pending_review or denied status.');
     });
 
     it('should throw ForbiddenException when Employee deletes another user entry', async () => {
@@ -2236,9 +2251,25 @@ describe('FinancialEntryService', () => {
 
       await expect(
         service.approveEntry(TENANT_ID, ENTRY_ID, USER_ID, {}),
-      ).rejects.toThrow('Entry is not in pending_review status. Only pending entries can be approved.');
+      ).rejects.toThrow('Only pending or denied entries can be approved.');
 
       expect(mockPrismaService.financial_entry.update).not.toHaveBeenCalled();
+    });
+
+    it('should allow approving a denied entry directly', async () => {
+      const deniedEntry = mockEnrichedEntryRecord({
+        submission_status: 'denied',
+        rejection_reason: 'Old reason',
+        rejected_at: new Date('2026-03-15'),
+        created_by_user_id: OTHER_USER_ID,
+      });
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(deniedEntry);
+      const updated = { ...deniedEntry, submission_status: 'confirmed', updated_by_user_id: USER_ID };
+      mockPrismaService.financial_entry.update.mockResolvedValue(updated);
+
+      const result = await service.approveEntry(TENANT_ID, ENTRY_ID, USER_ID, {});
+
+      expect(result.submission_status).toBe('confirmed');
     });
 
     it('should throw NotFoundException when entry does not exist', async () => {
@@ -2318,12 +2349,13 @@ describe('FinancialEntryService', () => {
         created_by_user_id: OTHER_USER_ID,
       });
 
-    it('should set rejection fields without changing submission_status (BR-19)', async () => {
+    it('should set submission_status to denied and populate rejection fields', async () => {
       const existing = pendingEntry();
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
 
       const updated = {
         ...existing,
+        submission_status: 'denied',
         rejection_reason: 'Receipt is blurry',
         rejected_by_user_id: USER_ID,
         rejected_at: expect.any(Date),
@@ -2339,6 +2371,7 @@ describe('FinancialEntryService', () => {
         expect.objectContaining({
           where: { id: ENTRY_ID },
           data: {
+            submission_status: 'denied',
             rejection_reason: 'Receipt is blurry',
             rejected_by_user_id: USER_ID,
             rejected_at: expect.any(Date),
@@ -2347,10 +2380,7 @@ describe('FinancialEntryService', () => {
         }),
       );
 
-      // submission_status should NOT be in the update data
-      const updateCall = mockPrismaService.financial_entry.update.mock.calls[0][0];
-      expect(updateCall.data).not.toHaveProperty('submission_status');
-
+      expect(result.submission_status).toBe('denied');
       expect(result.rejection_reason).toBe('Receipt is blurry');
     });
 
@@ -2455,7 +2485,7 @@ describe('FinancialEntryService', () => {
   describe('resubmitEntry()', () => {
     const rejectedEntry = (overrides: any = {}) =>
       mockEnrichedEntryRecord({
-        submission_status: 'pending_review',
+        submission_status: 'denied',
         rejection_reason: 'Receipt too blurry',
         rejected_by_user_id: OTHER_USER_ID,
         rejected_at: new Date('2026-03-18'),
@@ -2488,11 +2518,12 @@ describe('FinancialEntryService', () => {
       expect(result.rejected_at).toBeNull();
     });
 
-    it('should keep submission_status as pending_review (BR-22)', async () => {
+    it('should reset submission_status from denied to pending_review', async () => {
       const existing = rejectedEntry();
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
       mockPrismaService.financial_entry.update.mockResolvedValue({
         ...existing,
+        submission_status: 'pending_review',
         rejection_reason: null,
         rejected_by_user_id: null,
         rejected_at: null,
@@ -2502,10 +2533,10 @@ describe('FinancialEntryService', () => {
       await service.resubmitEntry(TENANT_ID, ENTRY_ID, USER_ID, ['Employee'], {});
 
       const updateData = mockPrismaService.financial_entry.update.mock.calls[0][0].data;
-      expect(updateData).not.toHaveProperty('submission_status');
+      expect(updateData.submission_status).toBe('pending_review');
     });
 
-    it('should throw BadRequestException when entry was not rejected (BR-20)', async () => {
+    it('should throw BadRequestException when entry is pending_review (not denied)', async () => {
       const notRejected = mockEnrichedEntryRecord({
         submission_status: 'pending_review',
         rejected_at: null,
@@ -2521,7 +2552,7 @@ describe('FinancialEntryService', () => {
 
       await expect(
         service.resubmitEntry(TENANT_ID, ENTRY_ID, USER_ID, ['Employee'], {}),
-      ).rejects.toThrow('Only rejected entries can be resubmitted. This entry has not been rejected.');
+      ).rejects.toThrow('Only denied entries can be resubmitted.');
     });
 
     it('should throw BadRequestException when entry is confirmed with historical rejection', async () => {
@@ -2540,7 +2571,7 @@ describe('FinancialEntryService', () => {
 
       await expect(
         service.resubmitEntry(TENANT_ID, ENTRY_ID, USER_ID, ['Employee'], {}),
-      ).rejects.toThrow('Entry is not in pending_review status.');
+      ).rejects.toThrow('Only denied entries can be resubmitted.');
     });
 
     it('should throw ForbiddenException when Employee tries to resubmit another user\'s entry', async () => {
@@ -2741,7 +2772,7 @@ describe('FinancialEntryService', () => {
 
       const header = csv.split('\n')[0];
       expect(header).toBe(
-        'Date,Time,Type,Category,Classification,Project,Task,Supplier,Vendor Name,Amount,Tax Amount,Payment Method,Payment Account,Purchased By,Submitted By,Status,Notes,Created At',
+        'Date,Time,Type,Category,Classification,Project,Task,Supplier,Vendor Name,Amount,Tax Amount,Discount,Payment Method,Payment Account,Purchased By,Submitted By,Status,Notes,Created At',
       );
     });
 

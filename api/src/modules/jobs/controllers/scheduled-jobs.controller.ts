@@ -303,6 +303,13 @@ export class ScheduledJobsController {
         },
       );
 
+      // Update last_run_at so the dashboard reflects the manual run
+      await this.scheduledJobService.updateLastRun(
+        systemJob.id,
+        systemJob.schedule,
+        systemJob.timezone,
+      );
+
       return {
         message: 'System job triggered successfully',
         job_id: jobId,

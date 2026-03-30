@@ -1,11 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import React, { useState, useEffect } from 'react';
 import Card from '@/components/ui/Card';
 import { useRBAC } from '@/contexts/RBACContext';
-import { getProjectSummary } from '@/lib/api/projects';
-import type { ProjectFinancialSummary } from '@/lib/types/projects';
 import {
   DollarSign,
   Receipt,
@@ -14,14 +11,16 @@ import {
   BarChart3,
   AlertTriangle,
   CreditCard,
+  Milestone,
 } from 'lucide-react';
-import CostSummaryCard from './CostSummaryCard';
+import FinancialOverview from './FinancialOverview';
 import CostEntryTable from './CostEntryTable';
 import ReceiptSection from './ReceiptSection';
 import CrewHoursSection from './CrewHoursSection';
 import InvoiceSection from './InvoiceSection';
+import ProjectInvoicesSection from './ProjectInvoicesSection';
 import PaymentSection from './PaymentSection';
-import FinancialCharts from './FinancialCharts';
+import MilestonesSection from './MilestonesSection';
 
 interface FinancialTabProps {
   projectId: string;
@@ -38,37 +37,27 @@ const FINANCIAL_TABS: SubTabItem[] = [
   { id: 'costs', label: 'Costs', icon: DollarSign },
   { id: 'receipts', label: 'Receipts', icon: Receipt },
   { id: 'crew-hours', label: 'Crew Hours', icon: Clock },
+  { id: 'milestones', label: 'Milestones', icon: Milestone },
   { id: 'invoices', label: 'Invoices', icon: FileText },
   { id: 'payments', label: 'Payments', icon: CreditCard },
 ];
 
 export default function FinancialTab({ projectId }: FinancialTabProps) {
   const { hasRole } = useRBAC();
-  const canView = hasRole(['Owner', 'Admin', 'Manager']);
-  const [summary, setSummary] = useState<ProjectFinancialSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState('overview');
-
-  const loadSummary = useCallback(async () => {
-    try {
-      const data = await getProjectSummary(projectId);
-      setSummary(data);
-    } catch (err: unknown) {
-      const e = err as { message?: string };
-      setError(e.message || 'Failed to load financial summary');
-    } finally {
-      setLoading(false);
+  const canView = hasRole(['Owner', 'Admin', 'Manager', 'Bookkeeper']);
+  const storageKey = `financial-subtab-${projectId}`;
+  const [activeSubTab, setActiveSubTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem(storageKey);
+      if (stored && FINANCIAL_TABS.some((t) => t.id === stored)) return stored;
     }
-  }, [projectId]);
+    return 'overview';
+  });
 
+  // Persist active sub-tab in sessionStorage (not URL hash — hash belongs to top-level Tabs)
   useEffect(() => {
-    loadSummary();
-  }, [loadSummary]);
-
-  const handleDataChange = () => {
-    loadSummary();
-  };
+    sessionStorage.setItem(storageKey, activeSubTab);
+  }, [activeSubTab, storageKey]);
 
   if (!canView) {
     return (
@@ -80,44 +69,27 @@ export default function FinancialTab({ projectId }: FinancialTabProps) {
     );
   }
 
-  if (loading) {
-    return (
-      <div className="mt-6">
-        <LoadingSpinner size="lg" centered />
-      </div>
-    );
-  }
-
-  if (error || !summary) {
-    return (
-      <Card className="p-12 text-center mt-6">
-        <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-          {error || 'Failed to load financial data'}
-        </h3>
-      </Card>
-    );
-  }
-
   const renderSubTabContent = () => {
     switch (activeSubTab) {
       case 'overview':
+        return <FinancialOverview projectId={projectId} />;
+      case 'costs':
+        return <CostEntryTable projectId={projectId} onDataChange={() => {}} />;
+      case 'receipts':
+        return <ReceiptSection projectId={projectId} onDataChange={() => {}} />;
+      case 'crew-hours':
+        return <CrewHoursSection projectId={projectId} onDataChange={() => {}} />;
+      case 'milestones':
+        return <MilestonesSection projectId={projectId} onDataChange={() => {}} />;
+      case 'invoices':
         return (
           <div className="space-y-6">
-            <CostSummaryCard summary={summary} />
-            <FinancialCharts projectId={projectId} summary={summary} />
+            <ProjectInvoicesSection projectId={projectId} onDataChange={() => {}} />
+            <InvoiceSection projectId={projectId} onDataChange={() => {}} />
           </div>
         );
-      case 'costs':
-        return <CostEntryTable projectId={projectId} onDataChange={handleDataChange} />;
-      case 'receipts':
-        return <ReceiptSection projectId={projectId} onDataChange={handleDataChange} />;
-      case 'crew-hours':
-        return <CrewHoursSection projectId={projectId} onDataChange={handleDataChange} />;
-      case 'invoices':
-        return <InvoiceSection projectId={projectId} onDataChange={handleDataChange} />;
       case 'payments':
-        return <PaymentSection projectId={projectId} onDataChange={handleDataChange} />;
+        return <PaymentSection projectId={projectId} onDataChange={() => {}} />;
       default:
         return null;
     }

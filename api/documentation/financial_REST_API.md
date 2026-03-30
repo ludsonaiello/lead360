@@ -218,8 +218,10 @@ These are the exact string values the API accepts and returns. Use them exactly 
 
 ### expense_submission_status
 ```
-"pending_review" | "confirmed"
+"pending_review" | "confirmed" | "denied"
 ```
+
+**Workflow:** `pending_review` → `confirmed` (approved) or `denied` (rejected) → `pending_review` (resubmitted) → ...
 
 ### recurring_frequency
 ```
@@ -277,15 +279,22 @@ These are the exact string values the API accepts and returns. Use them exactly 
 
 Categories organize expenses and income into logical buckets (e.g., "Labor - General", "Materials - General"). Every tenant starts with 16 system default categories. You can create custom ones too.
 
-### 5.1 List All Categories
+### 5.1 List Categories
 
 ```
 GET /api/v1/settings/financial-categories
+GET /api/v1/settings/financial-categories?include_inactive=true
 ```
 
 **Roles:** Owner, Admin, Manager
 
-**Response:** Array of category objects (not paginated — returns ALL active categories)
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| include_inactive | boolean | No | false | When `true`, returns all categories including deactivated ones. When omitted or `false`, only active categories are returned. |
+
+**Response:** Array of category objects (not paginated)
 
 ```json
 [
@@ -385,8 +394,11 @@ Content-Type: application/json
 | name | string | Max 200 chars | New name |
 | description | string | - | New description |
 | classification | string (enum) | "cost_of_goods_sold" or "operating_expense" | New classification (BLOCKED for system defaults) |
+| is_active | boolean | - | Set to `true` to reactivate a deactivated category (BLOCKED for system defaults) |
 
-**Important:** You CANNOT change the `classification` of a system default category (where `is_system_default: true`). The API will return an error.
+**Important:**
+- You CANNOT change the `classification` of a system default category (where `is_system_default: true`). The API will return `400 Bad Request`.
+- You CANNOT reactivate a deactivated system default category. The API will return `400 Bad Request`.
 
 **Response:** Updated category object
 
@@ -430,6 +442,7 @@ Content-Type: application/json
 | project_id | string (UUID) | No | Must exist | Link to a project |
 | task_id | string (UUID) | No | Must exist, project_id required | Link to a task within the project |
 | tax_amount | number | No | Min 0, max 2 decimal places, must be < amount | Tax portion of the amount |
+| discount | number | No | Min 0, max 2 decimal places | Discount applied to the entry |
 | entry_time | string | No | Max 8 chars (HH:MM:SS format) | Time of entry |
 | vendor_name | string | No | Max 200 chars | Free-text vendor name |
 | supplier_id | string (UUID) | No | Must exist | Link to registered supplier |
@@ -437,7 +450,7 @@ Content-Type: application/json
 | payment_method_registry_id | string (UUID) | No | Must exist | Link to registered payment method |
 | purchased_by_user_id | string (UUID) | No | Must exist | Which user made the purchase |
 | purchased_by_crew_member_id | string (UUID) | No | Must exist | Which crew member made the purchase |
-| submission_status | string (enum) | No | "pending_review" or "confirmed" | See business rules below |
+| submission_status | string (enum) | No | "pending_review" or "confirmed" (denied is set via reject endpoint) | See business rules below |
 | notes | string | No | Max 2000 chars | Free-text notes |
 
 **Business Rules:**
@@ -489,7 +502,7 @@ GET /api/v1/financial/entries
 | entry_type | string | No | - | "expense" or "income" |
 | supplier_id | UUID | No | - | Filter by supplier |
 | payment_method | string (enum) | No | - | Filter by payment method enum |
-| submission_status | string | No | - | "pending_review" or "confirmed" |
+| submission_status | string | No | - | "pending_review", "confirmed", or "denied" |
 | purchased_by_user_id | UUID | No | - | Filter by who purchased |
 | purchased_by_crew_member_id | UUID | No | - | Filter by crew purchaser |
 | date_from | string (date) | No | - | Start date filter |
@@ -538,11 +551,15 @@ GET /api/v1/financial/entries
       "is_recurring_instance": false,
       "recurring_rule_id": null,
       "has_receipt": false,
+      "discount": null,
       "notes": null,
       "created_by_user_id": "32cd6d0d-1823-4033-8aa8-9513dda9cf59",
       "created_by_name": "Ludson Menezes",
       "created_at": "2026-03-17T01:37:05.205Z",
-      "updated_at": "2026-03-17T01:37:05.205Z"
+      "updated_at": "2026-03-17T01:37:05.205Z",
+      "line_items": [],
+      "has_line_items": false,
+      "items_subtotal": 0
     }
   ],
   "meta": {
@@ -589,21 +606,25 @@ GET /api/v1/financial/entries
 | purchased_by_user_name | string | Yes | User name (enriched) |
 | purchased_by_crew_member_id | string (UUID) | Yes | Crew member who purchased |
 | purchased_by_crew_member_name | string | Yes | Crew member name (enriched) |
-| submission_status | string | No | "pending_review" or "confirmed" |
-| rejection_reason | string | Yes | Why entry was rejected |
+| submission_status | string | No | "pending_review", "confirmed", or "denied" |
+| rejection_reason | string | Yes | Why entry was rejected (populated when denied) |
 | rejected_by_user_id | string (UUID) | Yes | Who rejected it |
 | rejected_by_name | string | Yes | Rejector name (enriched) |
 | rejected_at | string (ISO 8601) | Yes | When rejected |
 | is_recurring_instance | boolean | No | Was auto-generated by recurring rule |
 | recurring_rule_id | string (UUID) | Yes | Source recurring rule |
 | has_receipt | boolean | No | Whether a receipt is attached |
+| discount | string (decimal) | Yes | Discount amount applied to the entry |
 | notes | string | Yes | Free-text notes |
 | created_by_user_id | string (UUID) | No | Who created it |
 | created_by_name | string | No | Creator name (enriched) |
 | created_at | string (ISO 8601) | No | When created |
 | updated_at | string (ISO 8601) | No | When last updated |
+| line_items | array | No | Array of line item objects (see 6.12), empty if none |
+| has_line_items | boolean | No | Convenience flag: true when line_items is non-empty |
+| items_subtotal | number | No | Computed sum of all line item totals (not stored) |
 
-> **Important:** `amount` and `tax_amount` are returned as **strings** (decimal representation), not numbers. Parse them to numbers on the frontend.
+> **Important:** `amount`, `tax_amount`, and `discount` are returned as **strings** (decimal representation), not numbers. Parse them to numbers on the frontend.
 
 ### 6.4 Get Single Entry
 
@@ -625,7 +646,7 @@ Content-Type: application/json
 **Roles:** Owner, Admin, Manager, Bookkeeper, Employee
 
 **Business Rules:**
-- Employees can only edit their own entries that are in `"pending_review"` status
+- Employees can only edit their own entries that are in `"pending_review"` or `"denied"` status
 - All fields are optional — send only what you want to change
 - To clear a field, send `null` (for nullable fields like `supplier_id`, `payment_method_registry_id`, etc.)
 
@@ -637,6 +658,7 @@ Content-Type: application/json
 | entry_type | string | "expense" or "income" | New type |
 | amount | number | Min 0.01 | New amount |
 | tax_amount | number | Min 0 | New tax amount |
+| discount | number | Min 0 | New discount amount |
 | entry_date | string | ISO 8601 | New date |
 | entry_time | string | Max 8 chars | New time |
 | vendor_name | string | Max 200 chars | New vendor |
@@ -700,7 +722,7 @@ Content-Type: application/json
 
 **Roles:** Owner, Admin, Manager, Bookkeeper
 
-Changes `submission_status` from `"pending_review"` to `"confirmed"`.
+Changes `submission_status` from `"pending_review"` or `"denied"` to `"confirmed"`.
 
 **Request Body (optional):**
 
@@ -709,7 +731,8 @@ Changes `submission_status` from `"pending_review"` to `"confirmed"`.
 | notes | string | No | Max 500 chars | Approval notes |
 
 **Business Rules:**
-- Only entries with `submission_status = "pending_review"` can be approved
+- Only entries with `submission_status = "pending_review"` or `"denied"` can be approved
+- Admins can approve a denied entry directly without requiring resubmission
 - Historical rejection data (`rejected_at`, `rejection_reason`) is preserved in the confirmed entry for audit trail
 
 **Response:** The approved entry object (now with `submission_status: "confirmed"`)
@@ -731,11 +754,11 @@ Content-Type: application/json
 
 **Business Rules:**
 - Only entries with `submission_status = "pending_review"` can be rejected
-- The `submission_status` stays as `"pending_review"` (it does NOT change to "rejected")
+- The `submission_status` changes to `"denied"`
 - The entry gets `rejection_reason`, `rejected_by_user_id`, and `rejected_at` populated
-- The submitter can then resubmit with corrections
+- The submitter can then resubmit with corrections (which resets status back to `"pending_review"`)
 
-**Response:** The rejected entry object (still `submission_status: "pending_review"` but with rejection fields filled)
+**Response:** The rejected entry object (now with `submission_status: "denied"` and rejection fields filled)
 
 ### 6.10 Resubmit a Rejected Entry
 
@@ -751,12 +774,13 @@ Content-Type: application/json
 Same fields as Update (6.5) — category_id, entry_type, amount, tax_amount, entry_date, vendor_name, supplier_id, etc.
 
 **Business Rules:**
-- Only entries that have been rejected (have `rejected_at` set) can be resubmitted
+- Only entries with `submission_status = "denied"` can be resubmitted
+- Resubmission resets `submission_status` back to `"pending_review"` for another review cycle
 - Resubmission clears the rejection fields (`rejection_reason`, `rejected_by_user_id`, `rejected_at`)
-- The `submission_status` stays as `"pending_review"` for another review cycle
-- Optional field updates are applied during resubmission
+- Optional field updates are applied during resubmission (e.g., fix amount, attach new receipt)
+- Employees can only resubmit their own entries; privileged roles can resubmit any
 
-**Response:** The resubmitted entry (rejection fields cleared)
+**Response:** The resubmitted entry (`submission_status: "pending_review"`, rejection fields cleared)
 
 ### 6.11 Export Entries as CSV
 
@@ -784,6 +808,78 @@ Date,Time,Type,Category,Classification,Project,Task,Supplier,Vendor Name,Amount,
 **Business Rules:**
 - Maximum 10,000 rows per export
 - Uses the same filters as the list endpoint
+
+---
+
+### 6.12 Line Items (Optional Itemized Breakdown)
+
+Line items provide an optional itemized breakdown of what was purchased in a financial entry. They are purely descriptive — the entry's `amount` is always the source of truth (what was actually paid). Line items, tax, and discount are tracking metadata.
+
+The entry response includes:
+- `line_items[]` — array of line items ordered by `order_index`
+- `has_line_items` — boolean convenience flag
+- `items_subtotal` — computed sum of all line item totals (not stored, for frontend display)
+- `discount` — discount amount on the entry (independent field)
+
+#### 6.12.1 Add a Line Item
+
+```
+POST /api/v1/financial/entries/:entryId/line-items
+```
+
+**Roles:** Owner, Admin, Manager, Bookkeeper, Employee (own entries in pending_review/denied only)
+
+| Field | Type | Required | Validation | Description |
+|-------|------|----------|------------|-------------|
+| description | string | **Yes** | Max 500 chars | Item description (e.g., "2x4 lumber") |
+| quantity | number | **Yes** | Min 0.01, max 2 decimal places | Quantity purchased |
+| unit_price | number | **Yes** | Min 0, max 4 decimal places | Price per unit |
+| unit_of_measure | string | No | Max 50 chars | e.g., "each", "ton", "box" |
+| supplier_product_id | string (UUID) | No | Must exist and be active | Auto-fills unit_of_measure and unit_price if not provided |
+| order_index | number | No | Min 0 | Sort order (auto-increments if omitted) |
+| notes | string | No | Max 2000 chars | Optional notes |
+
+**Business Rules:**
+- `total` is computed as `quantity × unit_price` and stored on the line item
+- If `supplier_product_id` is provided, `unit_of_measure` and `unit_price` are auto-filled from the product (user values take precedence)
+- Adding line items does NOT change the entry's `amount`
+
+**Response:** Created line item object
+
+#### 6.12.2 List Line Items
+
+```
+GET /api/v1/financial/entries/:entryId/line-items
+```
+
+**Roles:** Owner, Admin, Manager, Bookkeeper, Employee
+
+**Response:** Array of line items ordered by `order_index`, each including `supplier_product { id, name, sku }` if linked.
+
+#### 6.12.3 Update a Line Item
+
+```
+PATCH /api/v1/financial/entries/:entryId/line-items/:itemId
+```
+
+**Roles:** Owner, Admin, Manager, Bookkeeper, Employee (own entries only)
+
+All fields optional. If `quantity` or `unit_price` changes, `total` is recomputed.
+
+**Response:** Updated line item object
+
+#### 6.12.4 Delete a Line Item
+
+```
+DELETE /api/v1/financial/entries/:entryId/line-items/:itemId
+```
+
+**Roles:** Owner, Admin, Manager, Bookkeeper, Employee (own entries only)
+
+**Response:**
+```json
+{ "message": "Line item deleted successfully." }
+```
 
 ---
 
@@ -835,6 +931,13 @@ Content-Type: multipart/form-data
   "ocr_vendor": null,
   "ocr_amount": null,
   "ocr_date": null,
+  "ocr_tax": null,
+  "ocr_discount": null,
+  "ocr_subtotal": null,
+  "ocr_time": null,
+  "ocr_entry_type": null,
+  "ocr_line_items": null,
+  "ocr_notes": null,
   "is_categorized": false,
   "uploaded_by_user_id": "32cd6d0d-1823-4033-8aa8-9513dda9cf59",
   "created_at": "2026-03-25T05:01:09.000Z",
@@ -845,7 +948,9 @@ Content-Type: multipart/form-data
 **What happens after upload:**
 1. File is saved to storage
 2. Receipt record is created with `ocr_status: "processing"`
-3. An async OCR job is enqueued (Google Cloud Vision API)
+3. An async OCR job is enqueued:
+   - **Step 1:** Google Cloud Vision API extracts raw text from the image
+   - **Step 2:** GPT-4o-mini parses the raw text into structured data (vendor, line items, tax, discount, total, date, time, payment info, expense/refund type)
 4. OCR extracts vendor, amount, date from the image
 5. When done, `ocr_status` becomes `"complete"` or `"failed"`
 
@@ -888,6 +993,13 @@ GET /api/v1/financial/receipts
       "ocr_vendor": null,
       "ocr_amount": null,
       "ocr_date": null,
+      "ocr_tax": null,
+      "ocr_discount": null,
+      "ocr_subtotal": null,
+      "ocr_time": null,
+      "ocr_entry_type": null,
+      "ocr_line_items": null,
+      "ocr_notes": null,
       "is_categorized": false,
       "financial_entry_id": null,
       "uploaded_by": {
@@ -936,9 +1048,57 @@ Use this to poll for OCR completion after uploading a receipt.
 
 **Possible ocr_status values:**
 - `"processing"` — Still running, poll again in a few seconds
-- `"complete"` — Done, check `ocr_vendor`, `ocr_amount`, `ocr_date`
+- `"complete"` — Done, all `ocr_*` fields populated
 - `"failed"` — OCR failed, user can retry or enter manually
 - `"not_processed"` — Not yet submitted for processing
+
+#### AI-Parsed OCR Fields (available when `ocr_status = "complete"`)
+
+When OCR completes, the receipt includes structured data extracted by GPT-4o-mini:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| ocr_vendor | string | Store/business name (multi-line names combined, slogans excluded) |
+| ocr_amount | number | Final total paid |
+| ocr_date | string (ISO date) | Receipt date |
+| ocr_tax | number | Tax amount |
+| ocr_discount | number | Discount/savings amount |
+| ocr_subtotal | number | Subtotal before tax and discount |
+| ocr_time | string | Time of purchase (HH:MM format) |
+| ocr_entry_type | string | `"expense"` or `"refund"` |
+| ocr_line_items | array or null | Itemized products (see below) |
+| ocr_notes | string | Payment info: card brand, last 4 digits, change due, etc. |
+
+**`ocr_line_items` array structure:**
+```json
+[
+  {
+    "description": "2x4 Lumber 8ft",
+    "quantity": 3,
+    "unit_price": 4.98,
+    "total": 14.94
+  },
+  {
+    "description": "Phillips Screwdriver Set",
+    "quantity": 1,
+    "unit_price": 12.97,
+    "total": 12.97
+  }
+]
+```
+
+**Frontend usage:** When `ocr_status` is `"complete"`, use these fields to pre-fill the financial entry form:
+- `ocr_amount` → entry `amount`
+- `ocr_tax` → entry `tax_amount`
+- `ocr_discount` → entry `discount`
+- `ocr_vendor` → entry `vendor_name`
+- `ocr_date` → entry `entry_date`
+- `ocr_time` → entry `entry_time`
+- `ocr_entry_type` → entry `entry_type` (`"refund"` maps to `"income"`, `"expense"` maps to `"expense"`)
+- `ocr_line_items` → entry line items (POST `/financial/entries/:id/line-items` for each)
+- `ocr_notes` → entry `notes`
+
+The frontend should display these as pre-filled values that the user can review and adjust before saving.
 
 ### 7.5 Create Entry from Receipt
 
@@ -955,8 +1115,8 @@ Creates a financial entry pre-populated from OCR results (with user overrides).
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| project_id | string (UUID) | **Yes** | Target project |
-| task_id | string (UUID) | No | Target task |
+| project_id | string (UUID) | No | Target project (omit for business-level overhead expenses like fuel, office supplies) |
+| task_id | string (UUID) | No | Target task (requires project_id) |
 | category_id | string (UUID) | **Yes** | Expense category |
 | amount | number | No | Override OCR amount (min 0.01) |
 | tax_amount | number | No | Tax amount |
@@ -1165,17 +1325,41 @@ Content-Type: application/json
 
 **Response:** Updated payment method object
 
-### 8.5 Delete (Soft) a Payment Method
+### 8.5 Delete a Payment Method
 
 ```
 DELETE /api/v1/financial/payment-methods/:id
+DELETE /api/v1/financial/payment-methods/:id?permanent=true
 ```
 
 **Roles:** Owner, Admin
 
-Soft deletes by setting `is_active: false`. If the deleted method was the default, the default is cleared.
+**Query Parameters:**
 
-**Response:** Deactivated payment method object
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| permanent | boolean | No | false | When `true`, permanently deletes the record from the database. Only succeeds if the payment method has **zero usage** across financial entries, recurring rules, and invoice payments. When omitted or `false`, soft-deletes by setting `is_active: false`. |
+
+**Soft delete (default):** Sets `is_active: false`. If the deleted method was the default, the default is reassigned to the most recently created active method.
+
+**Response (soft delete):** Deactivated payment method object
+
+**Hard delete (`?permanent=true`):** Permanently removes the record. Fails with `400` if the payment method is referenced by any financial entries, recurring expense rules, or invoice payments.
+
+**Response (hard delete):**
+```json
+{
+  "message": "Payment method \"Company Visa\" permanently deleted"
+}
+```
+
+**Error (hard delete, in use):**
+```json
+{
+  "statusCode": 400,
+  "message": "Cannot permanently delete: payment method is referenced by 3 financial entry(ies), 1 recurring rule(s)"
+}
+```
 
 ### 8.6 Set as Default
 
@@ -1346,9 +1530,37 @@ Content-Type: application/json
 
 ```
 DELETE /api/v1/financial/suppliers/:id
+DELETE /api/v1/financial/suppliers/:id?permanent=true
 ```
 
 **Roles:** Owner, Admin, Bookkeeper
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| permanent | boolean | No | false | When `true`, permanently deletes the supplier from the database. Only succeeds if the supplier has **zero financial data** (no financial entries, no recurring rules). Products, category assignments, and price history are cascade-deleted automatically. When omitted or `false`, soft-deletes by setting `is_active: false`. |
+
+**Soft delete (default):** Sets `is_active: false`.
+
+**Response (soft delete):** Deactivated supplier object
+
+**Hard delete (`?permanent=true`):** Permanently removes the supplier and all its non-financial child data (products, price history, category assignments). Fails with `400` if the supplier is referenced by any financial entries or recurring expense rules.
+
+**Response (hard delete):**
+```json
+{
+  "message": "Supplier \"ABC Building Supply\" permanently deleted"
+}
+```
+
+**Error (hard delete, has financial data):**
+```json
+{
+  "statusCode": 400,
+  "message": "Cannot permanently delete: supplier is referenced by 5 financial entry(ies), 2 recurring rule(s). Use soft delete instead."
+}
+```
 
 ### 9.6 Get Supplier Map Data
 
@@ -1569,9 +1781,33 @@ Content-Type: application/json
 
 ```
 DELETE /api/v1/financial/suppliers/:supplierId/products/:productId
+DELETE /api/v1/financial/suppliers/:supplierId/products/:productId?permanent=true
 ```
 
-**Roles:** Owner, Admin, Bookkeeper
+**Roles:** Owner, Admin, Bookkeeper (soft delete) | Owner, Admin only (permanent delete)
+
+| Query Param | Type | Default | Description |
+|---|---|---|---|
+| `permanent` | boolean | `false` | Set to `true` to permanently delete the product and all its price history records. Restricted to Owner/Admin. |
+
+**Soft delete (default):** Sets `is_active = false`. Product data and price history are preserved.
+
+**Permanent delete (`?permanent=true`):** Cascade-deletes all `supplier_product_price_history` records, then deletes the product itself. This action is irreversible. Returns `403 Forbidden` if the caller is not Owner or Admin.
+
+**Response (soft delete):** Updated product object with `is_active: false`
+
+**Response (permanent delete):**
+```json
+{
+  "message": "Product \"Crushed Stone\" permanently deleted."
+}
+```
+
+**Error Responses:**
+| Status | Description |
+|---|---|
+| 403 | Only Owner or Admin can permanently delete products |
+| 404 | Supplier or product not found |
 
 ### 11.5 Get Price History
 
@@ -1766,13 +2002,28 @@ Content-Type: application/json
 
 **Roles:** Owner, Admin, Manager, Bookkeeper
 
-All fields from Create are optional EXCEPT `start_date` (cannot be changed after creation). If you change `frequency` or `interval`, the `next_due_date` is recalculated.
+All fields from Create are optional EXCEPT `start_date` (cannot be changed after creation).
 
-**Example Request:**
+**Schedule Recalculation:** If you change `frequency`, `interval`, `day_of_month`, `day_of_week`, or `amount`, the `next_due_date` is automatically recalculated from the current schedule.
+
+**Additional Update-Only Fields:**
+
+| Field | Type | Required | Validation | Description |
+|-------|------|----------|------------|-------------|
+| next_due_date | string | No | ISO 8601 date (YYYY-MM-DD) | Override next_due_date directly. Use this to correct the schedule after deleting an entry or triggering early. When provided, takes priority over automatic recalculation. |
+
+**Example — Update amount:**
 ```json
 {
   "amount": 2750.00,
   "notes": "Rent increased effective May 2026"
+}
+```
+
+**Example — Correct next_due_date after deleting a mistaken entry:**
+```json
+{
+  "next_due_date": "2026-04-01"
 }
 ```
 
@@ -1822,9 +2073,30 @@ POST /api/v1/financial/recurring-rules/:id/trigger
 
 **Roles:** Owner, Admin
 
-Immediately generates the next entry from this rule without waiting for the daily 2:00 AM scheduler.
+Immediately generates the next entry from this rule without waiting for the daily 2:00 AM scheduler. Can be triggered even if `next_due_date` is in the future (e.g., paying a bill early).
 
-**Response (202 Accepted):** Confirmation that the job was enqueued
+**Behavior:**
+- Bypasses the date guard — works regardless of when `next_due_date` is
+- The generated entry's `entry_date` is set to **today** (the date you actually triggered), not the rule's `next_due_date`
+- The rule's `next_due_date` advances to the next scheduled occurrence (calculated from the rule's cadence, not from today)
+- Duplicate prevention still applies — if an entry already exists for the current `next_due_date`, the trigger is skipped
+- Rule must be `active` or `paused` (cannot trigger `cancelled` or `completed` rules)
+
+**Example scenario:**
+- Rule: Monthly on the 1st, `next_due_date` = April 1
+- You trigger on March 28
+- Entry created with `entry_date` = March 28
+- Rule advances `next_due_date` to May 1
+
+**If you need to correct the schedule after triggering early**, use the Update endpoint (12.4) with `next_due_date` to set it back manually.
+
+**Response (202 Accepted):**
+```json
+{
+  "message": "Entry generation triggered",
+  "rule_id": "r1r2r3r4-..."
+}
+```
 
 ### 12.9 Skip Next Occurrence
 
@@ -3852,8 +4124,9 @@ GET /api/v1/financial/export/history
 **\*Employee restrictions:**
 - Can only view/edit/delete their OWN entries
 - All entries created by Employees are `submission_status: "pending_review"`
-- Can only edit entries in `"pending_review"` status
-- Can only delete their own `"pending_review"` entries
+- Can only edit entries in `"pending_review"` or `"denied"` status
+- Can only delete their own `"pending_review"` or `"denied"` entries
+- Can resubmit their own `"denied"` entries
 
 ---
 

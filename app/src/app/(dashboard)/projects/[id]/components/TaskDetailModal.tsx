@@ -13,6 +13,7 @@ import {
   Calendar,
   UserPlus,
   Plus,
+  DollarSign,
 } from 'lucide-react';
 import { Modal, ModalActions } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
@@ -54,6 +55,7 @@ import type {
   AssigneeType,
 } from '@/lib/types/projects';
 import toast from 'react-hot-toast';
+import TaskFinancialSection from './TaskFinancialSection';
 
 interface TaskDetailModalProps {
   isOpen: boolean;
@@ -66,7 +68,7 @@ interface TaskDetailModalProps {
   onTaskDeleted: (taskId: string) => void;
 }
 
-type DetailTab = 'details' | 'assignments' | 'dependencies' | 'calendar' | 'sms';
+type DetailTab = 'details' | 'assignments' | 'dependencies' | 'calendar' | 'sms' | 'financial';
 
 export default function TaskDetailModal({
   isOpen,
@@ -93,6 +95,7 @@ export default function TaskDetailModal({
     { id: 'dependencies', label: 'Dependencies', icon: Link2 },
     { id: 'calendar', label: 'Calendar', icon: Calendar },
     { id: 'sms', label: 'SMS', icon: MessageSquare },
+    { id: 'financial', label: 'Financial', icon: DollarSign },
   ];
 
   const handleStatusChange = async (newStatus: string) => {
@@ -209,6 +212,12 @@ export default function TaskDetailModal({
               task={currentTask}
               projectId={projectId}
               canManage={canManage}
+            />
+          )}
+          {activeTab === 'financial' && (
+            <TaskFinancialSection
+              task={currentTask}
+              projectId={projectId}
             />
           )}
         </div>

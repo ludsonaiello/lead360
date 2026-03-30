@@ -51,15 +51,21 @@ import {
   Headset,
   Bot,
   Receipt,
+  Banknote,
   Wrench,
   Calendar as CalendarIcon,
   FolderKanban,
   ClipboardCheck,
+  CheckSquare,
+  RefreshCw,
+  Download,
+  FileImage,
 } from 'lucide-react';
 import ProtectedMenuItem from '@/components/rbac/shared/ProtectedMenuItem';
 import { useAuth } from '@/contexts/AuthContext';
 import { useImpersonation } from '@/contexts/ImpersonationContext';
 import { getPendingApprovals } from '@/lib/api/quote-approvals';
+import { getPendingEntries } from '@/lib/api/financial';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -73,6 +79,7 @@ interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   permission?: string; // Optional permission required to view this menu item
+  roles?: string | string[]; // Optional role(s) required to view this menu item
   badge?: number; // Optional badge count (for dynamic counts like pending approvals)
 }
 
@@ -81,6 +88,7 @@ interface NavGroup {
   icon: React.ComponentType<{ className?: string }>;
   items: (NavItem | NavGroup)[]; // Support nested groups
   permission?: string;
+  roles?: string | string[]; // Optional role(s) required to view this menu item
 }
 
 const navigation: (NavItem | NavGroup)[] = [
@@ -89,6 +97,27 @@ const navigation: (NavItem | NavGroup)[] = [
   { name: 'Customers', href: '/customers', icon: Users, permission: 'users:view' },
   { name: 'Calendar', href: '/calendar', icon: CalendarIcon, permission: 'calendar:view' },
   { name: 'Projects', href: '/projects', icon: FolderKanban, permission: 'projects:view' },
+  {
+    name: 'Financial',
+    icon: DollarSign,
+    permission: 'projects:view',
+    items: [
+      { name: 'Dashboard', href: '/financial', icon: LayoutDashboard, permission: 'projects:view', roles: ['Owner', 'Admin', 'Manager', 'Bookkeeper'] },
+      { name: 'Expenses', href: '/financial/entries', icon: Receipt, permission: 'projects:view', roles: ['Owner', 'Admin', 'Manager', 'Bookkeeper', 'Employee'] },
+      { name: 'Approvals', href: '/financial/approvals', icon: CheckSquare, permission: 'projects:view', roles: ['Owner', 'Admin', 'Manager', 'Bookkeeper'] },
+      { name: 'Receipts', href: '/financial/receipts', icon: FileImage, permission: 'projects:view', roles: ['Owner', 'Admin', 'Manager', 'Bookkeeper'] },
+      { name: 'Suppliers', href: '/financial/suppliers', icon: Building2, permission: 'projects:view', roles: ['Owner', 'Admin', 'Manager', 'Bookkeeper'] },
+      { name: 'Supplier Categories', href: '/financial/suppliers/categories', icon: Tags, permission: 'projects:view', roles: ['Owner', 'Admin', 'Manager', 'Bookkeeper'] },
+      { name: 'Crew Hours', href: '/financial/crew-hours', icon: Clock, permission: 'projects:view', roles: ['Owner', 'Admin', 'Manager', 'Bookkeeper'] },
+      { name: 'Crew Payments', href: '/financial/crew-payments', icon: CreditCard, permission: 'projects:view', roles: ['Owner', 'Admin', 'Bookkeeper'] },
+      { name: 'Sub Invoices', href: '/financial/subcontractor-invoices', icon: FileText, permission: 'projects:view', roles: ['Owner', 'Admin', 'Manager', 'Bookkeeper'] },
+      { name: 'Sub Payments', href: '/financial/subcontractor-payments', icon: Banknote, permission: 'projects:view', roles: ['Owner', 'Admin', 'Bookkeeper'] },
+      { name: 'Recurring', href: '/financial/recurring', icon: RefreshCw, permission: 'projects:view', roles: ['Owner', 'Admin', 'Manager', 'Bookkeeper'] },
+      { name: 'Exports', href: '/financial/exports', icon: Download, permission: 'projects:view', roles: ['Owner', 'Admin', 'Bookkeeper'] },
+      { name: 'Categories', href: '/settings/financial-categories', icon: Tags, permission: 'settings:edit', roles: ['Owner', 'Admin', 'Manager', 'Bookkeeper'] },
+      { name: 'Payment Methods', href: '/settings/payment-methods', icon: CreditCard, permission: 'settings:edit', roles: ['Owner', 'Admin', 'Bookkeeper'] },
+    ],
+  },
   {
     name: 'Quotes',
     icon: Calculator,
@@ -301,8 +330,10 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
   const showTenantMenu = !isPlatformAdmin || isImpersonating;
   const showAdminMenu = isPlatformAdmin && !isImpersonating;
 
-  // Pending approvals count
+  // Pending approvals count (quotes)
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
+  // Pending financial approvals count
+  const [pendingFinancialApprovalsCount, setPendingFinancialApprovalsCount] = useState<number>(0);
 
   /**
    * Recursively find all parent groups of active items
@@ -369,6 +400,32 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
     }
   }, [showTenantMenu, user]);
 
+  // Fetch pending financial approvals count
+  useEffect(() => {
+    const fetchFinancialPendingCount = async () => {
+      try {
+        const response = await getPendingEntries({ page: 1, limit: 1 });
+        setPendingFinancialApprovalsCount(response.summary?.entry_count ?? 0);
+      } catch (error) {
+        console.error('[SIDEBAR] Failed to fetch pending financial approvals:', error);
+        setPendingFinancialApprovalsCount(0);
+      }
+    };
+
+    // Only fetch for roles that can view approvals (Owner, Admin, Manager, Bookkeeper)
+    // user.roles is string[] (e.g. ["Owner"]), not { name: string }[]
+    const approvalRoles = ['Owner', 'Admin', 'Manager', 'Bookkeeper'];
+    const canViewApprovals = user?.roles?.some((role: any) =>
+      approvalRoles.includes(typeof role === 'string' ? role : role.name)
+    ) || false;
+
+    if (showTenantMenu && canViewApprovals) {
+      fetchFinancialPendingCount();
+      const interval = setInterval(fetchFinancialPendingCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [showTenantMenu, user]);
+
   const toggleGroup = (groupName: string) => {
     const newExpanded = new Set(expandedGroups);
     if (newExpanded.has(groupName)) {
@@ -394,9 +451,11 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
     const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
     const Icon = item.icon;
 
-    // Get badge count for Approvals menu item (hide for Admin users)
+    // Get badge count for Approvals menu items
     const isAdmin = user?.roles?.some((role: any) => role.name === 'Admin') || false;
-    const badgeCount = (item.href === '/approvals' && !isAdmin) ? pendingApprovalsCount : 0;
+    let badgeCount = 0;
+    if (item.href === '/approvals' && !isAdmin) badgeCount = pendingApprovalsCount;
+    if (item.href === '/financial/approvals') badgeCount = pendingFinancialApprovalsCount;
 
     const linkContent = (
       <Link
@@ -435,9 +494,9 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
       </Link>
     );
 
-    if (item.permission) {
+    if (item.permission || item.roles) {
       return (
-        <ProtectedMenuItem key={item.name} requiredPermission={item.permission}>
+        <ProtectedMenuItem key={item.name} requiredPermission={item.permission} requiredRole={item.roles}>
           {linkContent}
         </ProtectedMenuItem>
       );
@@ -474,6 +533,10 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
     const hasActiveChild = hasActiveChildRecursive(group.items);
     const Icon = group.icon;
 
+    // Aggregate badge count from child items for the group header
+    let groupBadgeCount = 0;
+    if (group.name === 'Financial') groupBadgeCount = pendingFinancialApprovalsCount;
+
     const groupContent = (
       <div key={group.name}>
         {/* Group header - clickable to expand/collapse */}
@@ -500,11 +563,18 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
             {!collapsed && <span>{group.name}</span>}
           </div>
           {!collapsed && (
-            isExpanded ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )
+            <div className="flex items-center gap-2">
+              {!isExpanded && groupBadgeCount > 0 && (
+                <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                  {groupBadgeCount}
+                </span>
+              )}
+              {isExpanded ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </div>
           )}
         </button>
 
@@ -517,9 +587,9 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
       </div>
     );
 
-    if (group.permission) {
+    if (group.permission || group.roles) {
       return (
-        <ProtectedMenuItem key={group.name} requiredPermission={group.permission}>
+        <ProtectedMenuItem key={group.name} requiredPermission={group.permission} requiredRole={group.roles}>
           {groupContent}
         </ProtectedMenuItem>
       );
@@ -537,9 +607,11 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
       const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
       const Icon = item.icon;
 
-      // Get badge count for Approvals menu item (hide for Admin users)
+      // Get badge count for Approvals menu items
       const isAdmin = user?.roles?.some((role: any) => role.name === 'Admin') || false;
-      const badgeCount = (item.href === '/approvals' && !isAdmin) ? pendingApprovalsCount : 0;
+      let badgeCount = 0;
+      if (item.href === '/approvals' && !isAdmin) badgeCount = pendingApprovalsCount;
+      if (item.href === '/financial/approvals') badgeCount = pendingFinancialApprovalsCount;
 
       const linkContent = (
         <Link
@@ -571,9 +643,9 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
         </Link>
       );
 
-      if (item.permission) {
+      if (item.permission || item.roles) {
         return (
-          <ProtectedMenuItem key={item.name} requiredPermission={item.permission}>
+          <ProtectedMenuItem key={item.name} requiredPermission={item.permission} requiredRole={item.roles}>
             {linkContent}
           </ProtectedMenuItem>
         );
@@ -587,6 +659,10 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
     const isExpanded = expandedGroups.has(group.name);
     const hasActiveChild = hasActiveChildRecursive(group.items);
     const Icon = group.icon;
+
+    // Aggregate badge count for group header
+    let groupBadgeCount = 0;
+    if (group.name === 'Financial') groupBadgeCount = pendingFinancialApprovalsCount;
 
     const groupContent = (
       <div key={group.name}>
@@ -611,11 +687,18 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
             />
             <span>{group.name}</span>
           </div>
-          {isExpanded ? (
-            <ChevronUp className="h-4 w-4" />
-          ) : (
-            <ChevronDown className="h-4 w-4" />
-          )}
+          <div className="flex items-center gap-2">
+            {!isExpanded && groupBadgeCount > 0 && (
+              <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                {groupBadgeCount}
+              </span>
+            )}
+            {isExpanded ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </div>
         </button>
 
         {/* Group items - shown when expanded (recursive rendering) */}
@@ -627,9 +710,9 @@ export function DashboardSidebar({ isOpen, onClose, isCollapsed, onToggleCollaps
       </div>
     );
 
-    if (group.permission) {
+    if (group.permission || group.roles) {
       return (
-        <ProtectedMenuItem key={group.name} requiredPermission={group.permission}>
+        <ProtectedMenuItem key={group.name} requiredPermission={group.permission} requiredRole={group.roles}>
           {groupContent}
         </ProtectedMenuItem>
       );

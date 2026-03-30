@@ -191,6 +191,68 @@ describe('DashboardService', () => {
       expect(result.months[0].income.invoice_count).toBe(1);
     });
 
+    it('should include financial entry income in total income', async () => {
+      prisma.project_invoice_payment.aggregate.mockResolvedValue({
+        _sum: { amount: 5000 },
+      });
+      prisma.project_invoice_payment.findMany.mockResolvedValue([
+        { invoice_id: 'inv-1' },
+      ]);
+      prisma.project_invoice_payment.groupBy.mockResolvedValue([]);
+      prisma.project_invoice.aggregate.mockResolvedValue({
+        _sum: { tax_amount: null },
+      });
+      prisma.financial_entry.groupBy.mockResolvedValue([]);
+
+      // financial_entry.aggregate call order:
+      // Call 1: entry income → 200
+      // Call 2: total expenses → 0
+      // Call 3: tax paid → 0
+      // Call 4: COGS → 0
+      // Call 5: OpEx → 0
+      prisma.financial_entry.aggregate
+        .mockResolvedValueOnce({ _sum: { amount: 200 } })
+        .mockResolvedValueOnce({ _sum: { amount: null } })
+        .mockResolvedValueOnce({ _sum: { tax_amount: null } })
+        .mockResolvedValueOnce({ _sum: { amount: null } })
+        .mockResolvedValueOnce({ _sum: { amount: null } });
+
+      const result = await service.getPL(TENANT_ID, 2026, 3);
+
+      // Total income = invoice payments (5000) + entry income (200) = 5200
+      expect(result.months[0].income.total).toBe(5200);
+      expect(result.months[0].income.invoice_payments).toBe(5000);
+      expect(result.months[0].income.entry_income).toBe(200);
+    });
+
+    it('should only count expense entries in expenses total, not income entries', async () => {
+      prisma.project_invoice_payment.aggregate.mockResolvedValue({
+        _sum: { amount: null },
+      });
+      prisma.project_invoice_payment.findMany.mockResolvedValue([]);
+      prisma.project_invoice_payment.groupBy.mockResolvedValue([]);
+      prisma.financial_entry.groupBy.mockResolvedValue([]);
+
+      // financial_entry.aggregate call order:
+      // Call 1: entry income → 200
+      // Call 2: total expenses → 650
+      // Call 3: tax paid → 0
+      // Call 4: COGS → 0
+      // Call 5: OpEx → 0
+      prisma.financial_entry.aggregate
+        .mockResolvedValueOnce({ _sum: { amount: 200 } })
+        .mockResolvedValueOnce({ _sum: { amount: 650 } })
+        .mockResolvedValueOnce({ _sum: { tax_amount: null } })
+        .mockResolvedValueOnce({ _sum: { amount: null } })
+        .mockResolvedValueOnce({ _sum: { amount: null } });
+
+      const result = await service.getPL(TENANT_ID, 2026, 3);
+
+      // Expenses should only be 650, not 850 (650+200)
+      expect(result.months[0].expenses.total).toBe(650);
+      expect(result.months[0].income.total).toBe(200);
+    });
+
     it('should return all 12 months for full year even with zero activity', async () => {
       setupZeroPLMocks();
 
@@ -219,13 +281,15 @@ describe('DashboardService', () => {
       });
       prisma.financial_entry.groupBy.mockResolvedValue([]);
 
-      // financial_entry.aggregate is called 4 times when includePending is falsy:
-      // Call 1: total expenses (confirmed) → 5000
+      // financial_entry.aggregate is called 5 times when includePending is falsy:
+      // Call 1: entry income → 0
+      // Call 2: total expenses (confirmed) → 5000
       // (Query 5 skipped — includePending not set)
-      // Call 2: tax paid → 0
-      // Call 3: COGS → 3000
-      // Call 4: OpEx → 2000
+      // Call 3: tax paid → 0
+      // Call 4: COGS → 3000
+      // Call 5: OpEx → 2000
       prisma.financial_entry.aggregate
+        .mockResolvedValueOnce({ _sum: { amount: null } })
         .mockResolvedValueOnce({ _sum: { amount: 5000 } })
         .mockResolvedValueOnce({ _sum: { tax_amount: 0 } })
         .mockResolvedValueOnce({ _sum: { amount: 3000 } })
@@ -254,12 +318,14 @@ describe('DashboardService', () => {
       prisma.project_invoice_payment.groupBy.mockResolvedValue([]);
       prisma.financial_entry.groupBy.mockResolvedValue([]);
 
-      // Call 1: confirmed → 5000
-      // Call 2: confirmed + pending → 7000
-      // Call 3: tax → 0
-      // Call 4: COGS → 0
-      // Call 5: OpEx → 0
+      // Call 1: entry income → 0
+      // Call 2: confirmed expenses → 5000
+      // Call 3: confirmed + pending expenses → 7000
+      // Call 4: tax → 0
+      // Call 5: COGS → 0
+      // Call 6: OpEx → 0
       prisma.financial_entry.aggregate
+        .mockResolvedValueOnce({ _sum: { amount: null } })
         .mockResolvedValueOnce({ _sum: { amount: 5000 } })
         .mockResolvedValueOnce({ _sum: { amount: 7000 } })
         .mockResolvedValueOnce({ _sum: { tax_amount: null } })
@@ -284,6 +350,8 @@ describe('DashboardService', () => {
         month_label: `M${month} 2026`,
         income: {
           total: income,
+          invoice_payments: income,
+          entry_income: 0,
           invoice_count: income > 0 ? 1 : 0,
           by_project: [],
         },

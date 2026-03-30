@@ -76,10 +76,10 @@ export class ListFinancialEntriesQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by submission status',
-    enum: ['pending_review', 'confirmed'],
+    enum: ['pending_review', 'confirmed', 'denied'],
   })
   @IsOptional()
-  @IsEnum(['pending_review', 'confirmed'], { message: 'Invalid submission_status' })
+  @IsEnum(['pending_review', 'confirmed', 'denied'], { message: 'Invalid submission_status' })
   submission_status?: string;
 
   @ApiPropertyOptional({ description: 'Filter by purchasing user ID' })

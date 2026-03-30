@@ -11,13 +11,14 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateEntryFromReceiptDto {
-  @ApiProperty({
-    description: 'Project ID for the expense entry',
+  @ApiPropertyOptional({
+    description: 'Project ID for the expense entry (omit for business-level overhead expenses like fuel, office supplies)',
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
+  @IsOptional()
   @IsString()
   @IsUUID()
-  project_id: string;
+  project_id?: string;
 
   @ApiPropertyOptional({
     description: 'Task ID (optional)',
@@ -54,6 +55,15 @@ export class CreateEntryFromReceiptDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0, { message: 'Tax amount must be 0 or greater' })
   tax_amount?: number;
+
+  @ApiPropertyOptional({
+    description: 'Discount amount applied to the receipt',
+    example: 5.00,
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0, { message: 'Discount must be 0 or greater' })
+  discount?: number;
 
   @ApiPropertyOptional({
     description: 'Entry date in ISO format. If not provided, OCR-detected date is used as fallback.',

@@ -172,6 +172,140 @@ To add a sidebar entry, read the existing sidebar/nav component first and follow
 
 ---
 
+## UI QUALITY STANDARDS — ACCESSIBILITY, LAYOUT & EXPERIENCE
+
+These are not suggestions. Every page and component delivered in this sprint must pass all of them.
+
+---
+
+### Accessibility — WCAG AA Minimum
+
+**Color Contrast**
+- Normal text (under 18px): **4.5:1 minimum** contrast ratio against background
+- Large text (18px+ or 14px bold): **3:1 minimum**
+- Interactive elements (buttons, links, inputs): **3:1 against adjacent colors**
+- Never convey information by color alone — pair with icon, label, or pattern
+
+**Keyboard Navigation**
+- Every interactive element must be reachable and operable via keyboard alone
+- Tab order must follow visual reading order — no jumps or traps
+- Focus must never disappear — always visible, never `outline: none` without a replacement
+- Modals must trap focus inside while open and return focus to trigger on close
+
+**Touch Targets**
+- Every tappable element: **minimum 44×44px** hit area — this is a field worker app on mobile
+- Buttons too small to tap confidently on a dusty phone are bugs, not design choices
+
+**Screen Readers**
+- All images have meaningful `alt` text or `alt=""` if decorative
+- Form inputs have associated `<label>` elements — never placeholder-only
+- Use semantic HTML: `<button>` for actions, `<a>` for navigation, headings in logical order
+- ARIA labels only where semantic HTML is insufficient — do not over-ARIA
+
+**Motion**
+- Respect `prefers-reduced-motion` — wrap animations in:
+```css
+  @media (prefers-reduced-motion: no-preference) { ... }
+```
+- No animation is required for function — motion is enhancement only
+
+**Text Scaling**
+- Layout must not break when browser text size is increased to 200%
+- No fixed-height containers that clip text — use `min-height`, not `height`
+
+---
+
+### Layout & Visual Hierarchy
+
+**Spacing**
+- Use the 8-point grid — all spacing values must be multiples of 4px (Tailwind: `p-1`, `p-2`, `p-4`, `p-6`, `p-8`, etc.)
+- Consistent spacing within component groups — never eyeball gaps
+- Section separation must be clear — users should never wonder where one section ends and another begins
+
+**Typography Hierarchy**
+- One `h1` per page — the page title
+- Subheadings in logical descending order (`h2` → `h3`) — never skip levels
+- Body text: minimum 16px — never smaller for paragraph content
+- Labels and helper text: minimum 14px — never 12px for functional text
+- Line height for body copy: minimum 1.5 — readability on mobile depends on this
+
+**Information Density**
+- Field workers need scannable UIs — prioritize clarity over information density
+- Group related fields visually — address block together, contact info together
+- Don't show everything at once — use progressive disclosure (tabs, accordions, modals) for secondary info
+- Empty space is intentional — do not fill every pixel
+
+**Color Usage**
+- Use semantic color consistently: green = success, red = destructive/error, yellow = warning, blue = info/primary action
+- Never use red for anything other than errors or destructive actions
+- Status badges and indicators must be immediately readable at a glance
+
+---
+
+### User Experience Rules
+
+**Perceived Performance**
+- Skeleton loaders, not spinners, for page-level data fetching — skeletons reduce perceived wait time
+- Optimistic UI for simple toggle/status changes where rollback is straightforward
+- Debounce search inputs — never fire a request on every keystroke
+
+**Error Recovery**
+- Every error state must tell the user: what went wrong + what to do next
+- Never show a raw error message or stack trace to the user
+- Inline validation on blur, not on submit — catch errors before the user is done typing
+- Required fields marked clearly — not just with `*` alone, use `aria-required` too
+
+**Destructive Actions**
+- Require confirmation for: delete, deactivate, cancel, bulk operations
+- Confirmation modal must name the specific record being affected — never generic "Are you sure?"
+- Irreversible actions must say so explicitly in the modal copy
+
+**Forms**
+- Submit button disabled while request is in flight — no double submissions
+- After successful create/update: show toast + redirect or refresh the relevant list/record
+- After successful delete: show toast + remove item from list without full page reload where possible
+- Never reset a form silently on error — preserve user input
+
+**Navigation & Orientation**
+- Every page has a breadcrumb trail showing where the user is in the app
+- Every detail/edit page has a back button that returns to the correct parent list
+- Page titles match the sidebar link label exactly — no surprise destinations
+- Active sidebar link is visually highlighted at all times
+
+**Mobile Experience**
+- Test at 390px width before marking any page done
+- Tables that can't fit on mobile must switch to card layout — horizontal scroll is a last resort
+- Modals must be full-screen or near-full-screen on mobile — no tiny centered boxes
+- Bottom-heavy CTAs on mobile — primary actions reachable with thumb
+
+---
+
+### Definition of Done — Quality Additions
+
+Add these to the existing checklist:
+
+**Accessibility**
+- [ ] Color contrast verified for all text and interactive elements (4.5:1 / 3:1)
+- [ ] All interactive elements keyboard-accessible with visible focus state
+- [ ] All touch targets meet 44×44px minimum
+- [ ] All form inputs have associated labels
+- [ ] `prefers-reduced-motion` respected for all animations
+
+**Layout & Hierarchy**
+- [ ] One `h1` per page, heading order logical
+- [ ] Spacing follows 8-point grid throughout
+- [ ] No fixed-height containers that could clip text at 200% zoom
+
+**UX**
+- [ ] Skeleton loaders used for page-level fetches — not spinners
+- [ ] Error states include what went wrong + next step for user
+- [ ] Confirmation modals name the specific record being affected
+- [ ] Submit buttons disabled while request is in flight
+- [ ] All forms preserve user input on error
+- [ ] Tables switch to card layout on mobile (390px)
+- [ ] All pages tested at 390px before marking done
+
+
 ## ABSOLUTE RULES — NON-NEGOTIABLE
 
 ### Never Modify Backend
@@ -231,6 +365,7 @@ Before marking the sprint complete:
 - [ ] No `any` types
 - [ ] API response shapes typed from actual response (not assumed)
 - [ ] Uses existing API client — no raw `fetch` calls
+- [ ] No runtime errors
 
 ### UI / UX
 - [ ] Page works at 390px mobile width
@@ -251,6 +386,7 @@ Before marking the sprint complete:
 - [ ] Every new page is reachable via sidebar link or explicit page link
 - [ ] Sidebar entries are role-gated correctly
 - [ ] No orphaned pages
+- [ ] all pages have proper breadcrumbs and back buttons to go back to the previous page.
 
 ### Endpoint Verification
 - [ ] Every endpoint tested with a real request before UI was built for it

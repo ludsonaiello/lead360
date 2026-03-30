@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
@@ -326,6 +327,56 @@ export class SupplierProductService {
     });
 
     return updated;
+  }
+
+  // ---------------------------------------------------------------------------
+  // HARD DELETE
+  // ---------------------------------------------------------------------------
+
+  async hardDelete(
+    tenantId: string,
+    supplierId: string,
+    productId: string,
+    userId: string,
+  ) {
+    await this.verifySupplierExists(tenantId, supplierId);
+
+    const product = await this.prisma.supplier_product.findFirst({
+      where: {
+        id: productId,
+        supplier_id: supplierId,
+        tenant_id: tenantId,
+      },
+    });
+    if (!product) {
+      throw new NotFoundException('Supplier product not found.');
+    }
+
+    // Delete price history first, then the product — all in a transaction
+    await this.prisma.$transaction(async (tx) => {
+      await tx.supplier_product_price_history.deleteMany({
+        where: {
+          supplier_product_id: productId,
+          tenant_id: tenantId,
+        },
+      });
+
+      await tx.supplier_product.delete({
+        where: { id: productId },
+      });
+    });
+
+    await this.auditLogger.logTenantChange({
+      action: 'deleted',
+      entityType: 'supplier_product',
+      entityId: productId,
+      tenantId,
+      actorUserId: userId,
+      before: product,
+      description: `Permanently deleted supplier product: ${product.name}`,
+    });
+
+    return { message: `Product "${product.name}" permanently deleted.` };
   }
 
   // ---------------------------------------------------------------------------

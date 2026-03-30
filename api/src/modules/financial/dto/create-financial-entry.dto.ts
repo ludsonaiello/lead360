@@ -63,6 +63,15 @@ export class CreateFinancialEntryDto {
   @Min(0, { message: 'Tax amount must be 0 or greater' })
   tax_amount?: number;
 
+  @ApiPropertyOptional({
+    description: 'Discount amount applied to the entry',
+    example: 5.00,
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0, { message: 'Discount must be 0 or greater' })
+  discount?: number;
+
   @ApiProperty({
     description: 'Entry date in YYYY-MM-DD format',
     example: '2026-03-10',

@@ -121,6 +121,7 @@ const mockPrismaService = {
     count: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    delete: jest.fn(),
   },
   supplier_category: {
     findMany: jest.fn(),
@@ -136,6 +137,9 @@ const mockPrismaService = {
   },
   financial_category: {
     findMany: jest.fn(),
+  },
+  recurring_expense_rule: {
+    count: jest.fn(),
   },
   $transaction: jest.fn((cb: any) => cb(mockTx)),
   $queryRaw: jest.fn(),
@@ -172,6 +176,9 @@ describe('SupplierService', () => {
 
     // Default: $transaction executes the callback with mockTx
     mockPrismaService.$transaction.mockImplementation((cb: any) => cb(mockTx));
+
+    // Default: no financial references
+    mockPrismaService.recurring_expense_rule.count.mockResolvedValue(0);
   });
 
   // -------------------------------------------------------------------------
@@ -1253,6 +1260,102 @@ describe('SupplierService', () => {
 
       // Ensure aggregate was called, not findMany
       expect(mockPrismaService.financial_entry.aggregate).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // hardDelete()
+  // -------------------------------------------------------------------------
+
+  describe('hardDelete()', () => {
+    it('should permanently delete a supplier with zero financial data', async () => {
+      mockPrismaService.supplier.findFirst.mockResolvedValue(mockSupplierRecord());
+      mockPrismaService.financial_entry.count.mockResolvedValue(0);
+      mockPrismaService.recurring_expense_rule.count.mockResolvedValue(0);
+      mockPrismaService.supplier.delete.mockResolvedValue(mockSupplierRecord());
+
+      const result = await service.hardDelete(TENANT_ID, SUPPLIER_ID, USER_ID);
+
+      expect(mockPrismaService.supplier.delete).toHaveBeenCalledWith({
+        where: { id: SUPPLIER_ID },
+      });
+      expect(result.message).toContain('permanently deleted');
+      expect(mockAuditLoggerService.logTenantChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'deleted',
+          entityType: 'supplier',
+          entityId: SUPPLIER_ID,
+        }),
+      );
+    });
+
+    it('should allow hard delete when supplier has products but no financial data', async () => {
+      mockPrismaService.supplier.findFirst.mockResolvedValue(mockSupplierRecord());
+      mockPrismaService.financial_entry.count.mockResolvedValue(0);
+      mockPrismaService.recurring_expense_rule.count.mockResolvedValue(0);
+      mockPrismaService.supplier.delete.mockResolvedValue(mockSupplierRecord());
+
+      const result = await service.hardDelete(TENANT_ID, SUPPLIER_ID, USER_ID);
+
+      // Products cascade-delete via Prisma onDelete: Cascade, so no block
+      expect(mockPrismaService.supplier.delete).toHaveBeenCalled();
+      expect(result.message).toContain('permanently deleted');
+    });
+
+    it('should throw BadRequestException when supplier has financial entries', async () => {
+      mockPrismaService.supplier.findFirst.mockResolvedValue(mockSupplierRecord());
+      mockPrismaService.financial_entry.count.mockResolvedValue(5);
+      mockPrismaService.recurring_expense_rule.count.mockResolvedValue(0);
+
+      await expect(
+        service.hardDelete(TENANT_ID, SUPPLIER_ID, USER_ID),
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        service.hardDelete(TENANT_ID, SUPPLIER_ID, USER_ID),
+      ).rejects.toThrow('Cannot permanently delete');
+
+      expect(mockPrismaService.supplier.delete).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when supplier has recurring rules', async () => {
+      mockPrismaService.supplier.findFirst.mockResolvedValue(mockSupplierRecord());
+      mockPrismaService.financial_entry.count.mockResolvedValue(0);
+      mockPrismaService.recurring_expense_rule.count.mockResolvedValue(3);
+
+      await expect(
+        service.hardDelete(TENANT_ID, SUPPLIER_ID, USER_ID),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should include detailed reference counts in error message', async () => {
+      mockPrismaService.supplier.findFirst.mockResolvedValue(mockSupplierRecord());
+      mockPrismaService.financial_entry.count.mockResolvedValue(10);
+      mockPrismaService.recurring_expense_rule.count.mockResolvedValue(2);
+
+      await expect(
+        service.hardDelete(TENANT_ID, SUPPLIER_ID, USER_ID),
+      ).rejects.toThrow('10 financial entry(ies)');
+    });
+
+    it('should throw NotFoundException if supplier does not exist', async () => {
+      mockPrismaService.supplier.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.hardDelete(TENANT_ID, 'nonexistent-id', USER_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should enforce tenant isolation', async () => {
+      mockPrismaService.supplier.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.hardDelete(OTHER_TENANT_ID, SUPPLIER_ID, USER_ID),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockPrismaService.supplier.findFirst).toHaveBeenCalledWith({
+        where: { id: SUPPLIER_ID, tenant_id: OTHER_TENANT_ID },
+      });
     });
   });
 });

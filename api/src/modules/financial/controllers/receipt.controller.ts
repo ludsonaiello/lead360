@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -120,8 +121,7 @@ export class ReceiptController {
   @ApiOperation({
     summary: 'List receipts',
     description:
-      'Returns paginated receipts filtered by project_id and/or task_id. ' +
-      'At least one of project_id or task_id is required.',
+      'Returns paginated receipts. Optionally filter by project_id, task_id, or categorization status.',
   })
   @ApiQuery({ name: 'project_id', required: false, type: String, description: 'Filter by project UUID' })
   @ApiQuery({ name: 'task_id', required: false, type: String, description: 'Filter by task UUID' })
@@ -129,7 +129,6 @@ export class ReceiptController {
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   @ApiResponse({ status: 200, description: 'Paginated list of receipts' })
-  @ApiResponse({ status: 400, description: 'project_id or task_id is required' })
   async listReceipts(@Request() req, @Query() query: ListReceiptsDto) {
     return this.receiptService.getProjectReceipts(req.user.tenant_id, query);
   }
@@ -314,6 +313,29 @@ export class ReceiptController {
     );
   }
 
+  @Patch(':id/unlink')
+  @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
+  @ApiOperation({
+    summary: 'Unlink a receipt from its financial entry',
+    description:
+      'Removes the link between a receipt and its financial entry. ' +
+      'Sets receipt.is_categorized=false and financial_entry.has_receipt=false.',
+  })
+  @ApiParam({ name: 'id', description: 'Receipt UUID' })
+  @ApiResponse({ status: 200, description: 'Receipt unlinked' })
+  @ApiResponse({ status: 400, description: 'Receipt is not linked to any entry' })
+  @ApiResponse({ status: 404, description: 'Receipt not found' })
+  async unlinkReceipt(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.receiptService.unlinkReceiptFromEntry(
+      req.user.tenant_id,
+      id,
+      req.user.id,
+    );
+  }
+
   // ─────────────────────────────────────────────────────────────────────────────
   // PATCH /financial/receipts/:id
   // ─────────────────────────────────────────────────────────────────────────────
@@ -339,6 +361,28 @@ export class ReceiptController {
       id,
       req.user.id,
       dto,
+    );
+  }
+
+  @Delete(':id')
+  @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
+  @ApiOperation({
+    summary: 'Delete an unlinked receipt',
+    description:
+      'Deletes a receipt and its associated file. Only receipts NOT linked to a financial entry can be deleted.',
+  })
+  @ApiParam({ name: 'id', description: 'Receipt UUID' })
+  @ApiResponse({ status: 200, description: 'Receipt and file deleted' })
+  @ApiResponse({ status: 400, description: 'Receipt is linked to a financial entry' })
+  @ApiResponse({ status: 404, description: 'Receipt not found' })
+  async deleteReceipt(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.receiptService.deleteReceipt(
+      req.user.tenant_id,
+      id,
+      req.user.id,
     );
   }
 }

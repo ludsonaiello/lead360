@@ -8,8 +8,10 @@ import { LeadsModule } from '../leads/leads.module';
 // Gate 1 (Sprint 06)
 import { FinancialCategoryService } from './services/financial-category.service';
 import { FinancialEntryService } from './services/financial-entry.service';
+import { FinancialEntryLineItemService } from './services/financial-entry-line-item.service';
 import { FinancialCategoryController } from './controllers/financial-category.controller';
 import { FinancialEntryController } from './controllers/financial-entry.controller';
+import { FinancialEntryLineItemController } from './controllers/financial-entry-line-item.controller';
 import { ProjectFinancialSummaryController } from './controllers/project-financial-summary.controller';
 import { ProjectFinancialSummaryService } from './services/project-financial-summary.service';
 
@@ -87,6 +89,7 @@ import { ExportController } from './controllers/export.controller';
     // Gate 1
     FinancialCategoryController,
     FinancialEntryController,
+    FinancialEntryLineItemController,
     ProjectFinancialSummaryController,
     // Gate 2
     ReceiptController,
@@ -121,6 +124,7 @@ import { ExportController } from './controllers/export.controller';
     // Gate 1
     FinancialCategoryService,
     FinancialEntryService,
+    FinancialEntryLineItemService,
     ProjectFinancialSummaryService,
     // Gate 2
     ReceiptService,
@@ -152,6 +156,7 @@ import { ExportController } from './controllers/export.controller';
     // Gate 1
     FinancialCategoryService,
     FinancialEntryService,
+    FinancialEntryLineItemService,
     ProjectFinancialSummaryService,
     // Gate 2
     ReceiptService,

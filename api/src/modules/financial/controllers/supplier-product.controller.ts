@@ -10,6 +10,7 @@ import {
   UseGuards,
   Request,
   ParseUUIDPipe,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -100,16 +101,34 @@ export class SupplierProductController {
 
   @Delete(':productId')
   @Roles('Owner', 'Admin', 'Bookkeeper')
-  @ApiOperation({ summary: 'Soft-delete a supplier product' })
+  @ApiOperation({ summary: 'Delete a supplier product (soft by default, permanent with ?permanent=true — Owner/Admin only)' })
   @ApiParam({ name: 'supplierId', description: 'Supplier UUID' })
   @ApiParam({ name: 'productId', description: 'Product UUID' })
-  @ApiResponse({ status: 200, description: 'Product deactivated successfully' })
+  @ApiQuery({ name: 'permanent', required: false, type: Boolean, description: 'Set to true to permanently delete product and its price history (Owner/Admin only)' })
+  @ApiResponse({ status: 200, description: 'Product deactivated or permanently deleted' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions for permanent delete' })
   @ApiResponse({ status: 404, description: 'Supplier or product not found' })
-  async softDelete(
+  async delete(
     @Request() req,
     @Param('supplierId', ParseUUIDPipe) supplierId: string,
     @Param('productId', ParseUUIDPipe) productId: string,
+    @Query('permanent') permanent?: string,
   ) {
+    if (permanent === 'true') {
+      // Hard delete restricted to Owner/Admin only
+      const roles: string[] = req.user.roles || [];
+      if (!roles.includes('Owner') && !roles.includes('Admin')) {
+        throw new ForbiddenException(
+          'Only Owner or Admin can permanently delete products.',
+        );
+      }
+      return this.supplierProductService.hardDelete(
+        req.user.tenant_id,
+        supplierId,
+        productId,
+        req.user.id,
+      );
+    }
     return this.supplierProductService.softDelete(
       req.user.tenant_id,
       supplierId,

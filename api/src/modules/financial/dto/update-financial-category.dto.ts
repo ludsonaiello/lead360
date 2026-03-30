@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsBoolean, MaxLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { FinancialCategoryClassification } from './create-financial-category.dto';
 
@@ -31,4 +31,12 @@ export class UpdateFinancialCategoryDto {
   @IsOptional()
   @IsEnum(FinancialCategoryClassification)
   classification?: FinancialCategoryClassification;
+
+  @ApiPropertyOptional({
+    description: 'Set to true to reactivate a deactivated category. Cannot reactivate system defaults that were deactivated.',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  is_active?: boolean;
 }
