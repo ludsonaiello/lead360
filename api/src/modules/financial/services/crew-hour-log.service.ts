@@ -243,6 +243,47 @@ export class CrewHourLogService {
     return updated;
   }
 
+  /**
+   * Hard-delete a crew hour log entry.
+   */
+  async deleteHours(
+    tenantId: string,
+    hourLogId: string,
+    userId: string,
+  ) {
+    const existing = await this.prisma.crew_hour_log.findFirst({
+      where: { id: hourLogId, tenant_id: tenantId },
+      include: {
+        crew_member: {
+          select: { id: true, first_name: true, last_name: true },
+        },
+        project: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Crew hour log not found');
+    }
+
+    await this.prisma.crew_hour_log.delete({
+      where: { id: hourLogId },
+    });
+
+    await this.auditLogger.logTenantChange({
+      action: 'deleted',
+      entityType: 'crew_hour_log',
+      entityId: hourLogId,
+      tenantId,
+      actorUserId: userId,
+      before: existing,
+      description: `Deleted crew hour log of ${existing.hours_regular}h regular + ${existing.hours_overtime}h OT for ${existing.crew_member.first_name} ${existing.crew_member.last_name}`,
+    });
+
+    return { message: 'Hour log deleted successfully' };
+  }
+
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------

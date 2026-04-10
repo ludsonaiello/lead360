@@ -547,6 +547,183 @@ export class ProjectInvoiceService {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
+  // deleteInvoice() — Hard delete invoice + cascade payments + reset milestone
+  // ──────────────────────────────────────────────────────────────────────────
+  async deleteInvoice(
+    tenantId: string,
+    projectId: string,
+    invoiceId: string,
+    userId: string,
+  ) {
+    const existing = await this.prisma.project_invoice.findFirst({
+      where: { id: invoiceId, project_id: projectId, tenant_id: tenantId },
+    });
+    if (!existing) throw new NotFoundException('Invoice not found');
+
+    // Fetch payments before deletion (for audit trail — cascade will destroy them)
+    const payments = await this.prisma.project_invoice_payment.findMany({
+      where: { invoice_id: invoiceId, tenant_id: tenantId },
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      // Reset the source milestone (invoice.milestone_id) back to pending
+      if (existing.milestone_id) {
+        await tx.project_draw_milestone.update({
+          where: { id: existing.milestone_id },
+          data: {
+            status: 'pending',
+            invoice_id: null,
+            invoiced_at: null,
+            paid_at: null,
+          },
+        });
+      }
+
+      // Reset any other milestones referencing this invoice via milestone.invoice_id
+      // (DB onDelete: SetNull handles the FK, but we also reset the status)
+      await tx.project_draw_milestone.updateMany({
+        where: { invoice_id: invoiceId, tenant_id: tenantId },
+        data: {
+          status: 'pending',
+          invoice_id: null,
+          invoiced_at: null,
+          paid_at: null,
+        },
+      });
+
+      // Delete invoice — payments cascade-delete at DB level
+      await tx.project_invoice.delete({
+        where: { id: invoiceId },
+      });
+    });
+
+    // Audit: log the invoice deletion with payment details
+    await this.auditLogger.logTenantChange({
+      action: 'deleted',
+      entityType: 'project_invoice',
+      entityId: invoiceId,
+      tenantId,
+      actorUserId: userId,
+      before: existing,
+      metadata: {
+        deleted_payments_count: payments.length,
+        deleted_payments_total: payments.reduce((sum, p) => sum + Number(p.amount), 0),
+      },
+      description: `Deleted invoice ${existing.invoice_number} ($${existing.amount})${payments.length > 0 ? ` with ${payments.length} payment(s) totaling $${payments.reduce((s, p) => s + Number(p.amount), 0).toFixed(2)}` : ''}`,
+    });
+
+    this.logger.log(
+      `Deleted invoice ${existing.invoice_number} + ${payments.length} payments (tenant: ${tenantId})`,
+    );
+
+    return { message: 'Invoice deleted successfully' };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // deletePayment() — Delete single payment, recalculate invoice, fix milestone
+  // ──────────────────────────────────────────────────────────────────────────
+  async deletePayment(
+    tenantId: string,
+    projectId: string,
+    invoiceId: string,
+    paymentId: string,
+    userId: string,
+  ) {
+    // 1. Verify invoice exists
+    const invoice = await this.prisma.project_invoice.findFirst({
+      where: { id: invoiceId, project_id: projectId, tenant_id: tenantId },
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+
+    // 2. Verify payment exists and belongs to this invoice
+    const payment = await this.prisma.project_invoice_payment.findFirst({
+      where: { id: paymentId, invoice_id: invoiceId, tenant_id: tenantId },
+    });
+    if (!payment) throw new NotFoundException('Payment not found');
+
+    // 3. Execute in a single transaction
+    await this.prisma.$transaction(async (tx) => {
+      // a. Delete the payment
+      await tx.project_invoice_payment.delete({
+        where: { id: paymentId },
+      });
+
+      // b. Recalculate invoice from remaining payments
+      const remainingPayments = await tx.project_invoice_payment.aggregate({
+        where: { invoice_id: invoiceId, tenant_id: tenantId },
+        _sum: { amount: true },
+      });
+
+      const newAmountPaid = remainingPayments._sum.amount
+        ? Math.round(Number(remainingPayments._sum.amount) * 100) / 100
+        : 0;
+      const invoiceTotal = Number(invoice.amount) +
+        (invoice.tax_amount != null ? Number(invoice.tax_amount) : 0);
+      const newAmountDue = Math.round((invoiceTotal - newAmountPaid) * 100) / 100;
+
+      // c. Determine new status
+      let newStatus: string = invoice.status;
+      let paidAt = invoice.paid_at;
+
+      if (newAmountPaid <= 0) {
+        // No payments left — revert to sent (or draft if never sent)
+        newStatus = invoice.sent_at ? 'sent' : 'draft';
+        paidAt = null;
+      } else if (newAmountDue <= 0) {
+        newStatus = 'paid';
+      } else {
+        newStatus = 'partial';
+        paidAt = null;
+      }
+
+      // d. Update invoice
+      await tx.project_invoice.update({
+        where: { id: invoiceId },
+        data: {
+          amount_paid: newAmountPaid,
+          amount_due: newAmountDue,
+          status: newStatus as any,
+          paid_at: paidAt,
+          updated_by_user_id: userId,
+        },
+      });
+
+      // e. If invoice was 'paid' and is now not, and linked to a milestone,
+      //    revert milestone from 'paid' back to 'invoiced'
+      if (invoice.status === 'paid' && newStatus !== 'paid' && invoice.milestone_id) {
+        await tx.project_draw_milestone.update({
+          where: { id: invoice.milestone_id },
+          data: {
+            status: 'invoiced',
+            paid_at: null,
+          },
+        });
+      }
+    });
+
+    // 4. Audit log
+    await this.auditLogger.logTenantChange({
+      action: 'deleted',
+      entityType: 'project_invoice_payment',
+      entityId: paymentId,
+      tenantId,
+      actorUserId: userId,
+      before: payment,
+      metadata: {
+        invoice_id: invoiceId,
+        invoice_number: invoice.invoice_number,
+      },
+      description: `Deleted $${Number(payment.amount).toFixed(2)} payment from invoice ${invoice.invoice_number}`,
+    });
+
+    this.logger.log(
+      `Deleted payment $${Number(payment.amount).toFixed(2)} from invoice ${invoice.invoice_number} (tenant: ${tenantId})`,
+    );
+
+    return { message: 'Payment deleted successfully' };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
   // getPayments() — List payments for an invoice
   // ──────────────────────────────────────────────────────────────────────────
   async getPayments(

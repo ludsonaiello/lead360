@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   Edit2,
   Eye,
+  Trash2,
   AlertCircle,
   Zap,
   PenLine,
@@ -30,11 +31,14 @@ import { DatePicker } from '@/components/ui/DatePicker';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Modal, ModalActions } from '@/components/ui/Modal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { HoursInput } from '@/components/ui/HoursInput';
 import { PaginationControls } from '@/components/ui/PaginationControls';
 import {
   getCrewHours,
   logCrewHours,
   updateCrewHourLog,
+  deleteCrewHourLog,
 } from '@/lib/api/financial';
 import { getCrewMembers } from '@/lib/api/crew';
 import { getProjects, getProjectTasks, formatDate } from '@/lib/api/projects';
@@ -46,10 +50,23 @@ import type {
 } from '@/lib/types/financial';
 import type { ProjectTask } from '@/lib/types/projects';
 
+// ========== HELPERS ==========
+
+/** Convert decimal hours to "Xh Ym" display string. E.g. 6.5 → "6h 30m", 8.0 → "8h 0m" */
+function formatHM(decimal: number | string): string {
+  const num = typeof decimal === 'string' ? parseFloat(decimal) : decimal;
+  if (!num || isNaN(num) || num <= 0) return '0h 0m';
+  const h = Math.floor(num);
+  let m = Math.round((num - h) * 60);
+  if (m >= 60) { return `${h + 1}h 0m`; }
+  return `${h}h ${m}m`;
+}
+
 // ========== CONSTANTS ==========
 
 const CAN_VIEW_ROLES = ['Owner', 'Admin', 'Manager', 'Bookkeeper'];
 const CAN_EDIT_ROLES = ['Owner', 'Admin', 'Manager'];
+const CAN_DELETE_ROLES = ['Owner', 'Admin', 'Manager', 'Bookkeeper'];
 const PAGE_SIZE = 20;
 
 // ========== TYPES ==========
@@ -72,6 +89,7 @@ export default function CrewHoursPage() {
   // Access control
   const canView = hasRole(CAN_VIEW_ROLES);
   const canEdit = hasRole(CAN_EDIT_ROLES);
+  const canDelete = hasRole(CAN_DELETE_ROLES);
 
   // List state
   const [hours, setHours] = useState<PaginatedResponse<CrewHourLog> | null>(null);
@@ -96,8 +114,8 @@ export default function CrewHoursPage() {
     project_id: '',
     task_id: '',
     log_date: new Date().toISOString().split('T')[0],
-    hours_regular: '',
-    hours_overtime: '',
+    hours_regular: 0,
+    hours_overtime: 0,
     notes: '',
   });
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
@@ -111,8 +129,8 @@ export default function CrewHoursPage() {
   const [editForm, setEditForm] = useState({
     task_id: '',
     log_date: '',
-    hours_regular: '',
-    hours_overtime: '',
+    hours_regular: 0,
+    hours_overtime: 0,
     notes: '',
   });
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
@@ -122,6 +140,10 @@ export default function CrewHoursPage() {
   // View modal for clockin entries
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewItem, setViewItem] = useState<CrewHourLog | null>(null);
+
+  // Delete state
+  const [deleteItem, setDeleteItem] = useState<CrewHourLog | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // ========== DATA LOADING ==========
 
@@ -187,8 +209,8 @@ export default function CrewHoursPage() {
       project_id: '',
       task_id: '',
       log_date: new Date().toISOString().split('T')[0],
-      hours_regular: '',
-      hours_overtime: '',
+      hours_regular: 0,
+      hours_overtime: 0,
       notes: '',
     });
     setCreateErrors({});
@@ -224,13 +246,11 @@ export default function CrewHoursPage() {
     if (!createForm.crew_member_id) errs.crew_member_id = 'Crew member is required';
     if (!createForm.project_id) errs.project_id = 'Project is required';
     if (!createForm.log_date) errs.log_date = 'Date is required';
-    const reg = parseFloat(createForm.hours_regular);
-    if (!createForm.hours_regular || isNaN(reg) || reg < 0.01) {
-      errs.hours_regular = 'Regular hours must be at least 0.01';
+    if (createForm.hours_regular < 0.01) {
+      errs.hours_regular = 'Regular hours must be at least 1 minute';
     }
-    if (createForm.hours_overtime) {
-      const ot = parseFloat(createForm.hours_overtime);
-      if (isNaN(ot) || ot < 0) errs.hours_overtime = 'Overtime hours must be 0 or more';
+    if (createForm.hours_overtime < 0) {
+      errs.hours_overtime = 'Overtime hours must be 0 or more';
     }
     setCreateErrors(errs);
     return Object.keys(errs).length === 0;
@@ -247,8 +267,8 @@ export default function CrewHoursPage() {
         project_id: createForm.project_id,
         task_id: createForm.task_id || undefined,
         log_date: createForm.log_date,
-        hours_regular: parseFloat(createForm.hours_regular),
-        hours_overtime: createForm.hours_overtime ? parseFloat(createForm.hours_overtime) : undefined,
+        hours_regular: createForm.hours_regular,
+        hours_overtime: createForm.hours_overtime || undefined,
         notes: createForm.notes || undefined,
       };
       await logCrewHours(dto);
@@ -272,8 +292,8 @@ export default function CrewHoursPage() {
     setEditForm({
       task_id: log.task_id || '',
       log_date: log.log_date.split('T')[0],
-      hours_regular: parseFloat(log.hours_regular).toString(),
-      hours_overtime: parseFloat(log.hours_overtime).toString(),
+      hours_regular: parseFloat(log.hours_regular),
+      hours_overtime: parseFloat(log.hours_overtime),
       notes: log.notes || '',
     });
     setEditErrors({});
@@ -290,13 +310,11 @@ export default function CrewHoursPage() {
   const validateEdit = (): boolean => {
     const errs: Record<string, string> = {};
     if (!editForm.log_date) errs.log_date = 'Date is required';
-    const reg = parseFloat(editForm.hours_regular);
-    if (!editForm.hours_regular || isNaN(reg) || reg < 0.01) {
-      errs.hours_regular = 'Regular hours must be at least 0.01';
+    if (editForm.hours_regular < 0.01) {
+      errs.hours_regular = 'Regular hours must be at least 1 minute';
     }
-    if (editForm.hours_overtime) {
-      const ot = parseFloat(editForm.hours_overtime);
-      if (isNaN(ot) || ot < 0) errs.hours_overtime = 'Overtime hours must be 0 or more';
+    if (editForm.hours_overtime < 0) {
+      errs.hours_overtime = 'Overtime hours must be 0 or more';
     }
     setEditErrors(errs);
     return Object.keys(errs).length === 0;
@@ -311,8 +329,8 @@ export default function CrewHoursPage() {
       const dto: UpdateCrewHourDto = {
         task_id: editForm.task_id || undefined,
         log_date: editForm.log_date,
-        hours_regular: parseFloat(editForm.hours_regular),
-        hours_overtime: editForm.hours_overtime ? parseFloat(editForm.hours_overtime) : 0,
+        hours_regular: editForm.hours_regular,
+        hours_overtime: editForm.hours_overtime,
         notes: editForm.notes || undefined,
       };
       await updateCrewHourLog(editItem.id, dto);
@@ -324,6 +342,24 @@ export default function CrewHoursPage() {
       toast.error(error.message || 'Failed to update hours');
     } finally {
       setEditSubmitting(false);
+    }
+  };
+
+  // ========== DELETE ==========
+
+  const handleDelete = async () => {
+    if (!deleteItem) return;
+    setDeleteLoading(true);
+    try {
+      await deleteCrewHourLog(deleteItem.id);
+      toast.success('Hour log deleted');
+      setDeleteItem(null);
+      loadHours();
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } }; message?: string };
+      toast.error(error.response?.data?.message || error.message || 'Failed to delete hour log');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -524,11 +560,11 @@ export default function CrewHoursPage() {
                           {formatDate(log.log_date)}
                         </td>
                         <td className="py-3 px-3 text-right font-medium text-gray-900 dark:text-white">
-                          {regular.toFixed(1)}h
+                          {formatHM(regular)}
                         </td>
                         <td className="py-3 px-3 text-right font-medium">
                           {overtime > 0 ? (
-                            <span className="text-orange-600 dark:text-orange-400">{overtime.toFixed(1)}h</span>
+                            <span className="text-orange-600 dark:text-orange-400">{formatHM(overtime)}</span>
                           ) : (
                             <span className="text-gray-400">—</span>
                           )}
@@ -560,6 +596,16 @@ export default function CrewHoursPage() {
                             >
                               <Eye className="w-4 h-4" />
                             </button>
+                            {isManual && canDelete ? (
+                              <button
+                                onClick={() => setDeleteItem(log)}
+                                className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                title="Delete hour log"
+                                aria-label={`Delete hours for ${log.crew_member.first_name} ${log.crew_member.last_name}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            ) : null}
                           </div>
                         </td>
                       </tr>
@@ -588,7 +634,7 @@ export default function CrewHoursPage() {
                         </div>
                       </div>
                       <span className="font-bold text-gray-900 dark:text-white text-lg">
-                        {total.toFixed(1)}h
+                        {formatHM(total)}
                       </span>
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1.5">
@@ -601,10 +647,10 @@ export default function CrewHoursPage() {
                         )}
                       </div>
                       <div>
-                        Regular: {regular.toFixed(1)}h
+                        Regular: {formatHM(regular)}
                         {overtime > 0 && (
                           <span className="text-orange-600 dark:text-orange-400 ml-2">
-                            | OT: {overtime.toFixed(1)}h
+                            | OT: {formatHM(overtime)}
                           </span>
                         )}
                       </div>
@@ -632,6 +678,17 @@ export default function CrewHoursPage() {
                         <Eye className="w-3.5 h-3.5" />
                         View
                       </Button>
+                      {isManual && canDelete && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeleteItem(log)}
+                          className="flex items-center gap-1 text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Delete
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
@@ -706,26 +763,18 @@ export default function CrewHoursPage() {
           />
 
           <div className="grid grid-cols-2 gap-3">
-            <Input
+            <HoursInput
               label="Regular Hours"
               required
-              type="number"
-              step="0.01"
-              min="0.01"
               value={createForm.hours_regular}
-              onChange={(e) => setCreateForm({ ...createForm, hours_regular: e.target.value })}
+              onChange={(val) => setCreateForm({ ...createForm, hours_regular: val })}
               error={createErrors.hours_regular}
-              placeholder="8.0"
             />
-            <Input
+            <HoursInput
               label="Overtime Hours"
-              type="number"
-              step="0.01"
-              min="0"
               value={createForm.hours_overtime}
-              onChange={(e) => setCreateForm({ ...createForm, hours_overtime: e.target.value })}
+              onChange={(val) => setCreateForm({ ...createForm, hours_overtime: val })}
               error={createErrors.hours_overtime}
-              placeholder="0.0"
             />
           </div>
 
@@ -792,26 +841,18 @@ export default function CrewHoursPage() {
             />
 
             <div className="grid grid-cols-2 gap-3">
-              <Input
+              <HoursInput
                 label="Regular Hours"
                 required
-                type="number"
-                step="0.01"
-                min="0.01"
                 value={editForm.hours_regular}
-                onChange={(e) => setEditForm({ ...editForm, hours_regular: e.target.value })}
+                onChange={(val) => setEditForm({ ...editForm, hours_regular: val })}
                 error={editErrors.hours_regular}
-                placeholder="8.0"
               />
-              <Input
+              <HoursInput
                 label="Overtime Hours"
-                type="number"
-                step="0.01"
-                min="0"
                 value={editForm.hours_overtime}
-                onChange={(e) => setEditForm({ ...editForm, hours_overtime: e.target.value })}
+                onChange={(val) => setEditForm({ ...editForm, hours_overtime: val })}
                 error={editErrors.hours_overtime}
-                placeholder="0.0"
               />
             </div>
 
@@ -883,7 +924,7 @@ export default function CrewHoursPage() {
                   Regular Hours
                 </label>
                 <p className="text-sm text-gray-900 dark:text-white font-medium">
-                  {parseFloat(viewItem.hours_regular).toFixed(1)}h
+                  {formatHM(viewItem.hours_regular)}
                 </p>
               </div>
               <div>
@@ -893,7 +934,7 @@ export default function CrewHoursPage() {
                 <p className="text-sm text-gray-900 dark:text-white font-medium">
                   {parseFloat(viewItem.hours_overtime) > 0 ? (
                     <span className="text-orange-600 dark:text-orange-400">
-                      {parseFloat(viewItem.hours_overtime).toFixed(1)}h
+                      {formatHM(viewItem.hours_overtime)}
                     </span>
                   ) : (
                     '—'
@@ -917,7 +958,7 @@ export default function CrewHoursPage() {
                   Total Hours
                 </label>
                 <p className="text-sm text-gray-900 dark:text-white font-bold">
-                  {(parseFloat(viewItem.hours_regular) + parseFloat(viewItem.hours_overtime)).toFixed(1)}h
+                  {formatHM(parseFloat(viewItem.hours_regular) + parseFloat(viewItem.hours_overtime))}
                 </p>
               </div>
             </div>
@@ -958,6 +999,22 @@ export default function CrewHoursPage() {
           </div>
         )}
       </Modal>
+
+      {/* ========== DELETE CONFIRM MODAL ========== */}
+      <ConfirmModal
+        isOpen={!!deleteItem}
+        onClose={() => setDeleteItem(null)}
+        onConfirm={handleDelete}
+        title="Delete Hour Log"
+        message={
+          deleteItem
+            ? `Are you sure you want to permanently delete this hour log of ${formatHM(deleteItem.hours_regular)} regular${parseFloat(deleteItem.hours_overtime) > 0 ? ` + ${formatHM(deleteItem.hours_overtime)} OT` : ''} for ${deleteItem.crew_member.first_name} ${deleteItem.crew_member.last_name}? This action cannot be undone.`
+            : ''
+        }
+        confirmText="Delete"
+        variant="danger"
+        loading={deleteLoading}
+      />
     </div>
   );
 }

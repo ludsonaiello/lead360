@@ -3,12 +3,15 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
   UseGuards,
   Request,
   ParseUUIDPipe,
+  HttpCode,
+  HttpStatus,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
@@ -73,11 +76,12 @@ export class SubcontractorInvoiceController {
 
   @Patch('subcontractor-invoices/:id')
   @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
-  @ApiOperation({ summary: 'Update a subcontractor invoice (status, amount, notes)' })
+  @ApiOperation({ summary: 'Update a subcontractor invoice (status, amount, notes, invoice_number, invoice_date)' })
   @ApiParam({ name: 'id', description: 'Invoice UUID' })
   @ApiResponse({ status: 200, description: 'Invoice updated' })
-  @ApiResponse({ status: 400, description: 'Invalid status transition or amount update' })
+  @ApiResponse({ status: 400, description: 'Invalid status transition or field update' })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
+  @ApiResponse({ status: 409, description: 'Invoice number already exists' })
   async update(
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
@@ -88,6 +92,24 @@ export class SubcontractorInvoiceController {
       id,
       req.user.id,
       dto,
+    );
+  }
+
+  @Delete('subcontractor-invoices/:id')
+  @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Permanently delete a subcontractor invoice' })
+  @ApiParam({ name: 'id', description: 'Invoice UUID' })
+  @ApiResponse({ status: 200, description: 'Invoice deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Invoice not found' })
+  async delete(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.subcontractorInvoiceService.deleteInvoice(
+      req.user.tenant_id,
+      id,
+      req.user.id,
     );
   }
 }

@@ -21,6 +21,7 @@ import {
   Download,
   ExternalLink,
   Edit3,
+  Trash2,
   ShieldCheck,
   Banknote,
   Briefcase,
@@ -49,6 +50,7 @@ import {
   getSubcontractorInvoices,
   createSubcontractorInvoice,
   updateSubcontractorInvoice,
+  deleteSubcontractorInvoice,
   getSubcontractorInvoiceList,
 } from '@/lib/api/financial';
 import { getProjects, getProjectTasks, formatDate, formatCurrency } from '@/lib/api/projects';
@@ -157,11 +159,15 @@ export default function SubcontractorInvoicesPage() {
   const [paidInvoice, setPaidInvoice] = useState<SubcontractorInvoice | null>(null);
   const [paidLoading, setPaidLoading] = useState(false);
 
-  // Edit amount modal
-  const [editAmountInvoice, setEditAmountInvoice] = useState<SubcontractorInvoice | null>(null);
-  const [editAmount, setEditAmount] = useState(0);
-  const [editAmountError, setEditAmountError] = useState('');
-  const [editAmountLoading, setEditAmountLoading] = useState(false);
+  // Edit invoice modal
+  const [editInvoice, setEditInvoice] = useState<SubcontractorInvoice | null>(null);
+  const [editForm, setEditForm] = useState({ amount: 0, invoice_number: '', invoice_date: '', notes: '' });
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+  const [editLoading, setEditLoading] = useState(false);
+
+  // Delete confirm modal
+  const [deleteInvoice, setDeleteInvoice] = useState<SubcontractorInvoice | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // View detail modal
   const [viewInvoice, setViewInvoice] = useState<SubcontractorInvoice | null>(null);
@@ -373,32 +379,62 @@ export default function SubcontractorInvoicesPage() {
     }
   };
 
-  // ========== EDIT AMOUNT ==========
+  // ========== EDIT INVOICE ==========
 
-  const openEditAmountModal = (inv: SubcontractorInvoice) => {
-    setEditAmountInvoice(inv);
-    setEditAmount(parseFloat(inv.amount));
-    setEditAmountError('');
+  const openEditModal = (inv: SubcontractorInvoice) => {
+    setEditInvoice(inv);
+    setEditForm({
+      amount: parseFloat(inv.amount),
+      invoice_number: inv.invoice_number || '',
+      invoice_date: inv.invoice_date ? inv.invoice_date.split('T')[0] : '',
+      notes: inv.notes || '',
+    });
+    setEditErrors({});
   };
 
-  const handleEditAmount = async (e: React.FormEvent) => {
+  const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editAmountInvoice) return;
-    if (!editAmount || editAmount < 0.01) {
-      setEditAmountError('Amount must be at least $0.01');
-      return;
-    }
-    setEditAmountLoading(true);
+    if (!editInvoice) return;
+    const errs: Record<string, string> = {};
+    if (!editForm.amount || editForm.amount < 0.01) errs.amount = 'Amount must be at least $0.01';
+    if (editForm.invoice_number && editForm.invoice_number.length > 100) errs.invoice_number = 'Max 100 characters';
+    setEditErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+
+    setEditLoading(true);
     try {
-      await updateSubcontractorInvoice(editAmountInvoice.id, { amount: editAmount });
-      toast.success('Invoice amount updated');
-      setEditAmountInvoice(null);
+      await updateSubcontractorInvoice(editInvoice.id, {
+        amount: editForm.amount,
+        invoice_number: editForm.invoice_number || undefined,
+        invoice_date: editForm.invoice_date || undefined,
+        notes: editForm.notes,
+      });
+      toast.success('Invoice updated');
+      setEditInvoice(null);
       loadInvoices();
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } }; message?: string };
-      toast.error(error.response?.data?.message || error.message || 'Failed to update amount');
+      toast.error(error.response?.data?.message || error.message || 'Failed to update invoice');
     } finally {
-      setEditAmountLoading(false);
+      setEditLoading(false);
+    }
+  };
+
+  // ========== DELETE INVOICE ==========
+
+  const handleDelete = async () => {
+    if (!deleteInvoice) return;
+    setDeleteLoading(true);
+    try {
+      await deleteSubcontractorInvoice(deleteInvoice.id);
+      toast.success('Invoice deleted');
+      setDeleteInvoice(null);
+      loadInvoices();
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } }; message?: string };
+      toast.error(error.response?.data?.message || error.message || 'Failed to delete invoice');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -628,7 +664,7 @@ export default function SubcontractorInvoicesPage() {
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  onClick={() => openEditAmountModal(inv)}
+                                  onClick={() => openEditModal(inv)}
                                   className="flex items-center gap-1 text-xs"
                                 >
                                   <Edit3 className="w-3.5 h-3.5" />
@@ -655,6 +691,16 @@ export default function SubcontractorInvoicesPage() {
                             >
                               <Eye className="w-4 h-4" />
                             </button>
+                            {canManage && (
+                              <button
+                                onClick={() => setDeleteInvoice(inv)}
+                                className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                title="Delete invoice"
+                                aria-label={`Delete invoice from ${inv.subcontractor.business_name}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -727,11 +773,11 @@ export default function SubcontractorInvoicesPage() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => openEditAmountModal(inv)}
+                            onClick={() => openEditModal(inv)}
                             className="flex items-center gap-1"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
-                            Edit Amount
+                            Edit
                           </Button>
                         </>
                       )}
@@ -755,6 +801,17 @@ export default function SubcontractorInvoicesPage() {
                         <Eye className="w-3.5 h-3.5" />
                         View
                       </Button>
+                      {canManage && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeleteInvoice(inv)}
+                          className="flex items-center gap-1 text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Delete
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
@@ -943,42 +1000,89 @@ export default function SubcontractorInvoicesPage() {
         loading={paidLoading}
       />
 
-      {/* ========== EDIT AMOUNT MODAL ========== */}
+      {/* ========== EDIT INVOICE MODAL ========== */}
       <Modal
-        isOpen={!!editAmountInvoice}
-        onClose={() => setEditAmountInvoice(null)}
-        title="Edit Invoice Amount"
-        size="sm"
+        isOpen={!!editInvoice}
+        onClose={() => setEditInvoice(null)}
+        title="Edit Invoice"
+        size="lg"
       >
-        {editAmountInvoice && (
-          <form onSubmit={handleEditAmount} className="space-y-4">
+        {editInvoice && (
+          <form onSubmit={handleEdit} className="space-y-4">
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Update amount for invoice from{' '}
+              Update invoice from{' '}
               <span className="font-medium text-gray-900 dark:text-white">
-                {editAmountInvoice.subcontractor.business_name}
+                {editInvoice.subcontractor.business_name}
               </span>
+              {' '}for {editInvoice.project.name} / {editInvoice.task.title}
             </p>
+
             <MoneyInput
               label="Amount"
               required
-              value={editAmount}
+              value={editForm.amount}
               onChange={(val) => {
-                setEditAmount(val);
-                setEditAmountError('');
+                setEditForm({ ...editForm, amount: val });
+                setEditErrors((prev) => ({ ...prev, amount: '' }));
               }}
-              error={editAmountError}
+              error={editErrors.amount}
             />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Invoice Number"
+                value={editForm.invoice_number}
+                onChange={(e) => {
+                  setEditForm({ ...editForm, invoice_number: e.target.value });
+                  setEditErrors((prev) => ({ ...prev, invoice_number: '' }));
+                }}
+                placeholder="Subcontractor's invoice #"
+                maxLength={100}
+                error={editErrors.invoice_number}
+              />
+
+              <DatePicker
+                label="Invoice Date"
+                value={editForm.invoice_date}
+                onChange={(e) => setEditForm({ ...editForm, invoice_date: e.target.value })}
+              />
+            </div>
+
+            <Textarea
+              label="Notes"
+              value={editForm.notes}
+              onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+              placeholder="Optional notes"
+              rows={2}
+            />
+
             <ModalActions>
-              <Button type="button" variant="secondary" onClick={() => setEditAmountInvoice(null)} disabled={editAmountLoading}>
+              <Button type="button" variant="secondary" onClick={() => setEditInvoice(null)} disabled={editLoading}>
                 Cancel
               </Button>
-              <Button type="submit" loading={editAmountLoading} disabled={editAmountLoading}>
-                Update Amount
+              <Button type="submit" loading={editLoading} disabled={editLoading}>
+                Save Changes
               </Button>
             </ModalActions>
           </form>
         )}
       </Modal>
+
+      {/* ========== DELETE CONFIRM MODAL ========== */}
+      <ConfirmModal
+        isOpen={!!deleteInvoice}
+        onClose={() => setDeleteInvoice(null)}
+        onConfirm={handleDelete}
+        title="Delete Invoice"
+        message={
+          deleteInvoice
+            ? `Are you sure you want to permanently delete this invoice of ${formatCurrency(parseFloat(deleteInvoice.amount))} from ${deleteInvoice.subcontractor.business_name}? This action cannot be undone.`
+            : ''
+        }
+        confirmText="Delete"
+        variant="danger"
+        loading={deleteLoading}
+      />
 
       {/* ========== VIEW DETAIL MODAL ========== */}
       <Modal isOpen={!!viewInvoice} onClose={() => setViewInvoice(null)} title="Invoice Details" size="lg">

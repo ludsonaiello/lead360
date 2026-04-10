@@ -12,7 +12,10 @@ import {
   Plus,
   ArrowLeft,
   Eye,
+  Pencil,
+  Trash2,
   AlertCircle,
+  AlertTriangle,
   Banknote,
   FileCheck,
   Building2,
@@ -43,6 +46,8 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import {
   getSubcontractorPayments,
   createSubcontractorPayment,
+  updateSubcontractorPayment,
+  deleteSubcontractorPayment,
   getSubcontractorPaymentHistory,
   getSubcontractorPaymentSummary,
 } from '@/lib/api/financial';
@@ -51,6 +56,7 @@ import { getProjects, formatDate, formatCurrency } from '@/lib/api/projects';
 import type {
   SubcontractorPayment,
   CreateSubcontractorPaymentDto,
+  UpdateSubcontractorPaymentDto,
   SubcontractorPaymentSummary,
   PaymentMethodType,
   PaginatedResponse,
@@ -60,6 +66,7 @@ import type {
 
 const CAN_VIEW_ROLES = ['Owner', 'Admin', 'Bookkeeper'];
 const CAN_CREATE_ROLES = ['Owner', 'Admin', 'Bookkeeper'];
+const CAN_MANAGE_ROLES = ['Owner', 'Admin', 'Manager', 'Bookkeeper'];
 const CAN_VIEW_HISTORY_ROLES = ['Owner', 'Admin', 'Manager', 'Bookkeeper'];
 const PAGE_SIZE = 20;
 
@@ -137,6 +144,7 @@ export default function SubcontractorPaymentsPage() {
 
   const canView = hasRole(CAN_VIEW_ROLES);
   const canCreate = hasRole(CAN_CREATE_ROLES);
+  const canManage = hasRole(CAN_MANAGE_ROLES);
   const canViewHistory = hasRole(CAN_VIEW_HISTORY_ROLES);
 
   // List state
@@ -179,6 +187,25 @@ export default function SubcontractorPaymentsPage() {
   const [historyProjectFilter, setHistoryProjectFilter] = useState('');
   const [paymentSummary, setPaymentSummary] = useState<SubcontractorPaymentSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+
+  // Edit modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editItem, setEditItem] = useState<SubcontractorPayment | null>(null);
+  const [editForm, setEditForm] = useState({
+    amount: 0,
+    payment_date: '',
+    payment_method: '' as PaymentMethodType | '',
+    project_id: '',
+    reference_number: '',
+    notes: '',
+  });
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+
+  // Delete modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteItem, setDeleteItem] = useState<SubcontractorPayment | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -302,6 +329,87 @@ export default function SubcontractorPaymentsPage() {
   const openViewModal = (payment: SubcontractorPayment) => {
     setViewItem(payment);
     setShowViewModal(true);
+  };
+
+  // ========== EDIT MODAL ==========
+
+  const openEditModal = (payment: SubcontractorPayment) => {
+    setEditItem(payment);
+    setEditForm({
+      amount: parseFloat(payment.amount),
+      payment_date: payment.payment_date.split('T')[0],
+      payment_method: payment.payment_method,
+      project_id: payment.project_id || '',
+      reference_number: payment.reference_number || '',
+      notes: payment.notes || '',
+    });
+    setEditErrors({});
+    setShowEditModal(true);
+  };
+
+  const validateEdit = (): boolean => {
+    const errs: Record<string, string> = {};
+    if (!editForm.amount || editForm.amount <= 0) errs.amount = 'Amount must be greater than $0.00';
+    if (!editForm.payment_date) errs.payment_date = 'Payment date is required';
+    if (editForm.payment_date > today) errs.payment_date = 'Payment date cannot be in the future';
+    if (!editForm.payment_method) errs.payment_method = 'Payment method is required';
+    if (editForm.reference_number && editForm.reference_number.length > 200) {
+      errs.reference_number = 'Reference number must be 200 characters or less';
+    }
+    setEditErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editItem || !validateEdit()) return;
+
+    setEditSubmitting(true);
+    try {
+      const dto: UpdateSubcontractorPaymentDto = {
+        amount: editForm.amount,
+        payment_date: editForm.payment_date,
+        payment_method: editForm.payment_method as PaymentMethodType,
+        project_id: editForm.project_id || undefined,
+        reference_number: editForm.reference_number || undefined,
+        notes: editForm.notes || undefined,
+      };
+      await updateSubcontractorPayment(editItem.id, dto);
+      toast.success('Payment updated successfully');
+      setShowEditModal(false);
+      setEditItem(null);
+      loadPayments();
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      toast.error(error.message || 'Failed to update payment');
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  // ========== DELETE ==========
+
+  const openDeleteModal = (payment: SubcontractorPayment) => {
+    setDeleteItem(payment);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteItem) return;
+
+    setDeleting(true);
+    try {
+      await deleteSubcontractorPayment(deleteItem.id);
+      toast.success('Payment deleted successfully');
+      setShowDeleteModal(false);
+      setDeleteItem(null);
+      loadPayments();
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      toast.error(error.message || 'Failed to delete payment');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   // ========== PAYMENT HISTORY MODAL ==========
@@ -557,14 +665,36 @@ export default function SubcontractorPaymentsPage() {
                           )}
                         </td>
                         <td className="py-3 px-3 text-right">
-                          <button
-                            onClick={() => openViewModal(p)}
-                            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                            title="View details"
-                            aria-label={`View payment for ${p.subcontractor.business_name}`}
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => openViewModal(p)}
+                              className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              title="View details"
+                              aria-label={`View payment for ${p.subcontractor.business_name}`}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            {canManage && (
+                              <>
+                                <button
+                                  onClick={() => openEditModal(p)}
+                                  className="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                  title="Edit payment"
+                                  aria-label={`Edit payment for ${p.subcontractor.business_name}`}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => openDeleteModal(p)}
+                                  className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                  title="Delete payment"
+                                  aria-label={`Delete payment for ${p.subcontractor.business_name}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -609,7 +739,7 @@ export default function SubcontractorPaymentsPage() {
                         <div className="text-xs text-gray-400 line-clamp-2">{p.notes}</div>
                       )}
                     </div>
-                    <div className="flex justify-end mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                    <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
                       <Button
                         size="sm"
                         variant="secondary"
@@ -619,6 +749,28 @@ export default function SubcontractorPaymentsPage() {
                         <Eye className="w-3.5 h-3.5" />
                         View
                       </Button>
+                      {canManage && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => openEditModal(p)}
+                            className="flex items-center gap-1.5"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => openDeleteModal(p)}
+                            className="flex items-center gap-1.5"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -798,6 +950,32 @@ export default function SubcontractorPaymentsPage() {
               <Button type="button" variant="secondary" onClick={() => setShowViewModal(false)}>
                 Close
               </Button>
+              {canManage && (
+                <>
+                  <Button
+                    onClick={() => {
+                      setShowViewModal(false);
+                      openEditModal(viewItem);
+                    }}
+                    variant="secondary"
+                    className="flex items-center gap-2"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Edit
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setShowViewModal(false);
+                      openDeleteModal(viewItem);
+                    }}
+                    variant="danger"
+                    className="flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </Button>
+                </>
+              )}
               {canViewHistory && (
                 <Button
                   onClick={() => {
@@ -952,6 +1130,142 @@ export default function SubcontractorPaymentsPage() {
             </Button>
           </ModalActions>
         </div>
+      </Modal>
+
+      {/* ========== EDIT MODAL ========== */}
+      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Subcontractor Payment" size="lg">
+        <form onSubmit={handleEdit} className="space-y-4">
+          {editItem && (
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 mb-2">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                <span className="font-medium text-gray-900 dark:text-white">{editItem.subcontractor.business_name}</span>
+                {editItem.subcontractor.trade_specialty && (
+                  <span className="text-gray-400"> ({editItem.subcontractor.trade_specialty})</span>
+                )}
+              </p>
+            </div>
+          )}
+
+          <MoneyInput
+            label="Amount"
+            required
+            value={editForm.amount}
+            onChange={(val) => setEditForm({ ...editForm, amount: val })}
+            error={editErrors.amount}
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <DatePicker
+              label="Payment Date"
+              required
+              value={editForm.payment_date}
+              onChange={(e) => setEditForm({ ...editForm, payment_date: e.target.value })}
+              max={today}
+              error={editErrors.payment_date}
+            />
+
+            <Select
+              label="Payment Method"
+              required
+              options={PAYMENT_METHOD_OPTIONS}
+              value={editForm.payment_method}
+              onChange={(val) => setEditForm({ ...editForm, payment_method: val as PaymentMethodType })}
+              error={editErrors.payment_method}
+              placeholder="Select method"
+            />
+          </div>
+
+          <Select
+            label="Project"
+            searchable
+            options={[{ value: '', label: 'No project' }, ...projectOptions]}
+            value={editForm.project_id}
+            onChange={(val) => setEditForm({ ...editForm, project_id: val })}
+            placeholder="Select project (optional)"
+          />
+
+          <Input
+            label="Reference Number"
+            value={editForm.reference_number}
+            onChange={(e) => setEditForm({ ...editForm, reference_number: e.target.value })}
+            placeholder="e.g., Check #1234, Transaction ID"
+            maxLength={200}
+            error={editErrors.reference_number}
+          />
+
+          <Textarea
+            label="Notes"
+            value={editForm.notes}
+            onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+            placeholder="Optional notes about this payment"
+            rows={2}
+          />
+
+          <ModalActions>
+            <Button type="button" variant="secondary" onClick={() => setShowEditModal(false)} disabled={editSubmitting}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={editSubmitting} disabled={editSubmitting}>
+              Save Changes
+            </Button>
+          </ModalActions>
+        </form>
+      </Modal>
+
+      {/* ========== DELETE CONFIRMATION MODAL ========== */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setDeleteItem(null);
+        }}
+        title="Delete Payment"
+        size="md"
+      >
+        {deleteItem && (
+          <div className="space-y-4">
+            <div className="flex gap-3">
+              <AlertTriangle className="w-6 h-6 flex-shrink-0 text-red-600 dark:text-red-500" />
+              <div className="space-y-2">
+                <p className="text-gray-700 dark:text-gray-300">
+                  Are you sure you want to delete this payment of{' '}
+                  <span className="font-bold text-gray-900 dark:text-white">
+                    {formatCurrency(parseFloat(deleteItem.amount))}
+                  </span>{' '}
+                  to{' '}
+                  <span className="font-semibold">{deleteItem.subcontractor.business_name}</span>?
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  This action cannot be undone. The payment record will be permanently removed.
+                </p>
+              </div>
+            </div>
+
+            <ModalActions>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeleteItem(null);
+                }}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={confirmDelete}
+                loading={deleting}
+                disabled={deleting}
+                className="flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Payment
+              </Button>
+            </ModalActions>
+          </div>
+        )}
       </Modal>
     </div>
   );

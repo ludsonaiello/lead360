@@ -851,3 +851,62 @@ Project Structure
 │   ├── sprint-runner.sh
 │   └── logs/
 └── package.json
+
+## Bash Permissions
+
+<bash_tool>
+  <allow>
+    <!-- Filesystem: read-only navigation -->
+    ls, find, cat, grep, head, tail, wc, pwd, echo, which, whoami, uname, stat, file, tree, sort, uniq, cut, awk, sed, diff, env, printenv, ps
+
+    <!-- MySQL: connect, inspect, SELECT only -->
+    mysql --host=* --user=* --password=* --execute="SELECT *",
+    mysql --host=* --user=* --password=* --execute="SHOW *",
+    mysql --host=* --user=* --password=* --execute="DESCRIBE *",
+    mysql --host=* --user=* --password=* --execute="EXPLAIN *",
+    mysqldump --no-data,
+    mysqlcheck --check
+
+    <!-- Prisma: inspect and validate only -->
+    npx prisma db pull,
+    npx prisma migrate status,
+    npx prisma migrate diff,
+    npx prisma validate,
+    npx prisma format,
+    npx prisma studio
+  </allow>
+
+  <deny>
+    <!-- MySQL: no writes -->
+    mysql --execute="INSERT *",
+    mysql --execute="UPDATE *",
+    mysql --execute="DELETE *",
+    mysql --execute="DROP *",
+    mysql --execute="ALTER *",
+    mysql --execute="CREATE *",
+    mysql --execute="TRUNCATE *",
+    mysql --execute="GRANT *",
+    mysqladmin,
+
+    <!-- Prisma: no migrations or deploys -->
+    npx prisma migrate deploy,
+    npx prisma migrate dev,
+    npx prisma migrate reset,
+    npx prisma db push,
+    npx prisma db execute,
+    npx prisma generate,
+
+    <!-- System: no destructive ops -->
+    rm, rmdir, mv, cp, chmod, chown, dd, kill, killall,
+    shutdown, reboot, apt, npm install, yarn add, pip install,
+    git push, git commit, git merge, git reset
+  </deny>
+</bash_tool>
+
+## Database Rules
+
+- Claude may connect to MySQL and run **read-only** queries: SELECT, SHOW, DESCRIBE, EXPLAIN
+- Claude may inspect Prisma schema, migration status, and diffs
+- Any query that modifies data (INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE) requires **explicit user approval in chat before execution**
+- Any Prisma migration or schema push requires **explicit user approval in chat before execution**
+- Claude must show the full query/command to the user and wait for a "yes / confirmed" before running anything that writes or mutates

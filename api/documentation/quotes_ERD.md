@@ -2583,6 +2583,7 @@ paid paid
     String reference_number "❓"
     String notes "❓"
     DateTime created_at 
+    DateTime updated_at 
     }
   
 
@@ -3117,6 +3118,7 @@ paid paid
     "subcontractor_payment_record" }o--|| subcontractor : "subcontractor"
     "subcontractor_payment_record" }o--|o project : "project"
     "subcontractor_payment_record" }o--|| "user" : "created_by"
+    "subcontractor_payment_record" }o--|o "user" : "updated_by"
     "subcontractor_task_invoice" |o--|| "invoice_status" : "enum:status"
     "subcontractor_task_invoice" }o--|| "tenant" : "tenant"
     "subcontractor_task_invoice" }o--|| subcontractor : "subcontractor"

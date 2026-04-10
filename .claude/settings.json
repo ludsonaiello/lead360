@@ -2,12 +2,74 @@
   "env": {
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "85"
   },
-  "permissions": {
-    "allow": [
-      "Bash(echo \"=== CHECKING FOR MOCK DATA AND HARDCODED VALUES ===\" echo \"\" echo \"Checking for ''mock'', ''placeholder'', ''hardcoded'', ''localhost'', ''http://'':\" grep -ri \"mock\\\\|placeholder.*=\\\\|hardcoded\\\\|http://localhost\\\\|http://127\" /var/www/lead360.app/app/src/components/admin/twilio/alerts/ /var/www/lead360.app/app/src/components/admin/twilio/events/ /var/www/lead360.app/app/src/app/\\\\\\(dashboard\\\\\\)/admin/communications/twilio/alerts/ /var/www/lead360.app/app/src/app/\\\\\\(dashboard\\\\\\)/admin/communications/twilio/bulk-operations/)"
-    ]
-  },
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(pwd:*)",
+      "Bash(echo:*)",
+      "Bash(which:*)",
+      "Bash(whoami:*)",
+      "Bash(uname:*)",
+      "Bash(stat:*)",
+      "Bash(file:*)",
+      "Bash(tree:*)",
+      "Bash(sort:*)",
+      "Bash(uniq:*)",
+      "Bash(cut:*)",
+      "Bash(awk:*)",
+      "Bash(sed:*)",
+      "Bash(diff:*)",
+      "Bash(env:*)",
+      "Bash(printenv:*)",
+      "Bash(ps:*)",
+      "Bash(mysql --host=* --user=* --password=* --execute=\"SELECT*\")",
+      "Bash(mysql --host=* --user=* --password=* --execute=\"SHOW*\")",
+      "Bash(mysql --host=* --user=* --password=* --execute=\"DESCRIBE*\")",
+      "Bash(mysql --host=* --user=* --password=* --execute=\"EXPLAIN*\")",
+      "Bash(mysqldump --no-data:*)",
+      "Bash(mysqlcheck --check:*)",
+      "Bash(npx prisma db pull:*)",
+      "Bash(npx prisma migrate status:*)",
+      "Bash(npx prisma migrate diff:*)",
+      "Bash(npx prisma validate:*)",
+      "Bash(npx prisma format:*)",
+      "Bash(npx prisma studio:*)"
+    ],
+    "deny": [
+      "Bash(rm:*)",
+      "Bash(rmdir:*)",
+      "Bash(mv:*)",
+      "Bash(chmod:*)",
+      "Bash(chown:*)",
+      "Bash(kill:*)",
+      "Bash(killall:*)",
+      "Bash(shutdown:*)",
+      "Bash(reboot:*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(git merge:*)",
+      "Bash(git reset:*)",
+      "Bash(mysql --execute=\"INSERT*\")",
+      "Bash(mysql --execute=\"UPDATE*\")",
+      "Bash(mysql --execute=\"DELETE*\")",
+      "Bash(mysql --execute=\"DROP*\")",
+      "Bash(mysql --execute=\"ALTER*\")",
+      "Bash(mysql --execute=\"TRUNCATE*\")",
+      "Bash(mysqladmin:*)",
+      "Bash(npx prisma migrate deploy:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(npx prisma migrate reset:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npx prisma db execute:*)"
+    ]
   }
 }

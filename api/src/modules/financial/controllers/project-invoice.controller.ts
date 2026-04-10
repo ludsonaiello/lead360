@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   Query,
@@ -198,6 +199,31 @@ export class ProjectInvoiceController {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
+  // DELETE /projects/:projectId/invoices/:id
+  // ───────────────────────────────────────────────────────────────────────────
+
+  @Delete(':id')
+  @Roles('Owner', 'Admin')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Permanently delete an invoice (any status, cascades payments, resets milestones)' })
+  @ApiParam({ name: 'projectId', description: 'Project UUID' })
+  @ApiParam({ name: 'id', description: 'Invoice UUID' })
+  @ApiResponse({ status: 200, description: 'Invoice deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Invoice not found' })
+  async delete(
+    @Request() req: AuthenticatedRequest,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.projectInvoiceService.deleteInvoice(
+      req.user.tenant_id,
+      projectId,
+      id,
+      req.user.id,
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
   // POST /projects/:projectId/invoices/:id/payments
   // ───────────────────────────────────────────────────────────────────────────
 
@@ -245,6 +271,34 @@ export class ProjectInvoiceController {
       req.user.tenant_id,
       projectId,
       id,
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // DELETE /projects/:projectId/invoices/:id/payments/:paymentId
+  // ───────────────────────────────────────────────────────────────────────────
+
+  @Delete(':id/payments/:paymentId')
+  @Roles('Owner', 'Admin')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete a payment from an invoice (recalculates invoice totals)' })
+  @ApiParam({ name: 'projectId', description: 'Project UUID' })
+  @ApiParam({ name: 'id', description: 'Invoice UUID' })
+  @ApiParam({ name: 'paymentId', description: 'Payment UUID' })
+  @ApiResponse({ status: 200, description: 'Payment deleted, invoice recalculated' })
+  @ApiResponse({ status: 404, description: 'Invoice or payment not found' })
+  async deletePayment(
+    @Request() req: AuthenticatedRequest,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('paymentId', ParseUUIDPipe) paymentId: string,
+  ) {
+    return this.projectInvoiceService.deletePayment(
+      req.user.tenant_id,
+      projectId,
+      id,
+      paymentId,
+      req.user.id,
     );
   }
 }

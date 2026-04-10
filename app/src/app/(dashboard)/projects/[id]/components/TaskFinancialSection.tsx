@@ -9,6 +9,7 @@ import {
   Eye,
   Plus,
   ExternalLink,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -22,7 +23,7 @@ import {
   uploadTaskReceipt,
 } from '@/lib/api/financial';
 import { buildFileUrl } from '@/lib/api/files';
-import type { RawFinancialEntry, Receipt, SubcontractorInvoice, SubcontractorInvoiceStatus } from '@/lib/types/financial';
+import type { RawFinancialEntry, Receipt, TaskSubcontractorInvoice, SubcontractorInvoiceStatus } from '@/lib/types/financial';
 import type { ProjectTask } from '@/lib/types/projects';
 import CostEntryFormModal from './financial/CostEntryFormModal';
 import { ReceiptUploadModal } from '@/app/(dashboard)/financial/entries/components/ReceiptUploadModal';
@@ -117,7 +118,7 @@ export default function TaskFinancialSection({
   task,
   projectId,
 }: TaskFinancialSectionProps) {
-  const { hasRole } = useRBAC();
+  const { hasRole, loading: rbacLoading } = useRBAC();
   const canManageFinancials = hasRole(CAN_MANAGE_ROLES);
   const canUpload = hasRole(CAN_UPLOAD_ROLES);
 
@@ -137,7 +138,7 @@ export default function TaskFinancialSection({
   const [previewReceipt, setPreviewReceipt] = useState<Receipt | null>(null);
 
   // Invoices state
-  const [invoices, setInvoices] = useState<SubcontractorInvoice[]>([]);
+  const [invoices, setInvoices] = useState<TaskSubcontractorInvoice[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(true);
   const [invoicesError, setInvoicesError] = useState<string | null>(null);
 
@@ -186,10 +187,22 @@ export default function TaskFinancialSection({
   }, [projectId, task.id]);
 
   useEffect(() => {
-    loadCosts();
-    loadReceipts();
-    loadInvoices();
-  }, [loadCosts, loadReceipts, loadInvoices]);
+    // Wait for RBAC to finish loading before making decisions
+    if (rbacLoading) return;
+
+    // Only load data for roles that have list permission (Owner/Admin/Manager/Bookkeeper).
+    // Field users can only upload receipts — skip all list calls to avoid 403 errors.
+    if (canManageFinancials) {
+      loadCosts();
+      loadReceipts();
+      loadInvoices();
+    } else {
+      // Clear loading states so non-financial users see empty states, not spinners
+      setCostsLoading(false);
+      setReceiptsLoading(false);
+      setInvoicesLoading(false);
+    }
+  }, [rbacLoading, canManageFinancials, loadCosts, loadReceipts, loadInvoices]);
 
   // ========== COMPUTED ==========
 
@@ -198,14 +211,44 @@ export default function TaskFinancialSection({
   const categorizedReceipts = receipts.filter((r) => r.is_categorized).length;
 
   // ========== SUB-TAB DEFINITIONS ==========
+  // Only show tabs the user has permission to view. Field users can only upload receipts.
 
-  const subTabs: { id: SubTab; label: string; count: number }[] = [
-    { id: 'costs', label: 'Costs', count: costs.length },
-    { id: 'receipts', label: 'Receipts', count: receipts.length },
-    { id: 'invoices', label: 'Invoices', count: invoices.length },
-  ];
+  const subTabs: { id: SubTab; label: string; count: number }[] = canManageFinancials
+    ? [
+        { id: 'costs', label: 'Costs', count: costs.length },
+        { id: 'receipts', label: 'Receipts', count: receipts.length },
+        { id: 'invoices', label: 'Invoices', count: invoices.length },
+      ]
+    : [
+        { id: 'receipts', label: 'Receipts', count: 0 },
+      ];
+
+  // Ensure active tab is valid for current user's permission set
+  const effectiveTab = subTabs.some((t) => t.id === activeSubTab) ? activeSubTab : subTabs[0]?.id ?? 'costs';
 
   // ========== RENDER ==========
+
+  // Show spinner while RBAC is still resolving — don't flash "Access Denied" prematurely
+  if (rbacLoading) {
+    return (
+      <div className="py-8 flex justify-center">
+        <LoadingSpinner size="sm" />
+      </div>
+    );
+  }
+
+  // RBAC gate — non-financial roles should not see data
+  if (!canManageFinancials && !canUpload) {
+    return (
+      <div className="text-center py-8">
+        <AlertTriangle className="w-8 h-8 text-red-500 mx-auto mb-3" />
+        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">Access Denied</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          You do not have permission to view financial data.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -216,7 +259,7 @@ export default function TaskFinancialSection({
             key={tab.id}
             onClick={() => setActiveSubTab(tab.id)}
             className={`px-3 py-2 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap ${
-              activeSubTab === tab.id
+              effectiveTab === tab.id
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
@@ -232,7 +275,7 @@ export default function TaskFinancialSection({
       </div>
 
       {/* Tab Content */}
-      {activeSubTab === 'costs' && (
+      {effectiveTab === 'costs' && (
         <CostsSubSection
           costs={costs}
           loading={costsLoading}
@@ -244,12 +287,13 @@ export default function TaskFinancialSection({
         />
       )}
 
-      {activeSubTab === 'receipts' && (
+      {effectiveTab === 'receipts' && (
         <ReceiptsSubSection
           receipts={receipts}
           loading={receiptsLoading}
           error={receiptsError}
           categorizedCount={categorizedReceipts}
+          canList={canManageFinancials}
           canUpload={canUpload}
           onUpload={() => setShowUploadReceipt(true)}
           onPreview={(r) => setPreviewReceipt(r)}
@@ -257,7 +301,7 @@ export default function TaskFinancialSection({
         />
       )}
 
-      {activeSubTab === 'invoices' && (
+      {effectiveTab === 'invoices' && (
         <InvoicesSubSection
           invoices={invoices}
           loading={invoicesLoading}
@@ -283,10 +327,13 @@ export default function TaskFinancialSection({
       {/* Receipt Upload Modal */}
       <ReceiptUploadModal
         isOpen={showUploadReceipt}
-        onClose={() => setShowUploadReceipt(false)}
+        onClose={() => {
+          setShowUploadReceipt(false);
+          if (canManageFinancials) loadReceipts(); // Only refresh list if user has list permission
+        }}
         onSuccess={() => {
           setShowUploadReceipt(false);
-          loadReceipts();
+          if (canManageFinancials) loadReceipts();
         }}
         defaultProjectId={projectId}
         defaultTaskId={task.id}
@@ -438,6 +485,7 @@ function ReceiptsSubSection({
   loading,
   error,
   categorizedCount,
+  canList,
   canUpload,
   onUpload,
   onPreview,
@@ -447,11 +495,30 @@ function ReceiptsSubSection({
   loading: boolean;
   error: string | null;
   categorizedCount: number;
+  canList: boolean;
   canUpload: boolean;
   onUpload: () => void;
   onPreview: (r: Receipt) => void;
   onRetry: () => void;
 }) {
+  // Field-only users can upload but not list — show upload-only view
+  if (!canList) {
+    return (
+      <div className="space-y-3">
+        {canUpload && (
+          <div className="text-center py-8">
+            <Upload className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Upload a receipt for this task</p>
+            <Button variant="ghost" size="sm" onClick={onUpload}>
+              <Upload className="w-4 h-4" />
+              Upload Receipt
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="py-8 flex justify-center">
@@ -592,7 +659,7 @@ function InvoicesSubSection({
   total,
   onRetry,
 }: {
-  invoices: SubcontractorInvoice[];
+  invoices: TaskSubcontractorInvoice[];
   loading: boolean;
   error: string | null;
   total: number;

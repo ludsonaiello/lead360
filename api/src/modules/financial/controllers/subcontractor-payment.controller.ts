@@ -2,12 +2,16 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
   Body,
   Param,
   Query,
   UseGuards,
   Request,
   ParseUUIDPipe,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -22,6 +26,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { SubcontractorPaymentService } from '../services/subcontractor-payment.service';
 import { SubcontractorInvoiceService } from '../services/subcontractor-invoice.service';
 import { CreateSubcontractorPaymentDto } from '../dto/create-subcontractor-payment.dto';
+import { UpdateSubcontractorPaymentDto } from '../dto/update-subcontractor-payment.dto';
 import { ListSubcontractorPaymentsDto } from '../dto/list-subcontractor-payments.dto';
 
 @ApiTags('Subcontractor Payments')
@@ -56,6 +61,44 @@ export class SubcontractorPaymentController {
     return this.subcontractorPaymentService.listPayments(
       req.user.tenant_id,
       query,
+    );
+  }
+
+  @Patch('subcontractor-payments/:id')
+  @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
+  @ApiOperation({ summary: 'Update a subcontractor payment record' })
+  @ApiParam({ name: 'id', description: 'Payment UUID' })
+  @ApiResponse({ status: 200, description: 'Payment updated successfully' })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiResponse({ status: 404, description: 'Payment not found' })
+  async update(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateSubcontractorPaymentDto,
+  ) {
+    return this.subcontractorPaymentService.updatePayment(
+      req.user.tenant_id,
+      id,
+      req.user.id,
+      dto,
+    );
+  }
+
+  @Delete('subcontractor-payments/:id')
+  @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Permanently delete a subcontractor payment record' })
+  @ApiParam({ name: 'id', description: 'Payment UUID' })
+  @ApiResponse({ status: 200, description: 'Payment deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Payment not found' })
+  async delete(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.subcontractorPaymentService.deletePayment(
+      req.user.tenant_id,
+      id,
+      req.user.id,
     );
   }
 }

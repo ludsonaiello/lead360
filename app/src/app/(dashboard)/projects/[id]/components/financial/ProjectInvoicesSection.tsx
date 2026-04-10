@@ -5,6 +5,7 @@ import Card from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal, ModalActions } from '@/components/ui/Modal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { Select } from '@/components/ui/Select';
 import { MoneyInput } from '@/components/ui/MoneyInput';
 import { DatePicker } from '@/components/ui/DatePicker';
@@ -21,6 +22,7 @@ import {
   Pencil,
   Send,
   Ban,
+  Trash2,
   DollarSign,
   Receipt as ReceiptIcon,
   Banknote,
@@ -39,6 +41,8 @@ import {
   updateProjectInvoice,
   sendInvoice,
   voidInvoice,
+  deleteProjectInvoice,
+  deleteInvoicePayment,
   recordInvoicePayment,
   getProjectInvoice,
   getInvoicePayments,
@@ -142,6 +146,7 @@ export default function ProjectInvoicesSection({ projectId, onDataChange }: Proj
   const canCreate = hasRole(['Owner', 'Admin', 'Manager']);
   const canRecordPayment = hasRole(['Owner', 'Admin', 'Manager', 'Bookkeeper']);
   const canVoid = hasRole(['Owner', 'Admin']);
+  const canDelete = hasRole(['Owner', 'Admin']);
 
   // List state
   const [invoicesData, setInvoicesData] = useState<PaginatedResponse<ProjectInvoice> | null>(null);
@@ -180,6 +185,14 @@ export default function ProjectInvoicesSection({ projectId, onDataChange }: Proj
   const [voidReason, setVoidReason] = useState('');
   const [voidError, setVoidError] = useState('');
   const [voiding, setVoiding] = useState(false);
+
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState<ProjectInvoice | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Delete payment state
+  const [deletePaymentTarget, setDeletePaymentTarget] = useState<InvoicePayment | null>(null);
+  const [deletingPayment, setDeletingPayment] = useState(false);
 
   // Payment form state
   const [paymentForm, setPaymentForm] = useState({
@@ -387,6 +400,49 @@ export default function ProjectInvoicesSection({ projectId, onDataChange }: Proj
     }
   };
 
+  // ========== DELETE INVOICE ==========
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteProjectInvoice(projectId, deleteTarget.id);
+      toast.success(`Invoice ${deleteTarget.invoice_number} deleted`);
+      setDeleteTarget(null);
+      refreshAll();
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } }; message?: string };
+      toast.error(error.response?.data?.message || error.message || 'Failed to delete invoice');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // ========== DELETE PAYMENT ==========
+
+  const handleDeletePayment = async () => {
+    if (!deletePaymentTarget || !detailInvoice) return;
+    setDeletingPayment(true);
+    try {
+      await deleteInvoicePayment(projectId, detailInvoice.id, deletePaymentTarget.id);
+      toast.success('Payment deleted');
+      setDeletePaymentTarget(null);
+      // Refresh the detail modal data and the invoice list
+      const [updatedInv, updatedPayments] = await Promise.all([
+        getProjectInvoice(projectId, detailInvoice.id),
+        getInvoicePayments(projectId, detailInvoice.id),
+      ]);
+      setDetailInvoice(updatedInv);
+      setDetailPayments(updatedPayments);
+      refreshAll();
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } }; message?: string };
+      toast.error(error.response?.data?.message || error.message || 'Failed to delete payment');
+    } finally {
+      setDeletingPayment(false);
+    }
+  };
+
   // ========== RECORD PAYMENT ==========
 
   const openRecordPayment = (inv: ProjectInvoice) => {
@@ -497,6 +553,14 @@ export default function ProjectInvoicesSection({ projectId, onDataChange }: Proj
       actions.push(
         <Button key="void" variant="danger" size="sm" onClick={() => openVoid(inv)} className="flex items-center gap-1">
           <Ban className="w-3.5 h-3.5" /> Void
+        </Button>
+      );
+    }
+
+    if (canDelete) {
+      actions.push(
+        <Button key="delete" variant="ghost" size="sm" onClick={() => setDeleteTarget(inv)} className="flex items-center gap-1 text-red-500 hover:text-red-700">
+          <Trash2 className="w-3.5 h-3.5" /> Delete
         </Button>
       );
     }
@@ -1125,6 +1189,7 @@ export default function ProjectInvoicesSection({ projectId, onDataChange }: Proj
                           <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400 font-medium">Method</th>
                           <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400 font-medium">Reference</th>
                           <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400 font-medium">Notes</th>
+                          {canDelete && <th className="text-right py-2 px-2 text-gray-500 dark:text-gray-400 font-medium w-10"></th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -1145,6 +1210,17 @@ export default function ProjectInvoicesSection({ projectId, onDataChange }: Proj
                             <td className="py-2 px-2 text-gray-500 dark:text-gray-400 max-w-[180px] truncate">
                               {p.notes || '-'}
                             </td>
+                            {canDelete && (
+                              <td className="py-2 px-2 text-right">
+                                <button
+                                  onClick={() => setDeletePaymentTarget(p)}
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                  title="Delete payment"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
@@ -1157,9 +1233,20 @@ export default function ProjectInvoicesSection({ projectId, onDataChange }: Proj
                       <div key={p.id} className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-sm text-gray-700 dark:text-gray-300">{formatDate(p.payment_date)}</span>
-                          <span className="font-semibold text-green-600 dark:text-green-400">
-                            {formatCurrency(safeNum(p.amount))}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-green-600 dark:text-green-400">
+                              {formatCurrency(safeNum(p.amount))}
+                            </span>
+                            {canDelete && (
+                              <button
+                                onClick={() => setDeletePaymentTarget(p)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                title="Delete payment"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <p className="text-sm text-gray-500 dark:text-gray-400 capitalize">
                           {p.payment_method.replaceAll('_', ' ')}
@@ -1281,6 +1368,37 @@ export default function ProjectInvoicesSection({ projectId, onDataChange }: Proj
       {renderVoidModal()}
       {renderPaymentModal()}
       {renderDetailModal()}
+
+      {/* Delete Confirm */}
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Delete Invoice"
+        message={
+          deleteTarget
+            ? `Are you sure you want to permanently delete invoice ${deleteTarget.invoice_number} (${formatCurrency(Number(deleteTarget.amount))})? All recorded payments will also be deleted. This action cannot be undone.`
+            : ''
+        }
+        confirmText="Delete"
+        variant="danger"
+        loading={deleting}
+      />
+
+      <ConfirmModal
+        isOpen={!!deletePaymentTarget}
+        onClose={() => setDeletePaymentTarget(null)}
+        onConfirm={handleDeletePayment}
+        title="Delete Payment"
+        message={
+          deletePaymentTarget
+            ? `Are you sure you want to delete this payment of ${formatCurrency(safeNum(deletePaymentTarget.amount))}? The invoice totals will be recalculated.`
+            : ''
+        }
+        confirmText="Delete"
+        variant="danger"
+        loading={deletingPayment}
+      />
     </>
   );
 }

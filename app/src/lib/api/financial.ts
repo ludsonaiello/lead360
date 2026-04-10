@@ -88,12 +88,15 @@ import type {
   UpdateCrewHourDto,
   CrewPayment,
   CreateCrewPaymentDto,
+  UpdateCrewPaymentDto,
   // Subcontractors
   SubcontractorInvoice,
+  TaskSubcontractorInvoice,
   CreateSubcontractorInvoiceDto,
   UpdateSubcontractorInvoiceDto,
   SubcontractorPayment,
   CreateSubcontractorPaymentDto,
+  UpdateSubcontractorPaymentDto,
   SubcontractorPaymentSummary,
   // Dashboard
   DashboardOverview,
@@ -627,6 +630,11 @@ export const voidInvoice = async (projectId: string, id: string, dto: VoidInvoic
   return data;
 };
 
+export const deleteProjectInvoice = async (projectId: string, id: string): Promise<{ message: string }> => {
+  const { data } = await apiClient.delete<{ message: string }>(`/projects/${projectId}/invoices/${id}`);
+  return data;
+};
+
 export const recordInvoicePayment = async (projectId: string, invoiceId: string, dto: RecordInvoicePaymentDto): Promise<InvoicePayment> => {
   const { data } = await apiClient.post<InvoicePayment>(`/projects/${projectId}/invoices/${invoiceId}/payments`, dto);
   return data;
@@ -634,6 +642,11 @@ export const recordInvoicePayment = async (projectId: string, invoiceId: string,
 
 export const getInvoicePayments = async (projectId: string, invoiceId: string): Promise<InvoicePayment[]> => {
   const { data } = await apiClient.get<InvoicePayment[]>(`/projects/${projectId}/invoices/${invoiceId}/payments`);
+  return data;
+};
+
+export const deleteInvoicePayment = async (projectId: string, invoiceId: string, paymentId: string): Promise<{ message: string }> => {
+  const { data } = await apiClient.delete<{ message: string }>(`/projects/${projectId}/invoices/${invoiceId}/payments/${paymentId}`);
   return data;
 };
 
@@ -717,8 +730,8 @@ export const getTaskReceipts = async (projectId: string, taskId: string): Promis
   return data;
 };
 
-export const getTaskInvoices = async (projectId: string, taskId: string): Promise<SubcontractorInvoice[]> => {
-  const { data } = await apiClient.get<SubcontractorInvoice[]>(`/projects/${projectId}/tasks/${taskId}/invoices`);
+export const getTaskInvoices = async (projectId: string, taskId: string): Promise<TaskSubcontractorInvoice[]> => {
+  const { data } = await apiClient.get<TaskSubcontractorInvoice[]>(`/projects/${projectId}/tasks/${taskId}/invoices`);
   return data;
 };
 
@@ -745,6 +758,11 @@ export const getCrewHours = async (params: { crew_member_id?: string; project_id
 
 export const updateCrewHourLog = async (id: string, dto: UpdateCrewHourDto): Promise<CrewHourLog> => {
   const { data } = await apiClient.patch<CrewHourLog>(`/financial/crew-hours/${id}`, dto);
+  return data;
+};
+
+export const deleteCrewHourLog = async (id: string): Promise<{ message: string }> => {
+  const { data } = await apiClient.delete<{ message: string }>(`/financial/crew-hours/${id}`);
   return data;
 };
 
@@ -777,6 +795,16 @@ export const getCrewPaymentHistory = async (crewMemberId: string, params?: { pro
     `/crew/${crewMemberId}/payment-history`,
     { params: queryParams },
   );
+  return data;
+};
+
+export const updateCrewPayment = async (id: string, dto: UpdateCrewPaymentDto): Promise<CrewPayment> => {
+  const { data } = await apiClient.patch<CrewPayment>(`/financial/crew-payments/${id}`, dto);
+  return data;
+};
+
+export const deleteCrewPayment = async (id: string): Promise<{ message: string }> => {
+  const { data } = await apiClient.delete<{ message: string }>(`/financial/crew-payments/${id}`);
   return data;
 };
 
@@ -814,6 +842,11 @@ export const updateSubcontractorInvoice = async (id: string, dto: UpdateSubcontr
   return data;
 };
 
+export const deleteSubcontractorInvoice = async (id: string): Promise<{ message: string }> => {
+  const { data } = await apiClient.delete<{ message: string }>(`/financial/subcontractor-invoices/${id}`);
+  return data;
+};
+
 export const getSubcontractorInvoiceList = async (subcontractorId: string): Promise<SubcontractorInvoice[]> => {
   const { data } = await apiClient.get<SubcontractorInvoice[]>(`/subcontractors/${subcontractorId}/invoices`);
   return data;
@@ -825,6 +858,15 @@ export const getSubcontractorInvoiceList = async (subcontractorId: string): Prom
 export const createSubcontractorPayment = async (dto: CreateSubcontractorPaymentDto): Promise<SubcontractorPayment> => {
   const { data } = await apiClient.post<SubcontractorPayment>('/financial/subcontractor-payments', dto);
   return data;
+};
+
+export const updateSubcontractorPayment = async (id: string, dto: UpdateSubcontractorPaymentDto): Promise<SubcontractorPayment> => {
+  const { data } = await apiClient.patch<SubcontractorPayment>(`/financial/subcontractor-payments/${id}`, dto);
+  return data;
+};
+
+export const deleteSubcontractorPayment = async (id: string): Promise<void> => {
+  await apiClient.delete(`/financial/subcontractor-payments/${id}`);
 };
 
 export const getSubcontractorPayments = async (params: { subcontractor_id?: string; project_id?: string; page?: number; limit?: number }): Promise<PaginatedResponse<SubcontractorPayment>> => {

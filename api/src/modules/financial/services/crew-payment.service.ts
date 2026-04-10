@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { CreateCrewPaymentDto } from '../dto/create-crew-payment.dto';
+import { UpdateCrewPaymentDto } from '../dto/update-crew-payment.dto';
 import { ListCrewPaymentsDto } from '../dto/list-crew-payments.dto';
 
 @Injectable()
@@ -190,6 +191,120 @@ export class CrewPaymentService {
       total_paid: result._sum.amount ? Number(result._sum.amount) : 0,
       payment_count: result._count,
     };
+  }
+
+  /**
+   * Update a crew payment record.
+   */
+  async updatePayment(
+    tenantId: string,
+    paymentId: string,
+    userId: string,
+    dto: UpdateCrewPaymentDto,
+  ) {
+    const existing = await this.prisma.crew_payment_record.findFirst({
+      where: { id: paymentId, tenant_id: tenantId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Crew payment not found');
+    }
+
+    if (dto.payment_date) {
+      this.validateDateNotFuture(dto.payment_date, 'Payment date');
+    }
+
+    // Validate period dates
+    const periodStart = dto.period_start_date !== undefined
+      ? dto.period_start_date
+      : (existing.period_start_date ? existing.period_start_date.toISOString().split('T')[0] : null);
+    const periodEnd = dto.period_end_date !== undefined
+      ? dto.period_end_date
+      : (existing.period_end_date ? existing.period_end_date.toISOString().split('T')[0] : null);
+
+    if (periodStart && periodEnd) {
+      const start = new Date(periodStart);
+      const end = new Date(periodEnd);
+      if (start > end) {
+        throw new BadRequestException('Period start date must be before or equal to period end date');
+      }
+    }
+
+    const updateData: any = {};
+
+    if (dto.amount !== undefined) updateData.amount = dto.amount;
+    if (dto.payment_date !== undefined) updateData.payment_date = new Date(dto.payment_date);
+    if (dto.payment_method !== undefined) updateData.payment_method = dto.payment_method;
+    if (dto.reference_number !== undefined) updateData.reference_number = dto.reference_number || null;
+    if (dto.notes !== undefined) updateData.notes = dto.notes || null;
+    if (dto.project_id !== undefined) updateData.project_id = dto.project_id || null;
+    if (dto.period_start_date !== undefined) updateData.period_start_date = dto.period_start_date ? new Date(dto.period_start_date) : null;
+    if (dto.period_end_date !== undefined) updateData.period_end_date = dto.period_end_date ? new Date(dto.period_end_date) : null;
+    if (dto.hours_paid !== undefined) updateData.hours_paid = dto.hours_paid ?? null;
+
+    const updated = await this.prisma.crew_payment_record.update({
+      where: { id: paymentId },
+      data: updateData,
+      include: {
+        crew_member: {
+          select: { id: true, first_name: true, last_name: true },
+        },
+        project: {
+          select: { id: true, name: true, project_number: true },
+        },
+      },
+    });
+
+    await this.auditLogger.logTenantChange({
+      action: 'updated',
+      entityType: 'crew_payment_record',
+      entityId: paymentId,
+      tenantId,
+      actorUserId: userId,
+      before: existing,
+      after: updated,
+      description: `Updated crew payment ${paymentId}`,
+    });
+
+    return updated;
+  }
+
+  /**
+   * Hard-delete a crew payment record.
+   */
+  async deletePayment(
+    tenantId: string,
+    paymentId: string,
+    userId: string,
+  ) {
+    const existing = await this.prisma.crew_payment_record.findFirst({
+      where: { id: paymentId, tenant_id: tenantId },
+      include: {
+        crew_member: {
+          select: { id: true, first_name: true, last_name: true },
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Crew payment not found');
+    }
+
+    await this.prisma.crew_payment_record.delete({
+      where: { id: paymentId },
+    });
+
+    await this.auditLogger.logTenantChange({
+      action: 'deleted',
+      entityType: 'crew_payment_record',
+      entityId: paymentId,
+      tenantId,
+      actorUserId: userId,
+      before: existing,
+      description: `Deleted crew payment of $${existing.amount} for ${existing.crew_member.first_name} ${existing.crew_member.last_name}`,
+    });
+
+    return { message: 'Payment deleted successfully' };
   }
 
   // ---------------------------------------------------------------------------

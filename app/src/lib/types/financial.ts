@@ -818,6 +818,18 @@ export interface CreateCrewPaymentDto {
   notes?: string;
 }
 
+export interface UpdateCrewPaymentDto {
+  amount?: number;
+  payment_date?: string;
+  payment_method?: PaymentMethodType;
+  project_id?: string;
+  reference_number?: string;
+  period_start_date?: string;
+  period_end_date?: string;
+  hours_paid?: number;
+  notes?: string;
+}
+
 // ========== SUBCONTRACTOR PAYMENTS (API Section 20) ==========
 
 export interface SubcontractorRef {
@@ -837,7 +849,9 @@ export interface SubcontractorPayment {
   reference_number: string | null;
   notes: string | null;
   created_by_user_id: string;
+  updated_by_user_id: string | null;
   created_at: string;
+  updated_at: string;
   subcontractor: SubcontractorRef;
   project: ProjectRef | null;
 }
@@ -847,6 +861,15 @@ export interface CreateSubcontractorPaymentDto {
   amount: number;
   payment_date: string;
   payment_method: PaymentMethodType;
+  project_id?: string;
+  reference_number?: string;
+  notes?: string;
+}
+
+export interface UpdateSubcontractorPaymentDto {
+  amount?: number;
+  payment_date?: string;
+  payment_method?: PaymentMethodType;
   project_id?: string;
   reference_number?: string;
   notes?: string;
@@ -876,6 +899,9 @@ export interface SubcontractorInvoice {
   project: ProjectRef;
 }
 
+// Task-level invoices endpoint omits nested `task` and `project` refs (only `subcontractor` included)
+export type TaskSubcontractorInvoice = Omit<SubcontractorInvoice, 'task' | 'project'>;
+
 export interface CreateSubcontractorInvoiceDto {
   subcontractor_id: string;
   task_id: string;
@@ -889,6 +915,8 @@ export interface CreateSubcontractorInvoiceDto {
 export interface UpdateSubcontractorInvoiceDto {
   status?: SubcontractorInvoiceStatus;
   amount?: number;
+  invoice_number?: string;
+  invoice_date?: string;
   notes?: string;
 }
 

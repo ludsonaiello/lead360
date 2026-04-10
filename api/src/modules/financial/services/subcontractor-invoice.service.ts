@@ -160,10 +160,40 @@ export class SubcontractorInvoiceService {
       );
     }
 
+    // invoice_number uniqueness check (if changing and in pending status)
+    if (dto.invoice_number !== undefined && existing.status !== 'pending') {
+      throw new BadRequestException(
+        'Invoice number can only be updated while invoice is in pending status',
+      );
+    }
+    if (dto.invoice_number !== undefined && dto.invoice_number) {
+      const duplicate = await this.prisma.subcontractor_task_invoice.findFirst({
+        where: {
+          tenant_id: tenantId,
+          invoice_number: dto.invoice_number,
+          id: { not: invoiceId },
+        },
+      });
+      if (duplicate) {
+        throw new ConflictException(
+          `Invoice number '${dto.invoice_number}' already exists for this tenant`,
+        );
+      }
+    }
+
+    // invoice_date can only be updated before 'approved'
+    if (dto.invoice_date !== undefined && existing.status !== 'pending') {
+      throw new BadRequestException(
+        'Invoice date can only be updated while invoice is in pending status',
+      );
+    }
+
     const data: any = {};
     if (dto.status !== undefined) data.status = dto.status;
     if (dto.amount !== undefined) data.amount = dto.amount;
     if (dto.notes !== undefined) data.notes = dto.notes ?? null;
+    if (dto.invoice_number !== undefined) data.invoice_number = dto.invoice_number || null;
+    if (dto.invoice_date !== undefined) data.invoice_date = dto.invoice_date ? new Date(dto.invoice_date) : null;
 
     const updated = await this.prisma.subcontractor_task_invoice.update({
       where: { id: invoiceId },
@@ -195,6 +225,50 @@ export class SubcontractorInvoiceService {
     });
 
     return updated;
+  }
+
+  /**
+   * Hard-delete a subcontractor invoice.
+   */
+  async deleteInvoice(
+    tenantId: string,
+    invoiceId: string,
+    userId: string,
+  ) {
+    const existing = await this.prisma.subcontractor_task_invoice.findFirst({
+      where: { id: invoiceId, tenant_id: tenantId },
+      include: {
+        subcontractor: {
+          select: { id: true, business_name: true },
+        },
+        task: {
+          select: { id: true, title: true },
+        },
+        project: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Subcontractor invoice not found');
+    }
+
+    await this.prisma.subcontractor_task_invoice.delete({
+      where: { id: invoiceId },
+    });
+
+    await this.auditLogger.logTenantChange({
+      action: 'deleted',
+      entityType: 'subcontractor_task_invoice',
+      entityId: invoiceId,
+      tenantId,
+      actorUserId: userId,
+      before: existing,
+      description: `Deleted subcontractor invoice of $${existing.amount} from ${existing.subcontractor.business_name} for task "${existing.task.title}"`,
+    });
+
+    return { message: 'Invoice deleted successfully' };
   }
 
   /**

@@ -427,11 +427,16 @@ export default function SuppliersPage() {
       setDeleteConfirmText('');
       loadSuppliers();
     } catch (error: unknown) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : (error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to delete supplier';
-      toast.error(message);
+      const raw = (error as { message?: string })?.message || 'Failed to delete supplier';
+
+      // Friendly message when supplier has financial dependencies
+      if (raw.includes('recurring rule') || raw.includes('financial entry')) {
+        toast.error(
+          `This supplier can't be permanently deleted because it's linked to existing financial records. You can deactivate it instead.`,
+        );
+      } else {
+        toast.error(raw);
+      }
     } finally {
       setDeleting(false);
     }
@@ -765,7 +770,7 @@ export default function SuppliersPage() {
                   <span className="font-semibold">&quot;{supplierToDelete?.name}&quot;</span>.
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  This action is irreversible. All associated products, price history, and category assignments will also be deleted. This will fail if the supplier has financial entries or recurring rules.
+                  This action is irreversible. All associated products, price history, and category assignments will also be deleted. If this supplier has financial entries or recurring expense rules, you will need to deactivate it instead.
                 </p>
               </div>
             </div>

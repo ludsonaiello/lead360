@@ -14,6 +14,8 @@ import {
   Users,
   ArrowLeft,
   Eye,
+  Pencil,
+  Trash2,
   AlertCircle,
   Banknote,
   FileCheck,
@@ -39,10 +41,13 @@ import { MoneyInput } from '@/components/ui/MoneyInput';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Modal, ModalActions } from '@/components/ui/Modal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { PaginationControls } from '@/components/ui/PaginationControls';
 import {
   getCrewPayments,
   createCrewPayment,
+  updateCrewPayment,
+  deleteCrewPayment,
   getCrewPaymentHistory,
 } from '@/lib/api/financial';
 import { getCrewMembers } from '@/lib/api/crew';
@@ -50,6 +55,7 @@ import { getProjects, formatDate, formatCurrency } from '@/lib/api/projects';
 import type {
   CrewPayment,
   CreateCrewPaymentDto,
+  UpdateCrewPaymentDto,
   PaymentMethodType,
   PaginatedResponse,
 } from '@/lib/types/financial';
@@ -58,6 +64,7 @@ import type {
 
 const CAN_VIEW_ROLES = ['Owner', 'Admin', 'Bookkeeper'];
 const CAN_CREATE_ROLES = ['Owner', 'Admin', 'Bookkeeper'];
+const CAN_MANAGE_ROLES = ['Owner', 'Admin', 'Manager', 'Bookkeeper'];
 const CAN_VIEW_HISTORY_ROLES = ['Owner', 'Admin', 'Manager', 'Bookkeeper'];
 const PAGE_SIZE = 20;
 
@@ -135,6 +142,7 @@ export default function CrewPaymentsPage() {
 
   const canView = hasRole(CAN_VIEW_ROLES);
   const canCreate = hasRole(CAN_CREATE_ROLES);
+  const canManage = hasRole(CAN_MANAGE_ROLES);
   const canViewHistory = hasRole(CAN_VIEW_HISTORY_ROLES);
 
   // List state
@@ -170,6 +178,26 @@ export default function CrewPaymentsPage() {
   // View modal state
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewItem, setViewItem] = useState<CrewPayment | null>(null);
+
+  // Edit modal state
+  const [editItem, setEditItem] = useState<CrewPayment | null>(null);
+  const [editForm, setEditForm] = useState({
+    amount: 0,
+    payment_date: '',
+    payment_method: '' as PaymentMethodType | '',
+    project_id: '',
+    reference_number: '',
+    period_start_date: '',
+    period_end_date: '',
+    hours_paid: '',
+    notes: '',
+  });
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
+  // Delete confirm state
+  const [deleteItem, setDeleteItem] = useState<CrewPayment | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Payment History modal state
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -311,6 +339,93 @@ export default function CrewPaymentsPage() {
   const openViewModal = (payment: CrewPayment) => {
     setViewItem(payment);
     setShowViewModal(true);
+  };
+
+  // ========== EDIT MODAL ==========
+
+  const openEditModal = (payment: CrewPayment) => {
+    setEditItem(payment);
+    setEditForm({
+      amount: parseFloat(payment.amount),
+      payment_date: payment.payment_date ? payment.payment_date.split('T')[0] : '',
+      payment_method: payment.payment_method,
+      project_id: payment.project_id || '',
+      reference_number: payment.reference_number || '',
+      period_start_date: payment.period_start_date ? payment.period_start_date.split('T')[0] : '',
+      period_end_date: payment.period_end_date ? payment.period_end_date.split('T')[0] : '',
+      hours_paid: payment.hours_paid ? parseFloat(payment.hours_paid).toString() : '',
+      notes: payment.notes || '',
+    });
+    setEditErrors({});
+  };
+
+  const validateEdit = (): boolean => {
+    const errs: Record<string, string> = {};
+    if (!editForm.amount || editForm.amount <= 0) errs.amount = 'Amount must be greater than $0.00';
+    if (!editForm.payment_date) errs.payment_date = 'Payment date is required';
+    if (editForm.payment_date > today) errs.payment_date = 'Payment date cannot be in the future';
+    if (!editForm.payment_method) errs.payment_method = 'Payment method is required';
+    if (editForm.period_end_date && editForm.period_start_date && editForm.period_end_date < editForm.period_start_date) {
+      errs.period_end_date = 'Period end must be on or after period start';
+    }
+    if (editForm.hours_paid) {
+      const hp = parseFloat(editForm.hours_paid);
+      if (isNaN(hp) || hp < 0) errs.hours_paid = 'Hours must be 0 or more';
+    }
+    if (editForm.reference_number && editForm.reference_number.length > 200) {
+      errs.reference_number = 'Reference number must be 200 characters or less';
+    }
+    setEditErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editItem || !validateEdit()) return;
+
+    setEditSubmitting(true);
+    try {
+      const dto: UpdateCrewPaymentDto = {
+        amount: editForm.amount,
+        payment_date: editForm.payment_date,
+        payment_method: editForm.payment_method as PaymentMethodType,
+        project_id: editForm.project_id || undefined,
+        reference_number: editForm.reference_number || undefined,
+        period_start_date: editForm.period_start_date || undefined,
+        period_end_date: editForm.period_end_date || undefined,
+        hours_paid: editForm.hours_paid ? parseFloat(editForm.hours_paid) : undefined,
+        notes: editForm.notes || undefined,
+      };
+      await updateCrewPayment(editItem.id, dto);
+
+      const memberName = `${editItem.crew_member.first_name} ${editItem.crew_member.last_name}`;
+      toast.success(`Payment for ${memberName} updated`);
+      setEditItem(null);
+      loadPayments();
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } }; message?: string };
+      toast.error(error.response?.data?.message || error.message || 'Failed to update payment');
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  // ========== DELETE ==========
+
+  const handleDelete = async () => {
+    if (!deleteItem) return;
+    setDeleteLoading(true);
+    try {
+      await deleteCrewPayment(deleteItem.id);
+      toast.success('Payment deleted');
+      setDeleteItem(null);
+      loadPayments();
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } }; message?: string };
+      toast.error(error.response?.data?.message || error.message || 'Failed to delete payment');
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   // ========== PAYMENT HISTORY MODAL ==========
@@ -539,14 +654,36 @@ export default function CrewPaymentsPage() {
                           )}
                         </td>
                         <td className="py-3 px-3 text-right">
-                          <button
-                            onClick={() => openViewModal(p)}
-                            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                            title="View details"
-                            aria-label={`View payment for ${p.crew_member.first_name} ${p.crew_member.last_name}`}
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            {canManage && (
+                              <button
+                                onClick={() => openEditModal(p)}
+                                className="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                title="Edit payment"
+                                aria-label={`Edit payment for ${p.crew_member.first_name} ${p.crew_member.last_name}`}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => openViewModal(p)}
+                              className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              title="View details"
+                              aria-label={`View payment for ${p.crew_member.first_name} ${p.crew_member.last_name}`}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            {canManage && (
+                              <button
+                                onClick={() => setDeleteItem(p)}
+                                className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                title="Delete payment"
+                                aria-label={`Delete payment for ${p.crew_member.first_name} ${p.crew_member.last_name}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -598,7 +735,18 @@ export default function CrewPaymentsPage() {
                         <div className="text-xs">Ref: {p.reference_number}</div>
                       )}
                     </div>
-                    <div className="flex justify-end mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                    <div className="flex flex-wrap justify-end gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                      {canManage && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openEditModal(p)}
+                          className="flex items-center gap-1"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          Edit
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="secondary"
@@ -608,6 +756,17 @@ export default function CrewPaymentsPage() {
                         <Eye className="w-3.5 h-3.5" />
                         View
                       </Button>
+                      {canManage && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeleteItem(p)}
+                          className="flex items-center gap-1 text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Delete
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
@@ -964,6 +1123,141 @@ export default function CrewPaymentsPage() {
           </ModalActions>
         </div>
       </Modal>
+
+      {/* ========== EDIT MODAL ========== */}
+      <Modal isOpen={!!editItem} onClose={() => setEditItem(null)} title="Edit Crew Payment" size="lg">
+        {editItem && (
+          <form onSubmit={handleEdit} className="space-y-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Update payment for{' '}
+              <span className="font-medium text-gray-900 dark:text-white">
+                {editItem.crew_member.first_name} {editItem.crew_member.last_name}
+              </span>
+            </p>
+
+            <MoneyInput
+              label="Amount"
+              required
+              value={editForm.amount}
+              onChange={(val) => {
+                setEditForm({ ...editForm, amount: val });
+                setEditErrors((prev) => ({ ...prev, amount: '' }));
+              }}
+              error={editErrors.amount}
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <DatePicker
+                label="Payment Date"
+                required
+                value={editForm.payment_date}
+                onChange={(e) => {
+                  setEditForm({ ...editForm, payment_date: e.target.value });
+                  setEditErrors((prev) => ({ ...prev, payment_date: '' }));
+                }}
+                max={today}
+                error={editErrors.payment_date}
+              />
+
+              <Select
+                label="Payment Method"
+                required
+                options={PAYMENT_METHOD_OPTIONS}
+                value={editForm.payment_method}
+                onChange={(val) => {
+                  setEditForm({ ...editForm, payment_method: val as PaymentMethodType });
+                  setEditErrors((prev) => ({ ...prev, payment_method: '' }));
+                }}
+                error={editErrors.payment_method}
+                placeholder="Select method"
+              />
+            </div>
+
+            <Select
+              label="Project"
+              searchable
+              options={[{ value: '', label: 'No project' }, ...projectOptions]}
+              value={editForm.project_id}
+              onChange={(val) => setEditForm({ ...editForm, project_id: val })}
+              placeholder="Select project (optional)"
+            />
+
+            <Input
+              label="Reference Number"
+              value={editForm.reference_number}
+              onChange={(e) => {
+                setEditForm({ ...editForm, reference_number: e.target.value });
+                setEditErrors((prev) => ({ ...prev, reference_number: '' }));
+              }}
+              placeholder="e.g., Check #1234, Transaction ID"
+              maxLength={200}
+              error={editErrors.reference_number}
+            />
+
+            {/* Pay Period Section */}
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Pay Period (optional)</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <DatePicker
+                  label="Period Start"
+                  value={editForm.period_start_date}
+                  onChange={(e) => setEditForm({ ...editForm, period_start_date: e.target.value })}
+                />
+                <DatePicker
+                  label="Period End"
+                  value={editForm.period_end_date}
+                  onChange={(e) => setEditForm({ ...editForm, period_end_date: e.target.value })}
+                  min={editForm.period_start_date}
+                  error={editErrors.period_end_date}
+                />
+                <Input
+                  label="Hours Paid"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editForm.hours_paid}
+                  onChange={(e) => setEditForm({ ...editForm, hours_paid: e.target.value })}
+                  error={editErrors.hours_paid}
+                  placeholder="e.g., 40"
+                />
+              </div>
+            </div>
+
+            <Textarea
+              label="Notes"
+              value={editForm.notes}
+              onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+              placeholder="Optional notes"
+              rows={2}
+            />
+
+            <ModalActions>
+              <Button type="button" variant="secondary" onClick={() => setEditItem(null)} disabled={editSubmitting}>
+                Cancel
+              </Button>
+              <Button type="submit" loading={editSubmitting} disabled={editSubmitting}>
+                Save Changes
+              </Button>
+            </ModalActions>
+          </form>
+        )}
+      </Modal>
+
+      {/* ========== DELETE CONFIRM MODAL ========== */}
+      <ConfirmModal
+        isOpen={!!deleteItem}
+        onClose={() => setDeleteItem(null)}
+        onConfirm={handleDelete}
+        title="Delete Payment"
+        message={
+          deleteItem
+            ? `Are you sure you want to permanently delete this payment of ${formatCurrency(parseFloat(deleteItem.amount))} to ${deleteItem.crew_member.first_name} ${deleteItem.crew_member.last_name}? This action cannot be undone.`
+            : ''
+        }
+        confirmText="Delete"
+        variant="danger"
+        loading={deleteLoading}
+      />
     </div>
   );
 }

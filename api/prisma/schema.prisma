@@ -749,6 +749,7 @@ model user {
   crew_payment_records_created                    crew_payment_record[]          @relation("crew_payment_record_created_by")
   crew_hour_logs_created                          crew_hour_log[]                @relation("crew_hour_log_created_by")
   subcontractor_payment_records_created           subcontractor_payment_record[] @relation("subcontractor_payment_record_created_by")
+  subcontractor_payment_records_updated           subcontractor_payment_record[] @relation("subcontractor_payment_record_updated_by")
   subcontractor_task_invoices_created             subcontractor_task_invoice[]   @relation("subcontractor_task_invoice_created_by")
   purchased_financial_entries                     financial_entry[]              @relation("financial_entry_purchased_by_user")
   financial_entry_rejected                       financial_entry[]              @relation("financial_entry_rejected_by")
@@ -4487,13 +4488,16 @@ model subcontractor_payment_record {
   reference_number   String?        @db.VarChar(200)
   notes              String?        @db.Text
   created_by_user_id String         @db.VarChar(36)
+  updated_by_user_id String?        @db.VarChar(36)
   created_at         DateTime       @default(now())
+  updated_at         DateTime       @updatedAt
 
   // Relations
   tenant        tenant        @relation("subcontractor_payment_record_tenant", fields: [tenant_id], references: [id], onDelete: Cascade)
   subcontractor subcontractor @relation("subcontractor_payment_record_subcontractor", fields: [subcontractor_id], references: [id], onDelete: Restrict)
   project       project?      @relation("subcontractor_payment_record_project", fields: [project_id], references: [id], onDelete: Cascade)
   created_by    user          @relation("subcontractor_payment_record_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  updated_by    user?         @relation("subcontractor_payment_record_updated_by", fields: [updated_by_user_id], references: [id], onDelete: SetNull)
 
   // Indexes
   @@index([tenant_id, subcontractor_id])

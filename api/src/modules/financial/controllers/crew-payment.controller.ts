@@ -2,12 +2,16 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
   Body,
   Param,
   Query,
   UseGuards,
   Request,
   ParseUUIDPipe,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,6 +25,7 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CrewPaymentService } from '../services/crew-payment.service';
 import { CreateCrewPaymentDto } from '../dto/create-crew-payment.dto';
+import { UpdateCrewPaymentDto } from '../dto/update-crew-payment.dto';
 import { ListCrewPaymentsDto } from '../dto/list-crew-payments.dto';
 
 @ApiTags('Crew Payments')
@@ -51,6 +56,44 @@ export class CrewPaymentController {
   @ApiResponse({ status: 200, description: 'Paginated list of crew payments' })
   async findAll(@Request() req, @Query() query: ListCrewPaymentsDto) {
     return this.crewPaymentService.listPayments(req.user.tenant_id, query);
+  }
+
+  @Patch('crew-payments/:id')
+  @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
+  @ApiOperation({ summary: 'Update a crew payment record' })
+  @ApiParam({ name: 'id', description: 'Payment UUID' })
+  @ApiResponse({ status: 200, description: 'Payment updated successfully' })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiResponse({ status: 404, description: 'Payment not found' })
+  async update(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCrewPaymentDto,
+  ) {
+    return this.crewPaymentService.updatePayment(
+      req.user.tenant_id,
+      id,
+      req.user.id,
+      dto,
+    );
+  }
+
+  @Delete('crew-payments/:id')
+  @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Permanently delete a crew payment record' })
+  @ApiParam({ name: 'id', description: 'Payment UUID' })
+  @ApiResponse({ status: 200, description: 'Payment deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Payment not found' })
+  async delete(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.crewPaymentService.deletePayment(
+      req.user.tenant_id,
+      id,
+      req.user.id,
+    );
   }
 }
 

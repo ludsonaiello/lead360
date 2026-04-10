@@ -3,12 +3,15 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
   UseGuards,
   Request,
   ParseUUIDPipe,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -70,6 +73,24 @@ export class CrewHourLogController {
       id,
       req.user.id,
       dto,
+    );
+  }
+
+  @Delete('crew-hours/:id')
+  @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Permanently delete a crew hour log entry' })
+  @ApiParam({ name: 'id', description: 'Hour log UUID' })
+  @ApiResponse({ status: 200, description: 'Hour log deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Hour log not found' })
+  async delete(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.crewHourLogService.deleteHours(
+      req.user.tenant_id,
+      id,
+      req.user.id,
     );
   }
 }

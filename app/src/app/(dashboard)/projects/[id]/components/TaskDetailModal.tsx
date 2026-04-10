@@ -22,7 +22,7 @@ import { DatePicker } from '@/components/ui/DatePicker';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import {
   updateProjectTask,
@@ -236,12 +236,14 @@ export default function TaskDetailModal({
         </ModalActions>
       </Modal>
 
-      <DeleteConfirmationModal
+      <ConfirmModal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={() => onTaskDeleted(currentTask.id)}
         title="Delete Task"
         message={`Are you sure you want to delete "${currentTask.title}"? This action cannot be undone.`}
+        confirmText="Delete"
+        variant="danger"
       />
     </>
   );
