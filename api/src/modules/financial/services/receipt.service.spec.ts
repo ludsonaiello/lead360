@@ -55,7 +55,9 @@ function mockFinancialEntry(overrides: Partial<any> = {}) {
   };
 }
 
-function mockMulterFile(overrides: Partial<Express.Multer.File> = {}): Express.Multer.File {
+function mockMulterFile(
+  overrides: Partial<Express.Multer.File> = {},
+): Express.Multer.File {
   return {
     fieldname: 'file',
     originalname: 'receipt.jpg',
@@ -129,7 +131,11 @@ describe('ReceiptService', () => {
   describe('uploadReceipt()', () => {
     it('should upload a JPEG receipt and return formatted response', async () => {
       const file = mockMulterFile();
-      const dto = { project_id: PROJECT_ID, vendor_name: 'Home Depot', amount: 125.5 };
+      const dto = {
+        project_id: PROJECT_ID,
+        vendor_name: 'Home Depot',
+        amount: 125.5,
+      };
 
       mockFilesService.uploadFile.mockResolvedValue({
         file: {
@@ -146,7 +152,10 @@ describe('ReceiptService', () => {
         TENANT_ID,
         USER_ID,
         file,
-        expect.objectContaining({ category: 'receipt', entity_type: 'receipt' }),
+        expect.objectContaining({
+          category: 'receipt',
+          entity_type: 'receipt',
+        }),
       );
       expect(mockPrismaService.receipt.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -169,7 +178,10 @@ describe('ReceiptService', () => {
     });
 
     it('should resolve file_type = "pdf" for application/pdf', async () => {
-      const file = mockMulterFile({ mimetype: 'application/pdf', originalname: 'receipt.pdf' });
+      const file = mockMulterFile({
+        mimetype: 'application/pdf',
+        originalname: 'receipt.pdf',
+      });
       const dto = { project_id: PROJECT_ID };
 
       mockFilesService.uploadFile.mockResolvedValue({
@@ -272,9 +284,14 @@ describe('ReceiptService', () => {
         return [linkedReceipt, { ...entry, has_receipt: true }];
       });
 
-      const result = await service.linkReceiptToEntry(TENANT_ID, RECEIPT_ID, USER_ID, {
-        financial_entry_id: ENTRY_ID,
-      });
+      const result = await service.linkReceiptToEntry(
+        TENANT_ID,
+        RECEIPT_ID,
+        USER_ID,
+        {
+          financial_entry_id: ENTRY_ID,
+        },
+      );
 
       expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
       expect(result.financial_entry_id).toBe(ENTRY_ID);
@@ -301,7 +318,9 @@ describe('ReceiptService', () => {
     });
 
     it('should reject if financial entry not found', async () => {
-      mockPrismaService.receipt.findFirst.mockResolvedValue(mockReceiptRecord());
+      mockPrismaService.receipt.findFirst.mockResolvedValue(
+        mockReceiptRecord(),
+      );
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -353,11 +372,16 @@ describe('ReceiptService', () => {
       mockPrismaService.receipt.findFirst.mockResolvedValue(existing);
       mockPrismaService.receipt.update.mockResolvedValue(updated);
 
-      const result = await service.updateReceipt(TENANT_ID, RECEIPT_ID, USER_ID, {
-        vendor_name: 'Lowes',
-        amount: 200,
-        receipt_date: '2026-03-12',
-      });
+      const result = await service.updateReceipt(
+        TENANT_ID,
+        RECEIPT_ID,
+        USER_ID,
+        {
+          vendor_name: 'Lowes',
+          amount: 200,
+          receipt_date: '2026-03-12',
+        },
+      );
 
       expect(mockPrismaService.receipt.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -396,7 +420,9 @@ describe('ReceiptService', () => {
     });
 
     it('should support nullifying optional fields', async () => {
-      mockPrismaService.receipt.findFirst.mockResolvedValue(mockReceiptRecord());
+      mockPrismaService.receipt.findFirst.mockResolvedValue(
+        mockReceiptRecord(),
+      );
       mockPrismaService.receipt.update.mockResolvedValue(
         mockReceiptRecord({ vendor_name: null, amount: null }),
       );
@@ -419,7 +445,10 @@ describe('ReceiptService', () => {
 
   describe('getProjectReceipts()', () => {
     it('should return paginated receipts for a project', async () => {
-      const receipts = [mockReceiptRecord(), mockReceiptRecord({ id: 'receipt-2' })];
+      const receipts = [
+        mockReceiptRecord(),
+        mockReceiptRecord({ id: 'receipt-2' }),
+      ];
       mockPrismaService.receipt.findMany.mockResolvedValue(receipts);
       mockPrismaService.receipt.count.mockResolvedValue(2);
 
@@ -442,7 +471,9 @@ describe('ReceiptService', () => {
     });
 
     it('should filter by is_categorized = false', async () => {
-      mockPrismaService.receipt.findMany.mockResolvedValue([mockReceiptRecord()]);
+      mockPrismaService.receipt.findMany.mockResolvedValue([
+        mockReceiptRecord(),
+      ]);
       mockPrismaService.receipt.count.mockResolvedValue(1);
 
       await service.getProjectReceipts(TENANT_ID, {
@@ -461,9 +492,9 @@ describe('ReceiptService', () => {
     });
 
     it('should throw BadRequestException when neither project_id nor task_id provided', async () => {
-      await expect(
-        service.getProjectReceipts(TENANT_ID, {}),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.getProjectReceipts(TENANT_ID, {})).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should enforce max page limit of 100', async () => {
@@ -519,9 +550,9 @@ describe('ReceiptService', () => {
     it('should throw NotFoundException for unknown task (tenant isolation)', async () => {
       mockPrismaService.project_task.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getTaskReceipts(TENANT_ID, TASK_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getTaskReceipts(TENANT_ID, TASK_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -531,7 +562,9 @@ describe('ReceiptService', () => {
 
   describe('getReceiptById()', () => {
     it('should return a receipt belonging to the tenant', async () => {
-      mockPrismaService.receipt.findFirst.mockResolvedValue(mockReceiptRecord());
+      mockPrismaService.receipt.findFirst.mockResolvedValue(
+        mockReceiptRecord(),
+      );
 
       const result = await service.getReceiptById(TENANT_ID, RECEIPT_ID);
 

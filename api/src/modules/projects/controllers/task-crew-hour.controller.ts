@@ -35,9 +35,7 @@ import { CreateTaskCrewHourDto } from '../dto/create-task-crew-hour.dto';
 @Controller('projects/:projectId/tasks/:taskId')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class TaskCrewHourController {
-  constructor(
-    private readonly taskCrewHourService: TaskCrewHourService,
-  ) {}
+  constructor(private readonly taskCrewHourService: TaskCrewHourService) {}
 
   // -------------------------------------------------------------------------
   // POST /projects/:projectId/tasks/:taskId/crew-hours
@@ -54,10 +52,16 @@ export class TaskCrewHourController {
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'taskId', description: 'Task UUID' })
   @ApiResponse({ status: 201, description: 'Crew hours logged successfully' })
-  @ApiResponse({ status: 400, description: 'Validation error (e.g. hours_regular <= 0)' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error (e.g. hours_regular <= 0)',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
-  @ApiResponse({ status: 404, description: 'Project, task, or crew member not found' })
+  @ApiResponse({
+    status: 404,
+    description: 'Project, task, or crew member not found',
+  })
   async logCrewHours(
     @TenantId() tenantId: string,
     @CurrentUser('id') userId: string,
@@ -87,7 +91,10 @@ export class TaskCrewHourController {
   })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'taskId', description: 'Task UUID' })
-  @ApiResponse({ status: 200, description: 'List of crew hour logs for the task' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of crew hour logs for the task',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   @ApiResponse({ status: 404, description: 'Project or task not found' })
@@ -117,9 +124,7 @@ export class TaskCrewHourController {
 @Controller('crew')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CrewHourSummaryController {
-  constructor(
-    private readonly taskCrewHourService: TaskCrewHourService,
-  ) {}
+  constructor(private readonly taskCrewHourService: TaskCrewHourService) {}
 
   // -------------------------------------------------------------------------
   // GET /crew/:crewMemberId/hours

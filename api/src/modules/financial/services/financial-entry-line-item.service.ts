@@ -51,7 +51,10 @@ export class FinancialEntryLineItemService {
           'Access denied. You can only manage line items on your own entries.',
         );
       }
-      if (entry.submission_status !== 'pending_review' && entry.submission_status !== 'denied') {
+      if (
+        entry.submission_status !== 'pending_review' &&
+        entry.submission_status !== 'denied'
+      ) {
         throw new ForbiddenException(
           'Access denied. You can only manage line items on pending or denied entries.',
         );
@@ -107,7 +110,10 @@ export class FinancialEntryLineItemService {
     let resolvedUnitOfMeasure = dto.unit_of_measure ?? null;
 
     if (dto.supplier_product_id) {
-      const product = await this.resolveSupplierProduct(tenantId, dto.supplier_product_id);
+      const product = await this.resolveSupplierProduct(
+        tenantId,
+        dto.supplier_product_id,
+      );
       if (!dto.unit_of_measure && product.unit_of_measure) {
         resolvedUnitOfMeasure = product.unit_of_measure;
       }
@@ -210,23 +216,36 @@ export class FinancialEntryLineItemService {
     }
 
     // Validate supplier product if changed
-    if (dto.supplier_product_id !== undefined && dto.supplier_product_id !== null) {
+    if (
+      dto.supplier_product_id !== undefined &&
+      dto.supplier_product_id !== null
+    ) {
       await this.resolveSupplierProduct(tenantId, dto.supplier_product_id);
     }
 
     // Recompute total if quantity or unit_price changed
-    const resultingQty = dto.quantity !== undefined ? dto.quantity : Number(existing.quantity);
-    const resultingPrice = dto.unit_price !== undefined ? dto.unit_price : Number(existing.unit_price);
-    const needsRecompute = dto.quantity !== undefined || dto.unit_price !== undefined;
-    const total = needsRecompute ? this.computeTotal(resultingQty, resultingPrice) : undefined;
+    const resultingQty =
+      dto.quantity !== undefined ? dto.quantity : Number(existing.quantity);
+    const resultingPrice =
+      dto.unit_price !== undefined
+        ? dto.unit_price
+        : Number(existing.unit_price);
+    const needsRecompute =
+      dto.quantity !== undefined || dto.unit_price !== undefined;
+    const total = needsRecompute
+      ? this.computeTotal(resultingQty, resultingPrice)
+      : undefined;
 
     const data: any = {};
     if (dto.description !== undefined) data.description = dto.description;
     if (dto.quantity !== undefined) data.quantity = new Decimal(dto.quantity);
-    if (dto.unit_price !== undefined) data.unit_price = new Decimal(dto.unit_price);
+    if (dto.unit_price !== undefined)
+      data.unit_price = new Decimal(dto.unit_price);
     if (total !== undefined) data.total = new Decimal(total);
-    if (dto.unit_of_measure !== undefined) data.unit_of_measure = dto.unit_of_measure ?? null;
-    if (dto.supplier_product_id !== undefined) data.supplier_product_id = dto.supplier_product_id ?? null;
+    if (dto.unit_of_measure !== undefined)
+      data.unit_of_measure = dto.unit_of_measure ?? null;
+    if (dto.supplier_product_id !== undefined)
+      data.supplier_product_id = dto.supplier_product_id ?? null;
     if (dto.order_index !== undefined) data.order_index = dto.order_index;
     if (dto.notes !== undefined) data.notes = dto.notes ?? null;
 

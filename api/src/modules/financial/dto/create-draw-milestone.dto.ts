@@ -41,8 +41,7 @@ export class CreateDrawMilestoneDto {
   calculation_type: 'percentage' | 'fixed_amount';
 
   @ApiProperty({
-    description:
-      'Value — percentage (1-100) or fixed dollar amount',
+    description: 'Value — percentage (1-100) or fixed dollar amount',
     example: 50.0,
   })
   @IsNumber({ maxDecimalPlaces: 2 })

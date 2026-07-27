@@ -15,7 +15,11 @@ import {
 } from '../../leads/services/google-maps.service';
 import { CreateSupplierDto } from '../dto/create-supplier.dto';
 import { UpdateSupplierDto } from '../dto/update-supplier.dto';
-import { ListSuppliersDto, SupplierSortBy, SortOrder } from '../dto/list-suppliers.dto';
+import {
+  ListSuppliersDto,
+  SupplierSortBy,
+  SortOrder,
+} from '../dto/list-suppliers.dto';
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 
@@ -382,8 +386,7 @@ export class SupplierService {
       dto.latitude !== undefined ||
       dto.longitude !== undefined;
     const placeIdChanged =
-      dto.google_place_id &&
-      dto.google_place_id !== existing.google_place_id;
+      dto.google_place_id && dto.google_place_id !== existing.google_place_id;
 
     if (addressFieldsChanged || placeIdChanged) {
       try {
@@ -515,11 +518,7 @@ export class SupplierService {
   // SOFT DELETE
   // ---------------------------------------------------------------------------
 
-  async softDelete(
-    tenantId: string,
-    supplierId: string,
-    userId: string,
-  ) {
+  async softDelete(tenantId: string, supplierId: string, userId: string) {
     const supplier = await this.prisma.supplier.findFirst({
       where: { id: supplierId, tenant_id: tenantId },
     });
@@ -562,11 +561,7 @@ export class SupplierService {
    * Non-financial data (products, category assignments, price history) will be
    * cascade-deleted automatically by Prisma onDelete: Cascade.
    */
-  async hardDelete(
-    tenantId: string,
-    supplierId: string,
-    userId: string,
-  ) {
+  async hardDelete(tenantId: string, supplierId: string, userId: string) {
     const supplier = await this.prisma.supplier.findFirst({
       where: { id: supplierId, tenant_id: tenantId },
     });
@@ -588,7 +583,8 @@ export class SupplierService {
     if (entryCount > 0 || recurringCount > 0) {
       const references: string[] = [];
       if (entryCount > 0) references.push(`${entryCount} financial entry(ies)`);
-      if (recurringCount > 0) references.push(`${recurringCount} recurring rule(s)`);
+      if (recurringCount > 0)
+        references.push(`${recurringCount} recurring rule(s)`);
       throw new BadRequestException(
         `Cannot permanently delete: supplier is referenced by ${references.join(', ')}. Use soft delete instead.`,
       );

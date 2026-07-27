@@ -140,7 +140,12 @@ describe('ProjectTaskService', () => {
       mockPrisma.project.findFirst.mockResolvedValue(mockProject());
       mockPrisma.project_task.create.mockResolvedValue(mockTaskRecord());
 
-      const result = await service.create(TENANT_ID, PROJECT_ID, USER_ID, createDto);
+      const result = await service.create(
+        TENANT_ID,
+        PROJECT_ID,
+        USER_ID,
+        createDto,
+      );
 
       expect(result).toBeDefined();
       expect(result.id).toBe(TASK_ID);

@@ -1241,7 +1241,8 @@ export class TwilioWebhooksController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Twilio SIP status callback webhook (PUBLIC)',
-    description: 'Maps child DialCallSid to parent CallSid for multi-lingual support',
+    description:
+      'Maps child DialCallSid to parent CallSid for multi-lingual support',
   })
   @ApiExcludeEndpoint()
   async handleSipStatusCallback(@Body() body: any) {
@@ -1297,9 +1298,7 @@ export class TwilioWebhooksController {
           );
         }
       } catch (error: any) {
-        this.logger.error(
-          `Failed to store call SID mapping: ${error.message}`,
-        );
+        this.logger.error(`Failed to store call SID mapping: ${error.message}`);
         // Don't throw - mapping failure shouldn't block the call
         // Voice agent will fall back to default profile if mapping missing
       }

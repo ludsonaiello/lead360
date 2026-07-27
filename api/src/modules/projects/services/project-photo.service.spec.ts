@@ -144,7 +144,10 @@ describe('ProjectPhotoService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: AuditLoggerService, useValue: mockAuditLoggerService },
         { provide: FilesService, useValue: mockFilesService },
-        { provide: ProjectActivityService, useValue: mockProjectActivityService },
+        {
+          provide: ProjectActivityService,
+          useValue: mockProjectActivityService,
+        },
       ],
     }).compile();
 
@@ -290,7 +293,9 @@ describe('ProjectPhotoService', () => {
       mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
       mockFilesService.uploadFile.mockResolvedValue(mockUploadResult());
       mockPrismaService.file.findFirst.mockResolvedValue(mockFileRecord());
-      mockPrismaService.project_photo.create.mockResolvedValue(mockPhoto({ is_public: false }));
+      mockPrismaService.project_photo.create.mockResolvedValue(
+        mockPhoto({ is_public: false }),
+      );
 
       await service.upload(TENANT_A, PROJECT_ID, USER_ID, mockFile(), {});
 
@@ -396,9 +401,9 @@ describe('ProjectPhotoService', () => {
     it('should throw NotFoundException when project does not exist', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.findAll(TENANT_A, PROJECT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findAll(TENANT_A, PROJECT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should format taken_at as YYYY-MM-DD string', async () => {
@@ -758,9 +763,9 @@ describe('ProjectPhotoService', () => {
     it('should throw NotFoundException for nonexistent project', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getTimeline(TENANT_A, PROJECT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getTimeline(TENANT_A, PROJECT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should include relations in Prisma query', async () => {
@@ -856,13 +861,7 @@ describe('ProjectPhotoService', () => {
       mockPrismaService.file.findFirst.mockResolvedValue(mockFileRecord());
       mockPrismaService.project_photo.create.mockResolvedValue(mockPhoto());
 
-      await service.batchUpload(
-        TENANT_A,
-        PROJECT_ID,
-        USER_ID,
-        mockFiles(),
-        {},
-      );
+      await service.batchUpload(TENANT_A, PROJECT_ID, USER_ID, mockFiles(), {});
 
       expect(mockFilesService.uploadFile).toHaveBeenCalledTimes(2);
     });
@@ -883,13 +882,7 @@ describe('ProjectPhotoService', () => {
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.batchUpload(
-          TENANT_A,
-          PROJECT_ID,
-          USER_ID,
-          mockFiles(),
-          {},
-        ),
+        service.batchUpload(TENANT_A, PROJECT_ID, USER_ID, mockFiles(), {}),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -910,13 +903,7 @@ describe('ProjectPhotoService', () => {
       mockPrismaService.file.findFirst.mockResolvedValue(mockFileRecord());
       mockPrismaService.project_photo.create.mockResolvedValue(mockPhoto());
 
-      await service.batchUpload(
-        TENANT_A,
-        PROJECT_ID,
-        USER_ID,
-        mockFiles(),
-        {},
-      );
+      await service.batchUpload(TENANT_A, PROJECT_ID, USER_ID, mockFiles(), {});
 
       expect(mockAuditLoggerService.logTenantChange).toHaveBeenCalledTimes(2);
       expect(mockAuditLoggerService.logTenantChange).toHaveBeenCalledWith(
@@ -934,13 +921,7 @@ describe('ProjectPhotoService', () => {
       mockPrismaService.file.findFirst.mockResolvedValue(mockFileRecord());
       mockPrismaService.project_photo.create.mockResolvedValue(mockPhoto());
 
-      await service.batchUpload(
-        TENANT_A,
-        PROJECT_ID,
-        USER_ID,
-        mockFiles(),
-        {},
-      );
+      await service.batchUpload(TENANT_A, PROJECT_ID, USER_ID, mockFiles(), {});
 
       expect(mockProjectActivityService.logActivity).toHaveBeenCalledWith(
         TENANT_A,
@@ -961,17 +942,11 @@ describe('ProjectPhotoService', () => {
         mockPhoto({ task_id: TASK_ID, is_public: true }),
       );
 
-      await service.batchUpload(
-        TENANT_A,
-        PROJECT_ID,
-        USER_ID,
-        mockFiles(),
-        {
-          task_id: TASK_ID,
-          is_public: true,
-          taken_at: '2026-03-10',
-        },
-      );
+      await service.batchUpload(TENANT_A, PROJECT_ID, USER_ID, mockFiles(), {
+        task_id: TASK_ID,
+        is_public: true,
+        taken_at: '2026-03-10',
+      });
 
       // Both create calls should have the same metadata
       expect(mockPrismaService.project_photo.create).toHaveBeenCalledTimes(2);
@@ -1037,9 +1012,9 @@ describe('ProjectPhotoService', () => {
     it('getTimeline: rejects project from another tenant', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getTimeline(TENANT_B, PROJECT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getTimeline(TENANT_B, PROJECT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
 
       expect(mockPrismaService.project.findFirst).toHaveBeenCalledWith({
         where: { id: PROJECT_ID, tenant_id: TENANT_B },

@@ -1,8 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { ProjectInvoiceService } from './project-invoice.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
@@ -141,7 +138,9 @@ describe('ProjectInvoiceService', () => {
       mockPrismaService.project_invoice.findFirst.mockResolvedValue(invoice);
 
       const createdPayment = mockPayment({ amount: 5000 });
-      mockPrismaService.project_invoice_payment.create.mockResolvedValue(createdPayment);
+      mockPrismaService.project_invoice_payment.create.mockResolvedValue(
+        createdPayment,
+      );
       mockPrismaService.project_invoice.update.mockResolvedValue(undefined);
 
       const result = await service.recordPayment(
@@ -159,7 +158,9 @@ describe('ProjectInvoiceService', () => {
       expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
 
       // Verify payment record created
-      expect(mockPrismaService.project_invoice_payment.create).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.project_invoice_payment.create,
+      ).toHaveBeenCalledWith({
         data: expect.objectContaining({
           tenant_id: TENANT_ID,
           invoice_id: INVOICE_ID,
@@ -192,20 +193,16 @@ describe('ProjectInvoiceService', () => {
       mockPrismaService.project_invoice.findFirst.mockResolvedValue(invoice);
 
       const createdPayment = mockPayment({ amount: 5000 });
-      mockPrismaService.project_invoice_payment.create.mockResolvedValue(createdPayment);
+      mockPrismaService.project_invoice_payment.create.mockResolvedValue(
+        createdPayment,
+      );
       mockPrismaService.project_invoice.update.mockResolvedValue(undefined);
 
-      await service.recordPayment(
-        TENANT_ID,
-        PROJECT_ID,
-        INVOICE_ID,
-        USER_ID,
-        {
-          amount: 5000,
-          payment_date: '2026-03-20',
-          payment_method: 'bank_transfer',
-        },
-      );
+      await service.recordPayment(TENANT_ID, PROJECT_ID, INVOICE_ID, USER_ID, {
+        amount: 5000,
+        payment_date: '2026-03-20',
+        payment_method: 'bank_transfer',
+      });
 
       // Verify invoice updated: amount_paid=10000, amount_due=0, status=paid, paid_at set
       expect(mockPrismaService.project_invoice.update).toHaveBeenCalledWith({
@@ -230,24 +227,24 @@ describe('ProjectInvoiceService', () => {
       mockPrismaService.project_invoice.findFirst.mockResolvedValue(invoice);
 
       const createdPayment = mockPayment({ amount: 10000 });
-      mockPrismaService.project_invoice_payment.create.mockResolvedValue(createdPayment);
+      mockPrismaService.project_invoice_payment.create.mockResolvedValue(
+        createdPayment,
+      );
       mockPrismaService.project_invoice.update.mockResolvedValue(undefined);
-      mockPrismaService.project_draw_milestone.update.mockResolvedValue(undefined);
-
-      await service.recordPayment(
-        TENANT_ID,
-        PROJECT_ID,
-        INVOICE_ID,
-        USER_ID,
-        {
-          amount: 10000,
-          payment_date: '2026-03-20',
-          payment_method: 'cash',
-        },
+      mockPrismaService.project_draw_milestone.update.mockResolvedValue(
+        undefined,
       );
 
+      await service.recordPayment(TENANT_ID, PROJECT_ID, INVOICE_ID, USER_ID, {
+        amount: 10000,
+        payment_date: '2026-03-20',
+        payment_method: 'cash',
+      });
+
       // Verify milestone updated to paid
-      expect(mockPrismaService.project_draw_milestone.update).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.project_draw_milestone.update,
+      ).toHaveBeenCalledWith({
         where: { id: MILESTONE_ID },
         data: {
           status: 'paid',
@@ -267,20 +264,16 @@ describe('ProjectInvoiceService', () => {
       mockPrismaService.project_invoice.findFirst.mockResolvedValue(invoice);
 
       const createdPayment = mockPayment({ amount: 5000 });
-      mockPrismaService.project_invoice_payment.create.mockResolvedValue(createdPayment);
+      mockPrismaService.project_invoice_payment.create.mockResolvedValue(
+        createdPayment,
+      );
       mockPrismaService.project_invoice.update.mockResolvedValue(undefined);
 
-      await service.recordPayment(
-        TENANT_ID,
-        PROJECT_ID,
-        INVOICE_ID,
-        USER_ID,
-        {
-          amount: 5000,
-          payment_date: '2026-03-20',
-          payment_method: 'zelle',
-        },
-      );
+      await service.recordPayment(TENANT_ID, PROJECT_ID, INVOICE_ID, USER_ID, {
+        amount: 5000,
+        payment_date: '2026-03-20',
+        payment_method: 'zelle',
+      });
 
       // Invoice should be paid
       expect(mockPrismaService.project_invoice.update).toHaveBeenCalledWith({
@@ -289,7 +282,9 @@ describe('ProjectInvoiceService', () => {
       });
 
       // Milestone should NOT be touched
-      expect(mockPrismaService.project_draw_milestone.update).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.project_draw_milestone.update,
+      ).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException for overpayment', async () => {
@@ -348,20 +343,16 @@ describe('ProjectInvoiceService', () => {
       mockPrismaService.project_invoice.findFirst.mockResolvedValue(invoice);
 
       const createdPayment = mockPayment({ amount: 10500 });
-      mockPrismaService.project_invoice_payment.create.mockResolvedValue(createdPayment);
+      mockPrismaService.project_invoice_payment.create.mockResolvedValue(
+        createdPayment,
+      );
       mockPrismaService.project_invoice.update.mockResolvedValue(undefined);
 
-      await service.recordPayment(
-        TENANT_ID,
-        PROJECT_ID,
-        INVOICE_ID,
-        USER_ID,
-        {
-          amount: 10500,
-          payment_date: '2026-03-20',
-          payment_method: 'bank_transfer',
-        },
-      );
+      await service.recordPayment(TENANT_ID, PROJECT_ID, INVOICE_ID, USER_ID, {
+        amount: 10500,
+        payment_date: '2026-03-20',
+        payment_method: 'bank_transfer',
+      });
 
       // amount + tax_amount - amount_paid = 10000 + 500 - 10500 = 0
       expect(mockPrismaService.project_invoice.update).toHaveBeenCalledWith({
@@ -393,7 +384,9 @@ describe('ProjectInvoiceService', () => {
         voided_reason: 'Customer cancelled',
       });
       mockPrismaService.project_invoice.update.mockResolvedValue(voidedInvoice);
-      mockPrismaService.project_draw_milestone.update.mockResolvedValue(undefined);
+      mockPrismaService.project_draw_milestone.update.mockResolvedValue(
+        undefined,
+      );
 
       const result = await service.voidInvoice(
         TENANT_ID,
@@ -416,7 +409,9 @@ describe('ProjectInvoiceService', () => {
       });
 
       // Verify milestone reset to pending
-      expect(mockPrismaService.project_draw_milestone.update).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.project_draw_milestone.update,
+      ).toHaveBeenCalledWith({
         where: { id: MILESTONE_ID },
         data: {
           status: 'pending',
@@ -463,16 +458,14 @@ describe('ProjectInvoiceService', () => {
       });
       mockPrismaService.project_invoice.update.mockResolvedValue(voidedInvoice);
 
-      await service.voidInvoice(
-        TENANT_ID,
-        PROJECT_ID,
-        INVOICE_ID,
-        USER_ID,
-        { voided_reason: 'Wrong amount' },
-      );
+      await service.voidInvoice(TENANT_ID, PROJECT_ID, INVOICE_ID, USER_ID, {
+        voided_reason: 'Wrong amount',
+      });
 
       // Milestone should NOT be touched
-      expect(mockPrismaService.project_draw_milestone.update).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.project_draw_milestone.update,
+      ).not.toHaveBeenCalled();
 
       // Audit metadata shows milestone_reset: false
       expect(mockAuditLoggerService.logTenantChange).toHaveBeenCalledWith(
@@ -577,7 +570,9 @@ describe('ProjectInvoiceService', () => {
         tax_amount: 500,
         amount_due: 15500,
       });
-      mockPrismaService.project_invoice.update.mockResolvedValue(updatedInvoice);
+      mockPrismaService.project_invoice.update.mockResolvedValue(
+        updatedInvoice,
+      );
 
       const result = await service.update(
         TENANT_ID,
@@ -614,15 +609,13 @@ describe('ProjectInvoiceService', () => {
         tax_amount: 1000,
         amount_due: 11000,
       });
-      mockPrismaService.project_invoice.update.mockResolvedValue(updatedInvoice);
-
-      await service.update(
-        TENANT_ID,
-        PROJECT_ID,
-        INVOICE_ID,
-        USER_ID,
-        { tax_amount: 1000 },
+      mockPrismaService.project_invoice.update.mockResolvedValue(
+        updatedInvoice,
       );
+
+      await service.update(TENANT_ID, PROJECT_ID, INVOICE_ID, USER_ID, {
+        tax_amount: 1000,
+      });
 
       // amount_due recomputed: 10000 + 1000 - 0 = 11000
       expect(mockPrismaService.project_invoice.update).toHaveBeenCalledWith({
@@ -668,18 +661,17 @@ describe('ProjectInvoiceService', () => {
         status: 'draft',
         description: 'New description',
       });
-      mockPrismaService.project_invoice.update.mockResolvedValue(updatedInvoice);
-
-      await service.update(
-        TENANT_ID,
-        PROJECT_ID,
-        INVOICE_ID,
-        USER_ID,
-        { description: 'New description' },
+      mockPrismaService.project_invoice.update.mockResolvedValue(
+        updatedInvoice,
       );
 
+      await service.update(TENANT_ID, PROJECT_ID, INVOICE_ID, USER_ID, {
+        description: 'New description',
+      });
+
       // amount_due should NOT be in the update data (no amount/tax change)
-      const updateCall = mockPrismaService.project_invoice.update.mock.calls[0][0];
+      const updateCall =
+        mockPrismaService.project_invoice.update.mock.calls[0][0];
       expect(updateCall.data.description).toBe('New description');
       expect(updateCall.data.amount_due).toBeUndefined();
     });
@@ -700,17 +692,14 @@ describe('ProjectInvoiceService', () => {
         amount_due: 5000,
         invoice_number: 'INV-0001',
       });
-      mockPrismaService.project_invoice.create.mockResolvedValue(createdInvoice);
-
-      const result = await service.create(
-        TENANT_ID,
-        PROJECT_ID,
-        USER_ID,
-        {
-          description: 'Manual invoice',
-          amount: 5000,
-        },
+      mockPrismaService.project_invoice.create.mockResolvedValue(
+        createdInvoice,
       );
+
+      const result = await service.create(TENANT_ID, PROJECT_ID, USER_ID, {
+        description: 'Manual invoice',
+        amount: 5000,
+      });
 
       expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
       expect(mockInvoiceNumberGeneratorService.generate).toHaveBeenCalledWith(
@@ -743,18 +732,15 @@ describe('ProjectInvoiceService', () => {
         tax_amount: 250,
         amount_due: 5250,
       });
-      mockPrismaService.project_invoice.create.mockResolvedValue(createdInvoice);
-
-      const result = await service.create(
-        TENANT_ID,
-        PROJECT_ID,
-        USER_ID,
-        {
-          description: 'Invoice with tax',
-          amount: 5000,
-          tax_amount: 250,
-        },
+      mockPrismaService.project_invoice.create.mockResolvedValue(
+        createdInvoice,
       );
+
+      const result = await service.create(TENANT_ID, PROJECT_ID, USER_ID, {
+        description: 'Invoice with tax',
+        amount: 5000,
+        tax_amount: 250,
+      });
 
       expect(mockPrismaService.project_invoice.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -780,13 +766,25 @@ describe('ProjectInvoiceService', () => {
 
       const payments = [
         mockPayment({ amount: 3000, payment_date: new Date('2026-03-15') }),
-        mockPayment({ id: 'p-2', amount: 2000, payment_date: new Date('2026-03-20') }),
+        mockPayment({
+          id: 'p-2',
+          amount: 2000,
+          payment_date: new Date('2026-03-20'),
+        }),
       ];
-      mockPrismaService.project_invoice_payment.findMany.mockResolvedValue(payments);
+      mockPrismaService.project_invoice_payment.findMany.mockResolvedValue(
+        payments,
+      );
 
-      const result = await service.getPayments(TENANT_ID, PROJECT_ID, INVOICE_ID);
+      const result = await service.getPayments(
+        TENANT_ID,
+        PROJECT_ID,
+        INVOICE_ID,
+      );
 
-      expect(mockPrismaService.project_invoice_payment.findMany).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.project_invoice_payment.findMany,
+      ).toHaveBeenCalledWith({
         where: { invoice_id: INVOICE_ID, tenant_id: TENANT_ID },
         orderBy: { payment_date: 'asc' },
       });

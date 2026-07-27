@@ -50,10 +50,7 @@ export class ProjectActivityService {
    * If the activity_type is not in the allowed list, the record is still
    * created but a warning is logged.
    */
-  async logActivity(
-    tenantId: string,
-    data: LogActivityData,
-  ): Promise<any> {
+  async logActivity(tenantId: string, data: LogActivityData): Promise<any> {
     if (!ALLOWED_ACTIVITY_TYPES.includes(data.activity_type as any)) {
       this.logger.warn(
         `Unknown activity_type "${data.activity_type}" for project ${data.project_id}. Recording anyway.`,

@@ -179,8 +179,13 @@ const mockSupplierService = {
  * Returns the mock enriched entry record that the create mock will return.
  */
 const setupCreateEntryMocks = (overrides: any = {}) => {
-  mockPrismaService.financial_category.findFirst.mockResolvedValue(mockCategory());
-  mockPrismaService.project.findFirst.mockResolvedValue({ id: PROJECT_ID, tenant_id: TENANT_ID });
+  mockPrismaService.financial_category.findFirst.mockResolvedValue(
+    mockCategory(),
+  );
+  mockPrismaService.project.findFirst.mockResolvedValue({
+    id: PROJECT_ID,
+    tenant_id: TENANT_ID,
+  });
   const entry = mockEnrichedEntryRecord(overrides);
   mockPrismaService.financial_entry.create.mockResolvedValue(entry);
   return entry;
@@ -236,15 +241,25 @@ describe('FinancialEntryService', () => {
           tenant_id: TENANT_ID,
         },
         include: {
-          category: { select: { id: true, name: true, type: true, classification: true } },
+          category: {
+            select: { id: true, name: true, type: true, classification: true },
+          },
           project: { select: { id: true, name: true } },
           task: { select: { id: true, title: true } },
           supplier: { select: { id: true, name: true } },
           payment_method_registry_rel: { select: { id: true, nickname: true } },
-          purchased_by_user: { select: { id: true, first_name: true, last_name: true } },
-          purchased_by_crew_member: { select: { id: true, first_name: true, last_name: true } },
-          created_by: { select: { id: true, first_name: true, last_name: true } },
-          rejected_by: { select: { id: true, first_name: true, last_name: true } },
+          purchased_by_user: {
+            select: { id: true, first_name: true, last_name: true },
+          },
+          purchased_by_crew_member: {
+            select: { id: true, first_name: true, last_name: true },
+          },
+          created_by: {
+            select: { id: true, first_name: true, last_name: true },
+          },
+          rejected_by: {
+            select: { id: true, first_name: true, last_name: true },
+          },
           line_items: {
             select: {
               id: true,
@@ -281,12 +296,14 @@ describe('FinancialEntryService', () => {
         purchased_by_user: mockUser(),
         purchased_by_crew_member_id: CREW_MEMBER_ID,
         purchased_by_crew_member: mockCrewMember(),
-        tax_amount: 35.50,
+        tax_amount: 35.5,
         payment_method: 'credit_card',
       });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(entry);
 
-      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, ['Owner']);
+      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, [
+        'Owner',
+      ]);
 
       expect(result.id).toBe(ENTRY_ID);
       expect(result.tenant_id).toBe(TENANT_ID);
@@ -323,7 +340,9 @@ describe('FinancialEntryService', () => {
       });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(entry);
 
-      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, ['Owner']);
+      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, [
+        'Owner',
+      ]);
 
       expect(result.project_name).toBeNull();
       expect(result.task_title).toBeNull();
@@ -340,42 +359,63 @@ describe('FinancialEntryService', () => {
 
   describe('isPrivilegedRole() — via getEntryById()', () => {
     it('should allow Owner to view any entry', async () => {
-      const entry = mockEnrichedEntryRecord({ created_by_user_id: OTHER_USER_ID });
+      const entry = mockEnrichedEntryRecord({
+        created_by_user_id: OTHER_USER_ID,
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(entry);
 
-      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, ['Owner']);
+      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, [
+        'Owner',
+      ]);
       expect(result.id).toBe(ENTRY_ID);
     });
 
     it('should allow Admin to view any entry', async () => {
-      const entry = mockEnrichedEntryRecord({ created_by_user_id: OTHER_USER_ID });
+      const entry = mockEnrichedEntryRecord({
+        created_by_user_id: OTHER_USER_ID,
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(entry);
 
-      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, ['Admin']);
+      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, [
+        'Admin',
+      ]);
       expect(result.id).toBe(ENTRY_ID);
     });
 
     it('should allow Manager to view any entry', async () => {
-      const entry = mockEnrichedEntryRecord({ created_by_user_id: OTHER_USER_ID });
+      const entry = mockEnrichedEntryRecord({
+        created_by_user_id: OTHER_USER_ID,
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(entry);
 
-      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, ['Manager']);
+      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, [
+        'Manager',
+      ]);
       expect(result.id).toBe(ENTRY_ID);
     });
 
     it('should allow Bookkeeper to view any entry', async () => {
-      const entry = mockEnrichedEntryRecord({ created_by_user_id: OTHER_USER_ID });
+      const entry = mockEnrichedEntryRecord({
+        created_by_user_id: OTHER_USER_ID,
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(entry);
 
-      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, ['Bookkeeper']);
+      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, [
+        'Bookkeeper',
+      ]);
       expect(result.id).toBe(ENTRY_ID);
     });
 
     it('should allow user with multiple roles including a privileged one', async () => {
-      const entry = mockEnrichedEntryRecord({ created_by_user_id: OTHER_USER_ID });
+      const entry = mockEnrichedEntryRecord({
+        created_by_user_id: OTHER_USER_ID,
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(entry);
 
-      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, ['Employee', 'Manager']);
+      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, [
+        'Employee',
+        'Manager',
+      ]);
       expect(result.id).toBe(ENTRY_ID);
     });
   });
@@ -421,10 +461,14 @@ describe('FinancialEntryService', () => {
 
   describe('getEntryById() — Sprint 4_3 rebuild', () => {
     it('should return enriched response for privileged user viewing any entry', async () => {
-      const entry = mockEnrichedEntryRecord({ created_by_user_id: OTHER_USER_ID });
+      const entry = mockEnrichedEntryRecord({
+        created_by_user_id: OTHER_USER_ID,
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(entry);
 
-      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, ['Owner']);
+      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, [
+        'Owner',
+      ]);
 
       expect(result.id).toBe(ENTRY_ID);
       expect(result.created_by_name).toBe('John Doe');
@@ -435,13 +479,17 @@ describe('FinancialEntryService', () => {
       const entry = mockEnrichedEntryRecord({ created_by_user_id: USER_ID });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(entry);
 
-      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, ['Employee']);
+      const result = await service.getEntryById(TENANT_ID, ENTRY_ID, USER_ID, [
+        'Employee',
+      ]);
 
       expect(result.id).toBe(ENTRY_ID);
     });
 
-    it('should throw ForbiddenException when Employee tries to view another user\'s entry', async () => {
-      const entry = mockEnrichedEntryRecord({ created_by_user_id: OTHER_USER_ID });
+    it("should throw ForbiddenException when Employee tries to view another user's entry", async () => {
+      const entry = mockEnrichedEntryRecord({
+        created_by_user_id: OTHER_USER_ID,
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(entry);
 
       await expect(
@@ -473,8 +521,8 @@ describe('FinancialEntryService', () => {
       mockPrismaService.financial_entry.findMany.mockResolvedValue(entries);
       mockPrismaService.financial_entry.count.mockResolvedValue(total);
       mockPrismaService.financial_entry.aggregate
-        .mockResolvedValueOnce({ _sum: { amount: 500 } })   // expense sum
-        .mockResolvedValueOnce({ _sum: { amount: 200 } })   // income sum
+        .mockResolvedValueOnce({ _sum: { amount: 500 } }) // expense sum
+        .mockResolvedValueOnce({ _sum: { amount: 200 } }) // income sum
         .mockResolvedValueOnce({ _sum: { tax_amount: 40 } }); // tax sum
     };
 
@@ -498,16 +546,23 @@ describe('FinancialEntryService', () => {
 
       await service.getEntries(TENANT_ID, USER_ID, ['Owner'], defaultQuery);
 
-      const callArgs = mockPrismaService.financial_entry.findMany.mock.calls[0][0];
+      const callArgs =
+        mockPrismaService.financial_entry.findMany.mock.calls[0][0];
       expect(callArgs.where).not.toHaveProperty('created_by_user_id');
     });
 
     it('should NOT add created_by_user_id filter for Bookkeeper', async () => {
       setupGetEntriesMocks();
 
-      await service.getEntries(TENANT_ID, USER_ID, ['Bookkeeper'], defaultQuery);
+      await service.getEntries(
+        TENANT_ID,
+        USER_ID,
+        ['Bookkeeper'],
+        defaultQuery,
+      );
 
-      const callArgs = mockPrismaService.financial_entry.findMany.mock.calls[0][0];
+      const callArgs =
+        mockPrismaService.financial_entry.findMany.mock.calls[0][0];
       expect(callArgs.where).not.toHaveProperty('created_by_user_id');
     });
 
@@ -516,7 +571,8 @@ describe('FinancialEntryService', () => {
 
       await service.getEntries(TENANT_ID, USER_ID, MANAGER_ROLES, defaultQuery);
 
-      const callArgs = mockPrismaService.financial_entry.findMany.mock.calls[0][0];
+      const callArgs =
+        mockPrismaService.financial_entry.findMany.mock.calls[0][0];
       expect(callArgs.where).not.toHaveProperty('created_by_user_id');
     });
 
@@ -701,7 +757,9 @@ describe('FinancialEntryService', () => {
       expect(mockPrismaService.financial_entry.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            category: expect.objectContaining({ classification: 'operating_expense' }),
+            category: expect.objectContaining({
+              classification: 'operating_expense',
+            }),
           }),
         }),
       );
@@ -885,7 +943,12 @@ describe('FinancialEntryService', () => {
     it('should return summary block with aggregated totals from full result set', async () => {
       setupGetEntriesMocks([], 10);
 
-      const result = await service.getEntries(TENANT_ID, USER_ID, ['Owner'], defaultQuery);
+      const result = await service.getEntries(
+        TENANT_ID,
+        USER_ID,
+        ['Owner'],
+        defaultQuery,
+      );
 
       expect(result.summary).toEqual({
         total_expenses: 500,
@@ -895,7 +958,9 @@ describe('FinancialEntryService', () => {
       });
 
       // Verify aggregate calls use the same where filter (not paginated)
-      expect(mockPrismaService.financial_entry.aggregate).toHaveBeenCalledTimes(3);
+      expect(mockPrismaService.financial_entry.aggregate).toHaveBeenCalledTimes(
+        3,
+      );
     });
 
     it('should return enriched response data for each entry', async () => {
@@ -907,7 +972,12 @@ describe('FinancialEntryService', () => {
         .mockResolvedValueOnce({ _sum: { amount: null } })
         .mockResolvedValueOnce({ _sum: { tax_amount: null } });
 
-      const result = await service.getEntries(TENANT_ID, USER_ID, ['Owner'], defaultQuery);
+      const result = await service.getEntries(
+        TENANT_ID,
+        USER_ID,
+        ['Owner'],
+        defaultQuery,
+      );
 
       expect(result.data[0].project_name).toBe('Kitchen Remodel');
       expect(result.data[0].category_name).toBe('Materials');
@@ -922,7 +992,12 @@ describe('FinancialEntryService', () => {
         .mockResolvedValueOnce({ _sum: { amount: null } })
         .mockResolvedValueOnce({ _sum: { tax_amount: null } });
 
-      const result = await service.getEntries(TENANT_ID, USER_ID, ['Owner'], defaultQuery);
+      const result = await service.getEntries(
+        TENANT_ID,
+        USER_ID,
+        ['Owner'],
+        defaultQuery,
+      );
 
       expect(result.data).toEqual([]);
       expect(result.meta.total).toBe(0);
@@ -1018,7 +1093,10 @@ describe('FinancialEntryService', () => {
     it('should return enriched response with summary block', async () => {
       setupPendingMocks([], 5);
 
-      const result = await service.getPendingEntries(TENANT_ID, { page: 1, limit: 20 });
+      const result = await service.getPendingEntries(TENANT_ID, {
+        page: 1,
+        limit: 20,
+      });
 
       expect(result.summary).toEqual({
         total_expenses: 300,
@@ -1044,7 +1122,10 @@ describe('FinancialEntryService', () => {
     it('should calculate pagination correctly', async () => {
       setupPendingMocks([], 30);
 
-      const result = await service.getPendingEntries(TENANT_ID, { page: 2, limit: 10 });
+      const result = await service.getPendingEntries(TENANT_ID, {
+        page: 2,
+        limit: 10,
+      });
 
       expect(mockPrismaService.financial_entry.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1076,7 +1157,10 @@ describe('FinancialEntryService', () => {
     it('should always include tenant_id in where clause', async () => {
       setupPendingMocks();
 
-      await service.getPendingEntries('different-tenant', { page: 1, limit: 20 });
+      await service.getPendingEntries('different-tenant', {
+        page: 1,
+        limit: 20,
+      });
 
       expect(mockPrismaService.financial_entry.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1118,7 +1202,12 @@ describe('FinancialEntryService', () => {
     it('should force submission_status to pending_review for Employee role', async () => {
       setupCreateEntryMocks({ submission_status: 'pending_review' });
 
-      await service.createEntry(TENANT_ID, USER_ID, EMPLOYEE_ROLES, baseCreateDto);
+      await service.createEntry(
+        TENANT_ID,
+        USER_ID,
+        EMPLOYEE_ROLES,
+        baseCreateDto,
+      );
 
       expect(mockPrismaService.financial_entry.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1160,7 +1249,12 @@ describe('FinancialEntryService', () => {
     it('should default submission_status to confirmed for Manager role', async () => {
       setupCreateEntryMocks();
 
-      await service.createEntry(TENANT_ID, USER_ID, MANAGER_ROLES, baseCreateDto);
+      await service.createEntry(
+        TENANT_ID,
+        USER_ID,
+        MANAGER_ROLES,
+        baseCreateDto,
+      );
 
       expect(mockPrismaService.financial_entry.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1174,7 +1268,12 @@ describe('FinancialEntryService', () => {
     it('should default submission_status to confirmed for Bookkeeper role', async () => {
       setupCreateEntryMocks();
 
-      await service.createEntry(TENANT_ID, USER_ID, BOOKKEEPER_ROLES, baseCreateDto);
+      await service.createEntry(
+        TENANT_ID,
+        USER_ID,
+        BOOKKEEPER_ROLES,
+        baseCreateDto,
+      );
 
       expect(mockPrismaService.financial_entry.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1226,8 +1325,13 @@ describe('FinancialEntryService', () => {
 
   describe('createEntry() — Validation', () => {
     it('should throw 400 when both purchased_by_user_id and purchased_by_crew_member_id provided', async () => {
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(mockCategory());
-      mockPrismaService.project.findFirst.mockResolvedValue({ id: PROJECT_ID, tenant_id: TENANT_ID });
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        mockCategory(),
+      );
+      mockPrismaService.project.findFirst.mockResolvedValue({
+        id: PROJECT_ID,
+        tenant_id: TENANT_ID,
+      });
 
       await expect(
         service.createEntry(TENANT_ID, USER_ID, OWNER_ROLES, {
@@ -1243,12 +1347,19 @@ describe('FinancialEntryService', () => {
           purchased_by_user_id: USER_ID,
           purchased_by_crew_member_id: CREW_MEMBER_ID,
         }),
-      ).rejects.toThrow('Cannot assign purchase to both a user and a crew member.');
+      ).rejects.toThrow(
+        'Cannot assign purchase to both a user and a crew member.',
+      );
     });
 
     it('should throw 400 when tax_amount >= amount', async () => {
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(mockCategory());
-      mockPrismaService.project.findFirst.mockResolvedValue({ id: PROJECT_ID, tenant_id: TENANT_ID });
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        mockCategory(),
+      );
+      mockPrismaService.project.findFirst.mockResolvedValue({
+        id: PROJECT_ID,
+        tenant_id: TENANT_ID,
+      });
 
       await expect(
         service.createEntry(TENANT_ID, USER_ID, OWNER_ROLES, {
@@ -1282,7 +1393,9 @@ describe('FinancialEntryService', () => {
     });
 
     it('should throw 404 when project_id not found in tenant', async () => {
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(mockCategory());
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        mockCategory(),
+      );
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -1297,8 +1410,13 @@ describe('FinancialEntryService', () => {
     });
 
     it('should throw 404 when task_id not found in tenant', async () => {
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(mockCategory());
-      mockPrismaService.project.findFirst.mockResolvedValue({ id: PROJECT_ID, tenant_id: TENANT_ID });
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        mockCategory(),
+      );
+      mockPrismaService.project.findFirst.mockResolvedValue({
+        id: PROJECT_ID,
+        tenant_id: TENANT_ID,
+      });
       mockPrismaService.project_task.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -1317,8 +1435,13 @@ describe('FinancialEntryService', () => {
     });
 
     it('should throw 404 when supplier_id not found or inactive', async () => {
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(mockCategory());
-      mockPrismaService.project.findFirst.mockResolvedValue({ id: PROJECT_ID, tenant_id: TENANT_ID });
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        mockCategory(),
+      );
+      mockPrismaService.project.findFirst.mockResolvedValue({
+        id: PROJECT_ID,
+        tenant_id: TENANT_ID,
+      });
       mockPrismaService.supplier.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -1337,9 +1460,16 @@ describe('FinancialEntryService', () => {
     });
 
     it('should throw 404 when payment_method_registry_id not found or inactive', async () => {
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(mockCategory());
-      mockPrismaService.project.findFirst.mockResolvedValue({ id: PROJECT_ID, tenant_id: TENANT_ID });
-      mockPrismaService.payment_method_registry.findFirst.mockResolvedValue(null);
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        mockCategory(),
+      );
+      mockPrismaService.project.findFirst.mockResolvedValue({
+        id: PROJECT_ID,
+        tenant_id: TENANT_ID,
+      });
+      mockPrismaService.payment_method_registry.findFirst.mockResolvedValue(
+        null,
+      );
 
       await expect(
         service.createEntry(TENANT_ID, USER_ID, OWNER_ROLES, {
@@ -1357,9 +1487,16 @@ describe('FinancialEntryService', () => {
     });
 
     it('should throw 404 when purchased_by_user_id not in tenant', async () => {
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(mockCategory());
-      mockPrismaService.project.findFirst.mockResolvedValue({ id: PROJECT_ID, tenant_id: TENANT_ID });
-      mockPrismaService.user_tenant_membership.findFirst.mockResolvedValue(null);
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        mockCategory(),
+      );
+      mockPrismaService.project.findFirst.mockResolvedValue({
+        id: PROJECT_ID,
+        tenant_id: TENANT_ID,
+      });
+      mockPrismaService.user_tenant_membership.findFirst.mockResolvedValue(
+        null,
+      );
 
       await expect(
         service.createEntry(TENANT_ID, USER_ID, OWNER_ROLES, {
@@ -1377,8 +1514,13 @@ describe('FinancialEntryService', () => {
     });
 
     it('should throw 404 when purchased_by_crew_member_id not in tenant', async () => {
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(mockCategory());
-      mockPrismaService.project.findFirst.mockResolvedValue({ id: PROJECT_ID, tenant_id: TENANT_ID });
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        mockCategory(),
+      );
+      mockPrismaService.project.findFirst.mockResolvedValue({
+        id: PROJECT_ID,
+        tenant_id: TENANT_ID,
+      });
       mockPrismaService.crew_member.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -1397,8 +1539,13 @@ describe('FinancialEntryService', () => {
     });
 
     it('should auto-copy payment_method type from registry when payment_method_registry_id provided', async () => {
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(mockCategory());
-      mockPrismaService.project.findFirst.mockResolvedValue({ id: PROJECT_ID, tenant_id: TENANT_ID });
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        mockCategory(),
+      );
+      mockPrismaService.project.findFirst.mockResolvedValue({
+        id: PROJECT_ID,
+        tenant_id: TENANT_ID,
+      });
       mockPrismaService.payment_method_registry.findFirst.mockResolvedValue({
         id: PAYMENT_METHOD_REGISTRY_ID,
         type: 'credit_card',
@@ -1429,11 +1576,23 @@ describe('FinancialEntryService', () => {
     });
 
     it('should call updateSupplierSpendTotals when supplier_id is provided', async () => {
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(mockCategory());
-      mockPrismaService.project.findFirst.mockResolvedValue({ id: PROJECT_ID, tenant_id: TENANT_ID });
-      mockPrismaService.supplier.findFirst.mockResolvedValue({ id: SUPPLIER_ID, tenant_id: TENANT_ID, is_active: true });
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        mockCategory(),
+      );
+      mockPrismaService.project.findFirst.mockResolvedValue({
+        id: PROJECT_ID,
+        tenant_id: TENANT_ID,
+      });
+      mockPrismaService.supplier.findFirst.mockResolvedValue({
+        id: SUPPLIER_ID,
+        tenant_id: TENANT_ID,
+        is_active: true,
+      });
       mockPrismaService.financial_entry.create.mockResolvedValue(
-        mockEnrichedEntryRecord({ supplier_id: SUPPLIER_ID, supplier: mockSupplier() }),
+        mockEnrichedEntryRecord({
+          supplier_id: SUPPLIER_ID,
+          supplier: mockSupplier(),
+        }),
       );
 
       await service.createEntry(TENANT_ID, USER_ID, OWNER_ROLES, {
@@ -1441,7 +1600,10 @@ describe('FinancialEntryService', () => {
         supplier_id: SUPPLIER_ID,
       });
 
-      expect(mockSupplierService.updateSpendTotals).toHaveBeenCalledWith(TENANT_ID, SUPPLIER_ID);
+      expect(mockSupplierService.updateSpendTotals).toHaveBeenCalledWith(
+        TENANT_ID,
+        SUPPLIER_ID,
+      );
     });
 
     it('should NOT call updateSupplierSpendTotals when supplier_id is not provided', async () => {
@@ -1457,7 +1619,9 @@ describe('FinancialEntryService', () => {
 
       await service.createEntry(TENANT_ID, USER_ID, OWNER_ROLES, baseCreateDto);
 
-      expect(mockPrismaService.financial_category.findFirst).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.financial_category.findFirst,
+      ).toHaveBeenCalledWith({
         where: {
           id: CATEGORY_ID,
           tenant_id: TENANT_ID,
@@ -1513,7 +1677,12 @@ describe('FinancialEntryService', () => {
     it('should return enriched (transformed) response, not raw DB record', async () => {
       const entry = setupCreateEntryMocks();
 
-      const result = await service.createEntry(TENANT_ID, USER_ID, OWNER_ROLES, baseCreateDto);
+      const result = await service.createEntry(
+        TENANT_ID,
+        USER_ID,
+        OWNER_ROLES,
+        baseCreateDto,
+      );
 
       // The result should have flat human-readable labels (transformToEnrichedResponse)
       expect(result.project_name).toBe('Kitchen Remodel');
@@ -1524,19 +1693,26 @@ describe('FinancialEntryService', () => {
     });
 
     it('should create entry without project_id (business-level expense)', async () => {
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(mockCategory());
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        mockCategory(),
+      );
       mockPrismaService.financial_entry.create.mockResolvedValue(
         mockEnrichedEntryRecord({ project_id: null, project: null }),
       );
 
-      const result = await service.createEntry(TENANT_ID, USER_ID, OWNER_ROLES, {
-        category_id: CATEGORY_ID,
-        entry_type: 'expense',
-        amount: 150.0,
-        entry_date: '2026-03-10',
-        vendor_name: 'State Farm',
-        notes: 'Monthly insurance',
-      });
+      const result = await service.createEntry(
+        TENANT_ID,
+        USER_ID,
+        OWNER_ROLES,
+        {
+          category_id: CATEGORY_ID,
+          entry_type: 'expense',
+          amount: 150.0,
+          entry_date: '2026-03-10',
+          vendor_name: 'State Farm',
+          notes: 'Monthly insurance',
+        },
+      );
 
       expect(mockPrismaService.project.findFirst).not.toHaveBeenCalled();
       expect(mockPrismaService.financial_entry.create).toHaveBeenCalledWith(
@@ -1551,8 +1727,13 @@ describe('FinancialEntryService', () => {
     });
 
     it('should throw BadRequestException when entry_date is in the future', async () => {
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(mockCategory());
-      mockPrismaService.project.findFirst.mockResolvedValue({ id: PROJECT_ID, tenant_id: TENANT_ID });
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        mockCategory(),
+      );
+      mockPrismaService.project.findFirst.mockResolvedValue({
+        id: PROJECT_ID,
+        tenant_id: TENANT_ID,
+      });
 
       const futureDate = new Date();
       futureDate.setFullYear(futureDate.getFullYear() + 1);
@@ -1577,25 +1758,35 @@ describe('FinancialEntryService', () => {
       const todayStr = new Date().toISOString().split('T')[0];
       setupCreateEntryMocks({ entry_date: new Date(todayStr) });
 
-      const result = await service.createEntry(TENANT_ID, USER_ID, OWNER_ROLES, {
-        ...baseCreateDto,
-        entry_date: todayStr,
-      });
+      const result = await service.createEntry(
+        TENANT_ID,
+        USER_ID,
+        OWNER_ROLES,
+        {
+          ...baseCreateDto,
+          entry_date: todayStr,
+        },
+      );
 
       expect(result).toBeDefined();
       expect(mockPrismaService.financial_entry.create).toHaveBeenCalled();
     });
 
     it('should accept tax_amount when it is less than amount', async () => {
-      setupCreateEntryMocks({ amount: 100.0, tax_amount: 8.50 });
+      setupCreateEntryMocks({ amount: 100.0, tax_amount: 8.5 });
 
-      const result = await service.createEntry(TENANT_ID, USER_ID, OWNER_ROLES, {
-        ...baseCreateDto,
-        amount: 100.0,
-        tax_amount: 8.50,
-      });
+      const result = await service.createEntry(
+        TENANT_ID,
+        USER_ID,
+        OWNER_ROLES,
+        {
+          ...baseCreateDto,
+          amount: 100.0,
+          tax_amount: 8.5,
+        },
+      );
 
-      expect(result.tax_amount).toBe(8.50);
+      expect(result.tax_amount).toBe(8.5);
     });
 
     it('should log audit with correct action and entity info', async () => {
@@ -1617,9 +1808,15 @@ describe('FinancialEntryService', () => {
     });
 
     it('should use business-level description in audit log when project_id is omitted', async () => {
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(mockCategory());
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        mockCategory(),
+      );
       mockPrismaService.financial_entry.create.mockResolvedValue(
-        mockEnrichedEntryRecord({ project_id: null, project: null, amount: 200 }),
+        mockEnrichedEntryRecord({
+          project_id: null,
+          project: null,
+          amount: 200,
+        }),
       );
 
       await service.createEntry(TENANT_ID, USER_ID, OWNER_ROLES, {
@@ -1727,7 +1924,11 @@ describe('FinancialEntryService', () => {
     it('should return entries filtered by tenant_id and task_id with category included', async () => {
       const entries = [
         mockEnrichedEntryRecord({ task_id: TASK_ID }),
-        mockEnrichedEntryRecord({ id: 'entry-uuid-002', task_id: TASK_ID, amount: 75 }),
+        mockEnrichedEntryRecord({
+          id: 'entry-uuid-002',
+          task_id: TASK_ID,
+          amount: 75,
+        }),
       ];
       mockPrismaService.financial_entry.findMany.mockResolvedValue(entries);
 
@@ -1752,7 +1953,10 @@ describe('FinancialEntryService', () => {
     it('should return empty array when no entries exist for task', async () => {
       mockPrismaService.financial_entry.findMany.mockResolvedValue([]);
 
-      const result = await service.getTaskEntries(TENANT_ID, 'nonexistent-task');
+      const result = await service.getTaskEntries(
+        TENANT_ID,
+        'nonexistent-task',
+      );
 
       expect(result).toEqual([]);
     });
@@ -1764,77 +1968,143 @@ describe('FinancialEntryService', () => {
 
   describe('updateEntry() — Role enforcement', () => {
     it('should allow Owner to edit any entry in any status', async () => {
-      const existing = mockEnrichedEntryRecord({ created_by_user_id: OTHER_USER_ID, submission_status: 'confirmed' });
+      const existing = mockEnrichedEntryRecord({
+        created_by_user_id: OTHER_USER_ID,
+        submission_status: 'confirmed',
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
-      mockPrismaService.financial_entry.update.mockResolvedValue({ ...existing, amount: 600 });
+      mockPrismaService.financial_entry.update.mockResolvedValue({
+        ...existing,
+        amount: 600,
+      });
 
-      const result = await service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, OWNER_ROLES, { amount: 600 });
+      const result = await service.updateEntry(
+        TENANT_ID,
+        ENTRY_ID,
+        USER_ID,
+        OWNER_ROLES,
+        { amount: 600 },
+      );
 
       expect(result.id).toBe(ENTRY_ID);
       expect(mockPrismaService.financial_entry.update).toHaveBeenCalled();
     });
 
     it('should allow Manager to edit any entry in any status', async () => {
-      const existing = mockEnrichedEntryRecord({ created_by_user_id: OTHER_USER_ID, submission_status: 'confirmed' });
+      const existing = mockEnrichedEntryRecord({
+        created_by_user_id: OTHER_USER_ID,
+        submission_status: 'confirmed',
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
-      mockPrismaService.financial_entry.update.mockResolvedValue({ ...existing, amount: 600 });
+      mockPrismaService.financial_entry.update.mockResolvedValue({
+        ...existing,
+        amount: 600,
+      });
 
-      const result = await service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, MANAGER_ROLES, { amount: 600 });
+      const result = await service.updateEntry(
+        TENANT_ID,
+        ENTRY_ID,
+        USER_ID,
+        MANAGER_ROLES,
+        { amount: 600 },
+      );
 
       expect(result.id).toBe(ENTRY_ID);
     });
 
     it('should allow Bookkeeper to edit any entry in any status', async () => {
-      const existing = mockEnrichedEntryRecord({ created_by_user_id: OTHER_USER_ID, submission_status: 'confirmed' });
+      const existing = mockEnrichedEntryRecord({
+        created_by_user_id: OTHER_USER_ID,
+        submission_status: 'confirmed',
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
-      mockPrismaService.financial_entry.update.mockResolvedValue({ ...existing, vendor_name: 'Updated' });
+      mockPrismaService.financial_entry.update.mockResolvedValue({
+        ...existing,
+        vendor_name: 'Updated',
+      });
 
-      const result = await service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, BOOKKEEPER_ROLES, { vendor_name: 'Updated' });
+      const result = await service.updateEntry(
+        TENANT_ID,
+        ENTRY_ID,
+        USER_ID,
+        BOOKKEEPER_ROLES,
+        { vendor_name: 'Updated' },
+      );
 
       expect(result.id).toBe(ENTRY_ID);
     });
 
     it('should allow Employee to edit own pending_review entry', async () => {
-      const existing = mockEnrichedEntryRecord({ created_by_user_id: USER_ID, submission_status: 'pending_review' });
+      const existing = mockEnrichedEntryRecord({
+        created_by_user_id: USER_ID,
+        submission_status: 'pending_review',
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
-      mockPrismaService.financial_entry.update.mockResolvedValue({ ...existing, amount: 500 });
+      mockPrismaService.financial_entry.update.mockResolvedValue({
+        ...existing,
+        amount: 500,
+      });
 
-      const result = await service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, EMPLOYEE_ROLES, { amount: 500 });
+      const result = await service.updateEntry(
+        TENANT_ID,
+        ENTRY_ID,
+        USER_ID,
+        EMPLOYEE_ROLES,
+        { amount: 500 },
+      );
 
       expect(result.id).toBe(ENTRY_ID);
     });
 
     it('should throw ForbiddenException when Employee edits another user entry', async () => {
-      const existing = mockEnrichedEntryRecord({ created_by_user_id: OTHER_USER_ID, submission_status: 'pending_review' });
+      const existing = mockEnrichedEntryRecord({
+        created_by_user_id: OTHER_USER_ID,
+        submission_status: 'pending_review',
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
 
       await expect(
-        service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, EMPLOYEE_ROLES, { amount: 500 }),
+        service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, EMPLOYEE_ROLES, {
+          amount: 500,
+        }),
       ).rejects.toThrow(ForbiddenException);
 
       await expect(
-        service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, EMPLOYEE_ROLES, { amount: 500 }),
+        service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, EMPLOYEE_ROLES, {
+          amount: 500,
+        }),
       ).rejects.toThrow('Access denied. You can only edit your own entries.');
     });
 
     it('should throw ForbiddenException when Employee edits own confirmed entry', async () => {
-      const existing = mockEnrichedEntryRecord({ created_by_user_id: USER_ID, submission_status: 'confirmed' });
+      const existing = mockEnrichedEntryRecord({
+        created_by_user_id: USER_ID,
+        submission_status: 'confirmed',
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
 
       await expect(
-        service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, EMPLOYEE_ROLES, { amount: 500 }),
+        service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, EMPLOYEE_ROLES, {
+          amount: 500,
+        }),
       ).rejects.toThrow(ForbiddenException);
 
       await expect(
-        service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, EMPLOYEE_ROLES, { amount: 500 }),
-      ).rejects.toThrow('Access denied. You can only edit entries with pending_review or denied status.');
+        service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, EMPLOYEE_ROLES, {
+          amount: 500,
+        }),
+      ).rejects.toThrow(
+        'Access denied. You can only edit entries with pending_review or denied status.',
+      );
     });
 
     it('should throw NotFoundException when entry does not exist', async () => {
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateEntry(TENANT_ID, 'nonexistent-id', USER_ID, OWNER_ROLES, { amount: 100 }),
+        service.updateEntry(TENANT_ID, 'nonexistent-id', USER_ID, OWNER_ROLES, {
+          amount: 100,
+        }),
       ).rejects.toThrow(NotFoundException);
 
       expect(mockPrismaService.financial_entry.update).not.toHaveBeenCalled();
@@ -1843,9 +2113,15 @@ describe('FinancialEntryService', () => {
     it('should set updated_by_user_id on update', async () => {
       const existing = mockEnrichedEntryRecord();
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
-      mockPrismaService.financial_entry.update.mockResolvedValue({ ...existing, updated_by_user_id: USER_ID, amount: 600 });
+      mockPrismaService.financial_entry.update.mockResolvedValue({
+        ...existing,
+        updated_by_user_id: USER_ID,
+        amount: 600,
+      });
 
-      await service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, OWNER_ROLES, { amount: 600 });
+      await service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, OWNER_ROLES, {
+        amount: 600,
+      });
 
       expect(mockPrismaService.financial_entry.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1862,15 +2138,27 @@ describe('FinancialEntryService', () => {
       const newSupplierId = 'new-supplier-uuid';
       const existing = mockEnrichedEntryRecord({ supplier_id: oldSupplierId });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
-      mockPrismaService.supplier.findFirst.mockResolvedValue({ id: newSupplierId, tenant_id: TENANT_ID, is_active: true });
+      mockPrismaService.supplier.findFirst.mockResolvedValue({
+        id: newSupplierId,
+        tenant_id: TENANT_ID,
+        is_active: true,
+      });
       mockPrismaService.financial_entry.update.mockResolvedValue(
         mockEnrichedEntryRecord({ supplier_id: newSupplierId }),
       );
 
-      await service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, OWNER_ROLES, { supplier_id: newSupplierId });
+      await service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, OWNER_ROLES, {
+        supplier_id: newSupplierId,
+      });
 
-      expect(mockSupplierService.updateSpendTotals).toHaveBeenCalledWith(TENANT_ID, oldSupplierId);
-      expect(mockSupplierService.updateSpendTotals).toHaveBeenCalledWith(TENANT_ID, newSupplierId);
+      expect(mockSupplierService.updateSpendTotals).toHaveBeenCalledWith(
+        TENANT_ID,
+        oldSupplierId,
+      );
+      expect(mockSupplierService.updateSpendTotals).toHaveBeenCalledWith(
+        TENANT_ID,
+        newSupplierId,
+      );
       expect(mockSupplierService.updateSpendTotals).toHaveBeenCalledTimes(2);
     });
 
@@ -1879,12 +2167,18 @@ describe('FinancialEntryService', () => {
       const newSupplierId = 'new-supplier-uuid';
       const existing = mockEnrichedEntryRecord({ supplier_id: oldSupplierId });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
-      mockPrismaService.supplier.findFirst.mockResolvedValue({ id: newSupplierId, tenant_id: TENANT_ID, is_active: true });
+      mockPrismaService.supplier.findFirst.mockResolvedValue({
+        id: newSupplierId,
+        tenant_id: TENANT_ID,
+        is_active: true,
+      });
       mockPrismaService.financial_entry.update.mockResolvedValue(
         mockEnrichedEntryRecord({ supplier_id: newSupplierId }),
       );
 
-      await service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, OWNER_ROLES, { supplier_id: newSupplierId });
+      await service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, OWNER_ROLES, {
+        supplier_id: newSupplierId,
+      });
 
       // Both old and new supplier spend must be recalculated
       const calls = mockSupplierService.updateSpendTotals.mock.calls;
@@ -1931,7 +2225,9 @@ describe('FinancialEntryService', () => {
       const updated = { ...existing, amount: 600 };
       mockPrismaService.financial_entry.update.mockResolvedValue(updated);
 
-      await service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, OWNER_ROLES, { amount: 600 });
+      await service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, OWNER_ROLES, {
+        amount: 600,
+      });
 
       expect(mockAuditLoggerService.logTenantChange).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1949,9 +2245,14 @@ describe('FinancialEntryService', () => {
     it('should use enriched include in the update call', async () => {
       const existing = mockEnrichedEntryRecord();
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
-      mockPrismaService.financial_entry.update.mockResolvedValue({ ...existing, amount: 600 });
+      mockPrismaService.financial_entry.update.mockResolvedValue({
+        ...existing,
+        amount: 600,
+      });
 
-      await service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, OWNER_ROLES, { amount: 600 });
+      await service.updateEntry(TENANT_ID, ENTRY_ID, USER_ID, OWNER_ROLES, {
+        amount: 600,
+      });
 
       expect(mockPrismaService.financial_entry.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1974,11 +2275,19 @@ describe('FinancialEntryService', () => {
 
   describe('deleteEntry() — Role enforcement', () => {
     it('should allow Owner to delete any entry', async () => {
-      const existing = mockEnrichedEntryRecord({ created_by_user_id: OTHER_USER_ID, submission_status: 'confirmed' });
+      const existing = mockEnrichedEntryRecord({
+        created_by_user_id: OTHER_USER_ID,
+        submission_status: 'confirmed',
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
       mockPrismaService.financial_entry.delete.mockResolvedValue(existing);
 
-      const result = await service.deleteEntry(TENANT_ID, ENTRY_ID, USER_ID, OWNER_ROLES);
+      const result = await service.deleteEntry(
+        TENANT_ID,
+        ENTRY_ID,
+        USER_ID,
+        OWNER_ROLES,
+      );
 
       expect(result).toEqual({ message: 'Entry deleted successfully' });
       expect(mockPrismaService.financial_entry.delete).toHaveBeenCalledWith({
@@ -1987,17 +2296,27 @@ describe('FinancialEntryService', () => {
     });
 
     it('should allow Admin to delete any entry', async () => {
-      const existing = mockEnrichedEntryRecord({ created_by_user_id: OTHER_USER_ID, submission_status: 'confirmed' });
+      const existing = mockEnrichedEntryRecord({
+        created_by_user_id: OTHER_USER_ID,
+        submission_status: 'confirmed',
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
       mockPrismaService.financial_entry.delete.mockResolvedValue(existing);
 
-      const result = await service.deleteEntry(TENANT_ID, ENTRY_ID, USER_ID, ADMIN_ROLES);
+      const result = await service.deleteEntry(
+        TENANT_ID,
+        ENTRY_ID,
+        USER_ID,
+        ADMIN_ROLES,
+      );
 
       expect(result).toEqual({ message: 'Entry deleted successfully' });
     });
 
     it('should throw ForbiddenException for Manager', async () => {
-      const existing = mockEnrichedEntryRecord({ created_by_user_id: OTHER_USER_ID });
+      const existing = mockEnrichedEntryRecord({
+        created_by_user_id: OTHER_USER_ID,
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
 
       await expect(
@@ -2006,11 +2325,15 @@ describe('FinancialEntryService', () => {
 
       await expect(
         service.deleteEntry(TENANT_ID, ENTRY_ID, USER_ID, MANAGER_ROLES),
-      ).rejects.toThrow('Managers and Bookkeepers are not authorized to delete financial entries.');
+      ).rejects.toThrow(
+        'Managers and Bookkeepers are not authorized to delete financial entries.',
+      );
     });
 
     it('should throw ForbiddenException for Bookkeeper', async () => {
-      const existing = mockEnrichedEntryRecord({ created_by_user_id: OTHER_USER_ID });
+      const existing = mockEnrichedEntryRecord({
+        created_by_user_id: OTHER_USER_ID,
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
 
       await expect(
@@ -2019,21 +2342,34 @@ describe('FinancialEntryService', () => {
 
       await expect(
         service.deleteEntry(TENANT_ID, ENTRY_ID, USER_ID, BOOKKEEPER_ROLES),
-      ).rejects.toThrow('Managers and Bookkeepers are not authorized to delete financial entries.');
+      ).rejects.toThrow(
+        'Managers and Bookkeepers are not authorized to delete financial entries.',
+      );
     });
 
     it('should allow Employee to delete own pending_review entry', async () => {
-      const existing = mockEnrichedEntryRecord({ created_by_user_id: USER_ID, submission_status: 'pending_review' });
+      const existing = mockEnrichedEntryRecord({
+        created_by_user_id: USER_ID,
+        submission_status: 'pending_review',
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
       mockPrismaService.financial_entry.delete.mockResolvedValue(existing);
 
-      const result = await service.deleteEntry(TENANT_ID, ENTRY_ID, USER_ID, EMPLOYEE_ROLES);
+      const result = await service.deleteEntry(
+        TENANT_ID,
+        ENTRY_ID,
+        USER_ID,
+        EMPLOYEE_ROLES,
+      );
 
       expect(result).toEqual({ message: 'Entry deleted successfully' });
     });
 
     it('should throw ForbiddenException when Employee deletes own confirmed entry', async () => {
-      const existing = mockEnrichedEntryRecord({ created_by_user_id: USER_ID, submission_status: 'confirmed' });
+      const existing = mockEnrichedEntryRecord({
+        created_by_user_id: USER_ID,
+        submission_status: 'confirmed',
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
 
       await expect(
@@ -2042,11 +2378,16 @@ describe('FinancialEntryService', () => {
 
       await expect(
         service.deleteEntry(TENANT_ID, ENTRY_ID, USER_ID, EMPLOYEE_ROLES),
-      ).rejects.toThrow('Access denied. You can only delete entries with pending_review or denied status.');
+      ).rejects.toThrow(
+        'Access denied. You can only delete entries with pending_review or denied status.',
+      );
     });
 
     it('should throw ForbiddenException when Employee deletes another user entry', async () => {
-      const existing = mockEnrichedEntryRecord({ created_by_user_id: OTHER_USER_ID, submission_status: 'pending_review' });
+      const existing = mockEnrichedEntryRecord({
+        created_by_user_id: OTHER_USER_ID,
+        submission_status: 'pending_review',
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
 
       await expect(
@@ -2075,7 +2416,10 @@ describe('FinancialEntryService', () => {
 
       await service.deleteEntry(TENANT_ID, ENTRY_ID, USER_ID, OWNER_ROLES);
 
-      expect(mockSupplierService.updateSpendTotals).toHaveBeenCalledWith(TENANT_ID, SUPPLIER_ID);
+      expect(mockSupplierService.updateSpendTotals).toHaveBeenCalledWith(
+        TENANT_ID,
+        SUPPLIER_ID,
+      );
     });
 
     it('should NOT call updateSupplierSpendTotals when deleted entry had no supplier_id', async () => {
@@ -2115,12 +2459,36 @@ describe('FinancialEntryService', () => {
   describe('getProjectCostSummary()', () => {
     it('should aggregate costs by category type and return correct totals', async () => {
       const entries = [
-        mockEnrichedEntryRecord({ id: 'e1', amount: 500, category: { type: 'labor' } }),
-        mockEnrichedEntryRecord({ id: 'e2', amount: 300.50, category: { type: 'material' } }),
-        mockEnrichedEntryRecord({ id: 'e3', amount: 1200, category: { type: 'subcontractor' } }),
-        mockEnrichedEntryRecord({ id: 'e4', amount: 150.75, category: { type: 'equipment' } }),
-        mockEnrichedEntryRecord({ id: 'e5', amount: 50, category: { type: 'other' } }),
-        mockEnrichedEntryRecord({ id: 'e6', amount: 250, category: { type: 'labor' } }),
+        mockEnrichedEntryRecord({
+          id: 'e1',
+          amount: 500,
+          category: { type: 'labor' },
+        }),
+        mockEnrichedEntryRecord({
+          id: 'e2',
+          amount: 300.5,
+          category: { type: 'material' },
+        }),
+        mockEnrichedEntryRecord({
+          id: 'e3',
+          amount: 1200,
+          category: { type: 'subcontractor' },
+        }),
+        mockEnrichedEntryRecord({
+          id: 'e4',
+          amount: 150.75,
+          category: { type: 'equipment' },
+        }),
+        mockEnrichedEntryRecord({
+          id: 'e5',
+          amount: 50,
+          category: { type: 'other' },
+        }),
+        mockEnrichedEntryRecord({
+          id: 'e6',
+          amount: 250,
+          category: { type: 'labor' },
+        }),
       ];
       mockPrismaService.financial_entry.findMany.mockResolvedValue(entries);
 
@@ -2130,7 +2498,7 @@ describe('FinancialEntryService', () => {
       expect(result.entry_count).toBe(6);
       expect(result.total_actual_cost).toBe(2451.25);
       expect(result.cost_by_category.labor).toBe(750);
-      expect(result.cost_by_category.material).toBe(300.50);
+      expect(result.cost_by_category.material).toBe(300.5);
       expect(result.cost_by_category.subcontractor).toBe(1200);
     });
 
@@ -2150,11 +2518,7 @@ describe('FinancialEntryService', () => {
 
   describe('getTaskCostSummary()', () => {
     it('should return total cost and entry count for a task', async () => {
-      const entries = [
-        { amount: 150.50 },
-        { amount: 300.25 },
-        { amount: 75 },
-      ];
+      const entries = [{ amount: 150.5 }, { amount: 300.25 }, { amount: 75 }];
       mockPrismaService.financial_entry.findMany.mockResolvedValue(entries);
 
       const result = await service.getTaskCostSummary(TENANT_ID, TASK_ID);
@@ -2199,10 +2563,19 @@ describe('FinancialEntryService', () => {
     it('should set submission_status to confirmed when entry is pending_review', async () => {
       const existing = pendingEntry();
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
-      const updated = { ...existing, submission_status: 'confirmed', updated_by_user_id: USER_ID };
+      const updated = {
+        ...existing,
+        submission_status: 'confirmed',
+        updated_by_user_id: USER_ID,
+      };
       mockPrismaService.financial_entry.update.mockResolvedValue(updated);
 
-      const result = await service.approveEntry(TENANT_ID, ENTRY_ID, USER_ID, {});
+      const result = await service.approveEntry(
+        TENANT_ID,
+        ENTRY_ID,
+        USER_ID,
+        {},
+      );
 
       expect(mockPrismaService.financial_entry.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -2230,10 +2603,16 @@ describe('FinancialEntryService', () => {
       };
       mockPrismaService.financial_entry.update.mockResolvedValue(updated);
 
-      const result = await service.approveEntry(TENANT_ID, ENTRY_ID, USER_ID, {});
+      const result = await service.approveEntry(
+        TENANT_ID,
+        ENTRY_ID,
+        USER_ID,
+        {},
+      );
 
       // Data object should NOT include any rejection field clearing
-      const updateCall = mockPrismaService.financial_entry.update.mock.calls[0][0];
+      const updateCall =
+        mockPrismaService.financial_entry.update.mock.calls[0][0];
       expect(updateCall.data).not.toHaveProperty('rejection_reason');
       expect(updateCall.data).not.toHaveProperty('rejected_by_user_id');
       expect(updateCall.data).not.toHaveProperty('rejected_at');
@@ -2243,7 +2622,9 @@ describe('FinancialEntryService', () => {
     });
 
     it('should throw BadRequestException when entry is already confirmed (BR-17)', async () => {
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(confirmedEntry());
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        confirmedEntry(),
+      );
 
       await expect(
         service.approveEntry(TENANT_ID, ENTRY_ID, USER_ID, {}),
@@ -2263,11 +2644,22 @@ describe('FinancialEntryService', () => {
         rejected_at: new Date('2026-03-15'),
         created_by_user_id: OTHER_USER_ID,
       });
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(deniedEntry);
-      const updated = { ...deniedEntry, submission_status: 'confirmed', updated_by_user_id: USER_ID };
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        deniedEntry,
+      );
+      const updated = {
+        ...deniedEntry,
+        submission_status: 'confirmed',
+        updated_by_user_id: USER_ID,
+      };
       mockPrismaService.financial_entry.update.mockResolvedValue(updated);
 
-      const result = await service.approveEntry(TENANT_ID, ENTRY_ID, USER_ID, {});
+      const result = await service.approveEntry(
+        TENANT_ID,
+        ENTRY_ID,
+        USER_ID,
+        {},
+      );
 
       expect(result.submission_status).toBe('confirmed');
     });
@@ -2286,7 +2678,9 @@ describe('FinancialEntryService', () => {
       const updated = { ...existing, submission_status: 'confirmed' };
       mockPrismaService.financial_entry.update.mockResolvedValue(updated);
 
-      await service.approveEntry(TENANT_ID, ENTRY_ID, USER_ID, { notes: 'Looks good' });
+      await service.approveEntry(TENANT_ID, ENTRY_ID, USER_ID, {
+        notes: 'Looks good',
+      });
 
       expect(mockAuditLoggerService.logTenantChange).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -2295,7 +2689,10 @@ describe('FinancialEntryService', () => {
           entityId: ENTRY_ID,
           tenantId: TENANT_ID,
           actorUserId: USER_ID,
-          metadata: { workflow_action: 'EXPENSE_APPROVED', approval_notes: 'Looks good' },
+          metadata: {
+            workflow_action: 'EXPENSE_APPROVED',
+            approval_notes: 'Looks good',
+          },
           description: `Approved financial entry ${ENTRY_ID}`,
         }),
       );
@@ -2399,11 +2796,15 @@ describe('FinancialEntryService', () => {
         service.rejectEntry(TENANT_ID, ENTRY_ID, USER_ID, {
           rejection_reason: 'Some reason',
         }),
-      ).rejects.toThrow('Entry is not in pending_review status. Only pending entries can be rejected.');
+      ).rejects.toThrow(
+        'Entry is not in pending_review status. Only pending entries can be rejected.',
+      );
     });
 
     it('should throw BadRequestException when rejection_reason is empty (defense-in-depth)', async () => {
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(pendingEntry());
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        pendingEntry(),
+      );
 
       await expect(
         service.rejectEntry(TENANT_ID, ENTRY_ID, USER_ID, {
@@ -2489,7 +2890,11 @@ describe('FinancialEntryService', () => {
         rejection_reason: 'Receipt too blurry',
         rejected_by_user_id: OTHER_USER_ID,
         rejected_at: new Date('2026-03-18'),
-        rejected_by: mockUser({ id: OTHER_USER_ID, first_name: 'Jane', last_name: 'Admin' }),
+        rejected_by: mockUser({
+          id: OTHER_USER_ID,
+          first_name: 'Jane',
+          last_name: 'Admin',
+        }),
         created_by_user_id: USER_ID,
         amount: 100.0,
         ...overrides,
@@ -2507,9 +2912,16 @@ describe('FinancialEntryService', () => {
       };
       mockPrismaService.financial_entry.update.mockResolvedValue(updated);
 
-      const result = await service.resubmitEntry(TENANT_ID, ENTRY_ID, USER_ID, ['Employee'], {});
+      const result = await service.resubmitEntry(
+        TENANT_ID,
+        ENTRY_ID,
+        USER_ID,
+        ['Employee'],
+        {},
+      );
 
-      const updateData = mockPrismaService.financial_entry.update.mock.calls[0][0].data;
+      const updateData =
+        mockPrismaService.financial_entry.update.mock.calls[0][0].data;
       expect(updateData.rejection_reason).toBeNull();
       expect(updateData.rejected_by_user_id).toBeNull();
       expect(updateData.rejected_at).toBeNull();
@@ -2530,9 +2942,16 @@ describe('FinancialEntryService', () => {
         rejected_by: null,
       });
 
-      await service.resubmitEntry(TENANT_ID, ENTRY_ID, USER_ID, ['Employee'], {});
+      await service.resubmitEntry(
+        TENANT_ID,
+        ENTRY_ID,
+        USER_ID,
+        ['Employee'],
+        {},
+      );
 
-      const updateData = mockPrismaService.financial_entry.update.mock.calls[0][0].data;
+      const updateData =
+        mockPrismaService.financial_entry.update.mock.calls[0][0].data;
       expect(updateData.submission_status).toBe('pending_review');
     });
 
@@ -2544,7 +2963,9 @@ describe('FinancialEntryService', () => {
         rejected_by_user_id: null,
         created_by_user_id: USER_ID,
       });
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(notRejected);
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        notRejected,
+      );
 
       await expect(
         service.resubmitEntry(TENANT_ID, ENTRY_ID, USER_ID, ['Employee'], {}),
@@ -2563,7 +2984,9 @@ describe('FinancialEntryService', () => {
         rejected_by_user_id: OTHER_USER_ID,
         created_by_user_id: USER_ID,
       });
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(confirmedWithHistory);
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        confirmedWithHistory,
+      );
 
       await expect(
         service.resubmitEntry(TENANT_ID, ENTRY_ID, USER_ID, ['Employee'], {}),
@@ -2574,7 +2997,7 @@ describe('FinancialEntryService', () => {
       ).rejects.toThrow('Only denied entries can be resubmitted.');
     });
 
-    it('should throw ForbiddenException when Employee tries to resubmit another user\'s entry', async () => {
+    it("should throw ForbiddenException when Employee tries to resubmit another user's entry", async () => {
       const existing = rejectedEntry({ created_by_user_id: OTHER_USER_ID });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
 
@@ -2584,7 +3007,9 @@ describe('FinancialEntryService', () => {
 
       await expect(
         service.resubmitEntry(TENANT_ID, ENTRY_ID, USER_ID, ['Employee'], {}),
-      ).rejects.toThrow('Access denied. You can only resubmit your own entries.');
+      ).rejects.toThrow(
+        'Access denied. You can only resubmit your own entries.',
+      );
     });
 
     it('should allow Employee to resubmit their own entry', async () => {
@@ -2598,7 +3023,13 @@ describe('FinancialEntryService', () => {
         rejected_by: null,
       });
 
-      const result = await service.resubmitEntry(TENANT_ID, ENTRY_ID, USER_ID, ['Employee'], {});
+      const result = await service.resubmitEntry(
+        TENANT_ID,
+        ENTRY_ID,
+        USER_ID,
+        ['Employee'],
+        {},
+      );
 
       expect(result.id).toBe(ENTRY_ID);
       expect(result.rejection_reason).toBeNull();
@@ -2616,7 +3047,13 @@ describe('FinancialEntryService', () => {
       });
 
       // Owner can resubmit anyone's entry
-      const result = await service.resubmitEntry(TENANT_ID, ENTRY_ID, USER_ID, ['Owner'], {});
+      const result = await service.resubmitEntry(
+        TENANT_ID,
+        ENTRY_ID,
+        USER_ID,
+        ['Owner'],
+        {},
+      );
       expect(result.id).toBe(ENTRY_ID);
     });
 
@@ -2643,7 +3080,8 @@ describe('FinancialEntryService', () => {
         vendor_name: 'Updated Vendor',
       });
 
-      const updateData = mockPrismaService.financial_entry.update.mock.calls[0][0].data;
+      const updateData =
+        mockPrismaService.financial_entry.update.mock.calls[0][0].data;
       expect(updateData.amount).toBe(200);
       expect(updateData.category_id).toBe('new-category-id');
       expect(updateData.vendor_name).toBe('Updated Vendor');
@@ -2653,7 +3091,10 @@ describe('FinancialEntryService', () => {
     });
 
     it('should validate tax vs amount on RESULTING state', async () => {
-      const existing = rejectedEntry({ created_by_user_id: USER_ID, amount: 100 });
+      const existing = rejectedEntry({
+        created_by_user_id: USER_ID,
+        amount: 100,
+      });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
 
       // Tax >= amount on the resulting state (existing amount=100, dto.tax_amount=100)
@@ -2676,7 +3117,9 @@ describe('FinancialEntryService', () => {
         purchased_by_user_id: USER_ID, // existing has user
       });
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(existing);
-      mockPrismaService.crew_member.findFirst.mockResolvedValue(mockCrewMember());
+      mockPrismaService.crew_member.findFirst.mockResolvedValue(
+        mockCrewMember(),
+      );
 
       // Dto adds crew member without clearing user → mutual exclusion violation
       await expect(
@@ -2689,7 +3132,9 @@ describe('FinancialEntryService', () => {
         service.resubmitEntry(TENANT_ID, ENTRY_ID, USER_ID, ['Employee'], {
           purchased_by_crew_member_id: CREW_MEMBER_ID,
         }),
-      ).rejects.toThrow('Cannot assign purchase to both a user and a crew member.');
+      ).rejects.toThrow(
+        'Cannot assign purchase to both a user and a crew member.',
+      );
     });
 
     it('should update supplier spend when supplier changes', async () => {
@@ -2718,8 +3163,14 @@ describe('FinancialEntryService', () => {
         supplier_id: newSupplierId,
       });
 
-      expect(mockSupplierService.updateSpendTotals).toHaveBeenCalledWith(TENANT_ID, oldSupplierId);
-      expect(mockSupplierService.updateSpendTotals).toHaveBeenCalledWith(TENANT_ID, newSupplierId);
+      expect(mockSupplierService.updateSpendTotals).toHaveBeenCalledWith(
+        TENANT_ID,
+        oldSupplierId,
+      );
+      expect(mockSupplierService.updateSpendTotals).toHaveBeenCalledWith(
+        TENANT_ID,
+        newSupplierId,
+      );
     });
 
     it('should log audit with EXPENSE_RESUBMITTED workflow action', async () => {
@@ -2733,7 +3184,13 @@ describe('FinancialEntryService', () => {
         rejected_by: null,
       });
 
-      await service.resubmitEntry(TENANT_ID, ENTRY_ID, USER_ID, ['Employee'], {});
+      await service.resubmitEntry(
+        TENANT_ID,
+        ENTRY_ID,
+        USER_ID,
+        ['Employee'],
+        {},
+      );
 
       expect(mockAuditLoggerService.logTenantChange).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -2752,7 +3209,13 @@ describe('FinancialEntryService', () => {
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.resubmitEntry(TENANT_ID, 'nonexistent', USER_ID, ['Employee'], {}),
+        service.resubmitEntry(
+          TENANT_ID,
+          'nonexistent',
+          USER_ID,
+          ['Employee'],
+          {},
+        ),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -2768,7 +3231,12 @@ describe('FinancialEntryService', () => {
       mockPrismaService.financial_entry.count.mockResolvedValue(0);
       mockPrismaService.financial_entry.findMany.mockResolvedValue([]);
 
-      const csv = await service.exportEntries(TENANT_ID, USER_ID, ['Owner'], defaultQuery);
+      const csv = await service.exportEntries(
+        TENANT_ID,
+        USER_ID,
+        ['Owner'],
+        defaultQuery,
+      );
 
       const header = csv.split('\n')[0];
       expect(header).toBe(
@@ -2785,7 +3253,9 @@ describe('FinancialEntryService', () => {
 
       await expect(
         service.exportEntries(TENANT_ID, USER_ID, ['Owner'], defaultQuery),
-      ).rejects.toThrow('Export limit exceeded. Apply date filters to narrow the result set.');
+      ).rejects.toThrow(
+        'Export limit exceeded. Apply date filters to narrow the result set.',
+      );
 
       // findMany should NOT have been called (short-circuit before fetching data)
       expect(mockPrismaService.financial_entry.findMany).not.toHaveBeenCalled();
@@ -2795,7 +3265,12 @@ describe('FinancialEntryService', () => {
       mockPrismaService.financial_entry.count.mockResolvedValue(10000);
       mockPrismaService.financial_entry.findMany.mockResolvedValue([]);
 
-      const csv = await service.exportEntries(TENANT_ID, USER_ID, ['Owner'], defaultQuery);
+      const csv = await service.exportEntries(
+        TENANT_ID,
+        USER_ID,
+        ['Owner'],
+        defaultQuery,
+      );
 
       expect(csv).toBeDefined();
       expect(mockPrismaService.financial_entry.findMany).toHaveBeenCalled();
@@ -2808,7 +3283,7 @@ describe('FinancialEntryService', () => {
           entry_date: new Date('2026-03-15'),
           entry_time: new Date('1970-01-01T14:30:00Z'),
           entry_type: 'expense',
-          amount: 125.50,
+          amount: 125.5,
           tax_amount: 10.25,
           vendor_name: 'Home Depot',
           payment_method: 'credit_card',
@@ -2816,7 +3291,11 @@ describe('FinancialEntryService', () => {
           notes: 'Lumber purchase',
           created_at: new Date('2026-03-15T10:00:00.000Z'),
           has_receipt: true,
-          category: { name: 'Materials', type: 'material', classification: 'cost_of_goods_sold' },
+          category: {
+            name: 'Materials',
+            type: 'material',
+            classification: 'cost_of_goods_sold',
+          },
           project: { name: 'Kitchen Remodel' },
           task: { title: 'Install Cabinets' },
           supplier: { name: 'Home Depot Corp' },
@@ -2827,7 +3306,12 @@ describe('FinancialEntryService', () => {
         },
       ]);
 
-      const csv = await service.exportEntries(TENANT_ID, USER_ID, ['Owner'], defaultQuery);
+      const csv = await service.exportEntries(
+        TENANT_ID,
+        USER_ID,
+        ['Owner'],
+        defaultQuery,
+      );
       const rows = csv.split('\n');
 
       expect(rows).toHaveLength(2); // header + 1 data row
@@ -2860,7 +3344,11 @@ describe('FinancialEntryService', () => {
           notes: 'He said "check the invoice"',
           created_at: new Date('2026-03-15T10:00:00.000Z'),
           has_receipt: false,
-          category: { name: 'Office', type: 'office', classification: 'operating_expense' },
+          category: {
+            name: 'Office',
+            type: 'office',
+            classification: 'operating_expense',
+          },
           project: null,
           task: null,
           supplier: null,
@@ -2871,7 +3359,12 @@ describe('FinancialEntryService', () => {
         },
       ]);
 
-      const csv = await service.exportEntries(TENANT_ID, USER_ID, ['Owner'], defaultQuery);
+      const csv = await service.exportEntries(
+        TENANT_ID,
+        USER_ID,
+        ['Owner'],
+        defaultQuery,
+      );
       const dataRow = csv.split('\n')[1];
 
       // Vendor name with comma should be quoted
@@ -2906,7 +3399,12 @@ describe('FinancialEntryService', () => {
         },
       ]);
 
-      const csv = await service.exportEntries(TENANT_ID, USER_ID, ['Owner'], defaultQuery);
+      const csv = await service.exportEntries(
+        TENANT_ID,
+        USER_ID,
+        ['Owner'],
+        defaultQuery,
+      );
       const rows = csv.split('\n');
 
       // Should not crash — nulls become empty strings
@@ -2919,7 +3417,12 @@ describe('FinancialEntryService', () => {
       mockPrismaService.financial_entry.count.mockResolvedValue(0);
       mockPrismaService.financial_entry.findMany.mockResolvedValue([]);
 
-      await service.exportEntries(TENANT_ID, USER_ID, ['Employee'], defaultQuery);
+      await service.exportEntries(
+        TENANT_ID,
+        USER_ID,
+        ['Employee'],
+        defaultQuery,
+      );
 
       // Count query should include Employee scoping
       expect(mockPrismaService.financial_entry.count).toHaveBeenCalledWith({
@@ -2936,7 +3439,8 @@ describe('FinancialEntryService', () => {
 
       await service.exportEntries(TENANT_ID, USER_ID, ['Owner'], defaultQuery);
 
-      const findManyCall = mockPrismaService.financial_entry.findMany.mock.calls[0][0];
+      const findManyCall =
+        mockPrismaService.financial_entry.findMany.mock.calls[0][0];
       expect(findManyCall).toHaveProperty('select');
       expect(findManyCall).not.toHaveProperty('include');
     });
@@ -2960,7 +3464,8 @@ describe('FinancialEntryService', () => {
 
       await service.exportEntries(TENANT_ID, USER_ID, ['Owner'], defaultQuery);
 
-      const findManyCall = mockPrismaService.financial_entry.findMany.mock.calls[0][0];
+      const findManyCall =
+        mockPrismaService.financial_entry.findMany.mock.calls[0][0];
       expect(findManyCall).not.toHaveProperty('skip');
       expect(findManyCall).not.toHaveProperty('take');
     });
@@ -3005,7 +3510,11 @@ describe('FinancialEntryService', () => {
           notes: null,
           created_at: new Date('2026-03-15T10:00:00.000Z'),
           has_receipt: false,
-          category: { name: 'Materials', type: 'material', classification: 'cost_of_goods_sold' },
+          category: {
+            name: 'Materials',
+            type: 'material',
+            classification: 'cost_of_goods_sold',
+          },
           project: null,
           task: null,
           supplier: null,
@@ -3016,7 +3525,12 @@ describe('FinancialEntryService', () => {
         },
       ]);
 
-      const csv = await service.exportEntries(TENANT_ID, USER_ID, ['Owner'], defaultQuery);
+      const csv = await service.exportEntries(
+        TENANT_ID,
+        USER_ID,
+        ['Owner'],
+        defaultQuery,
+      );
       const dataRow = csv.split('\n')[1];
 
       expect(dataRow).toContain('Mike Smith');
@@ -3026,7 +3540,12 @@ describe('FinancialEntryService', () => {
       mockPrismaService.financial_entry.count.mockResolvedValue(0);
       mockPrismaService.financial_entry.findMany.mockResolvedValue([]);
 
-      const csv = await service.exportEntries(TENANT_ID, USER_ID, OWNER_ROLES, defaultQuery);
+      const csv = await service.exportEntries(
+        TENANT_ID,
+        USER_ID,
+        OWNER_ROLES,
+        defaultQuery,
+      );
       const header = csv.split('\n')[0];
       const columns = header.split(',');
 
@@ -3059,9 +3578,14 @@ describe('FinancialEntryService', () => {
     it('should always include tenant_id in getEntries where clause', async () => {
       mockPrismaService.financial_entry.findMany.mockResolvedValue([]);
       mockPrismaService.financial_entry.count.mockResolvedValue(0);
-      mockPrismaService.financial_entry.aggregate.mockResolvedValue({ _sum: { amount: null } });
+      mockPrismaService.financial_entry.aggregate.mockResolvedValue({
+        _sum: { amount: null },
+      });
 
-      await service.getEntries(TENANT_ID, USER_ID, OWNER_ROLES, { page: 1, limit: 20 });
+      await service.getEntries(TENANT_ID, USER_ID, OWNER_ROLES, {
+        page: 1,
+        limit: 20,
+      });
 
       expect(mockPrismaService.financial_entry.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -3090,7 +3614,9 @@ describe('FinancialEntryService', () => {
     it('should always include tenant_id in getPendingEntries where clause', async () => {
       mockPrismaService.financial_entry.findMany.mockResolvedValue([]);
       mockPrismaService.financial_entry.count.mockResolvedValue(0);
-      mockPrismaService.financial_entry.aggregate.mockResolvedValue({ _sum: { amount: null } });
+      mockPrismaService.financial_entry.aggregate.mockResolvedValue({
+        _sum: { amount: null },
+      });
 
       await service.getPendingEntries(TENANT_ID, { page: 1, limit: 20 });
 
@@ -3118,7 +3644,12 @@ describe('FinancialEntryService', () => {
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.getEntryById('different-tenant-id', ENTRY_ID, USER_ID, OWNER_ROLES),
+        service.getEntryById(
+          'different-tenant-id',
+          ENTRY_ID,
+          USER_ID,
+          OWNER_ROLES,
+        ),
       ).rejects.toThrow(NotFoundException);
 
       expect(mockPrismaService.financial_entry.findFirst).toHaveBeenCalledWith(

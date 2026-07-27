@@ -166,7 +166,12 @@ describe('UsersService', () => {
     };
 
     const mockRole = mockRoleRecord();
-    const mockUser = mockUserRecord({ id: 'new-user-id', email: dto.email, first_name: dto.first_name, last_name: dto.last_name });
+    const mockUser = mockUserRecord({
+      id: 'new-user-id',
+      email: dto.email,
+      first_name: dto.first_name,
+      last_name: dto.last_name,
+    });
     const mockTenant = { company_name: 'Acme Corp' };
     const mockInviter = { first_name: 'Admin', last_name: 'Actor' };
     const mockCreatedMembership = { id: 'new-membership-id' };
@@ -175,10 +180,12 @@ describe('UsersService', () => {
       mockPrisma.role.findUnique.mockResolvedValue(mockRole);
       mockPrisma.user_tenant_membership.findFirst.mockResolvedValueOnce(null); // no existing active
       mockPrisma.user.findUnique
-        .mockResolvedValueOnce(null)        // user lookup by email: new user
+        .mockResolvedValueOnce(null) // user lookup by email: new user
         .mockResolvedValueOnce(mockInviter); // inviter lookup by ID
       mockPrisma.user.create.mockResolvedValue(mockUser);
-      mockPrisma.user_tenant_membership.create.mockResolvedValue(mockCreatedMembership);
+      mockPrisma.user_tenant_membership.create.mockResolvedValue(
+        mockCreatedMembership,
+      );
       mockPrisma.tenant.findUnique.mockResolvedValue(mockTenant);
 
       const result = await service.inviteUser(TENANT_ID, ACTOR_USER_ID, dto);
@@ -227,9 +234,11 @@ describe('UsersService', () => {
       mockPrisma.role.findUnique.mockResolvedValue(mockRole);
       mockPrisma.user_tenant_membership.findFirst.mockResolvedValueOnce(null);
       mockPrisma.user.findUnique
-        .mockResolvedValueOnce(mockUser)     // existing user found by email
+        .mockResolvedValueOnce(mockUser) // existing user found by email
         .mockResolvedValueOnce(mockInviter); // inviter lookup
-      mockPrisma.user_tenant_membership.create.mockResolvedValue(mockCreatedMembership);
+      mockPrisma.user_tenant_membership.create.mockResolvedValue(
+        mockCreatedMembership,
+      );
       mockPrisma.tenant.findUnique.mockResolvedValue(mockTenant);
 
       await service.inviteUser(TENANT_ID, ACTOR_USER_ID, dto);
@@ -279,7 +288,9 @@ describe('UsersService', () => {
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(mockInviter);
       mockPrisma.user.create.mockResolvedValue(mockUser);
-      mockPrisma.user_tenant_membership.create.mockResolvedValue(mockCreatedMembership);
+      mockPrisma.user_tenant_membership.create.mockResolvedValue(
+        mockCreatedMembership,
+      );
       mockPrisma.tenant.findUnique.mockResolvedValue(mockTenant);
 
       await service.inviteUser(TENANT_ID, ACTOR_USER_ID, dto);
@@ -302,7 +313,9 @@ describe('UsersService', () => {
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(mockInviter);
       mockPrisma.user.create.mockResolvedValue(mockUser);
-      mockPrisma.user_tenant_membership.create.mockResolvedValue(mockCreatedMembership);
+      mockPrisma.user_tenant_membership.create.mockResolvedValue(
+        mockCreatedMembership,
+      );
       mockPrisma.tenant.findUnique.mockResolvedValue(mockTenant);
 
       await service.inviteUser(TENANT_ID, ACTOR_USER_ID, dto);
@@ -311,7 +324,9 @@ describe('UsersService', () => {
         TENANT_ID,
         expect.objectContaining({
           variables: expect.objectContaining({
-            invite_link: expect.stringContaining('https://app.lead360.app/invite/'),
+            invite_link: expect.stringContaining(
+              'https://app.lead360.app/invite/',
+            ),
             tenant_name: 'Acme Corp',
             inviter_name: 'Admin Actor',
             role_name: 'Employee',
@@ -319,6 +334,76 @@ describe('UsersService', () => {
         }),
         ACTOR_USER_ID,
       );
+    });
+
+    it('should reuse an INACTIVE membership row for the same (email, tenant) instead of creating a duplicate', async () => {
+      const inactiveMembership = {
+        id: 'inactive-membership-id',
+        user_id: mockUser.id,
+        tenant_id: TENANT_ID,
+        status: 'INACTIVE',
+        left_at: new Date('2026-04-01T10:00:00Z'),
+        user: mockUser,
+      };
+
+      mockPrisma.role.findUnique.mockResolvedValue(mockRole);
+      mockPrisma.user_tenant_membership.findFirst.mockResolvedValueOnce(
+        inactiveMembership,
+      );
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockInviter); // inviter lookup
+      mockPrisma.user_tenant_membership.update.mockResolvedValue({
+        ...inactiveMembership,
+        status: 'INVITED',
+      });
+      mockPrisma.user.update.mockResolvedValue(mockUser);
+      mockPrisma.tenant.findUnique.mockResolvedValue(mockTenant);
+
+      const result = await service.inviteUser(TENANT_ID, ACTOR_USER_ID, dto);
+
+      // Reused — no new membership created
+      expect(mockPrisma.user_tenant_membership.create).not.toHaveBeenCalled();
+      expect(mockPrisma.user_tenant_membership.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: inactiveMembership.id },
+          data: expect.objectContaining({
+            status: 'INVITED',
+            role_id: dto.role_id,
+            invite_token_hash: expect.any(String),
+            invite_token_expires_at: expect.any(Date),
+            invite_accepted_at: null,
+            invited_by_user_id: ACTOR_USER_ID,
+            joined_at: null,
+            left_at: null,
+          }),
+        }),
+      );
+      // Audit log differentiates the reuse path
+      expect(mockAuditLogger.logTenantChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'updated',
+          entityType: 'UserMembership',
+          description: expect.stringContaining('Re-invited'),
+        }),
+      );
+      expect(result.id).toBe(inactiveMembership.id);
+    });
+
+    it('should throw 409 if email already has an INVITED membership in this tenant (regression)', async () => {
+      mockPrisma.role.findUnique.mockResolvedValue(mockRole);
+      mockPrisma.user_tenant_membership.findFirst.mockResolvedValueOnce({
+        id: 'pending-membership',
+        status: 'INVITED',
+        user: mockUser,
+      });
+
+      await expect(
+        service.inviteUser(TENANT_ID, ACTOR_USER_ID, dto),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+      expect(mockPrisma.user_tenant_membership.create).not.toHaveBeenCalled();
+      expect(mockPrisma.user_tenant_membership.update).not.toHaveBeenCalled();
+      expect(mockSendEmailService.sendTemplated).not.toHaveBeenCalled();
     });
   });
 
@@ -377,7 +462,9 @@ describe('UsersService', () => {
         invited_by: null,
       });
 
-      await expect(service.validateInviteToken('used-token')).rejects.toThrow(ConflictException);
+      await expect(service.validateInviteToken('used-token')).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw 410 GoneException for expired token (BR-05)', async () => {
@@ -392,13 +479,17 @@ describe('UsersService', () => {
         invited_by: null,
       });
 
-      await expect(service.validateInviteToken('expired-token')).rejects.toThrow(GoneException);
+      await expect(
+        service.validateInviteToken('expired-token'),
+      ).rejects.toThrow(GoneException);
     });
 
     it('should throw 404 NotFoundException for invalid token (no matching hash)', async () => {
       mockPrisma.user_tenant_membership.findFirst.mockResolvedValueOnce(null);
 
-      await expect(service.validateInviteToken('bad-token')).rejects.toThrow(NotFoundException);
+      await expect(service.validateInviteToken('bad-token')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should check accepted-at BEFORE expiry (already-used takes precedence over expired)', async () => {
@@ -414,7 +505,9 @@ describe('UsersService', () => {
         invited_by: null,
       });
 
-      await expect(service.validateInviteToken('dual-condition-token')).rejects.toThrow(ConflictException);
+      await expect(
+        service.validateInviteToken('dual-condition-token'),
+      ).rejects.toThrow(ConflictException);
     });
   });
 
@@ -439,8 +532,8 @@ describe('UsersService', () => {
 
     it('should accept a valid invite and return membership data', async () => {
       mockPrisma.user_tenant_membership.findFirst
-        .mockResolvedValueOnce(validMembership)  // token lookup
-        .mockResolvedValueOnce(null);             // no other active membership (BR-02)
+        .mockResolvedValueOnce(validMembership) // token lookup
+        .mockResolvedValueOnce(null); // no other active membership (BR-02)
       mockPrisma.user_tenant_membership.update.mockResolvedValue({});
       mockPrisma.user.update.mockResolvedValue({});
 
@@ -499,9 +592,15 @@ describe('UsersService', () => {
     it('should throw 409 if user already has an ACTIVE membership elsewhere (BR-02)', async () => {
       mockPrisma.user_tenant_membership.findFirst
         .mockResolvedValueOnce(validMembership)
-        .mockResolvedValueOnce({ id: 'other-membership', tenant_id: OTHER_TENANT_ID, status: 'ACTIVE' });
+        .mockResolvedValueOnce({
+          id: 'other-membership',
+          tenant_id: OTHER_TENANT_ID,
+          status: 'ACTIVE',
+        });
 
-      await expect(service.acceptInvite('raw-token', acceptDto)).rejects.toThrow(ConflictException);
+      await expect(
+        service.acceptInvite('raw-token', acceptDto),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('should throw 409 if invite has already been used (BR-05)', async () => {
@@ -510,7 +609,9 @@ describe('UsersService', () => {
         invite_accepted_at: new Date(), // already accepted
       });
 
-      await expect(service.acceptInvite('used-token', acceptDto)).rejects.toThrow(ConflictException);
+      await expect(
+        service.acceptInvite('used-token', acceptDto),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('should throw 410 GoneException if invite token is expired', async () => {
@@ -519,13 +620,17 @@ describe('UsersService', () => {
         invite_token_expires_at: new Date(Date.now() - 3600 * 1000), // expired
       });
 
-      await expect(service.acceptInvite('expired-token', acceptDto)).rejects.toThrow(GoneException);
+      await expect(
+        service.acceptInvite('expired-token', acceptDto),
+      ).rejects.toThrow(GoneException);
     });
 
     it('should throw 404 NotFoundException for invalid token', async () => {
       mockPrisma.user_tenant_membership.findFirst.mockResolvedValueOnce(null);
 
-      await expect(service.acceptInvite('bad-token', acceptDto)).rejects.toThrow(NotFoundException);
+      await expect(
+        service.acceptInvite('bad-token', acceptDto),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should write an audit log after successful acceptance', async () => {
@@ -610,7 +715,10 @@ describe('UsersService', () => {
       mockPrisma.user_tenant_membership.findMany.mockResolvedValue([]);
       mockPrisma.user_tenant_membership.count.mockResolvedValue(0);
 
-      await service.listUsers(TENANT_ID, { ...defaultQuery, status: 'ACTIVE' } as any);
+      await service.listUsers(TENANT_ID, {
+        ...defaultQuery,
+        status: 'ACTIVE',
+      } as any);
 
       expect(mockPrisma.user_tenant_membership.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -623,7 +731,10 @@ describe('UsersService', () => {
       mockPrisma.user_tenant_membership.findMany.mockResolvedValue([]);
       mockPrisma.user_tenant_membership.count.mockResolvedValue(0);
 
-      await service.listUsers(TENANT_ID, { ...defaultQuery, role_id: ROLE_ID } as any);
+      await service.listUsers(TENANT_ID, {
+        ...defaultQuery,
+        role_id: ROLE_ID,
+      } as any);
 
       expect(mockPrisma.user_tenant_membership.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -662,7 +773,9 @@ describe('UsersService', () => {
 
   describe('getUserById()', () => {
     it('should return formatted membership for valid membershipId and tenantId', async () => {
-      mockPrisma.user_tenant_membership.findFirst.mockResolvedValue(mockMembershipRecord());
+      mockPrisma.user_tenant_membership.findFirst.mockResolvedValue(
+        mockMembershipRecord(),
+      );
 
       const result = await service.getUserById(TENANT_ID, MEMBERSHIP_ID);
 
@@ -672,7 +785,9 @@ describe('UsersService', () => {
     });
 
     it('should include tenant_id in lookup (multi-tenant isolation)', async () => {
-      mockPrisma.user_tenant_membership.findFirst.mockResolvedValue(mockMembershipRecord());
+      mockPrisma.user_tenant_membership.findFirst.mockResolvedValue(
+        mockMembershipRecord(),
+      );
 
       await service.getUserById(TENANT_ID, MEMBERSHIP_ID);
 
@@ -686,13 +801,17 @@ describe('UsersService', () => {
     it('should throw 404 if membership not found in tenant', async () => {
       mockPrisma.user_tenant_membership.findFirst.mockResolvedValue(null);
 
-      await expect(service.getUserById(TENANT_ID, 'nonexistent-id')).rejects.toThrow(NotFoundException);
+      await expect(
+        service.getUserById(TENANT_ID, 'nonexistent-id'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw 404 for cross-tenant access attempt', async () => {
       mockPrisma.user_tenant_membership.findFirst.mockResolvedValue(null);
 
-      await expect(service.getUserById(OTHER_TENANT_ID, MEMBERSHIP_ID)).rejects.toThrow(NotFoundException);
+      await expect(
+        service.getUserById(OTHER_TENANT_ID, MEMBERSHIP_ID),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -709,7 +828,11 @@ describe('UsersService', () => {
         role: { name: 'Owner' },
       });
 
-      const adminActor = { id: 'admin-user', roles: ['Admin'], is_platform_admin: false };
+      const adminActor = {
+        id: 'admin-user',
+        roles: ['Admin'],
+        is_platform_admin: false,
+      };
 
       await expect(
         service.changeRole(TENANT_ID, MEMBERSHIP_ID, adminActor, dto),
@@ -724,16 +847,28 @@ describe('UsersService', () => {
         id: MEMBERSHIP_ID,
         role: { name: 'Owner' },
       });
-      mockPrisma.role.findUnique.mockResolvedValue({ id: 'new-role-id', name: 'Admin' });
+      mockPrisma.role.findUnique.mockResolvedValue({
+        id: 'new-role-id',
+        name: 'Admin',
+      });
       mockPrisma.user_tenant_membership.update.mockResolvedValue(
         mockMembershipRecord({
           role: { id: 'new-role-id', name: 'Admin' },
         }),
       );
 
-      const ownerActor = { id: 'owner-user', roles: ['Owner'], is_platform_admin: false };
+      const ownerActor = {
+        id: 'owner-user',
+        roles: ['Owner'],
+        is_platform_admin: false,
+      };
 
-      const result = await service.changeRole(TENANT_ID, MEMBERSHIP_ID, ownerActor, dto);
+      const result = await service.changeRole(
+        TENANT_ID,
+        MEMBERSHIP_ID,
+        ownerActor,
+        dto,
+      );
 
       expect(result.role.name).toBe('Admin');
 
@@ -753,16 +888,28 @@ describe('UsersService', () => {
         id: MEMBERSHIP_ID,
         role: { name: 'Owner' },
       });
-      mockPrisma.role.findUnique.mockResolvedValue({ id: 'new-role-id', name: 'Employee' });
+      mockPrisma.role.findUnique.mockResolvedValue({
+        id: 'new-role-id',
+        name: 'Employee',
+      });
       mockPrisma.user_tenant_membership.update.mockResolvedValue(
         mockMembershipRecord({
           role: { id: 'new-role-id', name: 'Employee' },
         }),
       );
 
-      const platformAdmin = { id: 'platform-admin', roles: ['Admin'], is_platform_admin: true };
+      const platformAdmin = {
+        id: 'platform-admin',
+        roles: ['Admin'],
+        is_platform_admin: true,
+      };
 
-      const result = await service.changeRole(TENANT_ID, MEMBERSHIP_ID, platformAdmin, dto);
+      const result = await service.changeRole(
+        TENANT_ID,
+        MEMBERSHIP_ID,
+        platformAdmin,
+        dto,
+      );
 
       expect(result.role.name).toBe('Employee');
     });
@@ -772,16 +919,28 @@ describe('UsersService', () => {
         id: MEMBERSHIP_ID,
         role: { name: 'Employee' },
       });
-      mockPrisma.role.findUnique.mockResolvedValue({ id: 'new-role-id', name: 'Admin' });
+      mockPrisma.role.findUnique.mockResolvedValue({
+        id: 'new-role-id',
+        name: 'Admin',
+      });
       mockPrisma.user_tenant_membership.update.mockResolvedValue(
         mockMembershipRecord({
           role: { id: 'new-role-id', name: 'Admin' },
         }),
       );
 
-      const adminActor = { id: 'admin-user', roles: ['Admin'], is_platform_admin: false };
+      const adminActor = {
+        id: 'admin-user',
+        roles: ['Admin'],
+        is_platform_admin: false,
+      };
 
-      const result = await service.changeRole(TENANT_ID, MEMBERSHIP_ID, adminActor, dto);
+      const result = await service.changeRole(
+        TENANT_ID,
+        MEMBERSHIP_ID,
+        adminActor,
+        dto,
+      );
 
       expect(result.role.name).toBe('Admin');
     });
@@ -789,7 +948,11 @@ describe('UsersService', () => {
     it('should throw 404 if membership not found', async () => {
       mockPrisma.user_tenant_membership.findFirst.mockResolvedValue(null);
 
-      const actor = { id: 'any-user', roles: ['Owner'], is_platform_admin: false };
+      const actor = {
+        id: 'any-user',
+        roles: ['Owner'],
+        is_platform_admin: false,
+      };
 
       await expect(
         service.changeRole(TENANT_ID, 'nonexistent', actor, dto),
@@ -803,10 +966,16 @@ describe('UsersService', () => {
       });
       mockPrisma.role.findUnique.mockResolvedValue(null);
 
-      const actor = { id: 'any-user', roles: ['Owner'], is_platform_admin: false };
+      const actor = {
+        id: 'any-user',
+        roles: ['Owner'],
+        is_platform_admin: false,
+      };
 
       await expect(
-        service.changeRole(TENANT_ID, MEMBERSHIP_ID, actor, { role_id: 'invalid-role' }),
+        service.changeRole(TENANT_ID, MEMBERSHIP_ID, actor, {
+          role_id: 'invalid-role',
+        }),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -830,7 +999,12 @@ describe('UsersService', () => {
       mockPrisma.user_tenant_membership.update.mockResolvedValue({});
       mockPrisma.user.update.mockResolvedValue({});
 
-      const result = await service.deactivateUser(TENANT_ID, MEMBERSHIP_ID, ACTOR_USER_ID, dto);
+      const result = await service.deactivateUser(
+        TENANT_ID,
+        MEMBERSHIP_ID,
+        ACTOR_USER_ID,
+        dto,
+      );
 
       expect(result.status).toBe('INACTIVE');
       expect(result.id).toBe(MEMBERSHIP_ID);
@@ -862,7 +1036,9 @@ describe('UsersService', () => {
       mockPrisma.user_tenant_membership.update.mockResolvedValue({});
       mockPrisma.user.update.mockResolvedValue({});
 
-      await service.deactivateUser(TENANT_ID, MEMBERSHIP_ID, ACTOR_USER_ID, { reason: 'Fired' });
+      await service.deactivateUser(TENANT_ID, MEMBERSHIP_ID, ACTOR_USER_ID, {
+        reason: 'Fired',
+      });
 
       expect(mockAuditLogger.logTenantChange).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -925,7 +1101,12 @@ describe('UsersService', () => {
       mockPrisma.user_tenant_membership.update.mockResolvedValue({});
       mockPrisma.user.update.mockResolvedValue({});
 
-      const result = await service.deactivateUser(TENANT_ID, MEMBERSHIP_ID, ACTOR_USER_ID, dto);
+      const result = await service.deactivateUser(
+        TENANT_ID,
+        MEMBERSHIP_ID,
+        ACTOR_USER_ID,
+        dto,
+      );
 
       expect(result.status).toBe('INACTIVE');
       expect(mockTokenBlocklist.blockUserTokens).toHaveBeenCalledWith(USER_ID);
@@ -951,7 +1132,12 @@ describe('UsersService', () => {
       mockPrisma.user_tenant_membership.update.mockResolvedValue({});
       mockPrisma.user.update.mockResolvedValue({});
 
-      await service.deactivateUser(TENANT_ID, MEMBERSHIP_ID, ACTOR_USER_ID, dto);
+      await service.deactivateUser(
+        TENANT_ID,
+        MEMBERSHIP_ID,
+        ACTOR_USER_ID,
+        dto,
+      );
 
       expect(mockPrisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -969,8 +1155,18 @@ describe('UsersService', () => {
   describe('reactivateUser()', () => {
     it('should throw 409 if user has an ACTIVE membership in another tenant (BR-02, BR-03)', async () => {
       mockPrisma.user_tenant_membership.findFirst
-        .mockResolvedValueOnce({ id: MEMBERSHIP_ID, user_id: USER_ID, tenant_id: TENANT_ID, status: 'INACTIVE' })
-        .mockResolvedValueOnce({ id: 'other-membership', user_id: USER_ID, tenant_id: OTHER_TENANT_ID, status: 'ACTIVE' });
+        .mockResolvedValueOnce({
+          id: MEMBERSHIP_ID,
+          user_id: USER_ID,
+          tenant_id: TENANT_ID,
+          status: 'INACTIVE',
+        })
+        .mockResolvedValueOnce({
+          id: 'other-membership',
+          user_id: USER_ID,
+          tenant_id: OTHER_TENANT_ID,
+          status: 'ACTIVE',
+        });
 
       await expect(
         service.reactivateUser(TENANT_ID, MEMBERSHIP_ID, ACTOR_USER_ID),
@@ -979,13 +1175,22 @@ describe('UsersService', () => {
 
     it('should reactivate a user when they have no other active memberships', async () => {
       mockPrisma.user_tenant_membership.findFirst
-        .mockResolvedValueOnce({ id: MEMBERSHIP_ID, user_id: USER_ID, tenant_id: TENANT_ID, status: 'INACTIVE' })
+        .mockResolvedValueOnce({
+          id: MEMBERSHIP_ID,
+          user_id: USER_ID,
+          tenant_id: TENANT_ID,
+          status: 'INACTIVE',
+        })
         .mockResolvedValueOnce(null); // no other active memberships
       mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma));
       mockPrisma.user_tenant_membership.update.mockResolvedValue({});
       mockPrisma.user.update.mockResolvedValue({});
 
-      const result = await service.reactivateUser(TENANT_ID, MEMBERSHIP_ID, ACTOR_USER_ID);
+      const result = await service.reactivateUser(
+        TENANT_ID,
+        MEMBERSHIP_ID,
+        ACTOR_USER_ID,
+      );
 
       expect(result.status).toBe('ACTIVE');
       expect(result.id).toBe(MEMBERSHIP_ID);
@@ -994,7 +1199,12 @@ describe('UsersService', () => {
 
     it('should set is_active=true on user record and clear left_at on membership', async () => {
       mockPrisma.user_tenant_membership.findFirst
-        .mockResolvedValueOnce({ id: MEMBERSHIP_ID, user_id: USER_ID, tenant_id: TENANT_ID, status: 'INACTIVE' })
+        .mockResolvedValueOnce({
+          id: MEMBERSHIP_ID,
+          user_id: USER_ID,
+          tenant_id: TENANT_ID,
+          status: 'INACTIVE',
+        })
         .mockResolvedValueOnce(null);
       mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma));
       mockPrisma.user_tenant_membership.update.mockResolvedValue({});
@@ -1027,7 +1237,12 @@ describe('UsersService', () => {
 
     it('should write audit log after successful reactivation', async () => {
       mockPrisma.user_tenant_membership.findFirst
-        .mockResolvedValueOnce({ id: MEMBERSHIP_ID, user_id: USER_ID, tenant_id: TENANT_ID, status: 'INACTIVE' })
+        .mockResolvedValueOnce({
+          id: MEMBERSHIP_ID,
+          user_id: USER_ID,
+          tenant_id: TENANT_ID,
+          status: 'INACTIVE',
+        })
         .mockResolvedValueOnce(null);
       mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma));
       mockPrisma.user_tenant_membership.update.mockResolvedValue({});
@@ -1051,6 +1266,12 @@ describe('UsersService', () => {
   // -----------------------------------------------------------------------
 
   describe('deleteUser()', () => {
+    beforeEach(() => {
+      // Default: no other memberships → falls through to the legacy global
+      // delete path. New per-tenant tests override this explicitly.
+      mockPrisma.user_tenant_membership.count.mockResolvedValue(0);
+    });
+
     it('should soft-delete when user has audit log references (BR-06, BR-07)', async () => {
       mockPrisma.user_tenant_membership.findFirst.mockResolvedValue({
         id: MEMBERSHIP_ID,
@@ -1086,15 +1307,21 @@ describe('UsersService', () => {
       });
       mockPrisma.audit_log.count.mockResolvedValue(0); // no audit history
       mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma));
-      mockPrisma.user_tenant_membership.deleteMany.mockResolvedValue({ count: 1 });
+      mockPrisma.user_tenant_membership.deleteMany.mockResolvedValue({
+        count: 1,
+      });
       mockPrisma.user.delete.mockResolvedValue({});
 
       await service.deleteUser(TENANT_ID, MEMBERSHIP_ID, ACTOR_USER_ID);
 
-      expect(mockPrisma.user.delete).toHaveBeenCalledWith({ where: { id: USER_ID } });
-      expect(mockPrisma.user_tenant_membership.deleteMany).toHaveBeenCalledWith({
-        where: { user_id: USER_ID },
+      expect(mockPrisma.user.delete).toHaveBeenCalledWith({
+        where: { id: USER_ID },
       });
+      expect(mockPrisma.user_tenant_membership.deleteMany).toHaveBeenCalledWith(
+        {
+          where: { user_id: USER_ID },
+        },
+      );
     });
 
     it('should fall back to soft-delete when hard-delete fails with FK constraint (BR-06)', async () => {
@@ -1198,6 +1425,67 @@ describe('UsersService', () => {
         }),
       );
     });
+
+    it('should soft-delete only the membership when the user has another ACTIVE membership in a different tenant', async () => {
+      mockPrisma.user_tenant_membership.findFirst.mockResolvedValue({
+        id: MEMBERSHIP_ID,
+        user_id: USER_ID,
+        status: 'ACTIVE',
+        user: { email: 'multi@example.com' },
+        role: { name: 'Employee' },
+      });
+      // user has another active membership somewhere else
+      mockPrisma.user_tenant_membership.count.mockResolvedValue(1);
+      mockPrisma.user_tenant_membership.update.mockResolvedValue({});
+
+      await service.deleteUser(TENANT_ID, MEMBERSHIP_ID, ACTOR_USER_ID);
+
+      // Membership goes INACTIVE; user record is NOT soft-deleted
+      expect(mockPrisma.user_tenant_membership.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: MEMBERSHIP_ID },
+          data: expect.objectContaining({
+            status: 'INACTIVE',
+            left_at: expect.any(Date),
+          }),
+        }),
+      );
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+      expect(mockPrisma.user.delete).not.toHaveBeenCalled();
+      // Tokens revoked so the JWT can't keep operating in this tenant
+      expect(mockTokenBlocklist.blockUserTokens).toHaveBeenCalledWith(USER_ID);
+      // Audit log scoped to the membership, not the user
+      expect(mockAuditLogger.logTenantChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'deleted',
+          entityType: 'UserMembership',
+          entityId: MEMBERSHIP_ID,
+          description: expect.stringContaining('Removed'),
+        }),
+      );
+      // audit_log.count is the legacy global path — we should never hit it
+      expect(mockPrisma.audit_log.count).not.toHaveBeenCalled();
+    });
+
+    it('should throw 400 when removing the last active Owner of a tenant', async () => {
+      mockPrisma.user_tenant_membership.findFirst.mockResolvedValue({
+        id: MEMBERSHIP_ID,
+        user_id: USER_ID,
+        status: 'ACTIVE',
+        user: { email: 'last-owner@example.com' },
+        role: { name: 'Owner' },
+      });
+      // Only this Owner remains
+      mockPrisma.user_tenant_membership.count.mockResolvedValue(1);
+
+      await expect(
+        service.deleteUser(TENANT_ID, MEMBERSHIP_ID, ACTOR_USER_ID),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrisma.user_tenant_membership.update).not.toHaveBeenCalled();
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+      expect(mockPrisma.user.delete).not.toHaveBeenCalled();
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -1229,18 +1517,24 @@ describe('UsersService', () => {
     it('should throw 404 if user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.getMe('nonexistent', MEMBERSHIP_ID)).rejects.toThrow(NotFoundException);
+      await expect(service.getMe('nonexistent', MEMBERSHIP_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw 404 if membership not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUserRecord());
       mockPrisma.user_tenant_membership.findUnique.mockResolvedValue(null);
 
-      await expect(service.getMe(USER_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
+      await expect(service.getMe(USER_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should return null for phone when user has no phone', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue(mockUserRecord({ phone: null }));
+      mockPrisma.user.findUnique.mockResolvedValue(
+        mockUserRecord({ phone: null }),
+      );
       mockPrisma.user_tenant_membership.findUnique.mockResolvedValue({
         id: MEMBERSHIP_ID,
         tenant_id: TENANT_ID,

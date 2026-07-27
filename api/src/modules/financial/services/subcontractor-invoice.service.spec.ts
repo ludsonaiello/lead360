@@ -33,7 +33,11 @@ const mockInvoiceRecord = (overrides: any = {}) => ({
   created_by_user_id: USER_ID,
   created_at: new Date(),
   updated_at: new Date(),
-  subcontractor: { id: SUB_ID, business_name: 'Acme Electric', trade_specialty: 'Electrical' },
+  subcontractor: {
+    id: SUB_ID,
+    business_name: 'Acme Electric',
+    trade_specialty: 'Electrical',
+  },
   task: { id: TASK_ID, title: 'Electrical Rough-In' },
   project: { id: PROJECT_ID, name: 'Test Project', project_number: 'P-001' },
   ...overrides,
@@ -80,7 +84,9 @@ describe('SubcontractorInvoiceService', () => {
       ],
     }).compile();
 
-    service = module.get<SubcontractorInvoiceService>(SubcontractorInvoiceService);
+    service = module.get<SubcontractorInvoiceService>(
+      SubcontractorInvoiceService,
+    );
     jest.clearAllMocks();
   });
 
@@ -96,15 +102,29 @@ describe('SubcontractorInvoiceService', () => {
     };
 
     it('should create an invoice with pending status and call audit log', async () => {
-      mockPrismaService.subcontractor.findFirst.mockResolvedValue({ id: SUB_ID });
+      mockPrismaService.subcontractor.findFirst.mockResolvedValue({
+        id: SUB_ID,
+      });
       mockPrismaService.project.findFirst.mockResolvedValue({ id: PROJECT_ID });
-      mockPrismaService.project_task.findFirst.mockResolvedValue({ id: TASK_ID });
-      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(null);
-      mockPrismaService.subcontractor_task_invoice.create.mockResolvedValue(mockInvoiceRecord());
+      mockPrismaService.project_task.findFirst.mockResolvedValue({
+        id: TASK_ID,
+      });
+      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(
+        null,
+      );
+      mockPrismaService.subcontractor_task_invoice.create.mockResolvedValue(
+        mockInvoiceRecord(),
+      );
 
-      const result = await service.createInvoice(TENANT_ID, USER_ID, dto as any);
+      const result = await service.createInvoice(
+        TENANT_ID,
+        USER_ID,
+        dto as any,
+      );
 
-      expect(mockPrismaService.subcontractor_task_invoice.create).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.subcontractor_task_invoice.create,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             tenant_id: TENANT_ID,
@@ -126,9 +146,13 @@ describe('SubcontractorInvoiceService', () => {
     });
 
     it('should throw ConflictException when invoice_number already exists', async () => {
-      mockPrismaService.subcontractor.findFirst.mockResolvedValue({ id: SUB_ID });
+      mockPrismaService.subcontractor.findFirst.mockResolvedValue({
+        id: SUB_ID,
+      });
       mockPrismaService.project.findFirst.mockResolvedValue({ id: PROJECT_ID });
-      mockPrismaService.project_task.findFirst.mockResolvedValue({ id: TASK_ID });
+      mockPrismaService.project_task.findFirst.mockResolvedValue({
+        id: TASK_ID,
+      });
       mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(
         mockInvoiceRecord(),
       );
@@ -147,7 +171,9 @@ describe('SubcontractorInvoiceService', () => {
     });
 
     it('should throw NotFoundException when project does not belong to tenant', async () => {
-      mockPrismaService.subcontractor.findFirst.mockResolvedValue({ id: SUB_ID });
+      mockPrismaService.subcontractor.findFirst.mockResolvedValue({
+        id: SUB_ID,
+      });
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -156,7 +182,9 @@ describe('SubcontractorInvoiceService', () => {
     });
 
     it('should throw NotFoundException when task does not belong to project', async () => {
-      mockPrismaService.subcontractor.findFirst.mockResolvedValue({ id: SUB_ID });
+      mockPrismaService.subcontractor.findFirst.mockResolvedValue({
+        id: SUB_ID,
+      });
       mockPrismaService.project.findFirst.mockResolvedValue({ id: PROJECT_ID });
       mockPrismaService.project_task.findFirst.mockResolvedValue(null);
 
@@ -169,14 +197,21 @@ describe('SubcontractorInvoiceService', () => {
   describe('updateInvoice() — status transitions', () => {
     it('should allow pending → approved', async () => {
       const existing = mockInvoiceRecord({ status: 'pending' });
-      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(existing);
+      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(
+        existing,
+      );
       mockPrismaService.subcontractor_task_invoice.update.mockResolvedValue(
         mockInvoiceRecord({ status: 'approved' }),
       );
 
-      const result = await service.updateInvoice(TENANT_ID, INVOICE_ID, USER_ID, {
-        status: 'approved',
-      });
+      const result = await service.updateInvoice(
+        TENANT_ID,
+        INVOICE_ID,
+        USER_ID,
+        {
+          status: 'approved',
+        },
+      );
 
       expect(result.status).toBe('approved');
       expect(mockAuditLoggerService.logTenantChange).toHaveBeenCalled();
@@ -184,21 +219,30 @@ describe('SubcontractorInvoiceService', () => {
 
     it('should allow approved → paid', async () => {
       const existing = mockInvoiceRecord({ status: 'approved' });
-      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(existing);
+      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(
+        existing,
+      );
       mockPrismaService.subcontractor_task_invoice.update.mockResolvedValue(
         mockInvoiceRecord({ status: 'paid' }),
       );
 
-      const result = await service.updateInvoice(TENANT_ID, INVOICE_ID, USER_ID, {
-        status: 'paid',
-      });
+      const result = await service.updateInvoice(
+        TENANT_ID,
+        INVOICE_ID,
+        USER_ID,
+        {
+          status: 'paid',
+        },
+      );
 
       expect(result.status).toBe('paid');
     });
 
     it('should reject backward transition (approved → pending)', async () => {
       const existing = mockInvoiceRecord({ status: 'approved' });
-      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(existing);
+      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(
+        existing,
+      );
 
       await expect(
         service.updateInvoice(TENANT_ID, INVOICE_ID, USER_ID, {
@@ -206,12 +250,16 @@ describe('SubcontractorInvoiceService', () => {
         }),
       ).rejects.toThrow(BadRequestException);
 
-      expect(mockPrismaService.subcontractor_task_invoice.update).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.subcontractor_task_invoice.update,
+      ).not.toHaveBeenCalled();
     });
 
     it('should reject skipping statuses (pending → paid)', async () => {
       const existing = mockInvoiceRecord({ status: 'pending' });
-      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(existing);
+      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(
+        existing,
+      );
 
       await expect(
         service.updateInvoice(TENANT_ID, INVOICE_ID, USER_ID, {
@@ -222,7 +270,9 @@ describe('SubcontractorInvoiceService', () => {
 
     it('should reject same status transition (pending → pending)', async () => {
       const existing = mockInvoiceRecord({ status: 'pending' });
-      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(existing);
+      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(
+        existing,
+      );
 
       await expect(
         service.updateInvoice(TENANT_ID, INVOICE_ID, USER_ID, {
@@ -235,21 +285,30 @@ describe('SubcontractorInvoiceService', () => {
   describe('updateInvoice() — amount updates', () => {
     it('should allow amount update when status is pending', async () => {
       const existing = mockInvoiceRecord({ status: 'pending' });
-      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(existing);
+      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(
+        existing,
+      );
       mockPrismaService.subcontractor_task_invoice.update.mockResolvedValue(
         mockInvoiceRecord({ amount: 4000 }),
       );
 
-      const result = await service.updateInvoice(TENANT_ID, INVOICE_ID, USER_ID, {
-        amount: 4000,
-      });
+      const result = await service.updateInvoice(
+        TENANT_ID,
+        INVOICE_ID,
+        USER_ID,
+        {
+          amount: 4000,
+        },
+      );
 
       expect(result.amount).toBe(4000);
     });
 
     it('should reject amount update when status is approved', async () => {
       const existing = mockInvoiceRecord({ status: 'approved' });
-      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(existing);
+      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(
+        existing,
+      );
 
       await expect(
         service.updateInvoice(TENANT_ID, INVOICE_ID, USER_ID, {
@@ -260,7 +319,9 @@ describe('SubcontractorInvoiceService', () => {
 
     it('should reject amount update when status is paid', async () => {
       const existing = mockInvoiceRecord({ status: 'paid' });
-      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(existing);
+      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(
+        existing,
+      );
 
       await expect(
         service.updateInvoice(TENANT_ID, INVOICE_ID, USER_ID, {
@@ -278,7 +339,9 @@ describe('SubcontractorInvoiceService', () => {
 
       const result = await service.getTaskInvoices(TENANT_ID, TASK_ID);
 
-      expect(mockPrismaService.subcontractor_task_invoice.findMany).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.subcontractor_task_invoice.findMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { tenant_id: TENANT_ID, task_id: TASK_ID },
         }),
@@ -296,7 +359,9 @@ describe('SubcontractorInvoiceService', () => {
 
       const result = await service.getSubcontractorInvoices(TENANT_ID, SUB_ID);
 
-      expect(mockPrismaService.subcontractor_task_invoice.findMany).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.subcontractor_task_invoice.findMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { tenant_id: TENANT_ID, subcontractor_id: SUB_ID },
         }),
@@ -308,12 +373,19 @@ describe('SubcontractorInvoiceService', () => {
 
   describe('listInvoices()', () => {
     it('should return paginated results with tenant_id filter', async () => {
-      mockPrismaService.subcontractor_task_invoice.findMany.mockResolvedValue([]);
+      mockPrismaService.subcontractor_task_invoice.findMany.mockResolvedValue(
+        [],
+      );
       mockPrismaService.subcontractor_task_invoice.count.mockResolvedValue(0);
 
-      const result = await service.listInvoices(TENANT_ID, { page: 1, limit: 20 });
+      const result = await service.listInvoices(TENANT_ID, {
+        page: 1,
+        limit: 20,
+      });
 
-      expect(mockPrismaService.subcontractor_task_invoice.findMany).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.subcontractor_task_invoice.findMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ tenant_id: TENANT_ID }),
         }),
@@ -323,12 +395,16 @@ describe('SubcontractorInvoiceService', () => {
     });
 
     it('should apply status filter when provided', async () => {
-      mockPrismaService.subcontractor_task_invoice.findMany.mockResolvedValue([]);
+      mockPrismaService.subcontractor_task_invoice.findMany.mockResolvedValue(
+        [],
+      );
       mockPrismaService.subcontractor_task_invoice.count.mockResolvedValue(0);
 
       await service.listInvoices(TENANT_ID, { status: 'pending' });
 
-      expect(mockPrismaService.subcontractor_task_invoice.findMany).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.subcontractor_task_invoice.findMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ status: 'pending' }),
         }),
@@ -338,13 +414,19 @@ describe('SubcontractorInvoiceService', () => {
 
   describe('Tenant isolation', () => {
     it('should throw NotFoundException when invoice belongs to different tenant', async () => {
-      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(null);
+      mockPrismaService.subcontractor_task_invoice.findFirst.mockResolvedValue(
+        null,
+      );
 
       await expect(
-        service.updateInvoice('other-tenant', INVOICE_ID, USER_ID, { status: 'approved' }),
+        service.updateInvoice('other-tenant', INVOICE_ID, USER_ID, {
+          status: 'approved',
+        }),
       ).rejects.toThrow(NotFoundException);
 
-      expect(mockPrismaService.subcontractor_task_invoice.findFirst).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.subcontractor_task_invoice.findFirst,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             id: INVOICE_ID,
@@ -357,12 +439,14 @@ describe('SubcontractorInvoiceService', () => {
 
   describe('getInvoiceAggregation()', () => {
     it('should return aggregated totals by status', async () => {
-      mockPrismaService.subcontractor.findFirst.mockResolvedValue({ id: SUB_ID });
+      mockPrismaService.subcontractor.findFirst.mockResolvedValue({
+        id: SUB_ID,
+      });
       mockPrismaService.subcontractor_task_invoice.aggregate
-        .mockResolvedValueOnce({ _sum: { amount: 15000 }, _count: 5 })   // total
-        .mockResolvedValueOnce({ _sum: { amount: 3000 } })               // pending
-        .mockResolvedValueOnce({ _sum: { amount: 2000 } })               // approved
-        .mockResolvedValueOnce({ _sum: { amount: 10000 } });             // paid
+        .mockResolvedValueOnce({ _sum: { amount: 15000 }, _count: 5 }) // total
+        .mockResolvedValueOnce({ _sum: { amount: 3000 } }) // pending
+        .mockResolvedValueOnce({ _sum: { amount: 2000 } }) // approved
+        .mockResolvedValueOnce({ _sum: { amount: 10000 } }); // paid
 
       const result = await service.getInvoiceAggregation(TENANT_ID, SUB_ID);
 
@@ -381,7 +465,9 @@ describe('SubcontractorInvoiceService', () => {
     });
 
     it('should return zeros when no invoices exist', async () => {
-      mockPrismaService.subcontractor.findFirst.mockResolvedValue({ id: SUB_ID });
+      mockPrismaService.subcontractor.findFirst.mockResolvedValue({
+        id: SUB_ID,
+      });
       mockPrismaService.subcontractor_task_invoice.aggregate
         .mockResolvedValueOnce({ _sum: { amount: null }, _count: 0 })
         .mockResolvedValueOnce({ _sum: { amount: null } })
@@ -404,17 +490,24 @@ describe('SubcontractorInvoiceService', () => {
         service.getInvoiceAggregation(TENANT_ID, SUB_ID),
       ).rejects.toThrow(NotFoundException);
 
-      expect(mockPrismaService.subcontractor_task_invoice.aggregate).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.subcontractor_task_invoice.aggregate,
+      ).not.toHaveBeenCalled();
     });
 
     it('should always filter by tenant_id in all aggregate queries', async () => {
-      mockPrismaService.subcontractor.findFirst.mockResolvedValue({ id: SUB_ID });
-      mockPrismaService.subcontractor_task_invoice.aggregate
-        .mockResolvedValue({ _sum: { amount: null }, _count: 0 });
+      mockPrismaService.subcontractor.findFirst.mockResolvedValue({
+        id: SUB_ID,
+      });
+      mockPrismaService.subcontractor_task_invoice.aggregate.mockResolvedValue({
+        _sum: { amount: null },
+        _count: 0,
+      });
 
       await service.getInvoiceAggregation(TENANT_ID, SUB_ID);
 
-      const calls = mockPrismaService.subcontractor_task_invoice.aggregate.mock.calls;
+      const calls =
+        mockPrismaService.subcontractor_task_invoice.aggregate.mock.calls;
       expect(calls).toHaveLength(4);
 
       // Every aggregate call must include tenant_id and subcontractor_id

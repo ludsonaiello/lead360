@@ -23,7 +23,9 @@ export class CreateAccountMappingDto {
     example: 'quickbooks',
   })
   @IsString()
-  @IsIn(['quickbooks', 'xero'], { message: 'platform must be quickbooks or xero' })
+  @IsIn(['quickbooks', 'xero'], {
+    message: 'platform must be quickbooks or xero',
+  })
   platform: 'quickbooks' | 'xero';
 
   @ApiProperty({

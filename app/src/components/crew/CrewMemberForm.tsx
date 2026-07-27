@@ -14,6 +14,7 @@ import { MaskedInput } from '@/components/ui/MaskedInput';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { Modal } from '@/components/ui/Modal';
+import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete';
 import type {
   CrewMember,
   CreateCrewMemberDto,
@@ -286,6 +287,39 @@ export function CrewMemberForm({ isOpen, onClose, onSubmit, initialData, mode }:
       case 'address':
         return (
           <div className="space-y-4">
+            <AddressAutocomplete
+              label="Search Address"
+              helperText="Start typing to search Google Places, or fill the fields below manually."
+              defaultValue={
+                form.address_line1
+                  ? [
+                      form.address_line1,
+                      form.address_city,
+                      form.address_state,
+                      form.address_zip,
+                    ]
+                      .filter(Boolean)
+                      .join(', ')
+                  : ''
+              }
+              onSelect={data => {
+                setForm(prev => ({
+                  ...prev,
+                  address_line1: data.line1,
+                  address_city: data.city,
+                  address_state: data.state,
+                  address_zip: data.zip_code,
+                }));
+                setErrors(prev => {
+                  const next = { ...prev };
+                  delete next.address_line1;
+                  delete next.address_city;
+                  delete next.address_state;
+                  delete next.address_zip;
+                  return next;
+                });
+              }}
+            />
             <Input
               label="Street Address"
               value={form.address_line1 || ''}

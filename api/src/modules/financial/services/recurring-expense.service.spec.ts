@@ -746,7 +746,12 @@ describe('RecurringExpenseService', () => {
       const april1 = new Date(2026, 3, 1); // April 1, 2026
 
       prisma.recurring_expense_rule.findFirst.mockResolvedValue(
-        mockRule({ next_due_date: april1, frequency: 'monthly', interval: 1, day_of_month: 1 }),
+        mockRule({
+          next_due_date: april1,
+          frequency: 'monthly',
+          interval: 1,
+          day_of_month: 1,
+        }),
       );
       prisma.financial_entry.findFirst.mockResolvedValue(null);
 
@@ -800,7 +805,12 @@ describe('RecurringExpenseService', () => {
       const april1 = new Date(2026, 3, 1);
 
       prisma.recurring_expense_rule.findFirst.mockResolvedValue(
-        mockRule({ next_due_date: april1, frequency: 'monthly', interval: 1, day_of_month: 1 }),
+        mockRule({
+          next_due_date: april1,
+          frequency: 'monthly',
+          interval: 1,
+          day_of_month: 1,
+        }),
       );
       prisma.financial_entry.findFirst.mockResolvedValue(null);
 
@@ -834,7 +844,12 @@ describe('RecurringExpenseService', () => {
       const dayOfMonth = today.getDate();
 
       prisma.recurring_expense_rule.findFirst.mockResolvedValue(
-        mockRule({ next_due_date: today, frequency: 'monthly', interval: 1, day_of_month: dayOfMonth }),
+        mockRule({
+          next_due_date: today,
+          frequency: 'monthly',
+          interval: 1,
+          day_of_month: dayOfMonth,
+        }),
       );
       prisma.financial_entry.findFirst.mockResolvedValue(null);
 
@@ -956,9 +971,9 @@ describe('RecurringExpenseService', () => {
     it('should throw NotFoundException if rule does not exist', async () => {
       prisma.recurring_expense_rule.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.pause(TENANT_ID, RULE_ID, USER_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.pause(TENANT_ID, RULE_ID, USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException if rule is not active', async () => {
@@ -966,12 +981,12 @@ describe('RecurringExpenseService', () => {
         mockRule({ status: 'paused' }),
       );
 
-      await expect(
-        service.pause(TENANT_ID, RULE_ID, USER_ID),
-      ).rejects.toThrow(BadRequestException);
-      await expect(
-        service.pause(TENANT_ID, RULE_ID, USER_ID),
-      ).rejects.toThrow('Only active rules can be paused');
+      await expect(service.pause(TENANT_ID, RULE_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.pause(TENANT_ID, RULE_ID, USER_ID)).rejects.toThrow(
+        'Only active rules can be paused',
+      );
     });
 
     it('should throw if rule is completed', async () => {
@@ -979,9 +994,9 @@ describe('RecurringExpenseService', () => {
         mockRule({ status: 'completed' }),
       );
 
-      await expect(
-        service.pause(TENANT_ID, RULE_ID, USER_ID),
-      ).rejects.toThrow('Only active rules can be paused');
+      await expect(service.pause(TENANT_ID, RULE_ID, USER_ID)).rejects.toThrow(
+        'Only active rules can be paused',
+      );
     });
 
     it('should update status to paused and audit log when active', async () => {
@@ -1016,9 +1031,9 @@ describe('RecurringExpenseService', () => {
     it('should throw NotFoundException if rule does not exist', async () => {
       prisma.recurring_expense_rule.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.resume(TENANT_ID, RULE_ID, USER_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.resume(TENANT_ID, RULE_ID, USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException if rule is not paused', async () => {
@@ -1026,12 +1041,12 @@ describe('RecurringExpenseService', () => {
         mockRule({ status: 'active' }),
       );
 
-      await expect(
-        service.resume(TENANT_ID, RULE_ID, USER_ID),
-      ).rejects.toThrow(BadRequestException);
-      await expect(
-        service.resume(TENANT_ID, RULE_ID, USER_ID),
-      ).rejects.toThrow('Only paused rules can be resumed');
+      await expect(service.resume(TENANT_ID, RULE_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.resume(TENANT_ID, RULE_ID, USER_ID)).rejects.toThrow(
+        'Only paused rules can be resumed',
+      );
     });
 
     it('should advance next_due_date to future when resuming after long pause', async () => {
@@ -1053,8 +1068,7 @@ describe('RecurringExpenseService', () => {
 
       await service.resume(TENANT_ID, RULE_ID, USER_ID);
 
-      const updateCall = (prisma.recurring_expense_rule.update as jest.Mock)
-        .mock.calls[0][0];
+      const updateCall = prisma.recurring_expense_rule.update.mock.calls[0][0];
       const newNextDate = new Date(updateCall.data.next_due_date);
 
       // The new next_due_date should be today or in the future
@@ -1084,8 +1098,7 @@ describe('RecurringExpenseService', () => {
 
       await service.resume(TENANT_ID, RULE_ID, USER_ID);
 
-      const updateCall = (prisma.recurring_expense_rule.update as jest.Mock)
-        .mock.calls[0][0];
+      const updateCall = prisma.recurring_expense_rule.update.mock.calls[0][0];
       const newNextDate = new Date(updateCall.data.next_due_date);
       expect(newNextDate.getTime()).toBe(futureDate.getTime());
     });
@@ -1155,8 +1168,7 @@ describe('RecurringExpenseService', () => {
 
       await service.skipNext(TENANT_ID, RULE_ID, USER_ID, {});
 
-      const updateCall = (prisma.recurring_expense_rule.update as jest.Mock)
-        .mock.calls[0][0];
+      const updateCall = prisma.recurring_expense_rule.update.mock.calls[0][0];
       expect(updateCall.data.occurrences_generated).toBe(6);
     });
 
@@ -1175,8 +1187,7 @@ describe('RecurringExpenseService', () => {
 
       await service.skipNext(TENANT_ID, RULE_ID, USER_ID, {});
 
-      const updateCall = (prisma.recurring_expense_rule.update as jest.Mock)
-        .mock.calls[0][0];
+      const updateCall = prisma.recurring_expense_rule.update.mock.calls[0][0];
       const newNextDate = new Date(updateCall.data.next_due_date);
       expect(newNextDate.getMonth()).toBe(4); // May
       expect(newNextDate.getDate()).toBe(1);
@@ -1198,8 +1209,7 @@ describe('RecurringExpenseService', () => {
 
       await service.skipNext(TENANT_ID, RULE_ID, USER_ID, {});
 
-      const updateCall = (prisma.recurring_expense_rule.update as jest.Mock)
-        .mock.calls[0][0];
+      const updateCall = prisma.recurring_expense_rule.update.mock.calls[0][0];
       expect(updateCall.data.status).toBe('completed');
       expect(updateCall.data.occurrences_generated).toBe(12);
     });
@@ -1220,8 +1230,7 @@ describe('RecurringExpenseService', () => {
 
       await service.skipNext(TENANT_ID, RULE_ID, USER_ID, {});
 
-      const updateCall = (prisma.recurring_expense_rule.update as jest.Mock)
-        .mock.calls[0][0];
+      const updateCall = prisma.recurring_expense_rule.update.mock.calls[0][0];
       expect(updateCall.data.status).toBe('completed');
     });
 
@@ -1242,8 +1251,7 @@ describe('RecurringExpenseService', () => {
 
       await service.skipNext(TENANT_ID, RULE_ID, USER_ID, {});
 
-      const updateCall = (prisma.recurring_expense_rule.update as jest.Mock)
-        .mock.calls[0][0];
+      const updateCall = prisma.recurring_expense_rule.update.mock.calls[0][0];
       expect(updateCall.data.status).toBe('active');
     });
 
@@ -1571,7 +1579,9 @@ describe('RecurringExpenseService', () => {
 
     it('should throw if supplier_id is invalid', async () => {
       prisma.recurring_expense_rule.count.mockResolvedValue(0);
-      prisma.financial_category.findFirst.mockResolvedValue({ id: CATEGORY_ID });
+      prisma.financial_category.findFirst.mockResolvedValue({
+        id: CATEGORY_ID,
+      });
       prisma.supplier.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -1584,7 +1594,9 @@ describe('RecurringExpenseService', () => {
 
     it('should throw if payment_method_registry_id is invalid', async () => {
       prisma.recurring_expense_rule.count.mockResolvedValue(0);
-      prisma.financial_category.findFirst.mockResolvedValue({ id: CATEGORY_ID });
+      prisma.financial_category.findFirst.mockResolvedValue({
+        id: CATEGORY_ID,
+      });
       prisma.payment_method_registry.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -1597,7 +1609,9 @@ describe('RecurringExpenseService', () => {
 
     it('should throw if start_date is in the past', async () => {
       prisma.recurring_expense_rule.count.mockResolvedValue(0);
-      prisma.financial_category.findFirst.mockResolvedValue({ id: CATEGORY_ID });
+      prisma.financial_category.findFirst.mockResolvedValue({
+        id: CATEGORY_ID,
+      });
 
       await expect(
         service.create(TENANT_ID, USER_ID, {
@@ -1609,7 +1623,9 @@ describe('RecurringExpenseService', () => {
 
     it('should throw if end_date is before start_date', async () => {
       prisma.recurring_expense_rule.count.mockResolvedValue(0);
-      prisma.financial_category.findFirst.mockResolvedValue({ id: CATEGORY_ID });
+      prisma.financial_category.findFirst.mockResolvedValue({
+        id: CATEGORY_ID,
+      });
 
       const tomorrow = new Date(Date.now() + 86400000)
         .toISOString()
@@ -1629,7 +1645,9 @@ describe('RecurringExpenseService', () => {
 
     it('should throw if tax_amount >= amount', async () => {
       prisma.recurring_expense_rule.count.mockResolvedValue(0);
-      prisma.financial_category.findFirst.mockResolvedValue({ id: CATEGORY_ID });
+      prisma.financial_category.findFirst.mockResolvedValue({
+        id: CATEGORY_ID,
+      });
 
       await expect(
         service.create(TENANT_ID, USER_ID, {
@@ -1641,7 +1659,9 @@ describe('RecurringExpenseService', () => {
 
     it('should create rule successfully and return it', async () => {
       prisma.recurring_expense_rule.count.mockResolvedValue(0);
-      prisma.financial_category.findFirst.mockResolvedValue({ id: CATEGORY_ID });
+      prisma.financial_category.findFirst.mockResolvedValue({
+        id: CATEGORY_ID,
+      });
 
       const createdRule = mockRule({ name: validDto.name });
       prisma.recurring_expense_rule.create.mockResolvedValue(createdRule);
@@ -1666,7 +1686,9 @@ describe('RecurringExpenseService', () => {
 
     it('should auto-populate day_of_month for monthly frequency', async () => {
       prisma.recurring_expense_rule.count.mockResolvedValue(0);
-      prisma.financial_category.findFirst.mockResolvedValue({ id: CATEGORY_ID });
+      prisma.financial_category.findFirst.mockResolvedValue({
+        id: CATEGORY_ID,
+      });
       prisma.recurring_expense_rule.create.mockResolvedValue(mockRule());
 
       const futureDate = new Date(Date.now() + 86400000);
@@ -1683,7 +1705,9 @@ describe('RecurringExpenseService', () => {
 
     it('should auto-populate day_of_week for weekly frequency', async () => {
       prisma.recurring_expense_rule.count.mockResolvedValue(0);
-      prisma.financial_category.findFirst.mockResolvedValue({ id: CATEGORY_ID });
+      prisma.financial_category.findFirst.mockResolvedValue({
+        id: CATEGORY_ID,
+      });
       prisma.recurring_expense_rule.create.mockResolvedValue(mockRule());
 
       const futureDate = new Date(Date.now() + 86400000);
@@ -2044,9 +2068,9 @@ describe('RecurringExpenseService', () => {
     it('should throw NotFoundException if rule not found', async () => {
       prisma.recurring_expense_rule.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getHistory(TENANT_ID, RULE_ID, {}),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getHistory(TENANT_ID, RULE_ID, {})).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should return paginated entries for the rule', async () => {
@@ -2078,12 +2102,8 @@ describe('RecurringExpenseService', () => {
 
       const findManyCall = prisma.financial_entry.findMany.mock.calls[0][0];
       expect(findManyCall.where.entry_date).toBeDefined();
-      expect(findManyCall.where.entry_date.gte).toEqual(
-        new Date('2026-01-01'),
-      );
-      expect(findManyCall.where.entry_date.lte).toEqual(
-        new Date('2026-03-31'),
-      );
+      expect(findManyCall.where.entry_date.gte).toEqual(new Date('2026-01-01'));
+      expect(findManyCall.where.entry_date.lte).toEqual(new Date('2026-03-31'));
     });
 
     it('should include tenant_id and recurring_rule_id in the query', async () => {
@@ -2107,9 +2127,9 @@ describe('RecurringExpenseService', () => {
     it('should throw NotFoundException if rule does not exist', async () => {
       prisma.recurring_expense_rule.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.cancel(TENANT_ID, RULE_ID, USER_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.cancel(TENANT_ID, RULE_ID, USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException if rule is already cancelled', async () => {
@@ -2117,9 +2137,9 @@ describe('RecurringExpenseService', () => {
         mockRule({ status: 'cancelled' }),
       );
 
-      await expect(
-        service.cancel(TENANT_ID, RULE_ID, USER_ID),
-      ).rejects.toThrow('Rule is already cancelled');
+      await expect(service.cancel(TENANT_ID, RULE_ID, USER_ID)).rejects.toThrow(
+        'Rule is already cancelled',
+      );
     });
 
     it('should throw BadRequestException if rule is completed', async () => {
@@ -2127,9 +2147,9 @@ describe('RecurringExpenseService', () => {
         mockRule({ status: 'completed' }),
       );
 
-      await expect(
-        service.cancel(TENANT_ID, RULE_ID, USER_ID),
-      ).rejects.toThrow('Cannot cancel a completed rule');
+      await expect(service.cancel(TENANT_ID, RULE_ID, USER_ID)).rejects.toThrow(
+        'Cannot cancel a completed rule',
+      );
     });
 
     it('should update status to cancelled for active rule', async () => {

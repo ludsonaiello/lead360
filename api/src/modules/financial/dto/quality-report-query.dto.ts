@@ -1,14 +1,10 @@
-import {
-  IsOptional,
-  IsDateString,
-  IsString,
-  IsIn,
-} from 'class-validator';
+import { IsOptional, IsDateString, IsString, IsIn } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class QualityReportQueryDto {
   @ApiPropertyOptional({
-    description: 'Start date filter (optional — if omitted, checks all records)',
+    description:
+      'Start date filter (optional — if omitted, checks all records)',
     example: '2026-01-01',
   })
   @IsOptional()

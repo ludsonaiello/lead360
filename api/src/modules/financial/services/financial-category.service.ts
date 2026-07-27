@@ -8,7 +8,10 @@ import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { CreateFinancialCategoryDto } from '../dto/create-financial-category.dto';
 import { UpdateFinancialCategoryDto } from '../dto/update-financial-category.dto';
-import type { financial_category_type, financial_category_classification } from '@prisma/client';
+import type {
+  financial_category_type,
+  financial_category_classification,
+} from '@prisma/client';
 
 /**
  * System default categories seeded per tenant.
@@ -18,23 +21,75 @@ const DEFAULT_CATEGORIES: {
   type: financial_category_type;
   classification: financial_category_classification;
 }[] = [
-  { name: 'Labor - General', type: 'labor', classification: 'cost_of_goods_sold' },
-  { name: 'Labor - Crew Overtime', type: 'labor', classification: 'cost_of_goods_sold' },
-  { name: 'Materials - General', type: 'material', classification: 'cost_of_goods_sold' },
-  { name: 'Materials - Tools', type: 'equipment', classification: 'cost_of_goods_sold' },
-  { name: 'Materials - Safety Equipment', type: 'equipment', classification: 'cost_of_goods_sold' },
-  { name: 'Subcontractor - General', type: 'subcontractor', classification: 'cost_of_goods_sold' },
-  { name: 'Equipment Rental', type: 'equipment', classification: 'cost_of_goods_sold' },
-  { name: 'Fuel & Transportation', type: 'other', classification: 'cost_of_goods_sold' },
-  { name: 'Miscellaneous', type: 'other', classification: 'cost_of_goods_sold' },
+  {
+    name: 'Labor - General',
+    type: 'labor',
+    classification: 'cost_of_goods_sold',
+  },
+  {
+    name: 'Labor - Crew Overtime',
+    type: 'labor',
+    classification: 'cost_of_goods_sold',
+  },
+  {
+    name: 'Materials - General',
+    type: 'material',
+    classification: 'cost_of_goods_sold',
+  },
+  {
+    name: 'Materials - Tools',
+    type: 'equipment',
+    classification: 'cost_of_goods_sold',
+  },
+  {
+    name: 'Materials - Safety Equipment',
+    type: 'equipment',
+    classification: 'cost_of_goods_sold',
+  },
+  {
+    name: 'Subcontractor - General',
+    type: 'subcontractor',
+    classification: 'cost_of_goods_sold',
+  },
+  {
+    name: 'Equipment Rental',
+    type: 'equipment',
+    classification: 'cost_of_goods_sold',
+  },
+  {
+    name: 'Fuel & Transportation',
+    type: 'other',
+    classification: 'cost_of_goods_sold',
+  },
+  {
+    name: 'Miscellaneous',
+    type: 'other',
+    classification: 'cost_of_goods_sold',
+  },
   // Overhead categories (operating expenses)
   { name: 'Insurance', type: 'insurance', classification: 'operating_expense' },
   { name: 'Fuel & Vehicle', type: 'fuel', classification: 'operating_expense' },
   { name: 'Utilities', type: 'utilities', classification: 'operating_expense' },
-  { name: 'Office & Admin', type: 'office', classification: 'operating_expense' },
-  { name: 'Marketing & Advertising', type: 'marketing', classification: 'operating_expense' },
-  { name: 'Taxes & Licenses', type: 'taxes', classification: 'operating_expense' },
-  { name: 'Tools & Equipment Purchase', type: 'tools', classification: 'operating_expense' },
+  {
+    name: 'Office & Admin',
+    type: 'office',
+    classification: 'operating_expense',
+  },
+  {
+    name: 'Marketing & Advertising',
+    type: 'marketing',
+    classification: 'operating_expense',
+  },
+  {
+    name: 'Taxes & Licenses',
+    type: 'taxes',
+    classification: 'operating_expense',
+  },
+  {
+    name: 'Tools & Equipment Purchase',
+    type: 'tools',
+    classification: 'operating_expense',
+  },
 ];
 
 @Injectable()
@@ -118,7 +173,11 @@ export class FinancialCategoryService {
     }
 
     // Prevent reactivation of system-default categories that were deactivated
-    if (dto.is_active === true && existing.is_system_default && !existing.is_active) {
+    if (
+      dto.is_active === true &&
+      existing.is_system_default &&
+      !existing.is_active
+    ) {
       throw new BadRequestException(
         'Cannot reactivate a system-default category',
       );
@@ -129,7 +188,9 @@ export class FinancialCategoryService {
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.classification !== undefined && { classification: dto.classification }),
+        ...(dto.classification !== undefined && {
+          classification: dto.classification,
+        }),
         ...(dto.is_active !== undefined && { is_active: dto.is_active }),
       },
     });

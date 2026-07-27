@@ -43,21 +43,14 @@ export class GanttDataService {
     type: string;
     name: string;
   } {
-    if (
-      assignee.assignee_type === 'crew_member' &&
-      assignee.crew_member
-    ) {
+    if (assignee.assignee_type === 'crew_member' && assignee.crew_member) {
       return {
         type: 'crew_member',
-        name:
-          `${assignee.crew_member.first_name} ${assignee.crew_member.last_name}`.trim(),
+        name: `${assignee.crew_member.first_name} ${assignee.crew_member.last_name}`.trim(),
       };
     }
 
-    if (
-      assignee.assignee_type === 'subcontractor' &&
-      assignee.subcontractor
-    ) {
+    if (assignee.assignee_type === 'subcontractor' && assignee.subcontractor) {
       return {
         type: 'subcontractor',
         name: assignee.subcontractor.business_name,
@@ -67,8 +60,7 @@ export class GanttDataService {
     if (assignee.assignee_type === 'user' && assignee.assignee_user) {
       return {
         type: 'user',
-        name:
-          `${assignee.assignee_user.first_name} ${assignee.assignee_user.last_name}`.trim(),
+        name: `${assignee.assignee_user.first_name} ${assignee.assignee_user.last_name}`.trim(),
       };
     }
 

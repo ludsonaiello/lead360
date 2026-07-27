@@ -14,7 +14,11 @@ import {
 } from '../../leads/services/google-maps.service';
 import { CreateSupplierDto } from '../dto/create-supplier.dto';
 import { UpdateSupplierDto } from '../dto/update-supplier.dto';
-import { ListSuppliersDto, SupplierSortBy, SortOrder } from '../dto/list-suppliers.dto';
+import {
+  ListSuppliersDto,
+  SupplierSortBy,
+  SortOrder,
+} from '../dto/list-suppliers.dto';
 import { Decimal } from '@prisma/client/runtime/library';
 
 // ---------------------------------------------------------------------------
@@ -223,7 +227,9 @@ describe('SupplierService', () => {
       expect(result).toBeDefined();
       expect(result.name).toBe('ABC Building Supply');
       expect(mockTx.supplier.create).toHaveBeenCalledTimes(1);
-      expect(mockTx.supplier_category_assignment.createMany).toHaveBeenCalledTimes(1);
+      expect(
+        mockTx.supplier_category_assignment.createMany,
+      ).toHaveBeenCalledTimes(1);
     });
 
     it('should include tenant_id in name uniqueness check', async () => {
@@ -243,18 +249,16 @@ describe('SupplierService', () => {
         mockSupplierRecord(),
       );
 
-      await expect(
-        service.create(TENANT_ID, USER_ID, dto),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.create(TENANT_ID, USER_ID, dto)).rejects.toThrow(
+        ConflictException,
+      );
 
       mockPrismaService.supplier.findFirst.mockReset();
       mockPrismaService.supplier.findFirst.mockResolvedValue(
         mockSupplierRecord(),
       );
 
-      await expect(
-        service.create(TENANT_ID, USER_ID, dto),
-      ).rejects.toThrow(
+      await expect(service.create(TENANT_ID, USER_ID, dto)).rejects.toThrow(
         `Supplier "${dto.name}" already exists for this tenant.`,
       );
     });
@@ -262,12 +266,14 @@ describe('SupplierService', () => {
     it('should validate category_ids belong to tenant', async () => {
       await service.create(TENANT_ID, USER_ID, dto);
 
-      expect(mockPrismaService.supplier_category.findMany).toHaveBeenCalledWith({
-        where: {
-          id: { in: [CATEGORY_ID_1] },
-          tenant_id: TENANT_ID,
+      expect(mockPrismaService.supplier_category.findMany).toHaveBeenCalledWith(
+        {
+          where: {
+            id: { in: [CATEGORY_ID_1] },
+            tenant_id: TENANT_ID,
+          },
         },
-      });
+      );
     });
 
     it('should throw BadRequestException when category_ids are invalid', async () => {
@@ -275,13 +281,11 @@ describe('SupplierService', () => {
       mockPrismaService.supplier.findFirst.mockResolvedValueOnce(null);
       mockPrismaService.supplier_category.findMany.mockResolvedValue([]); // none found
 
-      await expect(
-        service.create(TENANT_ID, USER_ID, dto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.create(TENANT_ID, USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
 
-      await expect(
-        service.create(TENANT_ID, USER_ID, dto),
-      ).rejects.toThrow(
+      await expect(service.create(TENANT_ID, USER_ID, dto)).rejects.toThrow(
         'One or more category IDs are invalid or do not belong to this tenant.',
       );
     });
@@ -305,7 +309,9 @@ describe('SupplierService', () => {
       mockPrismaService.supplier.findFirst.mockReset();
       mockPrismaService.supplier.findFirst
         .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(mockFullSupplierRecord({ name: 'No Address Supplier' }));
+        .mockResolvedValueOnce(
+          mockFullSupplierRecord({ name: 'No Address Supplier' }),
+        );
       mockTx.supplier.create.mockResolvedValue(
         mockSupplierRecord({ name: 'No Address Supplier' }),
       );
@@ -345,7 +351,9 @@ describe('SupplierService', () => {
       mockPrismaService.supplier.findFirst.mockReset();
       mockPrismaService.supplier.findFirst
         .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(mockFullSupplierRecord({ name: 'Fallback Supplier' }));
+        .mockResolvedValueOnce(
+          mockFullSupplierRecord({ name: 'Fallback Supplier' }),
+        );
       mockTx.supplier.create.mockResolvedValue(
         mockSupplierRecord({ name: 'Fallback Supplier' }),
       );
@@ -358,7 +366,9 @@ describe('SupplierService', () => {
     it('should create category assignments in the same transaction', async () => {
       await service.create(TENANT_ID, USER_ID, dto);
 
-      expect(mockTx.supplier_category_assignment.createMany).toHaveBeenCalledWith({
+      expect(
+        mockTx.supplier_category_assignment.createMany,
+      ).toHaveBeenCalledWith({
         data: expect.arrayContaining([
           expect.objectContaining({
             supplier_category_id: CATEGORY_ID_1,
@@ -373,14 +383,18 @@ describe('SupplierService', () => {
       mockPrismaService.supplier.findFirst.mockReset();
       mockPrismaService.supplier.findFirst
         .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(mockFullSupplierRecord({ name: 'No Cats Supplier' }));
+        .mockResolvedValueOnce(
+          mockFullSupplierRecord({ name: 'No Cats Supplier' }),
+        );
       mockTx.supplier.create.mockResolvedValue(
         mockSupplierRecord({ name: 'No Cats Supplier' }),
       );
 
       await service.create(TENANT_ID, USER_ID, dtoNoCats);
 
-      expect(mockTx.supplier_category_assignment.createMany).not.toHaveBeenCalled();
+      expect(
+        mockTx.supplier_category_assignment.createMany,
+      ).not.toHaveBeenCalled();
     });
 
     it('should call auditLogger with action "created"', async () => {
@@ -677,7 +691,9 @@ describe('SupplierService', () => {
       mockPrismaService.supplier.findFirst
         .mockResolvedValueOnce(mockSupplierRecord()) // existing check
         .mockResolvedValueOnce(null) // name uniqueness check
-        .mockResolvedValueOnce(mockFullSupplierRecord({ name: 'Updated Supply Co' })); // findOne
+        .mockResolvedValueOnce(
+          mockFullSupplierRecord({ name: 'Updated Supply Co' }),
+        ); // findOne
       mockTx.supplier.update.mockResolvedValue(
         mockSupplierRecord({ name: 'Updated Supply Co' }),
       );
@@ -707,7 +723,9 @@ describe('SupplierService', () => {
         mockSupplierRecord({ name: 'New Name' }),
       );
 
-      await service.update(TENANT_ID, SUPPLIER_ID, USER_ID, { name: 'New Name' });
+      await service.update(TENANT_ID, SUPPLIER_ID, USER_ID, {
+        name: 'New Name',
+      });
 
       expect(mockPrismaService.supplier.findFirst).toHaveBeenNthCalledWith(2, {
         where: {
@@ -726,7 +744,9 @@ describe('SupplierService', () => {
         mockSupplierRecord({ name: 'abc supply' }),
       );
 
-      await service.update(TENANT_ID, SUPPLIER_ID, USER_ID, { name: 'abc supply' });
+      await service.update(TENANT_ID, SUPPLIER_ID, USER_ID, {
+        name: 'abc supply',
+      });
 
       // Only 2 calls to findFirst: existing check + findOne after update
       // No uniqueness call because name is same (case-insensitive)
@@ -736,7 +756,9 @@ describe('SupplierService', () => {
     it('should throw ConflictException when new name already exists', async () => {
       mockPrismaService.supplier.findFirst
         .mockResolvedValueOnce(mockSupplierRecord({ name: 'Old Name' }))
-        .mockResolvedValueOnce(mockSupplierRecord({ id: 'other-id', name: 'Taken Name' }));
+        .mockResolvedValueOnce(
+          mockSupplierRecord({ id: 'other-id', name: 'Taken Name' }),
+        );
 
       await expect(
         service.update(TENANT_ID, SUPPLIER_ID, USER_ID, { name: 'Taken Name' }),
@@ -752,19 +774,25 @@ describe('SupplierService', () => {
         { id: CATEGORY_ID_2, tenant_id: TENANT_ID },
       ]);
       mockTx.supplier.update.mockResolvedValue(mockSupplierRecord());
-      mockTx.supplier_category_assignment.deleteMany.mockResolvedValue({ count: 1 });
-      mockTx.supplier_category_assignment.createMany.mockResolvedValue({ count: 2 });
+      mockTx.supplier_category_assignment.deleteMany.mockResolvedValue({
+        count: 1,
+      });
+      mockTx.supplier_category_assignment.createMany.mockResolvedValue({
+        count: 2,
+      });
 
       await service.update(TENANT_ID, SUPPLIER_ID, USER_ID, {
         category_ids: [CATEGORY_ID_1, CATEGORY_ID_2],
       });
 
-      expect(mockPrismaService.supplier_category.findMany).toHaveBeenCalledWith({
-        where: {
-          id: { in: [CATEGORY_ID_1, CATEGORY_ID_2] },
-          tenant_id: TENANT_ID,
+      expect(mockPrismaService.supplier_category.findMany).toHaveBeenCalledWith(
+        {
+          where: {
+            id: { in: [CATEGORY_ID_1, CATEGORY_ID_2] },
+            tenant_id: TENANT_ID,
+          },
         },
-      });
+      );
     });
 
     it('should throw BadRequestException when category_ids are invalid during update', async () => {
@@ -806,19 +834,27 @@ describe('SupplierService', () => {
         { id: CATEGORY_ID_1, tenant_id: TENANT_ID },
       ]);
       mockTx.supplier.update.mockResolvedValue(mockSupplierRecord());
-      mockTx.supplier_category_assignment.deleteMany.mockResolvedValue({ count: 0 });
-      mockTx.supplier_category_assignment.createMany.mockResolvedValue({ count: 1 });
+      mockTx.supplier_category_assignment.deleteMany.mockResolvedValue({
+        count: 0,
+      });
+      mockTx.supplier_category_assignment.createMany.mockResolvedValue({
+        count: 1,
+      });
 
       await service.update(TENANT_ID, SUPPLIER_ID, USER_ID, {
         category_ids: [CATEGORY_ID_1],
       });
 
       // Should delete existing assignments first
-      expect(mockTx.supplier_category_assignment.deleteMany).toHaveBeenCalledWith({
+      expect(
+        mockTx.supplier_category_assignment.deleteMany,
+      ).toHaveBeenCalledWith({
         where: { supplier_id: SUPPLIER_ID, tenant_id: TENANT_ID },
       });
       // Then create new ones
-      expect(mockTx.supplier_category_assignment.createMany).toHaveBeenCalledWith({
+      expect(
+        mockTx.supplier_category_assignment.createMany,
+      ).toHaveBeenCalledWith({
         data: expect.arrayContaining([
           expect.objectContaining({
             supplier_category_id: CATEGORY_ID_1,
@@ -833,7 +869,9 @@ describe('SupplierService', () => {
         .mockResolvedValueOnce(mockSupplierRecord())
         .mockResolvedValueOnce(mockFullSupplierRecord());
       mockTx.supplier.update.mockResolvedValue(mockSupplierRecord());
-      mockTx.supplier_category_assignment.deleteMany.mockResolvedValue({ count: 2 });
+      mockTx.supplier_category_assignment.deleteMany.mockResolvedValue({
+        count: 2,
+      });
 
       await service.update(TENANT_ID, SUPPLIER_ID, USER_ID, {
         category_ids: [],
@@ -842,7 +880,9 @@ describe('SupplierService', () => {
       // Should delete existing assignments
       expect(mockTx.supplier_category_assignment.deleteMany).toHaveBeenCalled();
       // Should NOT create new ones
-      expect(mockTx.supplier_category_assignment.createMany).not.toHaveBeenCalled();
+      expect(
+        mockTx.supplier_category_assignment.createMany,
+      ).not.toHaveBeenCalled();
     });
 
     it('should set updated_by_user_id on every update', async () => {
@@ -851,7 +891,9 @@ describe('SupplierService', () => {
         .mockResolvedValueOnce(mockFullSupplierRecord());
       mockTx.supplier.update.mockResolvedValue(mockSupplierRecord());
 
-      await service.update(TENANT_ID, SUPPLIER_ID, USER_ID, { notes: 'new notes' });
+      await service.update(TENANT_ID, SUPPLIER_ID, USER_ID, {
+        notes: 'new notes',
+      });
 
       expect(mockTx.supplier.update).toHaveBeenCalledWith({
         where: { id: SUPPLIER_ID },
@@ -890,7 +932,9 @@ describe('SupplierService', () => {
       mockPrismaService.supplier.findFirst
         .mockResolvedValueOnce(mockSupplierRecord())
         .mockResolvedValueOnce(mockFullSupplierRecord());
-      mockGoogleMapsService.validateAddress.mockResolvedValue(mockValidatedAddress);
+      mockGoogleMapsService.validateAddress.mockResolvedValue(
+        mockValidatedAddress,
+      );
       mockTx.supplier.update.mockResolvedValue(mockSupplierRecord());
 
       await service.update(TENANT_ID, SUPPLIER_ID, USER_ID, {
@@ -906,7 +950,9 @@ describe('SupplierService', () => {
         .mockResolvedValueOnce(mockFullSupplierRecord());
       mockTx.supplier.update.mockResolvedValue(mockSupplierRecord());
 
-      await service.update(TENANT_ID, SUPPLIER_ID, USER_ID, { notes: 'updated note' });
+      await service.update(TENANT_ID, SUPPLIER_ID, USER_ID, {
+        notes: 'updated note',
+      });
 
       expect(mockGoogleMapsService.validateAddress).not.toHaveBeenCalled();
     });
@@ -1098,8 +1144,11 @@ describe('SupplierService', () => {
       mockPrismaService.supplier.findFirst.mockResolvedValue(
         mockSupplierRecord(),
       );
-      mockPrismaService.financial_entry.aggregate
-        .mockResolvedValue({ _sum: { amount: null }, _min: { entry_date: null }, _max: { entry_date: null } });
+      mockPrismaService.financial_entry.aggregate.mockResolvedValue({
+        _sum: { amount: null },
+        _min: { entry_date: null },
+        _max: { entry_date: null },
+      });
       mockPrismaService.financial_entry.count.mockResolvedValue(0);
       mockPrismaService.financial_entry.groupBy.mockResolvedValue([]);
       mockPrismaService.$queryRaw.mockResolvedValue([]);
@@ -1134,8 +1183,14 @@ describe('SupplierService', () => {
         });
       mockPrismaService.financial_entry.count.mockResolvedValue(10);
       mockPrismaService.financial_entry.groupBy.mockResolvedValue([
-        { category_id: 'fin-cat-001', _sum: { amount: new Decimal('3000.00') } },
-        { category_id: 'fin-cat-002', _sum: { amount: new Decimal('2000.00') } },
+        {
+          category_id: 'fin-cat-001',
+          _sum: { amount: new Decimal('3000.00') },
+        },
+        {
+          category_id: 'fin-cat-002',
+          _sum: { amount: new Decimal('2000.00') },
+        },
       ]);
       mockPrismaService.$queryRaw.mockResolvedValue([]);
       mockPrismaService.financial_category.findMany.mockResolvedValue([
@@ -1192,7 +1247,9 @@ describe('SupplierService', () => {
     it('should update total_spend and last_purchase_date from aggregate queries', async () => {
       mockPrismaService.financial_entry.aggregate
         .mockResolvedValueOnce({ _sum: { amount: new Decimal('12500.00') } })
-        .mockResolvedValueOnce({ _max: { entry_date: new Date('2026-03-15') } });
+        .mockResolvedValueOnce({
+          _max: { entry_date: new Date('2026-03-15') },
+        });
       mockPrismaService.supplier.update.mockResolvedValue(
         mockSupplierRecord({
           total_spend: new Decimal('12500.00'),
@@ -1219,13 +1276,17 @@ describe('SupplierService', () => {
 
       await service.updateSpendTotals(TENANT_ID, SUPPLIER_ID);
 
-      expect(mockPrismaService.financial_entry.aggregate).toHaveBeenNthCalledWith(
+      expect(
+        mockPrismaService.financial_entry.aggregate,
+      ).toHaveBeenNthCalledWith(
         1,
         expect.objectContaining({
           where: { tenant_id: TENANT_ID, supplier_id: SUPPLIER_ID },
         }),
       );
-      expect(mockPrismaService.financial_entry.aggregate).toHaveBeenNthCalledWith(
+      expect(
+        mockPrismaService.financial_entry.aggregate,
+      ).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({
           where: { tenant_id: TENANT_ID, supplier_id: SUPPLIER_ID },
@@ -1259,7 +1320,9 @@ describe('SupplierService', () => {
       await service.updateSpendTotals(TENANT_ID, SUPPLIER_ID);
 
       // Ensure aggregate was called, not findMany
-      expect(mockPrismaService.financial_entry.aggregate).toHaveBeenCalledTimes(2);
+      expect(mockPrismaService.financial_entry.aggregate).toHaveBeenCalledTimes(
+        2,
+      );
     });
   });
 
@@ -1269,7 +1332,9 @@ describe('SupplierService', () => {
 
   describe('hardDelete()', () => {
     it('should permanently delete a supplier with zero financial data', async () => {
-      mockPrismaService.supplier.findFirst.mockResolvedValue(mockSupplierRecord());
+      mockPrismaService.supplier.findFirst.mockResolvedValue(
+        mockSupplierRecord(),
+      );
       mockPrismaService.financial_entry.count.mockResolvedValue(0);
       mockPrismaService.recurring_expense_rule.count.mockResolvedValue(0);
       mockPrismaService.supplier.delete.mockResolvedValue(mockSupplierRecord());
@@ -1290,7 +1355,9 @@ describe('SupplierService', () => {
     });
 
     it('should allow hard delete when supplier has products but no financial data', async () => {
-      mockPrismaService.supplier.findFirst.mockResolvedValue(mockSupplierRecord());
+      mockPrismaService.supplier.findFirst.mockResolvedValue(
+        mockSupplierRecord(),
+      );
       mockPrismaService.financial_entry.count.mockResolvedValue(0);
       mockPrismaService.recurring_expense_rule.count.mockResolvedValue(0);
       mockPrismaService.supplier.delete.mockResolvedValue(mockSupplierRecord());
@@ -1303,7 +1370,9 @@ describe('SupplierService', () => {
     });
 
     it('should throw BadRequestException when supplier has financial entries', async () => {
-      mockPrismaService.supplier.findFirst.mockResolvedValue(mockSupplierRecord());
+      mockPrismaService.supplier.findFirst.mockResolvedValue(
+        mockSupplierRecord(),
+      );
       mockPrismaService.financial_entry.count.mockResolvedValue(5);
       mockPrismaService.recurring_expense_rule.count.mockResolvedValue(0);
 
@@ -1319,7 +1388,9 @@ describe('SupplierService', () => {
     });
 
     it('should throw BadRequestException when supplier has recurring rules', async () => {
-      mockPrismaService.supplier.findFirst.mockResolvedValue(mockSupplierRecord());
+      mockPrismaService.supplier.findFirst.mockResolvedValue(
+        mockSupplierRecord(),
+      );
       mockPrismaService.financial_entry.count.mockResolvedValue(0);
       mockPrismaService.recurring_expense_rule.count.mockResolvedValue(3);
 
@@ -1329,7 +1400,9 @@ describe('SupplierService', () => {
     });
 
     it('should include detailed reference counts in error message', async () => {
-      mockPrismaService.supplier.findFirst.mockResolvedValue(mockSupplierRecord());
+      mockPrismaService.supplier.findFirst.mockResolvedValue(
+        mockSupplierRecord(),
+      );
       mockPrismaService.financial_entry.count.mockResolvedValue(10);
       mockPrismaService.recurring_expense_rule.count.mockResolvedValue(2);
 

@@ -56,6 +56,18 @@ export const getUserRoles = async (userId: string): Promise<UserRolesResponse> =
 };
 
 /**
+ * Get current authenticated user's roles in current tenant.
+ *
+ * Use this for the RBACContext / self-lookup. Unlike `getUserRoles(userId)`,
+ * this endpoint does not require Owner/Admin role, so it works for Employees,
+ * Crew Leaders, and any other authenticated user.
+ */
+export const getMyRoles = async (): Promise<UserRolesResponse> => {
+  const { data } = await apiClient.get(`/user-roles/me`);
+  return data;
+};
+
+/**
  * Get all permissions for a user (aggregated from all their roles)
  *
  * @param userId - User ID (UUID)
@@ -68,6 +80,18 @@ export const getUserPermissions = async (
   userId: string
 ): Promise<UserPermissionsResponse> => {
   const { data } = await apiClient.get(`/user-roles/${userId}/permissions`);
+  return data;
+};
+
+/**
+ * Get current authenticated user's permissions in current tenant.
+ *
+ * Use this for the RBACContext / self-lookup. Unlike
+ * `getUserPermissions(userId)`, this endpoint does not require Owner/Admin
+ * role, so it works for any authenticated user loading their own permissions.
+ */
+export const getMyPermissions = async (): Promise<UserPermissionsResponse> => {
+  const { data } = await apiClient.get(`/user-roles/me/permissions`);
   return data;
 };
 
@@ -640,6 +664,8 @@ const rbacApi = {
   // User role management (Owner/Admin)
   getUserRoles,
   getUserPermissions,
+  getMyRoles,
+  getMyPermissions,
   assignRoleToUser,
   removeRoleFromUser,
   replaceUserRoles,

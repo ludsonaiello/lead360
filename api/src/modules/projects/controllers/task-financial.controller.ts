@@ -44,9 +44,7 @@ import { UploadReceiptDto } from '../../financial/dto/upload-receipt.dto';
 @Controller('projects/:projectId/tasks/:taskId')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class TaskFinancialController {
-  constructor(
-    private readonly taskFinancialService: TaskFinancialService,
-  ) {}
+  constructor(private readonly taskFinancialService: TaskFinancialService) {}
 
   // -------------------------------------------------------------------------
   // POST /projects/:projectId/tasks/:taskId/costs — Create cost entry
@@ -63,7 +61,10 @@ export class TaskFinancialController {
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'taskId', description: 'Task UUID' })
   @ApiResponse({ status: 201, description: 'Cost entry created successfully' })
-  @ApiResponse({ status: 400, description: 'Validation error or invalid category' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or invalid category',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   @ApiResponse({ status: 404, description: 'Project or task not found' })
@@ -98,7 +99,10 @@ export class TaskFinancialController {
   })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'taskId', description: 'Task UUID' })
-  @ApiResponse({ status: 200, description: 'List of cost entries for the task' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of cost entries for the task',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   @ApiResponse({ status: 404, description: 'Project or task not found' })
@@ -147,7 +151,10 @@ export class TaskFinancialController {
     },
   })
   @ApiResponse({ status: 201, description: 'Receipt uploaded successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid file type/size or validation error' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid file type/size or validation error',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   @ApiResponse({ status: 404, description: 'Project or task not found' })

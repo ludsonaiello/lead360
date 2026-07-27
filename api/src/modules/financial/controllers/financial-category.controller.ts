@@ -51,19 +51,29 @@ export class FinancialCategoryController {
   @Get()
   @Roles('Owner', 'Admin', 'Manager')
   @ApiOperation({ summary: 'List financial categories (active by default)' })
-  @ApiQuery({ name: 'include_inactive', required: false, type: Boolean, description: 'Set to true to include deactivated categories' })
+  @ApiQuery({
+    name: 'include_inactive',
+    required: false,
+    type: Boolean,
+    description: 'Set to true to include deactivated categories',
+  })
   @ApiResponse({ status: 200, description: 'List of categories' })
   async findAll(
     @Request() req,
     @Query('include_inactive') includeInactive?: string,
   ) {
     const showAll = includeInactive === 'true';
-    return this.financialCategoryService.findAllForTenant(req.user.tenant_id, showAll);
+    return this.financialCategoryService.findAllForTenant(
+      req.user.tenant_id,
+      showAll,
+    );
   }
 
   @Patch(':id')
   @Roles('Owner', 'Admin', 'Manager')
-  @ApiOperation({ summary: 'Update a financial category (type cannot be changed)' })
+  @ApiOperation({
+    summary: 'Update a financial category (type cannot be changed)',
+  })
   @ApiParam({ name: 'id', description: 'Category UUID' })
   @ApiResponse({ status: 200, description: 'Category updated' })
   @ApiResponse({ status: 404, description: 'Category not found' })
@@ -82,15 +92,18 @@ export class FinancialCategoryController {
 
   @Delete(':id')
   @Roles('Owner', 'Admin', 'Manager')
-  @ApiOperation({ summary: 'Deactivate a financial category (system defaults cannot be deactivated)' })
+  @ApiOperation({
+    summary:
+      'Deactivate a financial category (system defaults cannot be deactivated)',
+  })
   @ApiParam({ name: 'id', description: 'Category UUID' })
   @ApiResponse({ status: 200, description: 'Category deactivated' })
-  @ApiResponse({ status: 400, description: 'System default cannot be deactivated' })
+  @ApiResponse({
+    status: 400,
+    description: 'System default cannot be deactivated',
+  })
   @ApiResponse({ status: 404, description: 'Category not found' })
-  async deactivate(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async deactivate(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.financialCategoryService.deactivateCategory(
       req.user.tenant_id,
       id,

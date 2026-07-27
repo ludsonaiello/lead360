@@ -173,8 +173,10 @@ This is the key differentiator: **labor hours flow directly into project profita
 
 These rules were designed by the product owner after careful analysis. The contracts must embed all of them with full implementation detail.
 
-### BR-001: One Active Session Per Employee
-An employee can only have one `active` or `on_break` clock session at a time across all tenants. A clock-in request when a session is already open must return HTTP 409 with message: `"You already have an active clock session. Please clock out first."` Check must be made before creating any session.
+### BR-001: One Active Session Per Employee (Per-Tenant)
+An employee can only have one `active` or `on_break` clock session at a time **within the same tenant**. A clock-in request when a session is already open must return HTTP 409 with message: `"You already have an active clock session. Please clock out first."` Check must be made before creating any session.
+
+**Scope**: Per-tenant only. Cross-tenant queries would violate the platform's absolute tenant isolation rule. If an employee works for multiple tenants, they may have concurrent sessions across different tenants — this is by design.
 
 ### BR-002: Multi-Site Clock-In — Gaps Are Ignored
 An employee may clock out of Site A and clock into Site B unlimited times per day. Each session is a completely independent record. The time between sessions (e.g., 11am out, 12pm in = 1 hour gap) is NOT tracked, NOT calculated, NOT flagged. Sessions are independent. Overtime is calculated by aggregating across all sessions for the day and week.
@@ -675,9 +677,9 @@ When writing contracts, specify each endpoint with:
 
 **Employee Project Assignments**: GET `/time-clock/employee-projects`, POST, DELETE `:id`
 
-**Work Shifts**: GET `/time-clock/shifts`, POST, POST `/bulk`, GET `:id`, PATCH `:id`, DELETE `:id`
+**Work Shifts**: GET `/time-clock/shifts`, POST, POST `/bulk`, GET `:id`, PATCH `:id`, DELETE `:id`, GET `/time-clock/shifts/mine`
 
-**Clock Sessions**: POST `/time-clock/sessions/clock-in`, POST `/time-clock/sessions/clock-out`, GET `/time-clock/sessions`, GET `/time-clock/sessions/:id`, PATCH `/time-clock/sessions/:id`, GET `/time-clock/sessions/me/active`, GET `/time-clock/sessions/active/all`
+**Clock Sessions**: POST `/time-clock/sessions/clock-in`, POST `/time-clock/sessions/clock-out`, GET `/time-clock/sessions`, GET `/time-clock/sessions/:id`, PATCH `/time-clock/sessions/:id`, GET `/time-clock/sessions/me/active`, GET `/time-clock/sessions/me/available-projects`, GET `/time-clock/sessions/mine`, GET `/time-clock/sessions/active/all`
 
 **Breaks**: POST `/time-clock/sessions/:id/breaks/start`, POST `/time-clock/sessions/:id/breaks/end`, GET `/time-clock/sessions/:id/breaks`
 
@@ -711,7 +713,10 @@ Read the actual RBAC seed to find the permission module/action pattern. Then add
 | `view_reports` | Owner, Admin, PM, Bookkeeper |
 | `export_payroll` | Owner, Admin, Bookkeeper |
 | `manage_kiosk` | Owner, Admin |
-| `kiosk_access` | Public (no JWT — kiosk token only) |
+
+**Kiosk access**: Kiosk endpoints are public (no JWT). Authentication is via `X-Kiosk-Token` header + employee PIN. This is NOT an RBAC permission — it is handled by `KioskTokenGuard`. Do not seed a `kiosk_access` permission.
+
+**Excluded roles**: `Estimator` and `Read-only` receive NO time clock permissions. They get 403 on all time clock endpoints.
 
 Verify the exact module name string used in the permissions table by reading the seed file.
 

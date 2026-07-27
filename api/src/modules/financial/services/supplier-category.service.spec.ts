@@ -129,30 +129,26 @@ describe('SupplierCategoryService', () => {
     it('should throw BadRequestException when tenant has 50 active categories', async () => {
       mockPrismaService.supplier_category.count.mockResolvedValue(50);
 
-      await expect(
-        service.create(TENANT_ID, USER_ID, dto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.create(TENANT_ID, USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
 
-      await expect(
-        service.create(TENANT_ID, USER_ID, dto),
-      ).rejects.toThrow(
+      await expect(service.create(TENANT_ID, USER_ID, dto)).rejects.toThrow(
         'Maximum of 50 active supplier categories per tenant. Deactivate unused categories before creating new ones.',
       );
 
       expect(
         mockPrismaService.supplier_category.findFirst,
       ).not.toHaveBeenCalled();
-      expect(
-        mockPrismaService.supplier_category.create,
-      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.supplier_category.create).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException when tenant exceeds 50 active categories', async () => {
       mockPrismaService.supplier_category.count.mockResolvedValue(75);
 
-      await expect(
-        service.create(TENANT_ID, USER_ID, dto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.create(TENANT_ID, USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should check uniqueness with tenant_id filter', async () => {
@@ -180,19 +176,15 @@ describe('SupplierCategoryService', () => {
         mockCategoryRecord(),
       );
 
-      await expect(
-        service.create(TENANT_ID, USER_ID, dto),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.create(TENANT_ID, USER_ID, dto)).rejects.toThrow(
+        ConflictException,
+      );
 
-      await expect(
-        service.create(TENANT_ID, USER_ID, dto),
-      ).rejects.toThrow(
+      await expect(service.create(TENANT_ID, USER_ID, dto)).rejects.toThrow(
         `Supplier category "${dto.name}" already exists for this tenant.`,
       );
 
-      expect(
-        mockPrismaService.supplier_category.create,
-      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.supplier_category.create).not.toHaveBeenCalled();
     });
 
     it('should set description to null when not provided', async () => {
@@ -240,9 +232,9 @@ describe('SupplierCategoryService', () => {
     it('should not call audit logger when creation is blocked by limit', async () => {
       mockPrismaService.supplier_category.count.mockResolvedValue(50);
 
-      await expect(
-        service.create(TENANT_ID, USER_ID, dto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.create(TENANT_ID, USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
 
       expect(mockAuditLoggerService.logTenantChange).not.toHaveBeenCalled();
     });
@@ -253,9 +245,9 @@ describe('SupplierCategoryService', () => {
         mockCategoryRecord(),
       );
 
-      await expect(
-        service.create(TENANT_ID, USER_ID, dto),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.create(TENANT_ID, USER_ID, dto)).rejects.toThrow(
+        ConflictException,
+      );
 
       expect(mockAuditLoggerService.logTenantChange).not.toHaveBeenCalled();
     });
@@ -290,12 +282,12 @@ describe('SupplierCategoryService', () => {
 
       await service.findAll(TENANT_ID);
 
-      expect(
-        mockPrismaService.supplier_category.findMany,
-      ).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT_ID },
-        orderBy: { name: 'asc' },
-      });
+      expect(mockPrismaService.supplier_category.findMany).toHaveBeenCalledWith(
+        {
+          where: { tenant_id: TENANT_ID },
+          orderBy: { name: 'asc' },
+        },
+      );
     });
 
     it('should filter by is_active when provided as true', async () => {
@@ -303,12 +295,12 @@ describe('SupplierCategoryService', () => {
 
       await service.findAll(TENANT_ID, true);
 
-      expect(
-        mockPrismaService.supplier_category.findMany,
-      ).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT_ID, is_active: true },
-        orderBy: { name: 'asc' },
-      });
+      expect(mockPrismaService.supplier_category.findMany).toHaveBeenCalledWith(
+        {
+          where: { tenant_id: TENANT_ID, is_active: true },
+          orderBy: { name: 'asc' },
+        },
+      );
     });
 
     it('should filter by is_active when provided as false', async () => {
@@ -316,12 +308,12 @@ describe('SupplierCategoryService', () => {
 
       await service.findAll(TENANT_ID, false);
 
-      expect(
-        mockPrismaService.supplier_category.findMany,
-      ).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT_ID, is_active: false },
-        orderBy: { name: 'asc' },
-      });
+      expect(mockPrismaService.supplier_category.findMany).toHaveBeenCalledWith(
+        {
+          where: { tenant_id: TENANT_ID, is_active: false },
+          orderBy: { name: 'asc' },
+        },
+      );
     });
 
     it('should not include is_active in where when not provided', async () => {
@@ -329,12 +321,12 @@ describe('SupplierCategoryService', () => {
 
       await service.findAll(TENANT_ID);
 
-      expect(
-        mockPrismaService.supplier_category.findMany,
-      ).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT_ID },
-        orderBy: { name: 'asc' },
-      });
+      expect(mockPrismaService.supplier_category.findMany).toHaveBeenCalledWith(
+        {
+          where: { tenant_id: TENANT_ID },
+          orderBy: { name: 'asc' },
+        },
+      );
     });
 
     it('should order categories by name ascending', async () => {
@@ -380,9 +372,7 @@ describe('SupplierCategoryService', () => {
 
       await service.findAll(OTHER_TENANT_ID);
 
-      expect(
-        mockPrismaService.supplier_category.findMany,
-      ).toHaveBeenCalledWith(
+      expect(mockPrismaService.supplier_category.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             tenant_id: OTHER_TENANT_ID,
@@ -474,21 +464,14 @@ describe('SupplierCategoryService', () => {
         .mockResolvedValueOnce(null); // uniqueness check (no duplicate)
       mockPrismaService.supplier_category.update.mockResolvedValue(updated);
 
-      const result = await service.update(
-        TENANT_ID,
-        CATEGORY_ID,
-        USER_ID,
-        dto,
-      );
+      const result = await service.update(TENANT_ID, CATEGORY_ID, USER_ID, dto);
 
       expect(result).toEqual(updated);
     });
 
     it('should update only provided fields using conditional spread', async () => {
       const existing = mockCategoryRecord();
-      mockPrismaService.supplier_category.findFirst.mockResolvedValue(
-        existing,
-      );
+      mockPrismaService.supplier_category.findFirst.mockResolvedValue(existing);
       mockPrismaService.supplier_category.update.mockResolvedValue(existing);
 
       const partialDto: UpdateSupplierCategoryDto = { color: '#FF0000' };
@@ -527,9 +510,7 @@ describe('SupplierCategoryService', () => {
 
     it('should skip uniqueness check when name is not changed (same value, case-insensitive)', async () => {
       const existing = mockCategoryRecord({ name: 'Roofing Materials' });
-      mockPrismaService.supplier_category.findFirst.mockResolvedValue(
-        existing,
-      );
+      mockPrismaService.supplier_category.findFirst.mockResolvedValue(existing);
       mockPrismaService.supplier_category.update.mockResolvedValue(existing);
 
       await service.update(TENANT_ID, CATEGORY_ID, USER_ID, {
@@ -558,16 +539,12 @@ describe('SupplierCategoryService', () => {
         }),
       ).rejects.toThrow(ConflictException);
 
-      expect(
-        mockPrismaService.supplier_category.update,
-      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.supplier_category.update).not.toHaveBeenCalled();
     });
 
     it('should check 50-limit when reactivating an inactive category', async () => {
       const existing = mockCategoryRecord({ is_active: false });
-      mockPrismaService.supplier_category.findFirst.mockResolvedValue(
-        existing,
-      );
+      mockPrismaService.supplier_category.findFirst.mockResolvedValue(existing);
       mockPrismaService.supplier_category.count.mockResolvedValue(49);
       mockPrismaService.supplier_category.update.mockResolvedValue(
         mockCategoryRecord({ is_active: true }),
@@ -584,9 +561,7 @@ describe('SupplierCategoryService', () => {
 
     it('should throw BadRequestException when reactivating exceeds 50 limit', async () => {
       const existing = mockCategoryRecord({ is_active: false });
-      mockPrismaService.supplier_category.findFirst.mockResolvedValue(
-        existing,
-      );
+      mockPrismaService.supplier_category.findFirst.mockResolvedValue(existing);
       mockPrismaService.supplier_category.count.mockResolvedValue(50);
 
       await expect(
@@ -595,36 +570,26 @@ describe('SupplierCategoryService', () => {
 
       await expect(
         service.update(TENANT_ID, CATEGORY_ID, USER_ID, { is_active: true }),
-      ).rejects.toThrow(
-        'Maximum of 50 active supplier categories per tenant.',
-      );
+      ).rejects.toThrow('Maximum of 50 active supplier categories per tenant.');
 
-      expect(
-        mockPrismaService.supplier_category.update,
-      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.supplier_category.update).not.toHaveBeenCalled();
     });
 
     it('should not check 50-limit when setting is_active on already-active category', async () => {
       const existing = mockCategoryRecord({ is_active: true });
-      mockPrismaService.supplier_category.findFirst.mockResolvedValue(
-        existing,
-      );
+      mockPrismaService.supplier_category.findFirst.mockResolvedValue(existing);
       mockPrismaService.supplier_category.update.mockResolvedValue(existing);
 
       await service.update(TENANT_ID, CATEGORY_ID, USER_ID, {
         is_active: true,
       });
 
-      expect(
-        mockPrismaService.supplier_category.count,
-      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.supplier_category.count).not.toHaveBeenCalled();
     });
 
     it('should not check 50-limit when deactivating', async () => {
       const existing = mockCategoryRecord({ is_active: true });
-      mockPrismaService.supplier_category.findFirst.mockResolvedValue(
-        existing,
-      );
+      mockPrismaService.supplier_category.findFirst.mockResolvedValue(existing);
       mockPrismaService.supplier_category.update.mockResolvedValue(
         mockCategoryRecord({ is_active: false }),
       );
@@ -633,9 +598,7 @@ describe('SupplierCategoryService', () => {
         is_active: false,
       });
 
-      expect(
-        mockPrismaService.supplier_category.count,
-      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.supplier_category.count).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when category does not exist', async () => {
@@ -645,9 +608,7 @@ describe('SupplierCategoryService', () => {
         service.update(TENANT_ID, 'nonexistent-id', USER_ID, dto),
       ).rejects.toThrow(NotFoundException);
 
-      expect(
-        mockPrismaService.supplier_category.update,
-      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.supplier_category.update).not.toHaveBeenCalled();
       expect(mockAuditLoggerService.logTenantChange).not.toHaveBeenCalled();
     });
 
@@ -693,9 +654,7 @@ describe('SupplierCategoryService', () => {
   describe('delete()', () => {
     it('should hard delete a category with no assignments', async () => {
       const existing = mockCategoryRecord();
-      mockPrismaService.supplier_category.findFirst.mockResolvedValue(
-        existing,
-      );
+      mockPrismaService.supplier_category.findFirst.mockResolvedValue(existing);
       mockPrismaService.supplier_category_assignment.count.mockResolvedValue(0);
       mockPrismaService.supplier_category.delete.mockResolvedValue(existing);
 
@@ -711,9 +670,7 @@ describe('SupplierCategoryService', () => {
 
     it('should check assignment count with tenant_id filter', async () => {
       const existing = mockCategoryRecord();
-      mockPrismaService.supplier_category.findFirst.mockResolvedValue(
-        existing,
-      );
+      mockPrismaService.supplier_category.findFirst.mockResolvedValue(existing);
       mockPrismaService.supplier_category_assignment.count.mockResolvedValue(0);
       mockPrismaService.supplier_category.delete.mockResolvedValue(existing);
 
@@ -731,9 +688,7 @@ describe('SupplierCategoryService', () => {
 
     it('should throw ConflictException when category has supplier assignments', async () => {
       const existing = mockCategoryRecord();
-      mockPrismaService.supplier_category.findFirst.mockResolvedValue(
-        existing,
-      );
+      mockPrismaService.supplier_category.findFirst.mockResolvedValue(existing);
       mockPrismaService.supplier_category_assignment.count.mockResolvedValue(3);
 
       await expect(
@@ -746,9 +701,7 @@ describe('SupplierCategoryService', () => {
         'Category is assigned to one or more suppliers. Deactivate it instead.',
       );
 
-      expect(
-        mockPrismaService.supplier_category.delete,
-      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.supplier_category.delete).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when category does not exist', async () => {
@@ -761,16 +714,12 @@ describe('SupplierCategoryService', () => {
       expect(
         mockPrismaService.supplier_category_assignment.count,
       ).not.toHaveBeenCalled();
-      expect(
-        mockPrismaService.supplier_category.delete,
-      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.supplier_category.delete).not.toHaveBeenCalled();
     });
 
     it('should call auditLogger with action "deleted" and before state', async () => {
       const existing = mockCategoryRecord();
-      mockPrismaService.supplier_category.findFirst.mockResolvedValue(
-        existing,
-      );
+      mockPrismaService.supplier_category.findFirst.mockResolvedValue(existing);
       mockPrismaService.supplier_category_assignment.count.mockResolvedValue(0);
       mockPrismaService.supplier_category.delete.mockResolvedValue(existing);
 
@@ -790,9 +739,7 @@ describe('SupplierCategoryService', () => {
 
     it('should not call audit logger when delete is blocked by assignments', async () => {
       const existing = mockCategoryRecord();
-      mockPrismaService.supplier_category.findFirst.mockResolvedValue(
-        existing,
-      );
+      mockPrismaService.supplier_category.findFirst.mockResolvedValue(existing);
       mockPrismaService.supplier_category_assignment.count.mockResolvedValue(1);
 
       await expect(
@@ -818,9 +765,7 @@ describe('SupplierCategoryService', () => {
 
     it('should block delete even if assignment is to an inactive supplier', async () => {
       const existing = mockCategoryRecord();
-      mockPrismaService.supplier_category.findFirst.mockResolvedValue(
-        existing,
-      );
+      mockPrismaService.supplier_category.findFirst.mockResolvedValue(existing);
       // Assignment exists (doesn't matter if supplier is active or not)
       mockPrismaService.supplier_category_assignment.count.mockResolvedValue(1);
 

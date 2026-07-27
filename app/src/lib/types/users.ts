@@ -116,6 +116,18 @@ export interface AcceptInviteDto {
   password: string;
 }
 
+export interface EditUserDto {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface ResendInviteResponse {
+  message: string;
+  expires_at: string;
+}
+
 // ============================================================================
 // Response DTOs
 // ============================================================================

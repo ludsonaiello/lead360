@@ -27,9 +27,7 @@ import { ExportHistoryQueryDto } from '../dto/export-history-query.dto';
 @Controller('financial/export')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ExportController {
-  constructor(
-    private readonly exportService: ExportService,
-  ) {}
+  constructor(private readonly exportService: ExportService) {}
 
   // ============================
   // QuickBooks Exports
@@ -39,7 +37,10 @@ export class ExportController {
   @Roles('Owner', 'Admin', 'Bookkeeper')
   @ApiOperation({ summary: 'Export expenses as QuickBooks CSV' })
   @ApiResponse({ status: 200, description: 'CSV file download' })
-  @ApiResponse({ status: 400, description: 'Validation error or no matching records' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or no matching records',
+  })
   async exportQBExpenses(
     @Request() req,
     @Query() query: ExportExpenseQueryDto,
@@ -52,7 +53,10 @@ export class ExportController {
     );
 
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${result.fileName}"`,
+    );
     res.send(result.csv);
   }
 
@@ -60,7 +64,10 @@ export class ExportController {
   @Roles('Owner', 'Admin', 'Bookkeeper')
   @ApiOperation({ summary: 'Export invoices as QuickBooks CSV' })
   @ApiResponse({ status: 200, description: 'CSV file download' })
-  @ApiResponse({ status: 400, description: 'Validation error or no matching records' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or no matching records',
+  })
   async exportQBInvoices(
     @Request() req,
     @Query() query: ExportInvoiceQueryDto,
@@ -73,7 +80,10 @@ export class ExportController {
     );
 
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${result.fileName}"`,
+    );
     res.send(result.csv);
   }
 
@@ -85,7 +95,10 @@ export class ExportController {
   @Roles('Owner', 'Admin', 'Bookkeeper')
   @ApiOperation({ summary: 'Export expenses as Xero CSV' })
   @ApiResponse({ status: 200, description: 'CSV file download' })
-  @ApiResponse({ status: 400, description: 'Validation error or no matching records' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or no matching records',
+  })
   async exportXeroExpenses(
     @Request() req,
     @Query() query: ExportExpenseQueryDto,
@@ -98,7 +111,10 @@ export class ExportController {
     );
 
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${result.fileName}"`,
+    );
     res.send(result.csv);
   }
 
@@ -106,7 +122,10 @@ export class ExportController {
   @Roles('Owner', 'Admin', 'Bookkeeper')
   @ApiOperation({ summary: 'Export invoices as Xero CSV' })
   @ApiResponse({ status: 200, description: 'CSV file download' })
-  @ApiResponse({ status: 400, description: 'Validation error or no matching records' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or no matching records',
+  })
   async exportXeroInvoices(
     @Request() req,
     @Query() query: ExportInvoiceQueryDto,
@@ -119,7 +138,10 @@ export class ExportController {
     );
 
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${result.fileName}"`,
+    );
     res.send(result.csv);
   }
 
@@ -130,15 +152,15 @@ export class ExportController {
   @Get('quality-report')
   @Roles('Owner', 'Admin', 'Bookkeeper')
   @ApiOperation({ summary: 'Data quality report for export readiness' })
-  @ApiResponse({ status: 200, description: 'Quality report with issues and readiness scores' })
+  @ApiResponse({
+    status: 200,
+    description: 'Quality report with issues and readiness scores',
+  })
   async getQualityReport(
     @Request() req,
     @Query() query: QualityReportQueryDto,
   ) {
-    return this.exportService.getQualityReport(
-      req.user.tenant_id,
-      query,
-    );
+    return this.exportService.getQualityReport(req.user.tenant_id, query);
   }
 
   // ============================
@@ -153,9 +175,6 @@ export class ExportController {
     @Request() req,
     @Query() query: ExportHistoryQueryDto,
   ) {
-    return this.exportService.getExportHistory(
-      req.user.tenant_id,
-      query,
-    );
+    return this.exportService.getExportHistory(req.user.tenant_id, query);
   }
 }

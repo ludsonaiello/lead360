@@ -1,8 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  NotFoundException,
-  ConflictException,
-} from '@nestjs/common';
+import { NotFoundException, ConflictException } from '@nestjs/common';
 import { SupplierProductService } from './supplier-product.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
@@ -150,15 +147,12 @@ describe('SupplierProductService', () => {
         mockPriceHistoryRecord(),
       );
 
-      const result = await service.create(
-        TENANT_ID,
-        SUPPLIER_ID,
-        USER_ID,
-        dto,
-      );
+      const result = await service.create(TENANT_ID, SUPPLIER_ID, USER_ID, dto);
 
       expect(result).toEqual(createdRecord);
-      expect(mockPrismaService.supplier_product.create).toHaveBeenCalledTimes(1);
+      expect(mockPrismaService.supplier_product.create).toHaveBeenCalledTimes(
+        1,
+      );
       expect(
         mockPrismaService.supplier_product_price_history.create,
       ).toHaveBeenCalledTimes(1);
@@ -264,9 +258,7 @@ describe('SupplierProductService', () => {
       expect(
         mockPrismaService.supplier_product.findFirst,
       ).not.toHaveBeenCalled();
-      expect(
-        mockPrismaService.supplier_product.create,
-      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.supplier_product.create).not.toHaveBeenCalled();
     });
 
     it('should check name uniqueness with supplier_id and tenant_id', async () => {
@@ -283,15 +275,15 @@ describe('SupplierProductService', () => {
 
       await service.create(TENANT_ID, SUPPLIER_ID, USER_ID, dto);
 
-      expect(
-        mockPrismaService.supplier_product.findFirst,
-      ).toHaveBeenCalledWith({
-        where: {
-          supplier_id: SUPPLIER_ID,
-          tenant_id: TENANT_ID,
-          name: dto.name,
+      expect(mockPrismaService.supplier_product.findFirst).toHaveBeenCalledWith(
+        {
+          where: {
+            supplier_id: SUPPLIER_ID,
+            tenant_id: TENANT_ID,
+            name: dto.name,
+          },
         },
-      });
+      );
     });
 
     it('should throw ConflictException when product name already exists for supplier', async () => {
@@ -311,9 +303,7 @@ describe('SupplierProductService', () => {
         `Product "${dto.name}" already exists for this supplier.`,
       );
 
-      expect(
-        mockPrismaService.supplier_product.create,
-      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.supplier_product.create).not.toHaveBeenCalled();
     });
 
     it('should use a transaction for product + price history creation', async () => {
@@ -463,15 +453,15 @@ describe('SupplierProductService', () => {
 
       await service.findOne(TENANT_ID, SUPPLIER_ID, PRODUCT_ID);
 
-      expect(
-        mockPrismaService.supplier_product.findFirst,
-      ).toHaveBeenCalledWith({
-        where: {
-          id: PRODUCT_ID,
-          supplier_id: SUPPLIER_ID,
-          tenant_id: TENANT_ID,
+      expect(mockPrismaService.supplier_product.findFirst).toHaveBeenCalledWith(
+        {
+          where: {
+            id: PRODUCT_ID,
+            supplier_id: SUPPLIER_ID,
+            tenant_id: TENANT_ID,
+          },
         },
-      });
+      );
     });
 
     it('should throw NotFoundException when supplier does not exist', async () => {
@@ -541,9 +531,7 @@ describe('SupplierProductService', () => {
 
       await service.findAll(TENANT_ID, SUPPLIER_ID);
 
-      expect(
-        mockPrismaService.supplier_product.findMany,
-      ).toHaveBeenCalledWith(
+      expect(mockPrismaService.supplier_product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
             tenant_id: TENANT_ID,
@@ -562,9 +550,7 @@ describe('SupplierProductService', () => {
 
       await service.findAll(TENANT_ID, SUPPLIER_ID, false);
 
-      expect(
-        mockPrismaService.supplier_product.findMany,
-      ).toHaveBeenCalledWith(
+      expect(mockPrismaService.supplier_product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
             tenant_id: TENANT_ID,
@@ -705,13 +691,9 @@ describe('SupplierProductService', () => {
         mockPriceHistoryRecord(),
       );
 
-      await service.update(
-        TENANT_ID,
-        SUPPLIER_ID,
-        PRODUCT_ID,
-        USER_ID,
-        { unit_price: 52.0 },
-      );
+      await service.update(TENANT_ID, SUPPLIER_ID, PRODUCT_ID, USER_ID, {
+        unit_price: 52.0,
+      });
 
       expect(
         mockPrismaService.supplier_product_price_history.create,
@@ -763,13 +745,9 @@ describe('SupplierProductService', () => {
         mockPriceHistoryRecord(),
       );
 
-      await service.update(
-        TENANT_ID,
-        SUPPLIER_ID,
-        PRODUCT_ID,
-        USER_ID,
-        { unit_price: 30.0 },
-      );
+      await service.update(TENANT_ID, SUPPLIER_ID, PRODUCT_ID, USER_ID, {
+        unit_price: 30.0,
+      });
 
       expect(
         mockPrismaService.supplier_product_price_history.create,
@@ -799,13 +777,9 @@ describe('SupplierProductService', () => {
         mockPriceHistoryRecord(),
       );
 
-      await service.update(
-        TENANT_ID,
-        SUPPLIER_ID,
-        PRODUCT_ID,
-        USER_ID,
-        { unit_price: 55.0 },
-      );
+      await service.update(TENANT_ID, SUPPLIER_ID, PRODUCT_ID, USER_ID, {
+        unit_price: 55.0,
+      });
 
       const updateCall =
         mockPrismaService.supplier_product.update.mock.calls[0][0];
@@ -823,13 +797,9 @@ describe('SupplierProductService', () => {
         .mockResolvedValueOnce(null); // uniqueness check — no duplicate
       mockPrismaService.supplier_product.update.mockResolvedValue(existing);
 
-      await service.update(
-        TENANT_ID,
-        SUPPLIER_ID,
-        PRODUCT_ID,
-        USER_ID,
-        { name: 'Renamed Stone' },
-      );
+      await service.update(TENANT_ID, SUPPLIER_ID, PRODUCT_ID, USER_ID, {
+        name: 'Renamed Stone',
+      });
 
       const updateCall =
         mockPrismaService.supplier_product.update.mock.calls[0][0];
@@ -849,13 +819,9 @@ describe('SupplierProductService', () => {
         mockProductRecord({ name: 'New Name' }),
       );
 
-      await service.update(
-        TENANT_ID,
-        SUPPLIER_ID,
-        PRODUCT_ID,
-        USER_ID,
-        { name: 'New Name' },
-      );
+      await service.update(TENANT_ID, SUPPLIER_ID, PRODUCT_ID, USER_ID, {
+        name: 'New Name',
+      });
 
       // Second findFirst call is for uniqueness check
       expect(
@@ -911,9 +877,7 @@ describe('SupplierProductService', () => {
         }),
       ).rejects.toThrow(ConflictException);
 
-      expect(
-        mockPrismaService.supplier_product.update,
-      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.supplier_product.update).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when supplier does not exist', async () => {
@@ -966,13 +930,7 @@ describe('SupplierProductService', () => {
         mockPriceHistoryRecord(),
       );
 
-      await service.update(
-        TENANT_ID,
-        SUPPLIER_ID,
-        PRODUCT_ID,
-        USER_ID,
-        dto,
-      );
+      await service.update(TENANT_ID, SUPPLIER_ID, PRODUCT_ID, USER_ID, dto);
 
       expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
     });
@@ -991,13 +949,7 @@ describe('SupplierProductService', () => {
         mockPriceHistoryRecord(),
       );
 
-      await service.update(
-        TENANT_ID,
-        SUPPLIER_ID,
-        PRODUCT_ID,
-        USER_ID,
-        dto,
-      );
+      await service.update(TENANT_ID, SUPPLIER_ID, PRODUCT_ID, USER_ID, dto);
 
       expect(mockAuditLoggerService.logTenantChange).toHaveBeenCalledTimes(1);
       expect(mockAuditLoggerService.logTenantChange).toHaveBeenCalledWith(
@@ -1027,16 +979,11 @@ describe('SupplierProductService', () => {
         mockPriceHistoryRecord(),
       );
 
-      await service.update(
-        TENANT_ID,
-        SUPPLIER_ID,
-        PRODUCT_ID,
-        USER_ID,
-        { unit_price: 52.0 },
-      );
+      await service.update(TENANT_ID, SUPPLIER_ID, PRODUCT_ID, USER_ID, {
+        unit_price: 52.0,
+      });
 
-      const auditCall =
-        mockAuditLoggerService.logTenantChange.mock.calls[0][0];
+      const auditCall = mockAuditLoggerService.logTenantChange.mock.calls[0][0];
       expect(auditCall.description).toContain('(price changed)');
     });
   });
@@ -1115,15 +1062,15 @@ describe('SupplierProductService', () => {
         service.softDelete(TENANT_ID, SUPPLIER_ID, PRODUCT_ID, USER_ID),
       ).rejects.toThrow(NotFoundException);
 
-      expect(
-        mockPrismaService.supplier_product.findFirst,
-      ).toHaveBeenCalledWith({
-        where: {
-          id: PRODUCT_ID,
-          supplier_id: SUPPLIER_ID,
-          tenant_id: TENANT_ID,
+      expect(mockPrismaService.supplier_product.findFirst).toHaveBeenCalledWith(
+        {
+          where: {
+            id: PRODUCT_ID,
+            supplier_id: SUPPLIER_ID,
+            tenant_id: TENANT_ID,
+          },
         },
-      });
+      );
     });
 
     it('should call auditLogger with action "deleted"', async () => {
@@ -1135,12 +1082,7 @@ describe('SupplierProductService', () => {
       mockPrismaService.supplier_product.findFirst.mockResolvedValue(existing);
       mockPrismaService.supplier_product.update.mockResolvedValue(updated);
 
-      await service.softDelete(
-        TENANT_ID,
-        SUPPLIER_ID,
-        PRODUCT_ID,
-        USER_ID,
-      );
+      await service.softDelete(TENANT_ID, SUPPLIER_ID, PRODUCT_ID, USER_ID);
 
       expect(mockAuditLoggerService.logTenantChange).toHaveBeenCalledTimes(1);
       expect(mockAuditLoggerService.logTenantChange).toHaveBeenCalledWith({
@@ -1319,15 +1261,15 @@ describe('SupplierProductService', () => {
         service.getPriceHistory(TENANT_ID, SUPPLIER_ID, PRODUCT_ID),
       ).rejects.toThrow(NotFoundException);
 
-      expect(
-        mockPrismaService.supplier_product.findFirst,
-      ).toHaveBeenCalledWith({
-        where: {
-          id: PRODUCT_ID,
-          supplier_id: SUPPLIER_ID,
-          tenant_id: TENANT_ID,
+      expect(mockPrismaService.supplier_product.findFirst).toHaveBeenCalledWith(
+        {
+          where: {
+            id: PRODUCT_ID,
+            supplier_id: SUPPLIER_ID,
+            tenant_id: TENANT_ID,
+          },
         },
-      });
+      );
     });
 
     it('should return empty array when no price history exists', async () => {

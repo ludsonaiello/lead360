@@ -1,9 +1,4 @@
-import {
-  IsEnum,
-  IsOptional,
-  IsUUID,
-  ValidateIf,
-} from 'class-validator';
+import { IsEnum, IsOptional, IsUUID, ValidateIf } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum AssigneeTypeEnum {

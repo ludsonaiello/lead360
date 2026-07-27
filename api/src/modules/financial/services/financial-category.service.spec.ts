@@ -3,7 +3,10 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { FinancialCategoryService } from './financial-category.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
-import { CreateFinancialCategoryDto, FinancialCategoryType } from '../dto/create-financial-category.dto';
+import {
+  CreateFinancialCategoryDto,
+  FinancialCategoryType,
+} from '../dto/create-financial-category.dto';
 import { UpdateFinancialCategoryDto } from '../dto/update-financial-category.dto';
 
 // ---------------------------------------------------------------------------
@@ -81,9 +84,21 @@ describe('FinancialCategoryService', () => {
   describe('findAllForTenant()', () => {
     it('should return active categories for the given tenant', async () => {
       const records = [
-        mockCategoryRecord({ id: 'cat-001', type: 'equipment', name: 'Equipment Rental' }),
-        mockCategoryRecord({ id: 'cat-002', type: 'labor', name: 'Labor - General' }),
-        mockCategoryRecord({ id: 'cat-003', type: 'material', name: 'Materials - Concrete' }),
+        mockCategoryRecord({
+          id: 'cat-001',
+          type: 'equipment',
+          name: 'Equipment Rental',
+        }),
+        mockCategoryRecord({
+          id: 'cat-002',
+          type: 'labor',
+          name: 'Labor - General',
+        }),
+        mockCategoryRecord({
+          id: 'cat-003',
+          type: 'material',
+          name: 'Materials - Concrete',
+        }),
       ];
       mockPrismaService.financial_category.findMany.mockResolvedValue(records);
 
@@ -98,7 +113,9 @@ describe('FinancialCategoryService', () => {
 
       await service.findAllForTenant(TENANT_ID);
 
-      expect(mockPrismaService.financial_category.findMany).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.financial_category.findMany,
+      ).toHaveBeenCalledWith({
         where: {
           tenant_id: TENANT_ID,
           is_active: true,
@@ -112,7 +129,9 @@ describe('FinancialCategoryService', () => {
 
       await service.findAllForTenant(TENANT_ID, true);
 
-      expect(mockPrismaService.financial_category.findMany).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.financial_category.findMany,
+      ).toHaveBeenCalledWith({
         where: {
           tenant_id: TENANT_ID,
         },
@@ -125,7 +144,8 @@ describe('FinancialCategoryService', () => {
 
       await service.findAllForTenant(TENANT_ID);
 
-      const callArgs = mockPrismaService.financial_category.findMany.mock.calls[0][0];
+      const callArgs =
+        mockPrismaService.financial_category.findMany.mock.calls[0][0];
       expect(callArgs.orderBy).toEqual([{ type: 'asc' }, { name: 'asc' }]);
     });
 
@@ -142,7 +162,9 @@ describe('FinancialCategoryService', () => {
 
       await service.findAllForTenant('other-tenant-uuid');
 
-      expect(mockPrismaService.financial_category.findMany).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.financial_category.findMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             tenant_id: 'other-tenant-uuid',
@@ -165,7 +187,9 @@ describe('FinancialCategoryService', () => {
 
     it('should create a custom category with is_system_default=false', async () => {
       const createdRecord = mockCategoryRecord();
-      mockPrismaService.financial_category.create.mockResolvedValue(createdRecord);
+      mockPrismaService.financial_category.create.mockResolvedValue(
+        createdRecord,
+      );
 
       const result = await service.createCategory(TENANT_ID, USER_ID, dto);
 
@@ -188,8 +212,14 @@ describe('FinancialCategoryService', () => {
         name: 'Custom Category',
         type: FinancialCategoryType.OTHER,
       };
-      const createdRecord = mockCategoryRecord({ description: null, name: 'Custom Category', type: 'other' });
-      mockPrismaService.financial_category.create.mockResolvedValue(createdRecord);
+      const createdRecord = mockCategoryRecord({
+        description: null,
+        name: 'Custom Category',
+        type: 'other',
+      });
+      mockPrismaService.financial_category.create.mockResolvedValue(
+        createdRecord,
+      );
 
       await service.createCategory(TENANT_ID, USER_ID, dtoWithoutDescription);
 
@@ -201,7 +231,9 @@ describe('FinancialCategoryService', () => {
     });
 
     it('should include tenant_id and created_by_user_id in the created record', async () => {
-      mockPrismaService.financial_category.create.mockResolvedValue(mockCategoryRecord());
+      mockPrismaService.financial_category.create.mockResolvedValue(
+        mockCategoryRecord(),
+      );
 
       await service.createCategory(TENANT_ID, USER_ID, dto);
 
@@ -215,7 +247,9 @@ describe('FinancialCategoryService', () => {
 
     it('should call auditLogger.logTenantChange with action "created"', async () => {
       const createdRecord = mockCategoryRecord();
-      mockPrismaService.financial_category.create.mockResolvedValue(createdRecord);
+      mockPrismaService.financial_category.create.mockResolvedValue(
+        createdRecord,
+      );
 
       await service.createCategory(TENANT_ID, USER_ID, dto);
 
@@ -233,7 +267,9 @@ describe('FinancialCategoryService', () => {
 
     it('should return the created category record', async () => {
       const createdRecord = mockCategoryRecord({ id: 'new-cat-uuid' });
-      mockPrismaService.financial_category.create.mockResolvedValue(createdRecord);
+      mockPrismaService.financial_category.create.mockResolvedValue(
+        createdRecord,
+      );
 
       const result = await service.createCategory(TENANT_ID, USER_ID, dto);
 
@@ -305,10 +341,17 @@ describe('FinancialCategoryService', () => {
         description: 'Updated description',
         updated_at: new Date('2026-02-01T10:00:00.000Z'),
       });
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(existing);
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        existing,
+      );
       mockPrismaService.financial_category.update.mockResolvedValue(updated);
 
-      const result = await service.updateCategory(TENANT_ID, CATEGORY_ID, USER_ID, dto);
+      const result = await service.updateCategory(
+        TENANT_ID,
+        CATEGORY_ID,
+        USER_ID,
+        dto,
+      );
 
       expect(mockPrismaService.financial_category.update).toHaveBeenCalledWith({
         where: { id: CATEGORY_ID },
@@ -324,10 +367,17 @@ describe('FinancialCategoryService', () => {
       const nameOnlyDto: UpdateFinancialCategoryDto = { name: 'New Name Only' };
       const existing = mockCategoryRecord();
       const updated = mockCategoryRecord({ name: 'New Name Only' });
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(existing);
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        existing,
+      );
       mockPrismaService.financial_category.update.mockResolvedValue(updated);
 
-      await service.updateCategory(TENANT_ID, CATEGORY_ID, USER_ID, nameOnlyDto);
+      await service.updateCategory(
+        TENANT_ID,
+        CATEGORY_ID,
+        USER_ID,
+        nameOnlyDto,
+      );
 
       expect(mockPrismaService.financial_category.update).toHaveBeenCalledWith({
         where: { id: CATEGORY_ID },
@@ -338,13 +388,22 @@ describe('FinancialCategoryService', () => {
     });
 
     it('should update only description when name is not provided', async () => {
-      const descOnlyDto: UpdateFinancialCategoryDto = { description: 'New desc only' };
+      const descOnlyDto: UpdateFinancialCategoryDto = {
+        description: 'New desc only',
+      };
       const existing = mockCategoryRecord();
       const updated = mockCategoryRecord({ description: 'New desc only' });
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(existing);
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        existing,
+      );
       mockPrismaService.financial_category.update.mockResolvedValue(updated);
 
-      await service.updateCategory(TENANT_ID, CATEGORY_ID, USER_ID, descOnlyDto);
+      await service.updateCategory(
+        TENANT_ID,
+        CATEGORY_ID,
+        USER_ID,
+        descOnlyDto,
+      );
 
       expect(mockPrismaService.financial_category.update).toHaveBeenCalledWith({
         where: { id: CATEGORY_ID },
@@ -355,12 +414,18 @@ describe('FinancialCategoryService', () => {
     });
 
     it('should look up the existing record by id and tenant_id', async () => {
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(mockCategoryRecord());
-      mockPrismaService.financial_category.update.mockResolvedValue(mockCategoryRecord());
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        mockCategoryRecord(),
+      );
+      mockPrismaService.financial_category.update.mockResolvedValue(
+        mockCategoryRecord(),
+      );
 
       await service.updateCategory(TENANT_ID, CATEGORY_ID, USER_ID, dto);
 
-      expect(mockPrismaService.financial_category.findFirst).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.financial_category.findFirst,
+      ).toHaveBeenCalledWith({
         where: { id: CATEGORY_ID, tenant_id: TENANT_ID },
       });
     });
@@ -371,7 +436,9 @@ describe('FinancialCategoryService', () => {
         name: 'Materials - Updated Name',
         description: 'Updated description',
       });
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(existing);
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        existing,
+      );
       mockPrismaService.financial_category.update.mockResolvedValue(updated);
 
       await service.updateCategory(TENANT_ID, CATEGORY_ID, USER_ID, dto);
@@ -408,7 +475,9 @@ describe('FinancialCategoryService', () => {
         service.updateCategory(TENANT_ID, 'nonexistent-id', USER_ID, dto),
       ).rejects.toThrow(NotFoundException);
 
-      expect(mockPrismaService.financial_category.update).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.financial_category.update,
+      ).not.toHaveBeenCalled();
       expect(mockAuditLoggerService.logTenantChange).not.toHaveBeenCalled();
     });
 
@@ -419,7 +488,9 @@ describe('FinancialCategoryService', () => {
         service.updateCategory('other-tenant-uuid', CATEGORY_ID, USER_ID, dto),
       ).rejects.toThrow(NotFoundException);
 
-      expect(mockPrismaService.financial_category.findFirst).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.financial_category.findFirst,
+      ).toHaveBeenCalledWith({
         where: { id: CATEGORY_ID, tenant_id: 'other-tenant-uuid' },
       });
     });
@@ -438,7 +509,9 @@ describe('FinancialCategoryService', () => {
         }),
       ).rejects.toThrow(BadRequestException);
 
-      expect(mockPrismaService.financial_category.update).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.financial_category.update,
+      ).not.toHaveBeenCalled();
     });
 
     it('should allow classification change on custom (non-system-default) category', async () => {
@@ -468,14 +541,29 @@ describe('FinancialCategoryService', () => {
     });
 
     it('should reactivate a deactivated custom category when is_active=true', async () => {
-      const existing = mockCategoryRecord({ is_system_default: false, is_active: false });
-      const reactivated = mockCategoryRecord({ is_system_default: false, is_active: true });
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(existing);
-      mockPrismaService.financial_category.update.mockResolvedValue(reactivated);
-
-      const result = await service.updateCategory(TENANT_ID, CATEGORY_ID, USER_ID, {
+      const existing = mockCategoryRecord({
+        is_system_default: false,
+        is_active: false,
+      });
+      const reactivated = mockCategoryRecord({
+        is_system_default: false,
         is_active: true,
-      } as any);
+      });
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        existing,
+      );
+      mockPrismaService.financial_category.update.mockResolvedValue(
+        reactivated,
+      );
+
+      const result = await service.updateCategory(
+        TENANT_ID,
+        CATEGORY_ID,
+        USER_ID,
+        {
+          is_active: true,
+        } as any,
+      );
 
       expect(mockPrismaService.financial_category.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -516,11 +604,22 @@ describe('FinancialCategoryService', () => {
   describe('deactivateCategory()', () => {
     it('should set is_active to false for a custom category', async () => {
       const existing = mockCategoryRecord({ is_system_default: false });
-      const deactivated = mockCategoryRecord({ is_system_default: false, is_active: false });
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(existing);
-      mockPrismaService.financial_category.update.mockResolvedValue(deactivated);
+      const deactivated = mockCategoryRecord({
+        is_system_default: false,
+        is_active: false,
+      });
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        existing,
+      );
+      mockPrismaService.financial_category.update.mockResolvedValue(
+        deactivated,
+      );
 
-      const result = await service.deactivateCategory(TENANT_ID, CATEGORY_ID, USER_ID);
+      const result = await service.deactivateCategory(
+        TENANT_ID,
+        CATEGORY_ID,
+        USER_ID,
+      );
 
       expect(mockPrismaService.financial_category.update).toHaveBeenCalledWith({
         where: { id: CATEGORY_ID },
@@ -531,23 +630,34 @@ describe('FinancialCategoryService', () => {
 
     it('should look up the existing record by id and tenant_id', async () => {
       const existing = mockCategoryRecord({ is_system_default: false });
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(existing);
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        existing,
+      );
       mockPrismaService.financial_category.update.mockResolvedValue(
         mockCategoryRecord({ is_active: false }),
       );
 
       await service.deactivateCategory(TENANT_ID, CATEGORY_ID, USER_ID);
 
-      expect(mockPrismaService.financial_category.findFirst).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.financial_category.findFirst,
+      ).toHaveBeenCalledWith({
         where: { id: CATEGORY_ID, tenant_id: TENANT_ID },
       });
     });
 
     it('should call auditLogger.logTenantChange with action "deleted"', async () => {
       const existing = mockCategoryRecord({ is_system_default: false });
-      const deactivated = mockCategoryRecord({ is_system_default: false, is_active: false });
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(existing);
-      mockPrismaService.financial_category.update.mockResolvedValue(deactivated);
+      const deactivated = mockCategoryRecord({
+        is_system_default: false,
+        is_active: false,
+      });
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        existing,
+      );
+      mockPrismaService.financial_category.update.mockResolvedValue(
+        deactivated,
+      );
 
       await service.deactivateCategory(TENANT_ID, CATEGORY_ID, USER_ID);
 
@@ -583,13 +693,20 @@ describe('FinancialCategoryService', () => {
         service.deactivateCategory(TENANT_ID, 'nonexistent-id', USER_ID),
       ).rejects.toThrow(NotFoundException);
 
-      expect(mockPrismaService.financial_category.update).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.financial_category.update,
+      ).not.toHaveBeenCalled();
       expect(mockAuditLoggerService.logTenantChange).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException when category is a system default', async () => {
-      const systemDefault = mockCategoryRecord({ is_system_default: true, name: 'Labor - General' });
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(systemDefault);
+      const systemDefault = mockCategoryRecord({
+        is_system_default: true,
+        name: 'Labor - General',
+      });
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        systemDefault,
+      );
 
       await expect(
         service.deactivateCategory(TENANT_ID, CATEGORY_ID, USER_ID),
@@ -602,13 +719,17 @@ describe('FinancialCategoryService', () => {
 
     it('should not call update or audit log when category is a system default', async () => {
       const systemDefault = mockCategoryRecord({ is_system_default: true });
-      mockPrismaService.financial_category.findFirst.mockResolvedValue(systemDefault);
+      mockPrismaService.financial_category.findFirst.mockResolvedValue(
+        systemDefault,
+      );
 
       await expect(
         service.deactivateCategory(TENANT_ID, CATEGORY_ID, USER_ID),
       ).rejects.toThrow(BadRequestException);
 
-      expect(mockPrismaService.financial_category.update).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.financial_category.update,
+      ).not.toHaveBeenCalled();
       expect(mockAuditLoggerService.logTenantChange).not.toHaveBeenCalled();
     });
 
@@ -619,7 +740,9 @@ describe('FinancialCategoryService', () => {
         service.deactivateCategory('other-tenant-uuid', CATEGORY_ID, USER_ID),
       ).rejects.toThrow(NotFoundException);
 
-      expect(mockPrismaService.financial_category.findFirst).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.financial_category.findFirst,
+      ).toHaveBeenCalledWith({
         where: { id: CATEGORY_ID, tenant_id: 'other-tenant-uuid' },
       });
     });
@@ -633,13 +756,18 @@ describe('FinancialCategoryService', () => {
     it('should create all 16 default categories when none exist', async () => {
       mockPrismaService.financial_category.count.mockResolvedValue(0);
       mockPrismaService.financial_category.findMany.mockResolvedValue([]);
-      mockPrismaService.financial_category.createMany.mockResolvedValue({ count: 16 });
+      mockPrismaService.financial_category.createMany.mockResolvedValue({
+        count: 16,
+      });
 
       await service.seedDefaultCategories(TENANT_ID);
 
-      expect(mockPrismaService.financial_category.createMany).toHaveBeenCalledTimes(1);
+      expect(
+        mockPrismaService.financial_category.createMany,
+      ).toHaveBeenCalledTimes(1);
 
-      const createManyCall = mockPrismaService.financial_category.createMany.mock.calls[0][0];
+      const createManyCall =
+        mockPrismaService.financial_category.createMany.mock.calls[0][0];
       expect(createManyCall.data).toHaveLength(16);
 
       // Verify each record has required fields
@@ -654,11 +782,14 @@ describe('FinancialCategoryService', () => {
     it('should include all expected default category names and types', async () => {
       mockPrismaService.financial_category.count.mockResolvedValue(0);
       mockPrismaService.financial_category.findMany.mockResolvedValue([]);
-      mockPrismaService.financial_category.createMany.mockResolvedValue({ count: 16 });
+      mockPrismaService.financial_category.createMany.mockResolvedValue({
+        count: 16,
+      });
 
       await service.seedDefaultCategories(TENANT_ID);
 
-      const createManyCall = mockPrismaService.financial_category.createMany.mock.calls[0][0];
+      const createManyCall =
+        mockPrismaService.financial_category.createMany.mock.calls[0][0];
       const createdNames = createManyCall.data.map((d: any) => d.name);
 
       // COGS categories
@@ -682,41 +813,65 @@ describe('FinancialCategoryService', () => {
       expect(createdNames).toContain('Tools & Equipment Purchase');
 
       // Verify types — COGS
-      const laborGeneral = createManyCall.data.find((d: any) => d.name === 'Labor - General');
+      const laborGeneral = createManyCall.data.find(
+        (d: any) => d.name === 'Labor - General',
+      );
       expect(laborGeneral.type).toBe('labor');
 
-      const materialsGeneral = createManyCall.data.find((d: any) => d.name === 'Materials - General');
+      const materialsGeneral = createManyCall.data.find(
+        (d: any) => d.name === 'Materials - General',
+      );
       expect(materialsGeneral.type).toBe('material');
 
-      const subcontractorGeneral = createManyCall.data.find((d: any) => d.name === 'Subcontractor - General');
+      const subcontractorGeneral = createManyCall.data.find(
+        (d: any) => d.name === 'Subcontractor - General',
+      );
       expect(subcontractorGeneral.type).toBe('subcontractor');
 
-      const equipmentRental = createManyCall.data.find((d: any) => d.name === 'Equipment Rental');
+      const equipmentRental = createManyCall.data.find(
+        (d: any) => d.name === 'Equipment Rental',
+      );
       expect(equipmentRental.type).toBe('equipment');
 
-      const fuelTransport = createManyCall.data.find((d: any) => d.name === 'Fuel & Transportation');
+      const fuelTransport = createManyCall.data.find(
+        (d: any) => d.name === 'Fuel & Transportation',
+      );
       expect(fuelTransport.type).toBe('other');
 
       // Verify types — Overhead
-      const insurance = createManyCall.data.find((d: any) => d.name === 'Insurance');
+      const insurance = createManyCall.data.find(
+        (d: any) => d.name === 'Insurance',
+      );
       expect(insurance.type).toBe('insurance');
 
-      const fuelVehicle = createManyCall.data.find((d: any) => d.name === 'Fuel & Vehicle');
+      const fuelVehicle = createManyCall.data.find(
+        (d: any) => d.name === 'Fuel & Vehicle',
+      );
       expect(fuelVehicle.type).toBe('fuel');
 
-      const utilities = createManyCall.data.find((d: any) => d.name === 'Utilities');
+      const utilities = createManyCall.data.find(
+        (d: any) => d.name === 'Utilities',
+      );
       expect(utilities.type).toBe('utilities');
 
-      const office = createManyCall.data.find((d: any) => d.name === 'Office & Admin');
+      const office = createManyCall.data.find(
+        (d: any) => d.name === 'Office & Admin',
+      );
       expect(office.type).toBe('office');
 
-      const marketing = createManyCall.data.find((d: any) => d.name === 'Marketing & Advertising');
+      const marketing = createManyCall.data.find(
+        (d: any) => d.name === 'Marketing & Advertising',
+      );
       expect(marketing.type).toBe('marketing');
 
-      const taxes = createManyCall.data.find((d: any) => d.name === 'Taxes & Licenses');
+      const taxes = createManyCall.data.find(
+        (d: any) => d.name === 'Taxes & Licenses',
+      );
       expect(taxes.type).toBe('taxes');
 
-      const tools = createManyCall.data.find((d: any) => d.name === 'Tools & Equipment Purchase');
+      const tools = createManyCall.data.find(
+        (d: any) => d.name === 'Tools & Equipment Purchase',
+      );
       expect(tools.type).toBe('tools');
     });
 
@@ -725,8 +880,12 @@ describe('FinancialCategoryService', () => {
 
       await service.seedDefaultCategories(TENANT_ID);
 
-      expect(mockPrismaService.financial_category.findMany).not.toHaveBeenCalled();
-      expect(mockPrismaService.financial_category.createMany).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.financial_category.findMany,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.financial_category.createMany,
+      ).not.toHaveBeenCalled();
     });
 
     it('should skip seeding when count exceeds 16', async () => {
@@ -734,8 +893,12 @@ describe('FinancialCategoryService', () => {
 
       await service.seedDefaultCategories(TENANT_ID);
 
-      expect(mockPrismaService.financial_category.findMany).not.toHaveBeenCalled();
-      expect(mockPrismaService.financial_category.createMany).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.financial_category.findMany,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.financial_category.createMany,
+      ).not.toHaveBeenCalled();
     });
 
     it('should create only missing categories when some already exist', async () => {
@@ -745,13 +908,18 @@ describe('FinancialCategoryService', () => {
         { name: 'Materials - General' },
         { name: 'Miscellaneous' },
       ]);
-      mockPrismaService.financial_category.createMany.mockResolvedValue({ count: 13 });
+      mockPrismaService.financial_category.createMany.mockResolvedValue({
+        count: 13,
+      });
 
       await service.seedDefaultCategories(TENANT_ID);
 
-      expect(mockPrismaService.financial_category.createMany).toHaveBeenCalledTimes(1);
+      expect(
+        mockPrismaService.financial_category.createMany,
+      ).toHaveBeenCalledTimes(1);
 
-      const createManyCall = mockPrismaService.financial_category.createMany.mock.calls[0][0];
+      const createManyCall =
+        mockPrismaService.financial_category.createMany.mock.calls[0][0];
       expect(createManyCall.data).toHaveLength(13);
 
       const createdNames = createManyCall.data.map((d: any) => d.name);
@@ -799,13 +967,17 @@ describe('FinancialCategoryService', () => {
 
       await service.seedDefaultCategories(TENANT_ID);
 
-      expect(mockPrismaService.financial_category.createMany).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.financial_category.createMany,
+      ).not.toHaveBeenCalled();
     });
 
     it('should query only system default categories for the given tenant', async () => {
       mockPrismaService.financial_category.count.mockResolvedValue(0);
       mockPrismaService.financial_category.findMany.mockResolvedValue([]);
-      mockPrismaService.financial_category.createMany.mockResolvedValue({ count: 16 });
+      mockPrismaService.financial_category.createMany.mockResolvedValue({
+        count: 16,
+      });
 
       await service.seedDefaultCategories(TENANT_ID);
 
@@ -816,7 +988,9 @@ describe('FinancialCategoryService', () => {
         },
       });
 
-      expect(mockPrismaService.financial_category.findMany).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.financial_category.findMany,
+      ).toHaveBeenCalledWith({
         where: {
           tenant_id: TENANT_ID,
           is_system_default: true,
@@ -828,12 +1002,15 @@ describe('FinancialCategoryService', () => {
     it('should set tenant_id on every created default category record', async () => {
       mockPrismaService.financial_category.count.mockResolvedValue(0);
       mockPrismaService.financial_category.findMany.mockResolvedValue([]);
-      mockPrismaService.financial_category.createMany.mockResolvedValue({ count: 16 });
+      mockPrismaService.financial_category.createMany.mockResolvedValue({
+        count: 16,
+      });
 
       const customTenantId = 'different-tenant-uuid';
       await service.seedDefaultCategories(customTenantId);
 
-      const createManyCall = mockPrismaService.financial_category.createMany.mock.calls[0][0];
+      const createManyCall =
+        mockPrismaService.financial_category.createMany.mock.calls[0][0];
       for (const record of createManyCall.data) {
         expect(record.tenant_id).toBe(customTenantId);
       }
@@ -842,21 +1019,30 @@ describe('FinancialCategoryService', () => {
     it('should seed 16 default categories (9 COGS + 7 overhead) for a new tenant', async () => {
       mockPrismaService.financial_category.count.mockResolvedValue(0);
       mockPrismaService.financial_category.findMany.mockResolvedValue([]);
-      mockPrismaService.financial_category.createMany.mockResolvedValue({ count: 16 });
+      mockPrismaService.financial_category.createMany.mockResolvedValue({
+        count: 16,
+      });
 
       await service.seedDefaultCategories(TENANT_ID);
 
-      expect(mockPrismaService.financial_category.createMany).toHaveBeenCalled();
+      expect(
+        mockPrismaService.financial_category.createMany,
+      ).toHaveBeenCalled();
 
-      const createManyArg = mockPrismaService.financial_category.createMany.mock.calls[0][0];
+      const createManyArg =
+        mockPrismaService.financial_category.createMany.mock.calls[0][0];
       expect(createManyArg.data).toHaveLength(16);
 
       // Verify COGS categories
-      const cogsCategories = createManyArg.data.filter((c: any) => c.classification === 'cost_of_goods_sold');
+      const cogsCategories = createManyArg.data.filter(
+        (c: any) => c.classification === 'cost_of_goods_sold',
+      );
       expect(cogsCategories.length).toBe(9);
 
       // Verify overhead categories
-      const overheadCategories = createManyArg.data.filter((c: any) => c.classification === 'operating_expense');
+      const overheadCategories = createManyArg.data.filter(
+        (c: any) => c.classification === 'operating_expense',
+      );
       expect(overheadCategories.length).toBe(7);
 
       // Verify specific overhead types

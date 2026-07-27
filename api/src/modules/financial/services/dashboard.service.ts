@@ -5,8 +5,18 @@ import { RecurringExpenseService } from './recurring-expense.service';
 @Injectable()
 export class DashboardService {
   private readonly monthLabels = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   constructor(
@@ -49,14 +59,17 @@ export class DashboardService {
       (s, m) => s + m.tax.tax_collected,
       0,
     );
-    const totalTaxPaid = monthlyData.reduce(
-      (s, m) => s + m.tax.tax_paid,
-      0,
-    );
+    const totalTaxPaid = monthlyData.reduce((s, m) => s + m.tax.tax_paid, 0);
 
     // Best / worst month by net_profit
-    let bestMonth = { month_label: monthlyData[0].month_label, net_profit: monthlyData[0].net_profit };
-    let worstMonth = { month_label: monthlyData[0].month_label, net_profit: monthlyData[0].net_profit };
+    let bestMonth = {
+      month_label: monthlyData[0].month_label,
+      net_profit: monthlyData[0].net_profit,
+    };
+    let worstMonth = {
+      month_label: monthlyData[0].month_label,
+      net_profit: monthlyData[0].net_profit,
+    };
 
     for (const md of monthlyData) {
       if (md.net_profit > bestMonth.net_profit) {
@@ -314,7 +327,9 @@ export class DashboardService {
     // -----------------------------------------------------------------------
     // Monetary values
     // -----------------------------------------------------------------------
-    const incomeTotalNum = this.toNum(invoiceIncomeTotal._sum.amount) + this.toNum(entryIncomeTotal._sum.amount);
+    const incomeTotalNum =
+      this.toNum(invoiceIncomeTotal._sum.amount) +
+      this.toNum(entryIncomeTotal._sum.amount);
     const expenseTotalNum = this.toNum(expenseTotal._sum.amount);
     const expenseWithPendingNum = includePending
       ? this.toNum(expenseWithPending._sum.amount)
@@ -425,7 +440,7 @@ export class DashboardService {
       // days_overdue: null if not overdue — BR-AR7
       const daysOverdue = isOverdue
         ? Math.floor(
-            (today.getTime() - dueDate!.getTime()) / (1000 * 60 * 60 * 24),
+            (today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
           )
         : null;
 
@@ -1097,16 +1112,15 @@ export class DashboardService {
     const projectNoInvoiceAlerts: AlertItem[] = [];
 
     if (candidateProjects.length > 0) {
-      const projectsWithInvoices =
-        await this.prisma.project_invoice.findMany({
-          where: {
-            tenant_id: tenantId,
-            project_id: { in: candidateProjects.map((p) => p.id) },
-            status: { not: 'voided' },
-          },
-          select: { project_id: true },
-          distinct: ['project_id'],
-        });
+      const projectsWithInvoices = await this.prisma.project_invoice.findMany({
+        where: {
+          tenant_id: tenantId,
+          project_id: { in: candidateProjects.map((p) => p.id) },
+          status: { not: 'voided' },
+        },
+        select: { project_id: true },
+        distinct: ['project_id'],
+      });
 
       const projectIdsWithInvoices = new Set(
         projectsWithInvoices.map((p) => p.project_id),
@@ -1176,18 +1190,13 @@ export class DashboardService {
   // Public — getOverview() — Combined Dashboard
   // ==========================================================================
 
-  async getOverview(
-    tenantId: string,
-    query: { forecast_days?: number },
-  ) {
+  async getOverview(tenantId: string, query: { forecast_days?: number }) {
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
     const currentMonth = currentDate.getMonth() + 1;
 
     // Validate forecast_days to exactly 30, 60, or 90 — default to 30 (BR-F4)
-    const validForecastDays = [30, 60, 90].includes(
-      Number(query.forecast_days),
-    )
+    const validForecastDays = [30, 60, 90].includes(Number(query.forecast_days))
       ? (Number(query.forecast_days) as 30 | 60 | 90)
       : 30;
 
@@ -1300,11 +1309,7 @@ export class DashboardService {
   // ==========================================================================
 
   private escapeCsvField(value: string): string {
-    if (
-      value.includes(',') ||
-      value.includes('"') ||
-      value.includes('\n')
-    ) {
+    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
       return `"${value.replace(/"/g, '""')}"`;
     }
     return value;

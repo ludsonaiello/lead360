@@ -84,14 +84,22 @@ describe('InspectionService', () => {
   describe('create', () => {
     it('should create an inspection with correct tenant_id, project_id, and permit_id', async () => {
       mockPrismaService.permit.findFirst.mockResolvedValue(mockPermit);
-      mockPrismaService.inspection.create.mockResolvedValue({ ...mockInspection });
+      mockPrismaService.inspection.create.mockResolvedValue({
+        ...mockInspection,
+      });
 
       const dto = {
         inspection_type: 'Framing',
         inspector_name: 'John Inspector',
       };
 
-      const result = await service.create(TENANT_A, PROJECT_ID, PERMIT_ID, USER_ID, dto);
+      const result = await service.create(
+        TENANT_A,
+        PROJECT_ID,
+        PERMIT_ID,
+        USER_ID,
+        dto,
+      );
 
       expect(result).toBeDefined();
       expect(result.inspection_type).toBe('Framing');
@@ -194,7 +202,9 @@ describe('InspectionService', () => {
 
     it('should create audit log on inspection creation', async () => {
       mockPrismaService.permit.findFirst.mockResolvedValue(mockPermit);
-      mockPrismaService.inspection.create.mockResolvedValue({ ...mockInspection });
+      mockPrismaService.inspection.create.mockResolvedValue({
+        ...mockInspection,
+      });
 
       await service.create(TENANT_A, PROJECT_ID, PERMIT_ID, USER_ID, {
         inspection_type: 'Framing',
@@ -212,7 +222,9 @@ describe('InspectionService', () => {
 
     it('should log project activity on inspection creation', async () => {
       mockPrismaService.permit.findFirst.mockResolvedValue(mockPermit);
-      mockPrismaService.inspection.create.mockResolvedValue({ ...mockInspection });
+      mockPrismaService.inspection.create.mockResolvedValue({
+        ...mockInspection,
+      });
 
       await service.create(TENANT_A, PROJECT_ID, PERMIT_ID, USER_ID, {
         inspection_type: 'Framing',
@@ -443,7 +455,11 @@ describe('InspectionService', () => {
       mockPrismaService.permit.findFirst.mockResolvedValue(mockPermit);
       mockPrismaService.inspection.findMany.mockResolvedValue([mockInspection]);
 
-      const result = await service.findByPermit(TENANT_A, PROJECT_ID, PERMIT_ID);
+      const result = await service.findByPermit(
+        TENANT_A,
+        PROJECT_ID,
+        PERMIT_ID,
+      );
 
       expect(result).toHaveLength(1);
       expect(result[0].inspection_type).toBe('Framing');
@@ -470,7 +486,11 @@ describe('InspectionService', () => {
       mockPrismaService.permit.findFirst.mockResolvedValue(mockPermit);
       mockPrismaService.inspection.findMany.mockResolvedValue([]);
 
-      const result = await service.findByPermit(TENANT_A, PROJECT_ID, PERMIT_ID);
+      const result = await service.findByPermit(
+        TENANT_A,
+        PROJECT_ID,
+        PERMIT_ID,
+      );
 
       expect(result).toEqual([]);
     });
@@ -530,7 +550,13 @@ describe('InspectionService', () => {
       mockPrismaService.inspection.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.hardDelete(TENANT_A, PROJECT_ID, PERMIT_ID, 'nonexistent', USER_ID),
+        service.hardDelete(
+          TENANT_A,
+          PROJECT_ID,
+          PERMIT_ID,
+          'nonexistent',
+          USER_ID,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -633,9 +659,16 @@ describe('InspectionService', () => {
       mockPrismaService.inspection.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.update(TENANT_B, PROJECT_ID, PERMIT_ID, INSPECTION_ID, USER_ID, {
-          notes: 'hacked',
-        }),
+        service.update(
+          TENANT_B,
+          PROJECT_ID,
+          PERMIT_ID,
+          INSPECTION_ID,
+          USER_ID,
+          {
+            notes: 'hacked',
+          },
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -643,7 +676,13 @@ describe('InspectionService', () => {
       mockPrismaService.inspection.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.hardDelete(TENANT_B, PROJECT_ID, PERMIT_ID, INSPECTION_ID, USER_ID),
+        service.hardDelete(
+          TENANT_B,
+          PROJECT_ID,
+          PERMIT_ID,
+          INSPECTION_ID,
+          USER_ID,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -681,9 +720,16 @@ describe('InspectionService', () => {
       mockPrismaService.inspection.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.update(TENANT_A, PROJECT_ID, PERMIT_ID, INSPECTION_ID, USER_ID, {
-          notes: 'test',
-        }),
+        service.update(
+          TENANT_A,
+          PROJECT_ID,
+          PERMIT_ID,
+          INSPECTION_ID,
+          USER_ID,
+          {
+            notes: 'test',
+          },
+        ),
       ).rejects.toThrow(NotFoundException);
 
       expect(mockPrismaService.inspection.findFirst).toHaveBeenCalledWith({
@@ -705,9 +751,15 @@ describe('InspectionService', () => {
         reinspection_date: new Date('2026-04-17T00:00:00.000Z'),
       };
       mockPrismaService.permit.findFirst.mockResolvedValue(mockPermit);
-      mockPrismaService.inspection.findMany.mockResolvedValue([inspectionWithDates]);
+      mockPrismaService.inspection.findMany.mockResolvedValue([
+        inspectionWithDates,
+      ]);
 
-      const result = await service.findByPermit(TENANT_A, PROJECT_ID, PERMIT_ID);
+      const result = await service.findByPermit(
+        TENANT_A,
+        PROJECT_ID,
+        PERMIT_ID,
+      );
 
       expect(result[0].scheduled_date).toBe('2026-04-10');
       expect(result[0].reinspection_date).toBe('2026-04-17');
@@ -717,7 +769,11 @@ describe('InspectionService', () => {
       mockPrismaService.permit.findFirst.mockResolvedValue(mockPermit);
       mockPrismaService.inspection.findMany.mockResolvedValue([mockInspection]);
 
-      const result = await service.findByPermit(TENANT_A, PROJECT_ID, PERMIT_ID);
+      const result = await service.findByPermit(
+        TENANT_A,
+        PROJECT_ID,
+        PERMIT_ID,
+      );
 
       expect(result[0].scheduled_date).toBeNull();
       expect(result[0].reinspection_date).toBeNull();
@@ -727,7 +783,11 @@ describe('InspectionService', () => {
       mockPrismaService.permit.findFirst.mockResolvedValue(mockPermit);
       mockPrismaService.inspection.findMany.mockResolvedValue([mockInspection]);
 
-      const result = await service.findByPermit(TENANT_A, PROJECT_ID, PERMIT_ID);
+      const result = await service.findByPermit(
+        TENANT_A,
+        PROJECT_ID,
+        PERMIT_ID,
+      );
 
       expect(result[0].created_at).toBe('2026-04-01T10:00:00.000Z');
       expect(result[0].updated_at).toBe('2026-04-01T10:00:00.000Z');
@@ -737,7 +797,11 @@ describe('InspectionService', () => {
       mockPrismaService.permit.findFirst.mockResolvedValue(mockPermit);
       mockPrismaService.inspection.findMany.mockResolvedValue([mockInspection]);
 
-      const result = await service.findByPermit(TENANT_A, PROJECT_ID, PERMIT_ID);
+      const result = await service.findByPermit(
+        TENANT_A,
+        PROJECT_ID,
+        PERMIT_ID,
+      );
       const response = result[0];
 
       expect(response).toHaveProperty('id');

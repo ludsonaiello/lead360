@@ -164,10 +164,14 @@ export class OcrService {
       let parsed: ParsedReceiptResult;
 
       if (openaiKey) {
-        this.logger.log(`Using GPT-4o-mini for structured parsing of receipt ${receiptId}`);
+        this.logger.log(
+          `Using GPT-4o-mini for structured parsing of receipt ${receiptId}`,
+        );
         parsed = await this.parseReceiptWithAI(fullText, openaiKey);
       } else {
-        this.logger.warn(`OPENAI_API_KEY not set — falling back to regex parsing for receipt ${receiptId}`);
+        this.logger.warn(
+          `OPENAI_API_KEY not set — falling back to regex parsing for receipt ${receiptId}`,
+        );
         const regexResult = this.parseReceiptText(fullText);
         parsed = {
           ...regexResult,
@@ -325,8 +329,7 @@ export class OcrService {
   private extractAmount(lines: string[]): number | null {
     const totalKeywords =
       /\b(TOTAL|AMOUNT\s*DUE|BALANCE\s*DUE|GRAND\s*TOTAL|TOTAL\s*DUE)\b/i;
-    const amountPattern =
-      /\$?\s?(\d{1,3}(?:,\d{3})*\.\d{2}|\d{1,6}\.\d{2})\b/g;
+    const amountPattern = /\$?\s?(\d{1,3}(?:,\d{3})*\.\d{2}|\d{1,6}\.\d{2})\b/g;
 
     const candidates: number[] = [];
 
@@ -483,7 +486,10 @@ Rules:
         }
 
         // Strip markdown code fences if present
-        const jsonStr = content.replace(/^```json?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+        const jsonStr = content
+          .replace(/^```json?\s*\n?/i, '')
+          .replace(/\n?```\s*$/i, '')
+          .trim();
 
         let data: any;
         try {
@@ -497,30 +503,42 @@ Rules:
 
         // Validate: must be an object with at least vendor or total
         if (!data || typeof data !== 'object') {
-          this.logger.warn(`GPT-4o-mini attempt ${attempt}: response is not an object`);
+          this.logger.warn(
+            `GPT-4o-mini attempt ${attempt}: response is not an object`,
+          );
           continue;
         }
 
-        const hasUsableData = data.vendor || data.total != null || data.date ||
+        const hasUsableData =
+          data.vendor ||
+          data.total != null ||
+          data.date ||
           (Array.isArray(data.line_items) && data.line_items.length > 0);
 
         if (!hasUsableData) {
-          this.logger.warn(`GPT-4o-mini attempt ${attempt}: no usable data extracted`);
+          this.logger.warn(
+            `GPT-4o-mini attempt ${attempt}: no usable data extracted`,
+          );
           continue;
         }
 
         // Valid result — build and return
         const notesParts: string[] = [];
-        if (data.payment_method) notesParts.push(`Payment: ${data.payment_method}`);
+        if (data.payment_method)
+          notesParts.push(`Payment: ${data.payment_method}`);
         if (data.card_brand) notesParts.push(`Card: ${data.card_brand}`);
-        if (data.card_last_four) notesParts.push(`ending ${data.card_last_four}`);
-        if (data.change_due != null) notesParts.push(`Change: $${data.change_due}`);
+        if (data.card_last_four)
+          notesParts.push(`ending ${data.card_last_four}`);
+        if (data.change_due != null)
+          notesParts.push(`Change: $${data.change_due}`);
         if (data.notes) notesParts.push(data.notes);
 
         this.logger.log(`GPT-4o-mini attempt ${attempt}: success`);
 
         return {
-          ocr_vendor: data.vendor ? String(data.vendor).substring(0, 200) : null,
+          ocr_vendor: data.vendor
+            ? String(data.vendor).substring(0, 200)
+            : null,
           ocr_amount: this.toSafeNumber(data.total),
           ocr_date: this.toSafeDate(data.date),
           ocr_tax: this.toSafeNumber(data.tax),
@@ -528,14 +546,15 @@ Rules:
           ocr_subtotal: this.toSafeNumber(data.subtotal),
           ocr_time: data.time ? String(data.time).substring(0, 8) : null,
           ocr_entry_type: data.entry_type === 'refund' ? 'refund' : 'expense',
-          ocr_line_items: Array.isArray(data.line_items) && data.line_items.length > 0
-            ? data.line_items.map((item: any) => ({
-                description: String(item.description || '').substring(0, 500),
-                quantity: this.toSafeNumber(item.quantity) ?? 1,
-                unit_price: this.toSafeNumber(item.unit_price) ?? 0,
-                total: this.toSafeNumber(item.total) ?? 0,
-              }))
-            : null,
+          ocr_line_items:
+            Array.isArray(data.line_items) && data.line_items.length > 0
+              ? data.line_items.map((item: any) => ({
+                  description: String(item.description || '').substring(0, 500),
+                  quantity: this.toSafeNumber(item.quantity) ?? 1,
+                  unit_price: this.toSafeNumber(item.unit_price) ?? 0,
+                  total: this.toSafeNumber(item.total) ?? 0,
+                }))
+              : null,
           ocr_notes: notesParts.length > 0 ? notesParts.join(' | ') : null,
         };
       } catch (error) {
@@ -543,7 +562,9 @@ Rules:
           `GPT-4o-mini attempt ${attempt}/${MAX_ATTEMPTS} failed: ${error.message}`,
         );
         if (attempt === MAX_ATTEMPTS) {
-          this.logger.error('All GPT-4o-mini attempts exhausted — falling back to regex');
+          this.logger.error(
+            'All GPT-4o-mini attempts exhausted — falling back to regex',
+          );
         }
       }
     }
@@ -598,7 +619,9 @@ Rules:
     result: ParsedReceiptResult & { ocr_raw: string },
   ): Promise<void> {
     const hasAnyField =
-      result.ocr_vendor || result.ocr_amount != null || result.ocr_date ||
+      result.ocr_vendor ||
+      result.ocr_amount != null ||
+      result.ocr_date ||
       result.ocr_line_items;
 
     await this.prisma.receipt.update({
@@ -613,7 +636,9 @@ Rules:
         ocr_subtotal: result.ocr_subtotal,
         ocr_time: result.ocr_time,
         ocr_entry_type: result.ocr_entry_type,
-        ocr_line_items: result.ocr_line_items ? JSON.stringify(result.ocr_line_items) : null,
+        ocr_line_items: result.ocr_line_items
+          ? JSON.stringify(result.ocr_line_items)
+          : null,
         ocr_notes: result.ocr_notes,
         ocr_status: hasAnyField ? 'complete' : 'failed',
       },

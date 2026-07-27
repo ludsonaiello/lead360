@@ -12,7 +12,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateFinancialEntryDto {
   @ApiPropertyOptional({
-    description: 'Project ID (optional — omit for business-level overhead expenses)',
+    description:
+      'Project ID (optional — omit for business-level overhead expenses)',
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
   @IsOptional()
@@ -42,12 +43,14 @@ export class CreateFinancialEntryDto {
     enum: ['expense', 'income'],
     example: 'expense',
   })
-  @IsEnum(['expense', 'income'], { message: 'entry_type must be expense or income' })
+  @IsEnum(['expense', 'income'], {
+    message: 'entry_type must be expense or income',
+  })
   entry_type: string;
 
   @ApiProperty({
     description: 'Entry amount (must be greater than 0)',
-    example: 450.00,
+    example: 450.0,
     minimum: 0.01,
   })
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -56,7 +59,7 @@ export class CreateFinancialEntryDto {
 
   @ApiPropertyOptional({
     description: 'Tax amount (must be less than amount)',
-    example: 35.50,
+    example: 35.5,
   })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -65,7 +68,7 @@ export class CreateFinancialEntryDto {
 
   @ApiPropertyOptional({
     description: 'Discount amount applied to the entry',
-    example: 5.00,
+    example: 5.0,
   })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -108,17 +111,40 @@ export class CreateFinancialEntryDto {
   supplier_id?: string;
 
   @ApiPropertyOptional({
-    description: 'Payment method enum (ignored if payment_method_registry_id provided)',
-    enum: ['cash', 'check', 'bank_transfer', 'venmo', 'zelle', 'credit_card', 'debit_card', 'ACH'],
+    description:
+      'Payment method enum (ignored if payment_method_registry_id provided)',
+    enum: [
+      'cash',
+      'check',
+      'bank_transfer',
+      'venmo',
+      'zelle',
+      'credit_card',
+      'debit_card',
+      'ACH',
+    ],
   })
   @IsOptional()
-  @IsEnum(['cash', 'check', 'bank_transfer', 'venmo', 'zelle', 'credit_card', 'debit_card', 'ACH'], {
-    message: 'Invalid payment method',
-  })
+  @IsEnum(
+    [
+      'cash',
+      'check',
+      'bank_transfer',
+      'venmo',
+      'zelle',
+      'credit_card',
+      'debit_card',
+      'ACH',
+    ],
+    {
+      message: 'Invalid payment method',
+    },
+  )
   payment_method?: string;
 
   @ApiPropertyOptional({
-    description: 'Payment method registry ID (auto-copies type into payment_method)',
+    description:
+      'Payment method registry ID (auto-copies type into payment_method)',
     example: '550e8400-e29b-41d4-a716-446655440006',
   })
   @IsOptional()
@@ -127,7 +153,8 @@ export class CreateFinancialEntryDto {
   payment_method_registry_id?: string;
 
   @ApiPropertyOptional({
-    description: 'User who made the purchase (mutually exclusive with purchased_by_crew_member_id)',
+    description:
+      'User who made the purchase (mutually exclusive with purchased_by_crew_member_id)',
     example: '550e8400-e29b-41d4-a716-446655440007',
   })
   @IsOptional()
@@ -136,7 +163,8 @@ export class CreateFinancialEntryDto {
   purchased_by_user_id?: string;
 
   @ApiPropertyOptional({
-    description: 'Crew member who made the purchase (mutually exclusive with purchased_by_user_id)',
+    description:
+      'Crew member who made the purchase (mutually exclusive with purchased_by_user_id)',
     example: '550e8400-e29b-41d4-a716-446655440008',
   })
   @IsOptional()
@@ -145,7 +173,8 @@ export class CreateFinancialEntryDto {
   purchased_by_crew_member_id?: string;
 
   @ApiPropertyOptional({
-    description: 'Submission status (Owner/Admin/Manager/Bookkeeper only — Employee value is overridden to pending_review)',
+    description:
+      'Submission status (Owner/Admin/Manager/Bookkeeper only — Employee value is overridden to pending_review)',
     enum: ['pending_review', 'confirmed'],
     default: 'confirmed',
   })

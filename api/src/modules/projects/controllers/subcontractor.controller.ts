@@ -40,9 +40,7 @@ import { UploadSubcontractorDocumentDto } from '../dto/upload-subcontractor-docu
 @Controller('subcontractors')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class SubcontractorController {
-  constructor(
-    private readonly subcontractorService: SubcontractorService,
-  ) {}
+  constructor(private readonly subcontractorService: SubcontractorService) {}
 
   // ---------------------------------------------------------------------------
   // POST /subcontractors
@@ -93,8 +91,7 @@ export class SubcontractorController {
     return this.subcontractorService.findAll(tenantId, {
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
-      is_active:
-        isActive !== undefined ? isActive === 'true' : undefined,
+      is_active: isActive !== undefined ? isActive === 'true' : undefined,
       compliance_status: complianceStatus || undefined,
       search: search || undefined,
     });

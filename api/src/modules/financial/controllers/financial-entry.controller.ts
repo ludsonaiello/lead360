@@ -40,9 +40,7 @@ import { ResubmitEntryDto } from '../dto/resubmit-entry.dto';
 @Controller('financial')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class FinancialEntryController {
-  constructor(
-    private readonly financialEntryService: FinancialEntryService,
-  ) {}
+  constructor(private readonly financialEntryService: FinancialEntryService) {}
 
   // ===========================================================================
   // Route 1 — POST /financial/entries (Create)
@@ -89,9 +87,15 @@ export class FinancialEntryController {
   @Get('entries/pending')
   @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
   @ApiOperation({ summary: 'List pending review entries' })
-  @ApiResponse({ status: 200, description: 'Paginated list of pending entries' })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of pending entries',
+  })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
-  async findPending(@Request() req, @Query() query: ListPendingEntriesQueryDto) {
+  async findPending(
+    @Request() req,
+    @Query() query: ListPendingEntriesQueryDto,
+  ) {
     return this.financialEntryService.getPendingEntries(
       req.user.tenant_id,
       query,
@@ -124,7 +128,10 @@ export class FinancialEntryController {
 
     const today = new Date().toISOString().split('T')[0];
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="expenses-${today}.csv"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="expenses-${today}.csv"`,
+    );
     res.send(csv);
   }
 
@@ -137,12 +144,12 @@ export class FinancialEntryController {
   @ApiOperation({ summary: 'Get a single financial entry' })
   @ApiParam({ name: 'id', description: 'Entry UUID' })
   @ApiResponse({ status: 200, description: 'Entry details (enriched)' })
-  @ApiResponse({ status: 403, description: 'Access denied (Employee accessing other user entry)' })
+  @ApiResponse({
+    status: 403,
+    description: 'Access denied (Employee accessing other user entry)',
+  })
   @ApiResponse({ status: 404, description: 'Entry not found' })
-  async findOne(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.financialEntryService.getEntryById(
       req.user.tenant_id,
       id,
@@ -187,10 +194,7 @@ export class FinancialEntryController {
   @ApiResponse({ status: 200, description: 'Entry deleted' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiResponse({ status: 404, description: 'Entry not found' })
-  async delete(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async delete(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.financialEntryService.deleteEntry(
       req.user.tenant_id,
       id,
@@ -234,7 +238,10 @@ export class FinancialEntryController {
   @ApiOperation({ summary: 'Reject a pending financial entry' })
   @ApiParam({ name: 'id', description: 'Entry UUID' })
   @ApiResponse({ status: 200, description: 'Entry rejected (enriched)' })
-  @ApiResponse({ status: 400, description: 'Entry is not in pending status or reason missing' })
+  @ApiResponse({
+    status: 400,
+    description: 'Entry is not in pending status or reason missing',
+  })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiResponse({ status: 404, description: 'Entry not found' })
   @HttpCode(HttpStatus.OK)

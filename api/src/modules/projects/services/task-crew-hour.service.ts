@@ -48,11 +48,7 @@ export class TaskCrewHourService {
    * Validates task ownership first, then queries directly because
    * CrewHourLogService.getHoursForProject() does not filter by task_id.
    */
-  async getTaskCrewHours(
-    tenantId: string,
-    projectId: string,
-    taskId: string,
-  ) {
+  async getTaskCrewHours(tenantId: string, projectId: string, taskId: string) {
     await this.validateTaskBelongsToProject(tenantId, projectId, taskId);
 
     return this.prisma.crew_hour_log.findMany({
@@ -129,6 +125,10 @@ export class TaskCrewHourService {
 
       totalRegular += regular;
       totalOvertime += overtime;
+
+      if (!log.project_id) {
+        continue;
+      }
 
       const existing = projectMap.get(log.project_id);
       if (existing) {

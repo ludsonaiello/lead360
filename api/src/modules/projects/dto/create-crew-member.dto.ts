@@ -106,7 +106,8 @@ export class CreateCrewMemberDto {
   date_of_birth?: string;
 
   @ApiPropertyOptional({
-    description: 'SSN in plain text (XXX-XX-XXXX or XXXXXXXXX). Encrypted before storage.',
+    description:
+      'SSN in plain text (XXX-XX-XXXX or XXXXXXXXX). Encrypted before storage.',
     example: '123-45-6789',
   })
   @IsString()
@@ -117,7 +118,8 @@ export class CreateCrewMemberDto {
   ssn?: string;
 
   @ApiPropertyOptional({
-    description: 'ITIN in plain text (XXX-XX-XXXX or XXXXXXXXX). Encrypted before storage.',
+    description:
+      'ITIN in plain text (XXX-XX-XXXX or XXXXXXXXX). Encrypted before storage.',
     example: '900-70-1234',
   })
   @IsString()
@@ -133,7 +135,8 @@ export class CreateCrewMemberDto {
   has_drivers_license?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Drivers license number in plain text. Encrypted before storage.',
+    description:
+      'Drivers license number in plain text. Encrypted before storage.',
     example: 'S12345678',
   })
   @IsString()

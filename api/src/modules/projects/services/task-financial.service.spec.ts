@@ -126,10 +126,24 @@ describe('TaskFinancialService', () => {
       mockPrisma.project.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.createTaskCostEntry(TENANT_A, USER_ID, USER_ROLES, PROJECT_ID, TASK_ID, dto),
+        service.createTaskCostEntry(
+          TENANT_A,
+          USER_ID,
+          USER_ROLES,
+          PROJECT_ID,
+          TASK_ID,
+          dto,
+        ),
       ).rejects.toThrow(NotFoundException);
       await expect(
-        service.createTaskCostEntry(TENANT_A, USER_ID, USER_ROLES, PROJECT_ID, TASK_ID, dto),
+        service.createTaskCostEntry(
+          TENANT_A,
+          USER_ID,
+          USER_ROLES,
+          PROJECT_ID,
+          TASK_ID,
+          dto,
+        ),
       ).rejects.toThrow('Project not found');
     });
 
@@ -141,10 +155,24 @@ describe('TaskFinancialService', () => {
       mockPrisma.project_task.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.createTaskCostEntry(TENANT_A, USER_ID, USER_ROLES, PROJECT_ID, TASK_ID, dto),
+        service.createTaskCostEntry(
+          TENANT_A,
+          USER_ID,
+          USER_ROLES,
+          PROJECT_ID,
+          TASK_ID,
+          dto,
+        ),
       ).rejects.toThrow(NotFoundException);
       await expect(
-        service.createTaskCostEntry(TENANT_A, USER_ID, USER_ROLES, PROJECT_ID, TASK_ID, dto),
+        service.createTaskCostEntry(
+          TENANT_A,
+          USER_ID,
+          USER_ROLES,
+          PROJECT_ID,
+          TASK_ID,
+          dto,
+        ),
       ).rejects.toThrow('Task not found in this project');
     });
   });
@@ -306,7 +334,14 @@ describe('TaskFinancialService', () => {
       mockPrisma.project.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.createTaskCostEntry(TENANT_B, USER_ID, USER_ROLES, PROJECT_ID, TASK_ID, dto),
+        service.createTaskCostEntry(
+          TENANT_B,
+          USER_ID,
+          USER_ROLES,
+          PROJECT_ID,
+          TASK_ID,
+          dto,
+        ),
       ).rejects.toThrow(NotFoundException);
 
       // Verify the query included tenant_id filter

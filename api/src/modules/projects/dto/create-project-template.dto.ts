@@ -21,18 +21,28 @@ export enum ProjectTaskCategory {
 }
 
 export class CreateTemplateTaskDto {
-  @ApiProperty({ description: 'Task title', example: 'Remove existing shingles', maxLength: 200 })
+  @ApiProperty({
+    description: 'Task title',
+    example: 'Remove existing shingles',
+    maxLength: 200,
+  })
   @IsString()
   @MinLength(1)
   @MaxLength(200)
   title: string;
 
-  @ApiPropertyOptional({ description: 'Task description', example: 'Strip old roofing material' })
+  @ApiPropertyOptional({
+    description: 'Task description',
+    example: 'Strip old roofing material',
+  })
   @IsString()
   @IsOptional()
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Estimated duration in days', example: 2 })
+  @ApiPropertyOptional({
+    description: 'Estimated duration in days',
+    example: 2,
+  })
   @IsInt()
   @Min(1)
   @IsOptional()
@@ -47,7 +57,10 @@ export class CreateTemplateTaskDto {
   @IsOptional()
   category?: ProjectTaskCategory;
 
-  @ApiProperty({ description: 'Task sequence in template (0-based)', example: 0 })
+  @ApiProperty({
+    description: 'Task sequence in template (0-based)',
+    example: 0,
+  })
   @IsInt()
   @Min(0)
   order_index: number;
@@ -63,13 +76,20 @@ export class CreateTemplateTaskDto {
 }
 
 export class CreateProjectTemplateDto {
-  @ApiProperty({ description: 'Template name', example: 'Standard Roofing Project', maxLength: 200 })
+  @ApiProperty({
+    description: 'Template name',
+    example: 'Standard Roofing Project',
+    maxLength: 200,
+  })
   @IsString()
   @MinLength(1)
   @MaxLength(200)
   name: string;
 
-  @ApiPropertyOptional({ description: 'Template description', example: 'Complete roof replacement template' })
+  @ApiPropertyOptional({
+    description: 'Template description',
+    example: 'Complete roof replacement template',
+  })
   @IsString()
   @IsOptional()
   description?: string;

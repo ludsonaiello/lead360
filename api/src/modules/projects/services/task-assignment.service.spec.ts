@@ -231,7 +231,9 @@ describe('TaskAssignmentService', () => {
       mockPrisma.project_task.findFirst.mockResolvedValue(mockTask());
       mockPrisma.project.findFirst.mockResolvedValue(mockProject());
       mockPrisma.crew_member.findFirst.mockResolvedValue(mockCrewMember());
-      mockPrisma.task_assignee.findFirst.mockResolvedValue(mockAssigneeRecord());
+      mockPrisma.task_assignee.findFirst.mockResolvedValue(
+        mockAssigneeRecord(),
+      );
 
       await expect(
         service.assignToTask(TENANT_ID, PROJECT_ID, TASK_ID, USER_ID, crewDto),
@@ -465,9 +467,7 @@ describe('TaskAssignmentService', () => {
     it('should prevent assigning the same subcontractor to the same task twice', async () => {
       mockPrisma.project_task.findFirst.mockResolvedValue(mockTask());
       mockPrisma.project.findFirst.mockResolvedValue(mockProject());
-      mockPrisma.subcontractor.findFirst.mockResolvedValue(
-        mockSubcontractor(),
-      );
+      mockPrisma.subcontractor.findFirst.mockResolvedValue(mockSubcontractor());
       mockPrisma.task_assignee.findFirst.mockResolvedValue(
         mockAssigneeRecord({ assignee_type: 'subcontractor' }),
       );
@@ -504,9 +504,7 @@ describe('TaskAssignmentService', () => {
       // Crew member already assigned, now assigning subcontractor — should succeed
       mockPrisma.project_task.findFirst.mockResolvedValue(mockTask());
       mockPrisma.project.findFirst.mockResolvedValue(mockProject());
-      mockPrisma.subcontractor.findFirst.mockResolvedValue(
-        mockSubcontractor(),
-      );
+      mockPrisma.subcontractor.findFirst.mockResolvedValue(mockSubcontractor());
       mockPrisma.task_assignee.findFirst.mockResolvedValue(null); // different type, no duplicate
       mockPrisma.task_assignee.create.mockResolvedValue(
         mockAssigneeRecord({
@@ -771,9 +769,7 @@ describe('TaskAssignmentService', () => {
 
   describe('getSubcontractorTasks', () => {
     it('should return all tasks assigned to a subcontractor', async () => {
-      mockPrisma.subcontractor.findFirst.mockResolvedValue(
-        mockSubcontractor(),
-      );
+      mockPrisma.subcontractor.findFirst.mockResolvedValue(mockSubcontractor());
       mockPrisma.task_assignee.findMany.mockResolvedValue([
         {
           id: 'a1',
@@ -812,9 +808,7 @@ describe('TaskAssignmentService', () => {
     });
 
     it('should exclude soft-deleted tasks', async () => {
-      mockPrisma.subcontractor.findFirst.mockResolvedValue(
-        mockSubcontractor(),
-      );
+      mockPrisma.subcontractor.findFirst.mockResolvedValue(mockSubcontractor());
       mockPrisma.task_assignee.findMany.mockResolvedValue([
         {
           id: 'a1',

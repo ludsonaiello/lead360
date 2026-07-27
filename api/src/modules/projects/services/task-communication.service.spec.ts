@@ -1,8 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { TaskCommunicationService } from './task-communication.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { SmsSendingService } from '../../communication/services/sms-sending.service';
@@ -368,9 +365,7 @@ describe('TaskCommunicationService', () => {
     it('should throw BadRequestException when lead has no primary phone', async () => {
       mockPrisma.project_task.findFirst.mockResolvedValue(mockTask());
       mockPrisma.project.findFirst.mockResolvedValue(mockProject());
-      mockPrisma.lead.findFirst.mockResolvedValue(
-        mockLead({ phones: [] }),
-      );
+      mockPrisma.lead.findFirst.mockResolvedValue(mockLead({ phones: [] }));
 
       await expect(
         service.sendSmsFromTask(TENANT_ID, PROJECT_ID, TASK_ID, USER_ID, {

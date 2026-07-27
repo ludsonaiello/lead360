@@ -33,7 +33,8 @@ export class CreateSupplierCategoryDto {
   @IsString()
   @IsOptional()
   @Matches(/^#[0-9A-Fa-f]{6}$/, {
-    message: 'Color must be a valid hex color in #RRGGBB format (e.g., #3B82F6)',
+    message:
+      'Color must be a valid hex color in #RRGGBB format (e.g., #3B82F6)',
   })
   color?: string;
 }

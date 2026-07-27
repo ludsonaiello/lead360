@@ -1299,7 +1299,9 @@ export class IvrConfigurationService {
 
       if (globalProfiles.length !== uniqueProfileIds.length) {
         const foundIds = globalProfiles.map((p) => p.id);
-        const missingIds = uniqueProfileIds.filter((id) => !foundIds.includes(id));
+        const missingIds = uniqueProfileIds.filter(
+          (id) => !foundIds.includes(id),
+        );
         throw new BadRequestException(
           `Invalid voice agent profile ID(s): ${missingIds.join(', ')}. ` +
             `Profile must be a valid active global profile. ` +

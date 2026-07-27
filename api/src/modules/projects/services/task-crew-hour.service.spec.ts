@@ -89,8 +89,16 @@ describe('TaskCrewHourService', () => {
         hours_overtime: 2.0,
         source: 'manual',
         notes: 'Framing work',
-        crew_member: { id: CREW_MEMBER_ID, first_name: 'John', last_name: 'Doe' },
-        project: { id: PROJECT_ID, name: 'Test Project', project_number: 'P-001' },
+        crew_member: {
+          id: CREW_MEMBER_ID,
+          first_name: 'John',
+          last_name: 'Doe',
+        },
+        project: {
+          id: PROJECT_ID,
+          name: 'Test Project',
+          project_number: 'P-001',
+        },
         task: { id: TASK_ID, title: 'Install drywall' },
       };
       mockCrewHourLogService.logHours.mockResolvedValue(expectedLog);
@@ -123,17 +131,11 @@ describe('TaskCrewHourService', () => {
       setupValidProjectAndTask();
       mockCrewHourLogService.logHours.mockResolvedValue({ id: HOUR_LOG_ID });
 
-      await service.logTaskCrewHours(
-        TENANT_A,
-        USER_ID,
-        PROJECT_ID,
-        TASK_ID,
-        {
-          crew_member_id: CREW_MEMBER_ID,
-          log_date: '2026-03-15',
-          hours_regular: 8.0,
-        },
-      );
+      await service.logTaskCrewHours(TENANT_A, USER_ID, PROJECT_ID, TASK_ID, {
+        crew_member_id: CREW_MEMBER_ID,
+        log_date: '2026-03-15',
+        hours_regular: 8.0,
+      });
 
       expect(mockCrewHourLogService.logHours).toHaveBeenCalledWith(
         TENANT_A,
@@ -198,14 +200,26 @@ describe('TaskCrewHourService', () => {
           log_date: new Date('2026-03-15'),
           hours_regular: 8.0,
           hours_overtime: 1.0,
-          crew_member: { id: CREW_MEMBER_ID, first_name: 'John', last_name: 'Doe' },
-          project: { id: PROJECT_ID, name: 'Kitchen Remodel', project_number: 'P-001' },
+          crew_member: {
+            id: CREW_MEMBER_ID,
+            first_name: 'John',
+            last_name: 'Doe',
+          },
+          project: {
+            id: PROJECT_ID,
+            name: 'Kitchen Remodel',
+            project_number: 'P-001',
+          },
           task: { id: TASK_ID, title: 'Install drywall' },
         },
       ];
       mockPrisma.crew_hour_log.findMany.mockResolvedValue(mockLogs);
 
-      const result = await service.getTaskCrewHours(TENANT_A, PROJECT_ID, TASK_ID);
+      const result = await service.getTaskCrewHours(
+        TENANT_A,
+        PROJECT_ID,
+        TASK_ID,
+      );
 
       expect(result).toEqual(mockLogs);
       expect(mockPrisma.crew_hour_log.findMany).toHaveBeenCalledWith({
@@ -233,7 +247,11 @@ describe('TaskCrewHourService', () => {
       setupValidProjectAndTask();
       mockPrisma.crew_hour_log.findMany.mockResolvedValue([]);
 
-      const result = await service.getTaskCrewHours(TENANT_A, PROJECT_ID, TASK_ID);
+      const result = await service.getTaskCrewHours(
+        TENANT_A,
+        PROJECT_ID,
+        TASK_ID,
+      );
 
       expect(result).toEqual([]);
     });
@@ -264,7 +282,9 @@ describe('TaskCrewHourService', () => {
   // ===========================================================================
   describe('getCrewHourSummary', () => {
     it('should return aggregated hours across projects', async () => {
-      mockPrisma.crew_member.findFirst.mockResolvedValue({ id: CREW_MEMBER_ID });
+      mockPrisma.crew_member.findFirst.mockResolvedValue({
+        id: CREW_MEMBER_ID,
+      });
 
       const mockLogs = [
         {
@@ -297,14 +317,18 @@ describe('TaskCrewHourService', () => {
       expect(result.logs_by_project).toHaveLength(2);
 
       // Verify project breakdown
-      const proj1 = result.logs_by_project.find((p) => p.project_id === 'proj-1')!;
+      const proj1 = result.logs_by_project.find(
+        (p) => p.project_id === 'proj-1',
+      )!;
       expect(proj1).toBeDefined();
       expect(proj1.project_name).toBe('Kitchen Remodel');
       expect(proj1.regular_hours).toBe(80);
       expect(proj1.overtime_hours).toBe(5);
       expect(proj1.total_hours).toBe(85);
 
-      const proj2 = result.logs_by_project.find((p) => p.project_id === 'proj-2')!;
+      const proj2 = result.logs_by_project.find(
+        (p) => p.project_id === 'proj-2',
+      )!;
       expect(proj2).toBeDefined();
       expect(proj2.project_name).toBe('Bathroom Addition');
       expect(proj2.regular_hours).toBe(80);
@@ -313,7 +337,9 @@ describe('TaskCrewHourService', () => {
     });
 
     it('should return zeroes when crew member has no hour logs', async () => {
-      mockPrisma.crew_member.findFirst.mockResolvedValue({ id: CREW_MEMBER_ID });
+      mockPrisma.crew_member.findFirst.mockResolvedValue({
+        id: CREW_MEMBER_ID,
+      });
       mockPrisma.crew_hour_log.findMany.mockResolvedValue([]);
 
       const result = await service.getCrewHourSummary(TENANT_A, CREW_MEMBER_ID);
@@ -326,7 +352,9 @@ describe('TaskCrewHourService', () => {
     });
 
     it('should handle Decimal values from Prisma (Decimal → number conversion)', async () => {
-      mockPrisma.crew_member.findFirst.mockResolvedValue({ id: CREW_MEMBER_ID });
+      mockPrisma.crew_member.findFirst.mockResolvedValue({
+        id: CREW_MEMBER_ID,
+      });
 
       // Prisma returns Decimal objects; Number() must work correctly
       const mockLogs = [
@@ -358,7 +386,9 @@ describe('TaskCrewHourService', () => {
     });
 
     it('should include tenant_id filter when querying crew hour logs', async () => {
-      mockPrisma.crew_member.findFirst.mockResolvedValue({ id: CREW_MEMBER_ID });
+      mockPrisma.crew_member.findFirst.mockResolvedValue({
+        id: CREW_MEMBER_ID,
+      });
       mockPrisma.crew_hour_log.findMany.mockResolvedValue([]);
 
       await service.getCrewHourSummary(TENANT_A, CREW_MEMBER_ID);

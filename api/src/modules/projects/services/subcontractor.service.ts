@@ -49,11 +49,7 @@ export class SubcontractorService {
   // 1. create(tenantId, userId, dto)
   // ---------------------------------------------------------------------------
 
-  async create(
-    tenantId: string,
-    userId: string,
-    dto: CreateSubcontractorDto,
-  ) {
+  async create(tenantId: string, userId: string, dto: CreateSubcontractorDto) {
     const encryptedData = this.encryptBankFields(dto);
     const insuranceExpiryDate = dto.insurance_expiry_date
       ? new Date(dto.insurance_expiry_date)
@@ -360,9 +356,7 @@ export class SubcontractorService {
       );
     }
 
-    const decrypted = this.encryptionService.decrypt(
-      encryptedValue as string,
-    );
+    const decrypted = this.encryptionService.decrypt(encryptedValue as string);
 
     await this.auditLoggerService.log({
       tenant_id: tenantId,

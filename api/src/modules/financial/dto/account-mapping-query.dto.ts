@@ -1,8 +1,4 @@
-import {
-  IsOptional,
-  IsString,
-  IsIn,
-} from 'class-validator';
+import { IsOptional, IsString, IsIn } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AccountMappingQueryDto {
@@ -23,6 +19,8 @@ export class AccountMappingDefaultsQueryDto {
     example: 'quickbooks',
   })
   @IsString()
-  @IsIn(['quickbooks', 'xero'], { message: 'platform must be quickbooks or xero' })
+  @IsIn(['quickbooks', 'xero'], {
+    message: 'platform must be quickbooks or xero',
+  })
   platform: 'quickbooks' | 'xero';
 }

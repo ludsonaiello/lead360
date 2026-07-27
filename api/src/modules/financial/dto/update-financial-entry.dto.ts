@@ -28,7 +28,9 @@ export class UpdateFinancialEntryDto {
     enum: ['expense', 'income'],
   })
   @IsOptional()
-  @IsEnum(['expense', 'income'], { message: 'entry_type must be expense or income' })
+  @IsEnum(['expense', 'income'], {
+    message: 'entry_type must be expense or income',
+  })
   entry_type?: string;
 
   @ApiPropertyOptional({
@@ -77,27 +79,54 @@ export class UpdateFinancialEntryDto {
 
   @ApiPropertyOptional({
     description: 'Payment method enum',
-    enum: ['cash', 'check', 'bank_transfer', 'venmo', 'zelle', 'credit_card', 'debit_card', 'ACH'],
+    enum: [
+      'cash',
+      'check',
+      'bank_transfer',
+      'venmo',
+      'zelle',
+      'credit_card',
+      'debit_card',
+      'ACH',
+    ],
   })
   @IsOptional()
-  @IsEnum(['cash', 'check', 'bank_transfer', 'venmo', 'zelle', 'credit_card', 'debit_card', 'ACH'], {
-    message: 'Invalid payment method',
-  })
+  @IsEnum(
+    [
+      'cash',
+      'check',
+      'bank_transfer',
+      'venmo',
+      'zelle',
+      'credit_card',
+      'debit_card',
+      'ACH',
+    ],
+    {
+      message: 'Invalid payment method',
+    },
+  )
   payment_method?: string;
 
-  @ApiPropertyOptional({ description: 'Payment method registry ID (set to null to unlink)' })
+  @ApiPropertyOptional({
+    description: 'Payment method registry ID (set to null to unlink)',
+  })
   @IsOptional()
   @IsString()
   @IsUUID()
   payment_method_registry_id?: string | null;
 
-  @ApiPropertyOptional({ description: 'User who made the purchase (set to null to unlink)' })
+  @ApiPropertyOptional({
+    description: 'User who made the purchase (set to null to unlink)',
+  })
   @IsOptional()
   @IsString()
   @IsUUID()
   purchased_by_user_id?: string | null;
 
-  @ApiPropertyOptional({ description: 'Crew member who made the purchase (set to null to unlink)' })
+  @ApiPropertyOptional({
+    description: 'Crew member who made the purchase (set to null to unlink)',
+  })
   @IsOptional()
   @IsString()
   @IsUUID()

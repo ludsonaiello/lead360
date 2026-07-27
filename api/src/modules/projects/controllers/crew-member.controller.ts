@@ -32,6 +32,7 @@ import { TenantId } from '../../auth/decorators/tenant-id.decorator';
 import { CrewMemberService } from '../services/crew-member.service';
 import { CreateCrewMemberDto } from '../dto/create-crew-member.dto';
 import { UpdateCrewMemberDto } from '../dto/update-crew-member.dto';
+import { HardDeleteCrewMemberDto } from '../dto/hard-delete-crew-member.dto';
 
 @ApiTags('Crew Members')
 @ApiBearerAuth()
@@ -74,8 +75,7 @@ export class CrewMemberController {
     return this.crewMemberService.findAll(tenantId, {
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
-      is_active:
-        isActive !== undefined ? isActive === 'true' : undefined,
+      is_active: isActive !== undefined ? isActive === 'true' : undefined,
       search: search || undefined,
     });
   }
@@ -100,7 +100,13 @@ export class CrewMemberController {
   @ApiParam({
     name: 'field',
     description: 'Field to reveal',
-    enum: ['ssn', 'itin', 'drivers_license_number', 'bank_routing', 'bank_account'],
+    enum: [
+      'ssn',
+      'itin',
+      'drivers_license_number',
+      'bank_routing',
+      'bank_account',
+    ],
   })
   @ApiResponse({ status: 200, description: 'Decrypted field value' })
   @ApiResponse({ status: 400, description: 'Invalid field name' })
@@ -145,6 +151,50 @@ export class CrewMemberController {
     return { message: 'Crew member deactivated' };
   }
 
+  @Get(':id/delete-preview')
+  @Roles('Owner')
+  @ApiOperation({
+    summary: 'Preview the impact of permanently deleting a crew member',
+    description:
+      'Returns counts of dependent records that will be deleted (payment records, hour logs) or unlinked (financial entries, task assignments, punch list assignments, employee profiles).',
+  })
+  @ApiParam({ name: 'id', description: 'Crew member UUID' })
+  @ApiResponse({ status: 200, description: 'Delete impact summary' })
+  @ApiResponse({ status: 404, description: 'Crew member not found' })
+  async getDeletePreview(
+    @TenantId() tenantId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.crewMemberService.getDeletePreview(tenantId, id);
+  }
+
+  @Delete(':id/hard')
+  @Roles('Owner')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Permanently delete a crew member (cascade)',
+    description:
+      "Irreversibly deletes the crew_member row, its crew_payment_record and crew_hour_log children, and the profile photo file. References from financial_entry, task_assignee, punch_list_item, and employee_profile are unlinked (SetNull). Timesheet history (clock sessions, breaks, disputes, work shifts, project assignments) is preserved on the employee_profile. Requires the caller to retype the crew member's full name.",
+  })
+  @ApiParam({ name: 'id', description: 'Crew member UUID' })
+  @ApiResponse({ status: 200, description: 'Crew member permanently deleted' })
+  @ApiResponse({ status: 400, description: 'Confirmation name does not match' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Owner role required' })
+  @ApiResponse({ status: 404, description: 'Crew member not found' })
+  async hardDelete(
+    @TenantId() tenantId: string,
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: HardDeleteCrewMemberDto,
+  ) {
+    return this.crewMemberService.hardDelete(
+      tenantId,
+      id,
+      req.user.id,
+      dto.confirm_name,
+    );
+  }
+
   @Post(':id/photo')
   @Roles('Owner', 'Admin', 'Manager')
   @UseInterceptors(FileInterceptor('file'))
@@ -180,11 +230,7 @@ export class CrewMemberController {
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.crewMemberService.deleteProfilePhoto(
-      tenantId,
-      id,
-      req.user.id,
-    );
+    await this.crewMemberService.deleteProfilePhoto(tenantId, id, req.user.id);
     return { message: 'Profile photo deleted' };
   }
 }

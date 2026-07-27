@@ -77,7 +77,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     pathname?.startsWith('/register') ||
     pathname?.startsWith('/forgot-password') ||
     pathname?.startsWith('/reset-password') ||
-    pathname?.startsWith('/invite');
+    pathname?.startsWith('/invite') ||
+    pathname?.startsWith('/kiosk');
 
   console.log('[AUTH CONTEXT] Route check:', {
     pathname,

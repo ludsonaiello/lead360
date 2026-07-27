@@ -32,12 +32,41 @@ export class ListFinancialEntriesQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by category type',
-    enum: ['labor', 'material', 'subcontractor', 'equipment', 'insurance', 'fuel', 'utilities', 'office', 'marketing', 'taxes', 'tools', 'other'],
+    enum: [
+      'labor',
+      'material',
+      'subcontractor',
+      'equipment',
+      'insurance',
+      'fuel',
+      'utilities',
+      'office',
+      'marketing',
+      'taxes',
+      'tools',
+      'other',
+    ],
   })
   @IsOptional()
-  @IsEnum(['labor', 'material', 'subcontractor', 'equipment', 'insurance', 'fuel', 'utilities', 'office', 'marketing', 'taxes', 'tools', 'other'], {
-    message: 'Invalid category_type',
-  })
+  @IsEnum(
+    [
+      'labor',
+      'material',
+      'subcontractor',
+      'equipment',
+      'insurance',
+      'fuel',
+      'utilities',
+      'office',
+      'marketing',
+      'taxes',
+      'tools',
+      'other',
+    ],
+    {
+      message: 'Invalid category_type',
+    },
+  )
   category_type?: string;
 
   @ApiPropertyOptional({
@@ -66,12 +95,33 @@ export class ListFinancialEntriesQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by payment method',
-    enum: ['cash', 'check', 'bank_transfer', 'venmo', 'zelle', 'credit_card', 'debit_card', 'ACH'],
+    enum: [
+      'cash',
+      'check',
+      'bank_transfer',
+      'venmo',
+      'zelle',
+      'credit_card',
+      'debit_card',
+      'ACH',
+    ],
   })
   @IsOptional()
-  @IsEnum(['cash', 'check', 'bank_transfer', 'venmo', 'zelle', 'credit_card', 'debit_card', 'ACH'], {
-    message: 'Invalid payment_method',
-  })
+  @IsEnum(
+    [
+      'cash',
+      'check',
+      'bank_transfer',
+      'venmo',
+      'zelle',
+      'credit_card',
+      'debit_card',
+      'ACH',
+    ],
+    {
+      message: 'Invalid payment_method',
+    },
+  )
   payment_method?: string;
 
   @ApiPropertyOptional({
@@ -79,7 +129,9 @@ export class ListFinancialEntriesQueryDto {
     enum: ['pending_review', 'confirmed', 'denied'],
   })
   @IsOptional()
-  @IsEnum(['pending_review', 'confirmed', 'denied'], { message: 'Invalid submission_status' })
+  @IsEnum(['pending_review', 'confirmed', 'denied'], {
+    message: 'Invalid submission_status',
+  })
   submission_status?: string;
 
   @ApiPropertyOptional({ description: 'Filter by purchasing user ID' })
@@ -94,12 +146,16 @@ export class ListFinancialEntriesQueryDto {
   @IsUUID()
   purchased_by_crew_member_id?: string;
 
-  @ApiPropertyOptional({ description: 'Filter entries from this date (inclusive, YYYY-MM-DD)' })
+  @ApiPropertyOptional({
+    description: 'Filter entries from this date (inclusive, YYYY-MM-DD)',
+  })
   @IsOptional()
   @IsDateString()
   date_from?: string;
 
-  @ApiPropertyOptional({ description: 'Filter entries to this date (inclusive, YYYY-MM-DD)' })
+  @ApiPropertyOptional({
+    description: 'Filter entries to this date (inclusive, YYYY-MM-DD)',
+  })
   @IsOptional()
   @IsDateString()
   date_to?: string;
@@ -116,7 +172,9 @@ export class ListFinancialEntriesQueryDto {
   @IsBoolean()
   is_recurring_instance?: boolean;
 
-  @ApiPropertyOptional({ description: 'Search in vendor_name and notes fields' })
+  @ApiPropertyOptional({
+    description: 'Search in vendor_name and notes fields',
+  })
   @IsOptional()
   @IsString()
   search?: string;
@@ -127,7 +185,12 @@ export class ListFinancialEntriesQueryDto {
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({ description: 'Items per page', default: 20, minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({
+    description: 'Items per page',
+    default: 20,
+    minimum: 1,
+    maximum: 100,
+  })
   @IsOptional()
   @Type(() => Number)
   @Min(1)
@@ -140,7 +203,9 @@ export class ListFinancialEntriesQueryDto {
     default: 'entry_date',
   })
   @IsOptional()
-  @IsEnum(['entry_date', 'amount', 'created_at'], { message: 'Invalid sort_by value' })
+  @IsEnum(['entry_date', 'amount', 'created_at'], {
+    message: 'Invalid sort_by value',
+  })
   sort_by?: string = 'entry_date';
 
   @ApiPropertyOptional({

@@ -47,10 +47,15 @@ export class ProjectLogController {
   @UseInterceptors(FilesInterceptor('attachments', 10))
   @ApiConsumes('multipart/form-data')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a project log entry with optional attachments' })
+  @ApiOperation({
+    summary: 'Create a project log entry with optional attachments',
+  })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiResponse({ status: 201, description: 'Log created successfully' })
-  @ApiResponse({ status: 400, description: 'Validation error or empty content' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or empty content',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   @ApiResponse({ status: 404, description: 'Project or task not found' })
@@ -127,8 +132,7 @@ export class ProjectLogController {
     @Query('limit') limit?: string,
   ) {
     return this.projectLogService.findAll(tenantId, projectId, {
-      is_public:
-        isPublic !== undefined ? isPublic === 'true' : undefined,
+      is_public: isPublic !== undefined ? isPublic === 'true' : undefined,
       has_attachments:
         hasAttachments !== undefined ? hasAttachments === 'true' : undefined,
       date_from: dateFrom || undefined,
@@ -158,11 +162,7 @@ export class ProjectLogController {
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Param('logId', ParseUUIDPipe) logId: string,
   ) {
-    return this.projectLogService.findAttachments(
-      tenantId,
-      projectId,
-      logId,
-    );
+    return this.projectLogService.findAttachments(tenantId, projectId, logId);
   }
 
   // ---------------------------------------------------------------------------
@@ -185,12 +185,7 @@ export class ProjectLogController {
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.projectLogService.delete(
-      tenantId,
-      projectId,
-      id,
-      req.user.id,
-    );
+    await this.projectLogService.delete(tenantId, projectId, id, req.user.id);
     return { message: 'Log deleted' };
   }
 }

@@ -40,11 +40,15 @@ export class UpdateInspectionDto {
   inspector_name?: string;
 
   @ApiPropertyOptional({
-    description: 'Inspection result (pass, fail, conditional, pending). Setting to "fail" auto-sets reinspection_required to true.',
+    description:
+      'Inspection result (pass, fail, conditional, pending). Setting to "fail" auto-sets reinspection_required to true.',
     example: 'pass',
     enum: InspectionResultEnum,
   })
-  @IsEnum(InspectionResultEnum, { message: 'Invalid inspection result. Must be: pass, fail, conditional, or pending' })
+  @IsEnum(InspectionResultEnum, {
+    message:
+      'Invalid inspection result. Must be: pass, fail, conditional, or pending',
+  })
   @IsOptional()
   result?: InspectionResultEnum;
 

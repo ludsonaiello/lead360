@@ -57,7 +57,11 @@ describe('GanttDataService', () => {
       {
         id: 'assign-001',
         assignee_type: 'crew_member',
-        crew_member: { id: 'crew-001', first_name: 'Mike', last_name: 'Johnson' },
+        crew_member: {
+          id: 'crew-001',
+          first_name: 'Mike',
+          last_name: 'Johnson',
+        },
         subcontractor: null,
         assignee_user: null,
         assigned_at: new Date('2026-04-01'),
@@ -90,7 +94,9 @@ describe('GanttDataService', () => {
 
   describe('getProjectGantt', () => {
     it('should return project metadata with correct structure', async () => {
-      jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockProject as any);
+      jest
+        .spyOn(prisma.project, 'findFirst')
+        .mockResolvedValue(mockProject as any);
       jest.spyOn(prisma.project_task, 'findMany').mockResolvedValue([]);
 
       const result = await service.getProjectGantt(TENANT_A, PROJECT_ID);
@@ -114,11 +120,23 @@ describe('GanttDataService', () => {
     });
 
     it('should return tasks ordered by order_index', async () => {
-      jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockProject as any);
+      jest
+        .spyOn(prisma.project, 'findFirst')
+        .mockResolvedValue(mockProject as any);
 
-      const task1 = buildMockTask({ id: 'task-001', order_index: 0, title: 'First' });
-      const task2 = buildMockTask({ id: 'task-002', order_index: 1, title: 'Second' });
-      jest.spyOn(prisma.project_task, 'findMany').mockResolvedValue([task1, task2] as any);
+      const task1 = buildMockTask({
+        id: 'task-001',
+        order_index: 0,
+        title: 'First',
+      });
+      const task2 = buildMockTask({
+        id: 'task-002',
+        order_index: 1,
+        title: 'Second',
+      });
+      jest
+        .spyOn(prisma.project_task, 'findMany')
+        .mockResolvedValue([task1, task2] as any);
 
       const result = await service.getProjectGantt(TENANT_A, PROJECT_ID);
 
@@ -135,8 +153,12 @@ describe('GanttDataService', () => {
     });
 
     it('should format task response with all Gantt fields', async () => {
-      jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockProject as any);
-      jest.spyOn(prisma.project_task, 'findMany').mockResolvedValue([buildMockTask()] as any);
+      jest
+        .spyOn(prisma.project, 'findFirst')
+        .mockResolvedValue(mockProject as any);
+      jest
+        .spyOn(prisma.project_task, 'findMany')
+        .mockResolvedValue([buildMockTask()] as any);
 
       const result = await service.getProjectGantt(TENANT_A, PROJECT_ID);
       const task = result.tasks[0];
@@ -151,18 +173,16 @@ describe('GanttDataService', () => {
         actual_end_date: new Date('2026-04-03'),
         is_delayed: false,
         order_index: 0,
-        assignees: [
-          { type: 'crew_member', name: 'Mike Johnson' },
-        ],
+        assignees: [{ type: 'crew_member', name: 'Mike Johnson' }],
         dependencies: [],
-        dependents: [
-          { task_id: 'task-002', type: 'finish_to_start' },
-        ],
+        dependents: [{ task_id: 'task-002', type: 'finish_to_start' }],
       });
     });
 
     it('should only return non-deleted tasks (deleted_at: null)', async () => {
-      jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockProject as any);
+      jest
+        .spyOn(prisma.project, 'findFirst')
+        .mockResolvedValue(mockProject as any);
       jest.spyOn(prisma.project_task, 'findMany').mockResolvedValue([]);
 
       await service.getProjectGantt(TENANT_A, PROJECT_ID);
@@ -183,10 +203,12 @@ describe('GanttDataService', () => {
 
   describe('Assignee formatting', () => {
     const setupMocks = (taskOverrides: any) => {
-      jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockProject as any);
-      jest.spyOn(prisma.project_task, 'findMany').mockResolvedValue([
-        buildMockTask(taskOverrides),
-      ] as any);
+      jest
+        .spyOn(prisma.project, 'findFirst')
+        .mockResolvedValue(mockProject as any);
+      jest
+        .spyOn(prisma.project_task, 'findMany')
+        .mockResolvedValue([buildMockTask(taskOverrides)] as any);
     };
 
     it('should format crew_member assignees with full name', async () => {
@@ -307,7 +329,9 @@ describe('GanttDataService', () => {
 
   describe('Dependencies and Dependents', () => {
     it('should format dependencies (upstream) correctly', async () => {
-      jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockProject as any);
+      jest
+        .spyOn(prisma.project, 'findFirst')
+        .mockResolvedValue(mockProject as any);
       jest.spyOn(prisma.project_task, 'findMany').mockResolvedValue([
         buildMockTask({
           id: 'task-002',
@@ -332,7 +356,9 @@ describe('GanttDataService', () => {
     });
 
     it('should format dependents (downstream) correctly', async () => {
-      jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockProject as any);
+      jest
+        .spyOn(prisma.project, 'findFirst')
+        .mockResolvedValue(mockProject as any);
       jest.spyOn(prisma.project_task, 'findMany').mockResolvedValue([
         buildMockTask({
           id: 'task-001',
@@ -365,7 +391,9 @@ describe('GanttDataService', () => {
     });
 
     it('should include all dependency types (finish_to_start, start_to_start, finish_to_finish)', async () => {
-      jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockProject as any);
+      jest
+        .spyOn(prisma.project, 'findFirst')
+        .mockResolvedValue(mockProject as any);
       jest.spyOn(prisma.project_task, 'findMany').mockResolvedValue([
         buildMockTask({
           dependencies: [
@@ -394,7 +422,11 @@ describe('GanttDataService', () => {
 
       const result = await service.getProjectGantt(TENANT_A, PROJECT_ID);
       const types = result.tasks[0].dependencies.map((d) => d.type);
-      expect(types).toEqual(['finish_to_start', 'start_to_start', 'finish_to_finish']);
+      expect(types).toEqual([
+        'finish_to_start',
+        'start_to_start',
+        'finish_to_finish',
+      ]);
     });
   });
 
@@ -404,7 +436,9 @@ describe('GanttDataService', () => {
 
   describe('is_delayed computation', () => {
     const setupWithTask = async (taskOverrides: any) => {
-      jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockProject as any);
+      jest
+        .spyOn(prisma.project, 'findFirst')
+        .mockResolvedValue(mockProject as any);
       jest.spyOn(prisma.project_task, 'findMany').mockResolvedValue([
         buildMockTask({
           task_assignees: [],
@@ -471,7 +505,9 @@ describe('GanttDataService', () => {
 
   describe('Edge cases', () => {
     it('should handle project with no tasks', async () => {
-      jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockProject as any);
+      jest
+        .spyOn(prisma.project, 'findFirst')
+        .mockResolvedValue(mockProject as any);
       jest.spyOn(prisma.project_task, 'findMany').mockResolvedValue([]);
 
       const result = await service.getProjectGantt(TENANT_A, PROJECT_ID);
@@ -505,7 +541,9 @@ describe('GanttDataService', () => {
     });
 
     it('should handle tasks with null dates', async () => {
-      jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockProject as any);
+      jest
+        .spyOn(prisma.project, 'findFirst')
+        .mockResolvedValue(mockProject as any);
       jest.spyOn(prisma.project_task, 'findMany').mockResolvedValue([
         buildMockTask({
           estimated_start_date: null,
@@ -547,7 +585,9 @@ describe('GanttDataService', () => {
 
   describe('Tenant Isolation', () => {
     it('should scope project query to tenant_id', async () => {
-      jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockProject as any);
+      jest
+        .spyOn(prisma.project, 'findFirst')
+        .mockResolvedValue(mockProject as any);
       jest.spyOn(prisma.project_task, 'findMany').mockResolvedValue([]);
 
       await service.getProjectGantt(TENANT_A, PROJECT_ID);
@@ -563,7 +603,9 @@ describe('GanttDataService', () => {
     });
 
     it('should scope task query to tenant_id', async () => {
-      jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockProject as any);
+      jest
+        .spyOn(prisma.project, 'findFirst')
+        .mockResolvedValue(mockProject as any);
       jest.spyOn(prisma.project_task, 'findMany').mockResolvedValue([]);
 
       await service.getProjectGantt(TENANT_A, PROJECT_ID);
@@ -587,7 +629,9 @@ describe('GanttDataService', () => {
     });
 
     it('should use different tenant_id per call — no cross-contamination', async () => {
-      jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockProject as any);
+      jest
+        .spyOn(prisma.project, 'findFirst')
+        .mockResolvedValue(mockProject as any);
       jest.spyOn(prisma.project_task, 'findMany').mockResolvedValue([]);
 
       await service.getProjectGantt(TENANT_A, PROJECT_ID);
@@ -616,7 +660,9 @@ describe('GanttDataService', () => {
 
   describe('Prisma includes', () => {
     it('should include task_assignees with crew_member, subcontractor, and user', async () => {
-      jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockProject as any);
+      jest
+        .spyOn(prisma.project, 'findFirst')
+        .mockResolvedValue(mockProject as any);
       jest.spyOn(prisma.project_task, 'findMany').mockResolvedValue([]);
 
       await service.getProjectGantt(TENANT_A, PROJECT_ID);
@@ -629,7 +675,9 @@ describe('GanttDataService', () => {
     });
 
     it('should include dependencies (upstream)', async () => {
-      jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockProject as any);
+      jest
+        .spyOn(prisma.project, 'findFirst')
+        .mockResolvedValue(mockProject as any);
       jest.spyOn(prisma.project_task, 'findMany').mockResolvedValue([]);
 
       await service.getProjectGantt(TENANT_A, PROJECT_ID);
@@ -639,7 +687,9 @@ describe('GanttDataService', () => {
     });
 
     it('should include dependent_on_this (downstream) for arrow rendering', async () => {
-      jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockProject as any);
+      jest
+        .spyOn(prisma.project, 'findFirst')
+        .mockResolvedValue(mockProject as any);
       jest.spyOn(prisma.project_task, 'findMany').mockResolvedValue([]);
 
       await service.getProjectGantt(TENANT_A, PROJECT_ID);

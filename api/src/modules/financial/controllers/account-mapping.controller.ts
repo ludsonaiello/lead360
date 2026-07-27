@@ -27,24 +27,30 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { AccountMappingService } from '../services/account-mapping.service';
 import { CreateAccountMappingDto } from '../dto/create-account-mapping.dto';
-import { AccountMappingQueryDto, AccountMappingDefaultsQueryDto } from '../dto/account-mapping-query.dto';
+import {
+  AccountMappingQueryDto,
+  AccountMappingDefaultsQueryDto,
+} from '../dto/account-mapping-query.dto';
 
 @ApiTags('Financial Export — Account Mappings')
 @ApiBearerAuth()
 @Controller('financial/export/account-mappings')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AccountMappingController {
-  constructor(
-    private readonly accountMappingService: AccountMappingService,
-  ) {}
+  constructor(private readonly accountMappingService: AccountMappingService) {}
 
   // IMPORTANT: Static routes (defaults) MUST be registered BEFORE parameterized routes (:id)
   // NestJS matches routes in registration order — if :id comes first, "defaults" is treated as an ID
 
   @Get('defaults')
   @Roles('Owner', 'Admin', 'Bookkeeper')
-  @ApiOperation({ summary: 'Preview default account mappings for all categories' })
-  @ApiResponse({ status: 200, description: 'List of categories with resolved account names' })
+  @ApiOperation({
+    summary: 'Preview default account mappings for all categories',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of categories with resolved account names',
+  })
   @ApiQuery({ name: 'platform', required: true, enum: ['quickbooks', 'xero'] })
   async getDefaults(
     @Request() req,
@@ -61,10 +67,7 @@ export class AccountMappingController {
   @ApiOperation({ summary: 'List all account mappings' })
   @ApiResponse({ status: 200, description: 'List of account mappings' })
   @ApiQuery({ name: 'platform', required: false, enum: ['quickbooks', 'xero'] })
-  async findAll(
-    @Request() req,
-    @Query() query: AccountMappingQueryDto,
-  ) {
+  async findAll(@Request() req, @Query() query: AccountMappingQueryDto) {
     return this.accountMappingService.findAll(
       req.user.tenant_id,
       query.platform,
@@ -104,10 +107,7 @@ export class AccountMappingController {
   @ApiParam({ name: 'id', description: 'Mapping UUID' })
   @ApiResponse({ status: 204, description: 'Mapping deleted' })
   @ApiResponse({ status: 404, description: 'Mapping not found' })
-  async delete(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async delete(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     await this.accountMappingService.delete(
       req.user.tenant_id,
       id,

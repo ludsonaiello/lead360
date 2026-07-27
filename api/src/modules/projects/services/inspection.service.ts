@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { ProjectActivityService } from './project-activity.service';
@@ -48,9 +45,7 @@ export class InspectionService {
       project_id: projectId,
       permit_id: permitId,
       inspection_type: dto.inspection_type,
-      scheduled_date: dto.scheduled_date
-        ? new Date(dto.scheduled_date)
-        : null,
+      scheduled_date: dto.scheduled_date ? new Date(dto.scheduled_date) : null,
       inspector_name: dto.inspector_name ?? null,
       result: dto.result ?? null,
       reinspection_required: dto.reinspection_required ?? false,
@@ -121,12 +116,14 @@ export class InspectionService {
     // Build update data — only include provided fields
     const data: any = {};
 
-    if (dto.inspection_type !== undefined) data.inspection_type = dto.inspection_type;
+    if (dto.inspection_type !== undefined)
+      data.inspection_type = dto.inspection_type;
     if (dto.scheduled_date !== undefined)
       data.scheduled_date = dto.scheduled_date
         ? new Date(dto.scheduled_date)
         : null;
-    if (dto.inspector_name !== undefined) data.inspector_name = dto.inspector_name;
+    if (dto.inspector_name !== undefined)
+      data.inspector_name = dto.inspector_name;
     if (dto.result !== undefined) data.result = dto.result;
     if (dto.reinspection_required !== undefined)
       data.reinspection_required = dto.reinspection_required;
@@ -183,11 +180,7 @@ export class InspectionService {
   // 3. findByPermit(tenantId, projectId, permitId)
   // ---------------------------------------------------------------------------
 
-  async findByPermit(
-    tenantId: string,
-    projectId: string,
-    permitId: string,
-  ) {
+  async findByPermit(tenantId: string, projectId: string, permitId: string) {
     // Verify permit exists and belongs to tenant + project
     const permit = await this.prisma.permit.findFirst({
       where: {

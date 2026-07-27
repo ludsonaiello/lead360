@@ -38,26 +38,38 @@ export class SupplierCategoryController {
   @Get()
   @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper', 'Sales', 'Employee')
   @ApiOperation({ summary: 'List all supplier categories for tenant' })
-  @ApiQuery({ name: 'is_active', required: false, type: Boolean, description: 'Filter by active status' })
-  @ApiResponse({ status: 200, description: 'List of supplier categories with supplier counts' })
-  async findAll(
-    @Request() req,
-    @Query('is_active') isActive?: string,
-  ) {
-    const isActiveBool = isActive === 'true' ? true : isActive === 'false' ? false : undefined;
-    return this.supplierCategoryService.findAll(req.user.tenant_id, isActiveBool);
+  @ApiQuery({
+    name: 'is_active',
+    required: false,
+    type: Boolean,
+    description: 'Filter by active status',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of supplier categories with supplier counts',
+  })
+  async findAll(@Request() req, @Query('is_active') isActive?: string) {
+    const isActiveBool =
+      isActive === 'true' ? true : isActive === 'false' ? false : undefined;
+    return this.supplierCategoryService.findAll(
+      req.user.tenant_id,
+      isActiveBool,
+    );
   }
 
   @Post()
   @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
   @ApiOperation({ summary: 'Create a new supplier category' })
   @ApiResponse({ status: 201, description: 'Category created successfully' })
-  @ApiResponse({ status: 400, description: 'Validation error or 50-category limit reached' })
-  @ApiResponse({ status: 409, description: 'Category name already exists for this tenant' })
-  async create(
-    @Request() req,
-    @Body() dto: CreateSupplierCategoryDto,
-  ) {
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or 50-category limit reached',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Category name already exists for this tenant',
+  })
+  async create(@Request() req, @Body() dto: CreateSupplierCategoryDto) {
     return this.supplierCategoryService.create(
       req.user.tenant_id,
       req.user.id,
@@ -87,15 +99,17 @@ export class SupplierCategoryController {
 
   @Delete(':id')
   @Roles('Owner', 'Admin', 'Bookkeeper')
-  @ApiOperation({ summary: 'Delete a supplier category (blocked if assigned to suppliers)' })
+  @ApiOperation({
+    summary: 'Delete a supplier category (blocked if assigned to suppliers)',
+  })
   @ApiParam({ name: 'id', description: 'Supplier category UUID' })
   @ApiResponse({ status: 200, description: 'Category deleted successfully' })
   @ApiResponse({ status: 404, description: 'Category not found' })
-  @ApiResponse({ status: 409, description: 'Category is assigned to one or more suppliers' })
-  async delete(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  @ApiResponse({
+    status: 409,
+    description: 'Category is assigned to one or more suppliers',
+  })
+  async delete(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.supplierCategoryService.delete(
       req.user.tenant_id,
       id,

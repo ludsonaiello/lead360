@@ -69,11 +69,20 @@ export class ProjectController {
   @Roles('Owner', 'Admin', 'Manager')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a project from an accepted quote' })
-  @ApiParam({ name: 'quoteId', description: 'Quote UUID to convert to project' })
+  @ApiParam({
+    name: 'quoteId',
+    description: 'Quote UUID to convert to project',
+  })
   @ApiResponse({ status: 201, description: 'Project created from quote' })
-  @ApiResponse({ status: 400, description: 'Quote status is invalid for conversion' })
+  @ApiResponse({
+    status: 400,
+    description: 'Quote status is invalid for conversion',
+  })
   @ApiResponse({ status: 404, description: 'Quote not found' })
-  @ApiResponse({ status: 409, description: 'A project already exists for this quote' })
+  @ApiResponse({
+    status: 409,
+    description: 'A project already exists for this quote',
+  })
   async createFromQuote(
     @TenantId() tenantId: string,
     @CurrentUser('id') userId: string,
@@ -89,12 +98,39 @@ export class ProjectController {
   @Get()
   @Roles('Owner', 'Admin', 'Manager', 'Field')
   @ApiOperation({ summary: 'List projects (paginated)' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 20, max: 100)' })
-  @ApiQuery({ name: 'status', required: false, description: 'Filter by status (planned, in_progress, on_hold, completed, canceled)' })
-  @ApiQuery({ name: 'assigned_pm_user_id', required: false, description: 'Filter by assigned PM user ID' })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by name or project number' })
-  @ApiQuery({ name: 'quote_id', required: false, description: 'Filter by source quote ID (UUID)' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 20, max: 100)',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description:
+      'Filter by status (planned, in_progress, on_hold, completed, canceled)',
+  })
+  @ApiQuery({
+    name: 'assigned_pm_user_id',
+    required: false,
+    description: 'Filter by assigned PM user ID',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Search by name or project number',
+  })
+  @ApiQuery({
+    name: 'quote_id',
+    required: false,
+    description: 'Filter by source quote ID (UUID)',
+  })
   @ApiResponse({ status: 200, description: 'Paginated list of projects' })
   async findAll(
     @TenantId() tenantId: string,
@@ -200,7 +236,10 @@ export class ProjectController {
   @ApiOperation({ summary: 'Soft delete project' })
   @ApiParam({ name: 'id', description: 'Project UUID' })
   @ApiResponse({ status: 200, description: 'Project deleted successfully' })
-  @ApiResponse({ status: 400, description: 'Cannot delete — active tasks exist or project is locked' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot delete — active tasks exist or project is locked',
+  })
   @ApiResponse({ status: 404, description: 'Project not found' })
   async softDelete(
     @TenantId() tenantId: string,
@@ -271,7 +310,8 @@ export class ProjectController {
       properties: {
         redirect_url: {
           type: 'string',
-          example: '/quotes/550e8400-e29b-41d4-a716-446655440000?tab=change-orders',
+          example:
+            '/quotes/550e8400-e29b-41d4-a716-446655440000?tab=change-orders',
         },
       },
     },
@@ -313,10 +353,21 @@ export class ProjectController {
         project: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+            id: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
             name: { type: 'string', example: 'Kitchen Remodel' },
-            start_date: { type: 'string', example: '2026-04-01', nullable: true },
-            target_completion_date: { type: 'string', example: '2026-06-15', nullable: true },
+            start_date: {
+              type: 'string',
+              example: '2026-04-01',
+              nullable: true,
+            },
+            target_completion_date: {
+              type: 'string',
+              example: '2026-06-15',
+              nullable: true,
+            },
             progress_percent: { type: 'number', example: 45.0 },
           },
         },
@@ -327,11 +378,30 @@ export class ProjectController {
             properties: {
               id: { type: 'string' },
               title: { type: 'string', example: 'Demo existing kitchen' },
-              status: { type: 'string', enum: ['not_started', 'in_progress', 'blocked', 'done'] },
-              estimated_start_date: { type: 'string', example: '2026-04-01', nullable: true },
-              estimated_end_date: { type: 'string', example: '2026-04-03', nullable: true },
-              actual_start_date: { type: 'string', example: '2026-04-01', nullable: true },
-              actual_end_date: { type: 'string', example: '2026-04-03', nullable: true },
+              status: {
+                type: 'string',
+                enum: ['not_started', 'in_progress', 'blocked', 'done'],
+              },
+              estimated_start_date: {
+                type: 'string',
+                example: '2026-04-01',
+                nullable: true,
+              },
+              estimated_end_date: {
+                type: 'string',
+                example: '2026-04-03',
+                nullable: true,
+              },
+              actual_start_date: {
+                type: 'string',
+                example: '2026-04-01',
+                nullable: true,
+              },
+              actual_end_date: {
+                type: 'string',
+                example: '2026-04-03',
+                nullable: true,
+              },
               is_delayed: { type: 'boolean', example: false },
               order_index: { type: 'number', example: 0 },
               assignees: {
@@ -339,7 +409,10 @@ export class ProjectController {
                 items: {
                   type: 'object',
                   properties: {
-                    type: { type: 'string', enum: ['crew_member', 'subcontractor', 'user'] },
+                    type: {
+                      type: 'string',
+                      enum: ['crew_member', 'subcontractor', 'user'],
+                    },
                     name: { type: 'string', example: 'Mike Johnson' },
                   },
                 },
@@ -350,7 +423,14 @@ export class ProjectController {
                   type: 'object',
                   properties: {
                     depends_on_task_id: { type: 'string' },
-                    type: { type: 'string', enum: ['finish_to_start', 'start_to_start', 'finish_to_finish'] },
+                    type: {
+                      type: 'string',
+                      enum: [
+                        'finish_to_start',
+                        'start_to_start',
+                        'finish_to_finish',
+                      ],
+                    },
                   },
                 },
               },
@@ -360,7 +440,14 @@ export class ProjectController {
                   type: 'object',
                   properties: {
                     task_id: { type: 'string' },
-                    type: { type: 'string', enum: ['finish_to_start', 'start_to_start', 'finish_to_finish'] },
+                    type: {
+                      type: 'string',
+                      enum: [
+                        'finish_to_start',
+                        'start_to_start',
+                        'finish_to_finish',
+                      ],
+                    },
                   },
                 },
               },
@@ -387,7 +474,10 @@ export class ProjectController {
   @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
   @ApiOperation({ summary: 'Get project financial summary' })
   @ApiParam({ name: 'id', description: 'Project UUID' })
-  @ApiResponse({ status: 200, description: 'Project financial summary with cost breakdown' })
+  @ApiResponse({
+    status: 200,
+    description: 'Project financial summary with cost breakdown',
+  })
   @ApiResponse({ status: 404, description: 'Project not found' })
   async getFinancialSummary(
     @TenantId() tenantId: string,

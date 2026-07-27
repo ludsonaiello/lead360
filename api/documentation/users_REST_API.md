@@ -309,6 +309,108 @@ curl -X PATCH https://api.lead360.app/api/v1/users/63fc200b-e2d3-4ad2-9b0f-b0e63
 
 ---
 
+### PATCH /api/v1/users/:id
+
+**Description:** Edit a user's profile fields (name, email, phone). Admin-only operation for correcting typos or updating contact info on an existing membership.
+**Auth:** Required — Owner or Admin (Admin cannot edit an Owner — BR-09 parity)
+**HTTP:** `200 OK`
+**Path param:** `:id` = `user_tenant_membership.id`
+**DTO:** `EditUserDto`
+
+**Request Body (all fields optional — only provided fields are updated):**
+```json
+{
+  "first_name": "Jane",
+  "last_name": "Doe",
+  "email": "jane.doe@example.com",
+  "phone": "+1 (555) 555-5555"
+}
+```
+
+**Field Validation:**
+| Field | Type | Required | Rules |
+|---|---|---|---|
+| `first_name` | string | No | Max 100 chars (`@MaxLength(100)`). Trimmed before save. |
+| `last_name` | string | No | Max 100 chars (`@MaxLength(100)`). Trimmed before save. |
+| `email` | string | No | Must be a valid email (`@IsEmail()`). Lowercased + trimmed. Globally unique across `user.email`. |
+| `phone` | string | No | Max 20 chars (`@MaxLength(20)`). Empty string is stored as NULL. |
+
+**Example Request:**
+```bash
+curl -X PATCH https://api.lead360.app/api/v1/users/63fc200b-e2d3-4ad2-9b0f-b0e63cfb4235 \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"first_name": "Jane", "email": "jane.new@example.com"}'
+```
+
+**Response 200:** Same shape as `GET /users/:id` (updated membership with refreshed user data).
+
+**Errors:**
+| Code | Condition | Error Message |
+|---|---|---|
+| 400 | User account is soft-deleted | `Cannot edit a deleted user.` |
+| 401 | Missing or invalid token | `Unauthorized` |
+| 403 | Admin attempting to edit an Owner (BR-09 parity) | `Only an Owner or platform administrator can edit an Owner.` |
+| 403 | User belongs to other tenants (cross-tenant PII protection) | `This user belongs to other organizations. Only a platform administrator can edit their profile.` |
+| 404 | Membership not found in this tenant | `Membership not found.` |
+| 409 | Email already used by another user | `Email address is already in use.` |
+
+**Side Effects:**
+- All field changes are audit-logged with `entityType: User`, `action: updated`, full before/after state
+- **Email change resets verification:** if `email` changes, `email_verified` is set to `false` and `email_verified_at` cleared. The user must re-verify on next login. The audit log description notes that re-verification is required.
+- Empty patches (no fields changed) short-circuit: no DB write, no audit log
+- Cross-tenant safety: a tenant Admin cannot edit a user who has memberships in other tenants — that operation requires Platform Admin (avoids leaking PII edits across tenants)
+- Race condition on email uniqueness is caught (Prisma P2002 → 409 ConflictException)
+
+---
+
+### POST /api/v1/users/:id/resend-invite
+
+**Description:** Generate a new invite token (invalidating the old one) and re-send the invitation email. Used when the original 72-hour invite has expired or was lost.
+**Auth:** Required — Owner or Admin
+**HTTP:** `200 OK`
+**Path param:** `:id` = `user_tenant_membership.id`
+
+**Request Body:** None required.
+
+**Example Request:**
+```bash
+curl -X POST https://api.lead360.app/api/v1/users/63fc200b-e2d3-4ad2-9b0f-b0e63cfb4235/resend-invite \
+  -H "Authorization: Bearer <token>"
+```
+
+**Response 200:**
+```json
+{
+  "message": "Invitation resent successfully.",
+  "expires_at": "2026-04-21T14:30:00.000Z"
+}
+```
+
+**Response Fields:**
+| Field | Type | Description |
+|---|---|---|
+| `message` | string | Human-readable success confirmation |
+| `expires_at` | string (ISO 8601) | New token expiry (current time + 72 hours) |
+
+**Errors:**
+| Code | Condition | Error Message |
+|---|---|---|
+| 400 | Membership status is not `INVITED` | `Can only resend invites for users with INVITED status.` |
+| 400 | Underlying user account has been soft-deleted | `Cannot resend invite to a deleted user account.` |
+| 401 | Missing or invalid token | `Unauthorized` |
+| 403 | Insufficient role (not Owner or Admin) | `Forbidden resource` |
+| 404 | Membership not found in this tenant | `Membership not found.` |
+
+**Side Effects:**
+- New `invite_token_hash` (SHA-256 of fresh 64-char hex token) overwrites the old hash — the previous invite link stops working immediately
+- New `invite_token_expires_at` set to now + 72 hours
+- `invite_accepted_at` cleared (defensive — INVITED rows should already have it null)
+- Reuses the `user-invite` email template via `SendEmailService.sendTemplated()` (multi-provider: SMTP/Brevo/SendGrid/SES)
+- Audit log entry: `entityType: UserMembership`, `action: updated`, with `{ action: 'invite_resent', email }` in the after-state
+
+---
+
 ### PATCH /api/v1/users/:id/deactivate
 
 **Description:** Deactivate a user membership. Immediately invalidates their current JWT via Redis blocklist (they are logged out within one request cycle).
@@ -1540,15 +1642,17 @@ Only one `ACTIVE` membership can exist per user globally across all tenants (BR-
 | 7 | GET | `/api/v1/users` | JWT | Owner, Admin | List tenant users (paginated) |
 | 8 | GET | `/api/v1/users/:id` | JWT | Owner, Admin | Get single membership |
 | 9 | PATCH | `/api/v1/users/:id/role` | JWT | Owner, Admin | Change user role |
-| 10 | PATCH | `/api/v1/users/:id/deactivate` | JWT | Owner, Admin | Deactivate user + revoke JWT |
-| 11 | PATCH | `/api/v1/users/:id/reactivate` | JWT | Owner, Admin | Reactivate inactive user |
-| 12 | DELETE | `/api/v1/users/:id` | JWT | Owner | Delete user (soft/hard) |
-| 13 | GET | `/api/v1/admin/users` | JWT | Platform Admin | List ALL users cross-tenant |
-| 14 | GET | `/api/v1/admin/users/:id` | JWT | Platform Admin | Get user details |
-| 15 | POST | `/api/v1/admin/users/:id/reset-password` | JWT | Platform Admin | Force password reset |
-| 16 | POST | `/api/v1/admin/users/:id/deactivate` | JWT | Platform Admin | Deactivate user (POST) |
-| 17 | PATCH | `/api/v1/admin/users/:id/deactivate` | JWT | Platform Admin | Deactivate user (PATCH) |
-| 18 | POST | `/api/v1/admin/users/:id/activate` | JWT | Platform Admin | Activate user |
-| 19 | DELETE | `/api/v1/admin/users/:id` | JWT | Platform Admin | Soft delete user |
-| 20 | GET | `/api/v1/admin/tenants/:tenantId/users` | JWT | Platform Admin | List users in specific tenant |
-| 21 | POST | `/api/v1/admin/tenants/:tenantId/users` | JWT | Platform Admin | Create user (bypass invite) |
+| 10 | PATCH | `/api/v1/users/:id` | JWT | Owner, Admin | Edit user profile (name/email/phone) |
+| 11 | POST | `/api/v1/users/:id/resend-invite` | JWT | Owner, Admin | Re-send invite email with new token |
+| 12 | PATCH | `/api/v1/users/:id/deactivate` | JWT | Owner, Admin | Deactivate user + revoke JWT |
+| 13 | PATCH | `/api/v1/users/:id/reactivate` | JWT | Owner, Admin | Reactivate inactive user |
+| 14 | DELETE | `/api/v1/users/:id` | JWT | Owner | Delete user (soft/hard) |
+| 15 | GET | `/api/v1/admin/users` | JWT | Platform Admin | List ALL users cross-tenant |
+| 16 | GET | `/api/v1/admin/users/:id` | JWT | Platform Admin | Get user details |
+| 17 | POST | `/api/v1/admin/users/:id/reset-password` | JWT | Platform Admin | Force password reset |
+| 18 | POST | `/api/v1/admin/users/:id/deactivate` | JWT | Platform Admin | Deactivate user (POST) |
+| 19 | PATCH | `/api/v1/admin/users/:id/deactivate` | JWT | Platform Admin | Deactivate user (PATCH) |
+| 20 | POST | `/api/v1/admin/users/:id/activate` | JWT | Platform Admin | Activate user |
+| 21 | DELETE | `/api/v1/admin/users/:id` | JWT | Platform Admin | Soft delete user |
+| 22 | GET | `/api/v1/admin/tenants/:tenantId/users` | JWT | Platform Admin | List users in specific tenant |
+| 23 | POST | `/api/v1/admin/tenants/:tenantId/users` | JWT | Platform Admin | Create user (bypass invite) |

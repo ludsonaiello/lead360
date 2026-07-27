@@ -40,12 +40,34 @@ export class UpdateCrewPaymentDto {
 
   @ApiPropertyOptional({
     description: 'Payment method',
-    enum: ['cash', 'check', 'bank_transfer', 'venmo', 'zelle', 'credit_card', 'debit_card', 'ACH'],
+    enum: [
+      'cash',
+      'check',
+      'bank_transfer',
+      'venmo',
+      'zelle',
+      'credit_card',
+      'debit_card',
+      'ACH',
+    ],
   })
   @IsOptional()
-  @IsEnum(['cash', 'check', 'bank_transfer', 'venmo', 'zelle', 'credit_card', 'debit_card', 'ACH'], {
-    message: 'payment_method must be one of: cash, check, bank_transfer, venmo, zelle, credit_card, debit_card, ACH',
-  })
+  @IsEnum(
+    [
+      'cash',
+      'check',
+      'bank_transfer',
+      'venmo',
+      'zelle',
+      'credit_card',
+      'debit_card',
+      'ACH',
+    ],
+    {
+      message:
+        'payment_method must be one of: cash, check, bank_transfer, venmo, zelle, credit_card, debit_card, ACH',
+    },
+  )
   payment_method?: string;
 
   @ApiPropertyOptional({

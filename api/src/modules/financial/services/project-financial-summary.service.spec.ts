@@ -464,10 +464,10 @@ describe('ProjectFinancialSummaryService', () => {
       });
       // count calls: total=5, paid=2, partial=1, draft=2
       mockPrismaService.project_invoice.count
-        .mockResolvedValueOnce(5)   // total non-voided
-        .mockResolvedValueOnce(2)   // paid
-        .mockResolvedValueOnce(1)   // partial
-        .mockResolvedValueOnce(2);  // draft
+        .mockResolvedValueOnce(5) // total non-voided
+        .mockResolvedValueOnce(2) // paid
+        .mockResolvedValueOnce(1) // partial
+        .mockResolvedValueOnce(2); // draft
 
       const result = await service.getFullSummary(TENANT_ID, PROJECT_ID);
 

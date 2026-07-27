@@ -18,29 +18,45 @@ export enum ProjectTaskCategoryEnum {
 }
 
 export class CreateProjectTaskDto {
-  @ApiProperty({ description: 'Task title', maxLength: 200, example: 'Install new shingles' })
+  @ApiProperty({
+    description: 'Task title',
+    maxLength: 200,
+    example: 'Install new shingles',
+  })
   @IsString()
   @MaxLength(200)
   title: string;
 
-  @ApiPropertyOptional({ description: 'Task description', example: 'Premium architectural shingles' })
+  @ApiPropertyOptional({
+    description: 'Task description',
+    example: 'Premium architectural shingles',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(5000)
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Estimated duration in days (integer, > 0)', example: 3 })
+  @ApiPropertyOptional({
+    description: 'Estimated duration in days (integer, > 0)',
+    example: 3,
+  })
   @IsOptional()
   @IsInt()
   @Min(1)
   estimated_duration_days?: number;
 
-  @ApiPropertyOptional({ description: 'Estimated start date (ISO date)', example: '2026-04-05' })
+  @ApiPropertyOptional({
+    description: 'Estimated start date (ISO date)',
+    example: '2026-04-05',
+  })
   @IsOptional()
   @IsDateString()
   estimated_start_date?: string;
 
-  @ApiPropertyOptional({ description: 'Estimated end date (ISO date)', example: '2026-04-07' })
+  @ApiPropertyOptional({
+    description: 'Estimated end date (ISO date)',
+    example: '2026-04-07',
+  })
   @IsOptional()
   @IsDateString()
   estimated_end_date?: string;
@@ -54,7 +70,10 @@ export class CreateProjectTaskDto {
   @IsEnum(ProjectTaskCategoryEnum)
   category?: ProjectTaskCategoryEnum;
 
-  @ApiProperty({ description: 'Display order index (integer, >= 0)', example: 0 })
+  @ApiProperty({
+    description: 'Display order index (integer, >= 0)',
+    example: 0,
+  })
   @IsInt()
   @Min(0)
   order_index: number;

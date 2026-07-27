@@ -13,8 +13,7 @@ import { Type } from 'class-transformer';
 
 export class RecordInvoicePaymentDto {
   @ApiProperty({
-    description:
-      'Payment amount — must be > 0 and <= invoice.amount_due',
+    description: 'Payment amount — must be > 0 and <= invoice.amount_due',
     example: 2500.0,
   })
   @IsNumber({ maxDecimalPlaces: 2 })

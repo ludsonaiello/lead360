@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { CreateAccountMappingDto } from '../dto/create-account-mapping.dto';
@@ -96,8 +92,8 @@ export class AccountMappingService {
     }
 
     // 4. If not existing — create
-    const created =
-      await this.prisma.financial_category_account_mapping.create({
+    const created = await this.prisma.financial_category_account_mapping.create(
+      {
         data: {
           tenant_id: tenantId,
           category_id: dto.category_id,
@@ -106,7 +102,8 @@ export class AccountMappingService {
           account_code: dto.account_code || null,
           created_by_user_id: userId,
         },
-      });
+      },
+    );
 
     await this.auditLogger.logTenantChange({
       action: 'created',
@@ -135,9 +132,7 @@ export class AccountMappingService {
       });
 
     if (!mapping) {
-      throw new NotFoundException(
-        `Account mapping ${mappingId} not found`,
-      );
+      throw new NotFoundException(`Account mapping ${mappingId} not found`);
     }
 
     await this.prisma.financial_category_account_mapping.delete({

@@ -33,7 +33,8 @@ export class CreateProjectLogDto {
   log_date?: string;
 
   @ApiProperty({
-    description: 'Log content (rich text or plain text). Immutable after creation.',
+    description:
+      'Log content (rich text or plain text). Immutable after creation.',
     example: 'Foundation pour completed today. Weather was clear.',
   })
   @IsString()

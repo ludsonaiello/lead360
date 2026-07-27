@@ -38,11 +38,7 @@ export class CrewMemberService {
     private readonly filesService: FilesService,
   ) {}
 
-  async create(
-    tenantId: string,
-    userId: string,
-    dto: CreateCrewMemberDto,
-  ) {
+  async create(tenantId: string, userId: string, dto: CreateCrewMemberDto) {
     const encryptedData = this.encryptSensitiveFields(dto);
 
     const crewMember = await this.prisma.crew_member.create({
@@ -58,9 +54,7 @@ export class CrewMemberService {
         address_city: dto.address_city ?? null,
         address_state: dto.address_state ?? null,
         address_zip: dto.address_zip ?? null,
-        date_of_birth: dto.date_of_birth
-          ? new Date(dto.date_of_birth)
-          : null,
+        date_of_birth: dto.date_of_birth ? new Date(dto.date_of_birth) : null,
         has_drivers_license: dto.has_drivers_license ?? null,
         default_hourly_rate: dto.default_hourly_rate ?? null,
         weekly_hours_schedule: dto.weekly_hours_schedule ?? null,
@@ -289,6 +283,165 @@ export class CrewMemberService {
       },
       description: `Soft-deleted crew member: ${existing.first_name} ${existing.last_name}`,
     });
+  }
+
+  async getDeletePreview(tenantId: string, id: string) {
+    const existing = await this.prisma.crew_member.findFirst({
+      where: { id, tenant_id: tenantId },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        is_active: true,
+        profile_photo_file_id: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Crew member not found');
+    }
+
+    const impact = await this.computeDeleteImpact(tenantId, id);
+
+    return {
+      crew_member: {
+        id: existing.id,
+        first_name: existing.first_name,
+        last_name: existing.last_name,
+        is_active: existing.is_active,
+      },
+      impact: {
+        ...impact,
+        has_profile_photo: !!existing.profile_photo_file_id,
+      },
+    };
+  }
+
+  async hardDelete(
+    tenantId: string,
+    id: string,
+    userId: string,
+    confirmName: string,
+  ) {
+    const existing = await this.prisma.crew_member.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Crew member not found');
+    }
+
+    const expectedName = `${existing.first_name} ${existing.last_name}`
+      .trim()
+      .toLowerCase();
+    const providedName = (confirmName ?? '').trim().toLowerCase();
+
+    if (providedName !== expectedName) {
+      throw new BadRequestException('Confirmation name does not match');
+    }
+
+    const impact = await this.computeDeleteImpact(tenantId, id);
+    const photoFileId = existing.profile_photo_file_id;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.crew_payment_record.deleteMany({
+        where: { tenant_id: tenantId, crew_member_id: id },
+      });
+      await tx.crew_hour_log.deleteMany({
+        where: { tenant_id: tenantId, crew_member_id: id },
+      });
+
+      if (photoFileId) {
+        await tx.crew_member.update({
+          where: { id },
+          data: { profile_photo_file_id: null },
+        });
+      }
+
+      await tx.crew_member.delete({ where: { id } });
+    });
+
+    if (photoFileId) {
+      try {
+        await this.filesService.delete(tenantId, photoFileId, userId);
+      } catch (err) {
+        // Crew member already deleted; orphaned file is acceptable. Log and continue.
+        console.warn(
+          `[CrewMember.hardDelete] Failed to delete profile photo file ${photoFileId}:`,
+          err,
+        );
+      }
+    }
+
+    await this.auditLoggerService.log({
+      tenant_id: tenantId,
+      actor_user_id: userId,
+      actor_type: 'user',
+      entity_type: 'crew_member',
+      entity_id: id,
+      action_type: 'hard_deleted',
+      description: `Hard-deleted crew member: ${existing.first_name} ${existing.last_name}`,
+      before_json: {
+        id: existing.id,
+        first_name: existing.first_name,
+        last_name: existing.last_name,
+        email: existing.email,
+        is_active: existing.is_active,
+      },
+      metadata_json: {
+        impact: { ...impact, has_profile_photo: !!photoFileId },
+      },
+      status: 'success',
+    });
+
+    return {
+      message: 'Crew member permanently deleted',
+      impact: { ...impact, has_profile_photo: !!photoFileId },
+    };
+  }
+
+  private async computeDeleteImpact(tenantId: string, id: string) {
+    const [
+      paymentRecords,
+      hourLogs,
+      financialEntries,
+      financialEntriesPurchasedBy,
+      taskAssignments,
+      punchListAssignments,
+      employeeProfiles,
+    ] = await this.prisma.$transaction([
+      this.prisma.crew_payment_record.count({
+        where: { tenant_id: tenantId, crew_member_id: id },
+      }),
+      this.prisma.crew_hour_log.count({
+        where: { tenant_id: tenantId, crew_member_id: id },
+      }),
+      this.prisma.financial_entry.count({
+        where: { tenant_id: tenantId, crew_member_id: id },
+      }),
+      this.prisma.financial_entry.count({
+        where: { tenant_id: tenantId, purchased_by_crew_member_id: id },
+      }),
+      this.prisma.task_assignee.count({
+        where: { tenant_id: tenantId, crew_member_id: id },
+      }),
+      this.prisma.punch_list_item.count({
+        where: { tenant_id: tenantId, assigned_to_crew_id: id },
+      }),
+      this.prisma.employee_profile.count({
+        where: { tenant_id: tenantId, crew_member_id: id },
+      }),
+    ]);
+
+    return {
+      payment_records: paymentRecords,
+      hour_logs: hourLogs,
+      financial_entries_set_null: financialEntries,
+      financial_entries_purchased_by_set_null: financialEntriesPurchasedBy,
+      task_assignments_set_null: taskAssignments,
+      punch_list_assignments_set_null: punchListAssignments,
+      employee_profiles_decoupled: employeeProfiles,
+    };
   }
 
   async revealField(

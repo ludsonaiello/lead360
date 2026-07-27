@@ -41,12 +41,17 @@ export class ChecklistTemplateController {
   @Post()
   @Roles('Owner', 'Admin')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a completion checklist template with items' })
+  @ApiOperation({
+    summary: 'Create a completion checklist template with items',
+  })
   @ApiResponse({ status: 201, description: 'Checklist template created' })
   @ApiResponse({ status: 400, description: 'Validation error' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — role not allowed' })
-  @ApiResponse({ status: 409, description: 'Template with this name already exists' })
+  @ApiResponse({
+    status: 409,
+    description: 'Template with this name already exists',
+  })
   async create(
     @TenantId() tenantId: string,
     @Request() req,
@@ -61,7 +66,10 @@ export class ChecklistTemplateController {
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   @ApiQuery({ name: 'is_active', required: false, type: Boolean })
-  @ApiResponse({ status: 200, description: 'Paginated list of checklist templates' })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of checklist templates',
+  })
   async findAll(
     @TenantId() tenantId: string,
     @Query('page') page?: string,
@@ -90,30 +98,32 @@ export class ChecklistTemplateController {
 
   @Patch(':id')
   @Roles('Owner', 'Admin')
-  @ApiOperation({ summary: 'Update checklist template (replaces items if provided)' })
+  @ApiOperation({
+    summary: 'Update checklist template (replaces items if provided)',
+  })
   @ApiParam({ name: 'id', description: 'Checklist template UUID' })
   @ApiResponse({ status: 200, description: 'Updated checklist template' })
   @ApiResponse({ status: 400, description: 'Validation error' })
   @ApiResponse({ status: 404, description: 'Checklist template not found' })
-  @ApiResponse({ status: 409, description: 'Template with this name already exists' })
+  @ApiResponse({
+    status: 409,
+    description: 'Template with this name already exists',
+  })
   async update(
     @TenantId() tenantId: string,
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateChecklistTemplateDto,
   ) {
-    return this.checklistTemplateService.update(
-      tenantId,
-      id,
-      req.user.id,
-      dto,
-    );
+    return this.checklistTemplateService.update(tenantId, id, req.user.id, dto);
   }
 
   @Delete(':id')
   @Roles('Owner', 'Admin')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete checklist template (hard delete, cascades items)' })
+  @ApiOperation({
+    summary: 'Delete checklist template (hard delete, cascades items)',
+  })
   @ApiParam({ name: 'id', description: 'Checklist template UUID' })
   @ApiResponse({ status: 204, description: 'Checklist template deleted' })
   @ApiResponse({ status: 404, description: 'Checklist template not found' })

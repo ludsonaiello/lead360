@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { useRBAC } from '@/contexts/RBACContext';
 import { Card, CardHeader, CardContent, CardFooter, StatCard } from '@/components/dashboard/Card';
 import { Button } from '@/components/ui/Button';
 import {
@@ -18,9 +19,40 @@ import Link from 'next/link';
 import { PendingApprovalsWidget } from '@/components/quotes/PendingApprovalsWidget';
 import { CalendarDashboardWidget } from '@/components/calendar/CalendarDashboardWidget';
 import { QuoteStatusBadge } from '@/components/quotes/QuoteStatusBadge';
+import { EmployeeDashboard } from '@/components/dashboard/EmployeeDashboard';
 import { getDashboardOverview, getRecentQuotes, formatMoney, formatPercentageChange, getCustomerName, getLocation, type DashboardOverview, type RecentQuote } from '@/lib/api/quotes-dashboard';
 
+const ADMIN_DASHBOARD_ROLES = [
+  'Owner',
+  'Admin',
+  'Manager',
+  'Bookkeeper',
+  'Estimator',
+  'Project Manager',
+];
+
 export default function DashboardPage() {
+  const { hasRole, loading: rbacLoading } = useRBAC();
+
+  if (rbacLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+        Loading dashboard…
+      </div>
+    );
+  }
+
+  const showEmployeeDashboard =
+    hasRole('Employee') && !hasRole(ADMIN_DASHBOARD_ROLES);
+
+  if (showEmployeeDashboard) {
+    return <EmployeeDashboard />;
+  }
+
+  return <AdminDashboard />;
+}
+
+function AdminDashboard() {
   const { user } = useAuth();
   const [quoteStats, setQuoteStats] = useState<DashboardOverview | null>(null);
   const [recentQuotes, setRecentQuotes] = useState<RecentQuote[]>([]);

@@ -26,7 +26,9 @@ export class ResubmitEntryDto {
     enum: ['expense', 'income'],
   })
   @IsOptional()
-  @IsEnum(['expense', 'income'], { message: 'entry_type must be expense or income' })
+  @IsEnum(['expense', 'income'], {
+    message: 'entry_type must be expense or income',
+  })
   entry_type?: string;
 
   @ApiPropertyOptional({ description: 'Entry amount (must be > 0)' })
@@ -72,10 +74,28 @@ export class ResubmitEntryDto {
 
   @ApiPropertyOptional({
     description: 'Payment method',
-    enum: ['cash', 'check', 'bank_transfer', 'venmo', 'zelle', 'credit_card', 'debit_card', 'ACH'],
+    enum: [
+      'cash',
+      'check',
+      'bank_transfer',
+      'venmo',
+      'zelle',
+      'credit_card',
+      'debit_card',
+      'ACH',
+    ],
   })
   @IsOptional()
-  @IsEnum(['cash', 'check', 'bank_transfer', 'venmo', 'zelle', 'credit_card', 'debit_card', 'ACH'])
+  @IsEnum([
+    'cash',
+    'check',
+    'bank_transfer',
+    'venmo',
+    'zelle',
+    'credit_card',
+    'debit_card',
+    'ACH',
+  ])
   payment_method?: string;
 
   @ApiPropertyOptional({ description: 'Payment method registry ID' })

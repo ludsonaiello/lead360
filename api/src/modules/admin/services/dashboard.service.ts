@@ -518,8 +518,9 @@ export class DashboardService {
    * Users by role distribution
    */
   private async getUsersByRoleChart() {
-    const userRoles = await this.prisma.user_role.groupBy({
+    const userRoles = await this.prisma.user_tenant_membership.groupBy({
       by: ['role_id'],
+      where: { status: 'ACTIVE' },
       _count: {
         role_id: true,
       },

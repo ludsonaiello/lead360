@@ -101,7 +101,9 @@ const mockFileRecord = (overrides: any = {}) => ({
   ...overrides,
 });
 
-const mockFile = (overrides: Partial<Express.Multer.File> = {}): Express.Multer.File =>
+const mockFile = (
+  overrides: Partial<Express.Multer.File> = {},
+): Express.Multer.File =>
   ({
     fieldname: 'attachments',
     originalname: 'foundation.jpg',
@@ -302,37 +304,19 @@ describe('ProjectLogService', () => {
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.create(
-          TENANT_A,
-          PROJECT_ID,
-          USER_ID,
-          { content: 'test' },
-          [],
-        ),
+        service.create(TENANT_A, PROJECT_ID, USER_ID, { content: 'test' }, []),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException when content is empty', async () => {
       await expect(
-        service.create(
-          TENANT_A,
-          PROJECT_ID,
-          USER_ID,
-          { content: '' },
-          [],
-        ),
+        service.create(TENANT_A, PROJECT_ID, USER_ID, { content: '' }, []),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException when content is whitespace only', async () => {
       await expect(
-        service.create(
-          TENANT_A,
-          PROJECT_ID,
-          USER_ID,
-          { content: '   ' },
-          [],
-        ),
+        service.create(TENANT_A, PROJECT_ID, USER_ID, { content: '   ' }, []),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -340,7 +324,11 @@ describe('ProjectLogService', () => {
       mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
       mockPrismaService.project_task.findFirst.mockResolvedValue(mockTask());
       mockPrismaService.project_log.create.mockResolvedValue(
-        mockLog({ task_id: TASK_ID, author: undefined, attachments: undefined }),
+        mockLog({
+          task_id: TASK_ID,
+          author: undefined,
+          attachments: undefined,
+        }),
       );
       mockPrismaService.project_log.findFirst.mockResolvedValue(
         mockLog({ task_id: TASK_ID }),
@@ -759,9 +747,9 @@ describe('ProjectLogService', () => {
     it('should throw NotFoundException when project does not exist', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.findAll(TENANT_A, PROJECT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findAll(TENANT_A, PROJECT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should include author and attachments in response', async () => {
@@ -860,7 +848,9 @@ describe('ProjectLogService', () => {
       mockPrismaService.project_photo.findMany.mockResolvedValue([
         { id: 'photo-uuid-1', file_id: 'photo-file-id' },
       ]);
-      mockPrismaService.project_photo.deleteMany.mockResolvedValue({ count: 1 });
+      mockPrismaService.project_photo.deleteMany.mockResolvedValue({
+        count: 1,
+      });
       mockPrismaService.project_log.delete.mockResolvedValue(mockLog());
 
       await service.delete(TENANT_A, PROJECT_ID, LOG_ID, USER_ID);
@@ -881,7 +871,9 @@ describe('ProjectLogService', () => {
       mockPrismaService.project_photo.findMany.mockResolvedValue([
         { id: 'photo-uuid-1', file_id: 'photo-file-id' },
       ]);
-      mockPrismaService.project_photo.deleteMany.mockResolvedValue({ count: 1 });
+      mockPrismaService.project_photo.deleteMany.mockResolvedValue({
+        count: 1,
+      });
       mockPrismaService.project_log.delete.mockResolvedValue(mockLog());
 
       await service.delete(TENANT_A, PROJECT_ID, LOG_ID, USER_ID);
@@ -910,7 +902,9 @@ describe('ProjectLogService', () => {
       mockPrismaService.project_photo.findMany.mockResolvedValue([
         { id: 'photo-uuid-1', file_id: 'photo-file' },
       ]);
-      mockPrismaService.project_photo.deleteMany.mockResolvedValue({ count: 1 });
+      mockPrismaService.project_photo.deleteMany.mockResolvedValue({
+        count: 1,
+      });
       mockPrismaService.project_log.delete.mockResolvedValue(mockLog());
 
       await service.delete(TENANT_A, PROJECT_ID, LOG_ID, USER_ID);
@@ -1100,13 +1094,7 @@ describe('ProjectLogService', () => {
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.create(
-          TENANT_B,
-          PROJECT_ID,
-          USER_ID,
-          { content: 'test' },
-          [],
-        ),
+        service.create(TENANT_B, PROJECT_ID, USER_ID, { content: 'test' }, []),
       ).rejects.toThrow(NotFoundException);
 
       expect(mockPrismaService.project.findFirst).toHaveBeenCalledWith({

@@ -126,7 +126,11 @@ export class InsuranceExpiryCheckProcessor {
     });
 
     if (subcontractors.length === 0) {
-      return { subcontractorsChecked: 0, complianceUpdated: 0, notificationsSent: 0 };
+      return {
+        subcontractorsChecked: 0,
+        complianceUpdated: 0,
+        notificationsSent: 0,
+      };
     }
 
     // -----------------------------------------------------------------------
@@ -166,8 +170,11 @@ export class InsuranceExpiryCheckProcessor {
         }
 
         // Deduplication: skip if notification already exists today for this sub
-        const alreadyNotifiedToday =
-          await this.hasNotificationToday(tenantId, sub.id, today);
+        const alreadyNotifiedToday = await this.hasNotificationToday(
+          tenantId,
+          sub.id,
+          today,
+        );
         if (alreadyNotifiedToday) {
           continue;
         }
@@ -280,8 +287,8 @@ export class InsuranceExpiryCheckProcessor {
   /**
    * Get Owner and Admin users for a given tenant.
    *
-   * Uses user_tenant_membership (ACTIVE status) + user_role to find users
-   * with Owner or Admin role in this tenant.
+   * Roles are sourced from user_tenant_membership (ACTIVE status) — the
+   * canonical role table. user_role is deprecated and not consulted.
    */
   private async getOwnerAdminUsers(
     tenantId: string,
@@ -291,11 +298,9 @@ export class InsuranceExpiryCheckProcessor {
         is_active: true,
         deleted_at: null,
         memberships: {
-          some: { tenant_id: tenantId, status: 'ACTIVE' },
-        },
-        user_role_user_role_user_idTouser: {
           some: {
             tenant_id: tenantId,
+            status: 'ACTIVE',
             role: { name: { in: ['Owner', 'Admin'] } },
           },
         },

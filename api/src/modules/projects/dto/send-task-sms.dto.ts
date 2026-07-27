@@ -21,7 +21,7 @@ export class SendTaskSmsDto {
   @ApiProperty({
     description:
       'Recipient phone number in E.164 format (e.g., +19781234567). ' +
-      'If omitted, resolved from the project lead\'s primary phone.',
+      "If omitted, resolved from the project lead's primary phone.",
     example: '+19781234567',
     required: false,
   })

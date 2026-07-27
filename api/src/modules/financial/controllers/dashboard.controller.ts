@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-  Res,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Res } from '@nestjs/common';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -39,8 +33,7 @@ export class DashboardController {
   @ApiOperation({ summary: 'Get combined financial dashboard overview' })
   @ApiResponse({
     status: 200,
-    description:
-      'Dashboard overview with P&L, AR, AP, forecast, and alerts',
+    description: 'Dashboard overview with P&L, AR, AP, forecast, and alerts',
   })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiQuery({
@@ -82,10 +75,7 @@ export class DashboardController {
     type: Boolean,
     description: 'Include pending_review entries in total_with_pending',
   })
-  async getPL(
-    @TenantId() tenantId: string,
-    @Query() query: PlQueryDto,
-  ) {
+  async getPL(@TenantId() tenantId: string, @Query() query: PlQueryDto) {
     return this.dashboardService.getPL(
       tenantId,
       query.year,
@@ -113,10 +103,7 @@ export class DashboardController {
     description: 'Filter by invoice status',
   })
   @ApiQuery({ name: 'overdue_only', required: false, type: Boolean })
-  async getAR(
-    @TenantId() tenantId: string,
-    @Query() query: ArQueryDto,
-  ) {
+  async getAR(@TenantId() tenantId: string, @Query() query: ArQueryDto) {
     return this.dashboardService.getAR(tenantId, {
       status: query.status,
       overdue_only: query.overdue_only,
@@ -143,14 +130,8 @@ export class DashboardController {
     type: Number,
     description: 'Days ahead to look (default 30)',
   })
-  async getAP(
-    @TenantId() tenantId: string,
-    @Query() query: ApQueryDto,
-  ) {
-    return this.dashboardService.getAP(
-      tenantId,
-      query.days_ahead ?? 30,
-    );
+  async getAP(@TenantId() tenantId: string, @Query() query: ApQueryDto) {
+    return this.dashboardService.getAP(tenantId, query.days_ahead ?? 30);
   }
 
   // ===========================================================================

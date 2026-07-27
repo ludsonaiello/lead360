@@ -83,10 +83,7 @@ export class CrewHourLogController {
   @ApiParam({ name: 'id', description: 'Hour log UUID' })
   @ApiResponse({ status: 200, description: 'Hour log deleted successfully' })
   @ApiResponse({ status: 404, description: 'Hour log not found' })
-  async delete(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async delete(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.crewHourLogService.deleteHours(
       req.user.tenant_id,
       id,

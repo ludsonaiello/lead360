@@ -139,7 +139,11 @@ describe('ProjectTemplateService', () => {
       const dto = {
         name: 'Roofing Template',
         tasks: [
-          { title: 'Remove shingles', order_index: 0, category: ProjectTaskCategory.LABOR },
+          {
+            title: 'Remove shingles',
+            order_index: 0,
+            category: ProjectTaskCategory.LABOR,
+          },
           {
             title: 'Install underlayment',
             order_index: 1,
@@ -193,18 +197,20 @@ describe('ProjectTemplateService', () => {
         ],
       };
 
-      await expect(service.create(TENANT_A, USER_ID, dto)).rejects.toThrow(BadRequestException);
+      await expect(service.create(TENANT_A, USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException for self-referencing dependency', async () => {
       const dto = {
         name: 'Self Ref Template',
-        tasks: [
-          { title: 'Task A', order_index: 0, depends_on_order_index: 0 },
-        ],
+        tasks: [{ title: 'Task A', order_index: 0, depends_on_order_index: 0 }],
       };
 
-      await expect(service.create(TENANT_A, USER_ID, dto)).rejects.toThrow(BadRequestException);
+      await expect(service.create(TENANT_A, USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException for duplicate order_index', async () => {
@@ -216,7 +222,9 @@ describe('ProjectTemplateService', () => {
         ],
       };
 
-      await expect(service.create(TENANT_A, USER_ID, dto)).rejects.toThrow(BadRequestException);
+      await expect(service.create(TENANT_A, USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException for circular dependency (A→B, B→A)', async () => {
@@ -228,8 +236,12 @@ describe('ProjectTemplateService', () => {
         ],
       };
 
-      await expect(service.create(TENANT_A, USER_ID, dto)).rejects.toThrow(BadRequestException);
-      await expect(service.create(TENANT_A, USER_ID, dto)).rejects.toThrow(/[Cc]ircular dependency/);
+      await expect(service.create(TENANT_A, USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.create(TENANT_A, USER_ID, dto)).rejects.toThrow(
+        /[Cc]ircular dependency/,
+      );
     });
 
     it('should throw BadRequestException for longer circular chain (A→B, B→C, C→A)', async () => {
@@ -242,8 +254,12 @@ describe('ProjectTemplateService', () => {
         ],
       };
 
-      await expect(service.create(TENANT_A, USER_ID, dto)).rejects.toThrow(BadRequestException);
-      await expect(service.create(TENANT_A, USER_ID, dto)).rejects.toThrow(/[Cc]ircular dependency/);
+      await expect(service.create(TENANT_A, USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.create(TENANT_A, USER_ID, dto)).rejects.toThrow(
+        /[Cc]ircular dependency/,
+      );
     });
   });
 
@@ -296,7 +312,10 @@ describe('ProjectTemplateService', () => {
 
       expect(mockPrismaService.project_template.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ tenant_id: TENANT_A, is_active: true }),
+          where: expect.objectContaining({
+            tenant_id: TENANT_A,
+            is_active: true,
+          }),
         }),
       );
     });
@@ -309,7 +328,10 @@ describe('ProjectTemplateService', () => {
 
       expect(mockPrismaService.project_template.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ tenant_id: TENANT_A, industry_type: 'Roofing' }),
+          where: expect.objectContaining({
+            tenant_id: TENANT_A,
+            industry_type: 'Roofing',
+          }),
         }),
       );
     });
@@ -367,13 +389,17 @@ describe('ProjectTemplateService', () => {
     it('should throw NotFoundException for non-existent template', async () => {
       mockPrismaService.project_template.findFirst.mockResolvedValue(null);
 
-      await expect(service.findOne(TENANT_A, 'non-existent')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(TENANT_A, 'non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should not return template from another tenant (tenant isolation)', async () => {
       mockPrismaService.project_template.findFirst.mockResolvedValue(null);
 
-      await expect(service.findOne(TENANT_B, 'tpl-uuid-001')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(TENANT_B, 'tpl-uuid-001')).rejects.toThrow(
+        NotFoundException,
+      );
 
       expect(mockPrismaService.project_template.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -426,8 +452,16 @@ describe('ProjectTemplateService', () => {
     it('should replace all tasks when tasks array is provided', async () => {
       const existing = mockTemplateRecord({ tasks: [mockTaskRecord()] });
       const newTasks = [
-        mockTaskRecord({ id: 'new-task-1', title: 'New Task 1', order_index: 0 }),
-        mockTaskRecord({ id: 'new-task-2', title: 'New Task 2', order_index: 1 }),
+        mockTaskRecord({
+          id: 'new-task-1',
+          title: 'New Task 1',
+          order_index: 0,
+        }),
+        mockTaskRecord({
+          id: 'new-task-2',
+          title: 'New Task 2',
+          order_index: 1,
+        }),
       ];
       const updated = mockTemplateRecord({ tasks: newTasks });
 
@@ -577,16 +611,20 @@ describe('ProjectTemplateService', () => {
 
       await service.findAll(TENANT_A);
 
-      const whereArg = mockPrismaService.project_template.findMany.mock.calls[0][0].where;
+      const whereArg =
+        mockPrismaService.project_template.findMany.mock.calls[0][0].where;
       expect(whereArg.tenant_id).toBe(TENANT_A);
     });
 
     it('findOne should include tenant_id in where clause', async () => {
       mockPrismaService.project_template.findFirst.mockResolvedValue(null);
 
-      await expect(service.findOne(TENANT_B, 'tpl-uuid-001')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(TENANT_B, 'tpl-uuid-001')).rejects.toThrow(
+        NotFoundException,
+      );
 
-      const whereArg = mockPrismaService.project_template.findFirst.mock.calls[0][0].where;
+      const whereArg =
+        mockPrismaService.project_template.findFirst.mock.calls[0][0].where;
       expect(whereArg.tenant_id).toBe(TENANT_B);
       expect(whereArg.id).toBe('tpl-uuid-001');
     });

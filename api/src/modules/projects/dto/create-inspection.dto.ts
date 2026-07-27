@@ -19,7 +19,8 @@ export enum InspectionResultEnum {
 
 export class CreateInspectionDto {
   @ApiProperty({
-    description: 'Type of inspection (e.g. Framing, Electrical Rough-In, Final)',
+    description:
+      'Type of inspection (e.g. Framing, Electrical Rough-In, Final)',
     example: 'Framing',
     maxLength: 200,
   })
@@ -51,12 +52,16 @@ export class CreateInspectionDto {
     example: 'pending',
     enum: InspectionResultEnum,
   })
-  @IsEnum(InspectionResultEnum, { message: 'Invalid inspection result. Must be: pass, fail, conditional, or pending' })
+  @IsEnum(InspectionResultEnum, {
+    message:
+      'Invalid inspection result. Must be: pass, fail, conditional, or pending',
+  })
   @IsOptional()
   result?: InspectionResultEnum;
 
   @ApiPropertyOptional({
-    description: 'Whether a reinspection is required (auto-set to true when result = fail)',
+    description:
+      'Whether a reinspection is required (auto-set to true when result = fail)',
     example: false,
   })
   @IsBoolean()

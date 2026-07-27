@@ -68,7 +68,8 @@ export class PermitController {
   @ApiQuery({
     name: 'status',
     required: false,
-    description: 'Filter by status (not_required, pending_application, submitted, approved, active, failed, closed)',
+    description:
+      'Filter by status (not_required, pending_application, submitted, approved, active, failed, closed)',
   })
   @ApiResponse({ status: 200, description: 'List of permits' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })

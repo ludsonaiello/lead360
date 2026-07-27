@@ -89,7 +89,8 @@ export class ProjectInvoiceService {
     return {
       ...invoice,
       amount: Number(invoice.amount),
-      tax_amount: invoice.tax_amount != null ? Number(invoice.tax_amount) : null,
+      tax_amount:
+        invoice.tax_amount != null ? Number(invoice.tax_amount) : null,
       amount_paid: Number(invoice.amount_paid),
       amount_due: Number(invoice.amount_due),
     };
@@ -193,7 +194,8 @@ export class ProjectInvoiceService {
     return {
       ...invoice,
       amount: Number(invoice.amount),
-      tax_amount: invoice.tax_amount != null ? Number(invoice.tax_amount) : null,
+      tax_amount:
+        invoice.tax_amount != null ? Number(invoice.tax_amount) : null,
       amount_paid: Number(invoice.amount_paid),
       amount_due: Number(invoice.amount_due),
       payments: invoice.payments.map((p) => ({
@@ -607,7 +609,10 @@ export class ProjectInvoiceService {
       before: existing,
       metadata: {
         deleted_payments_count: payments.length,
-        deleted_payments_total: payments.reduce((sum, p) => sum + Number(p.amount), 0),
+        deleted_payments_total: payments.reduce(
+          (sum, p) => sum + Number(p.amount),
+          0,
+        ),
       },
       description: `Deleted invoice ${existing.invoice_number} ($${existing.amount})${payments.length > 0 ? ` with ${payments.length} payment(s) totaling $${payments.reduce((s, p) => s + Number(p.amount), 0).toFixed(2)}` : ''}`,
     });
@@ -657,9 +662,11 @@ export class ProjectInvoiceService {
       const newAmountPaid = remainingPayments._sum.amount
         ? Math.round(Number(remainingPayments._sum.amount) * 100) / 100
         : 0;
-      const invoiceTotal = Number(invoice.amount) +
+      const invoiceTotal =
+        Number(invoice.amount) +
         (invoice.tax_amount != null ? Number(invoice.tax_amount) : 0);
-      const newAmountDue = Math.round((invoiceTotal - newAmountPaid) * 100) / 100;
+      const newAmountDue =
+        Math.round((invoiceTotal - newAmountPaid) * 100) / 100;
 
       // c. Determine new status
       let newStatus: string = invoice.status;
@@ -690,7 +697,11 @@ export class ProjectInvoiceService {
 
       // e. If invoice was 'paid' and is now not, and linked to a milestone,
       //    revert milestone from 'paid' back to 'invoiced'
-      if (invoice.status === 'paid' && newStatus !== 'paid' && invoice.milestone_id) {
+      if (
+        invoice.status === 'paid' &&
+        newStatus !== 'paid' &&
+        invoice.milestone_id
+      ) {
         await tx.project_draw_milestone.update({
           where: { id: invoice.milestone_id },
           data: {
@@ -726,11 +737,7 @@ export class ProjectInvoiceService {
   // ──────────────────────────────────────────────────────────────────────────
   // getPayments() — List payments for an invoice
   // ──────────────────────────────────────────────────────────────────────────
-  async getPayments(
-    tenantId: string,
-    projectId: string,
-    invoiceId: string,
-  ) {
+  async getPayments(tenantId: string, projectId: string, invoiceId: string) {
     // 1. Verify invoice exists
     const invoice = await this.prisma.project_invoice.findFirst({
       where: { id: invoiceId, project_id: projectId, tenant_id: tenantId },

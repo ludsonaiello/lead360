@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
 import { ExportExpenseQueryDto } from '../dto/export-expense-query.dto';
@@ -132,13 +128,13 @@ export class ExportService {
       const accountInfo = accountMap.get(entry.category_id);
       const accountName = accountInfo
         ? accountInfo.account_name
-        : (entry.category?.name || 'Uncategorized');
+        : entry.category?.name || 'Uncategorized';
       const payeeName = entry.supplier?.name || entry.vendor_name || '';
       const description = entry.notes || entry.category?.name || '';
       const projectClass = entry.project?.name || '';
       const paymentMethod = entry.payment_method
-        ? (this.PAYMENT_METHOD_QB_MAP[entry.payment_method] ||
-            String(entry.payment_method))
+        ? this.PAYMENT_METHOD_QB_MAP[entry.payment_method] ||
+          String(entry.payment_method)
         : '';
       const taxAmount = entry.tax_amount ? Number(entry.tax_amount) : '';
 
@@ -275,9 +271,7 @@ export class ExportService {
         ? this.formatDateQB(new Date(inv.due_date))
         : '';
       const status = statusMap[inv.status] || String(inv.status);
-      const taxAmount = inv.tax_amount
-        ? Number(inv.tax_amount).toFixed(2)
-        : '';
+      const taxAmount = inv.tax_amount ? Number(inv.tax_amount).toFixed(2) : '';
 
       return [
         this.escapeCsvField(inv.invoice_number || ''),
@@ -417,7 +411,8 @@ export class ExportService {
       const accountCode =
         accountInfo?.account_code ||
         accountInfo?.account_name ||
-        (entry.category?.name || 'Uncategorized');
+        entry.category?.name ||
+        'Uncategorized';
       const payeeName = entry.supplier?.name || entry.vendor_name || '';
       const description = entry.notes || entry.category?.name || '';
       const reference = entry.id.substring(0, 8);
@@ -430,8 +425,7 @@ export class ExportService {
         Number(entry.tax_amount) > 0 &&
         Number(entry.amount) > 0
       ) {
-        const pct =
-          (Number(entry.tax_amount) / Number(entry.amount)) * 100;
+        const pct = (Number(entry.tax_amount) / Number(entry.amount)) * 100;
         taxRate = `${pct.toFixed(1)}%`;
       }
 
@@ -566,9 +560,7 @@ export class ExportService {
         inv.tax_amount && Number(inv.tax_amount) > 0
           ? 'Tax Exclusive'
           : 'No Tax';
-      const taxAmount = inv.tax_amount
-        ? Number(inv.tax_amount).toFixed(2)
-        : '';
+      const taxAmount = inv.tax_amount ? Number(inv.tax_amount).toFixed(2) : '';
       const status =
         xeroStatusMap[inv.status] || String(inv.status).toUpperCase();
 
@@ -643,7 +635,10 @@ export class ExportService {
     // 1. Build where clause for entries to check
     const where: any = { tenant_id: tenantId };
     if (query.date_from) {
-      where.entry_date = { ...where.entry_date, gte: new Date(query.date_from) };
+      where.entry_date = {
+        ...where.entry_date,
+        gte: new Date(query.date_from),
+      };
     }
     if (query.date_to) {
       where.entry_date = { ...where.entry_date, lte: new Date(query.date_to) };
@@ -689,11 +684,17 @@ export class ExportService {
     // CHECK 1: Missing account mapping
     // ====================
     if (query.platform) {
-      const accountMap = await this.loadAccountMappings(tenantId, query.platform);
+      const accountMap = await this.loadAccountMappings(
+        tenantId,
+        query.platform,
+      );
       const categoryNamesChecked = new Set<string>();
 
       for (const entry of entries) {
-        if (!accountMap.has(entry.category_id) && !categoryNamesChecked.has(entry.category_id)) {
+        if (
+          !accountMap.has(entry.category_id) &&
+          !categoryNamesChecked.has(entry.category_id)
+        ) {
           categoryNamesChecked.add(entry.category_id);
           const catName = entry.category?.name || 'Unknown';
           issues.push({
@@ -715,9 +716,10 @@ export class ExportService {
     // ====================
     for (const entry of entries) {
       if (!entry.vendor_name && !entry.supplier_id) {
-        const entryDate = entry.entry_date instanceof Date
-          ? entry.entry_date.toISOString().split('T')[0]
-          : String(entry.entry_date).split('T')[0];
+        const entryDate =
+          entry.entry_date instanceof Date
+            ? entry.entry_date.toISOString().split('T')[0]
+            : String(entry.entry_date).split('T')[0];
         issues.push({
           severity: 'warning',
           check_type: 'missing_vendor',
@@ -737,9 +739,10 @@ export class ExportService {
     for (const entry of entries) {
       const classification = (entry.category as any)?.classification;
       if (classification === 'cost_of_goods_sold' && !entry.project_id) {
-        const entryDate = entry.entry_date instanceof Date
-          ? entry.entry_date.toISOString().split('T')[0]
-          : String(entry.entry_date).split('T')[0];
+        const entryDate =
+          entry.entry_date instanceof Date
+            ? entry.entry_date.toISOString().split('T')[0]
+            : String(entry.entry_date).split('T')[0];
         issues.push({
           severity: 'info',
           check_type: 'missing_project_class',
@@ -758,9 +761,10 @@ export class ExportService {
     // ====================
     for (const entry of entries) {
       if (Number(entry.amount) === 0) {
-        const entryDate = entry.entry_date instanceof Date
-          ? entry.entry_date.toISOString().split('T')[0]
-          : String(entry.entry_date).split('T')[0];
+        const entryDate =
+          entry.entry_date instanceof Date
+            ? entry.entry_date.toISOString().split('T')[0]
+            : String(entry.entry_date).split('T')[0];
         issues.push({
           severity: 'error',
           check_type: 'zero_amount',
@@ -802,9 +806,10 @@ export class ExportService {
     // ====================
     for (const entry of entries) {
       if (!entry.payment_method) {
-        const entryDate = entry.entry_date instanceof Date
-          ? entry.entry_date.toISOString().split('T')[0]
-          : String(entry.entry_date).split('T')[0];
+        const entryDate =
+          entry.entry_date instanceof Date
+            ? entry.entry_date.toISOString().split('T')[0]
+            : String(entry.entry_date).split('T')[0];
         issues.push({
           severity: 'info',
           check_type: 'missing_payment_method',
@@ -835,9 +840,10 @@ export class ExportService {
     });
 
     for (const group of duplicateGroups) {
-      const dateStr = group.entry_date instanceof Date
-        ? group.entry_date.toISOString().split('T')[0]
-        : String(group.entry_date).split('T')[0];
+      const dateStr =
+        group.entry_date instanceof Date
+          ? group.entry_date.toISOString().split('T')[0]
+          : String(group.entry_date).split('T')[0];
 
       // Get supplier name for the message (MUST filter by tenant_id for isolation)
       let supplierName = 'Unknown';
@@ -952,7 +958,7 @@ export class ExportService {
     const parsedData = data.map((record) => ({
       ...record,
       filters_applied: record.filters_applied
-        ? JSON.parse(record.filters_applied as string)
+        ? JSON.parse(record.filters_applied)
         : null,
     }));
 

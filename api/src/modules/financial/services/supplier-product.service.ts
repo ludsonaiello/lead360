@@ -75,8 +75,7 @@ export class SupplierProductService {
           unit_of_measure: dto.unit_of_measure,
           unit_price:
             dto.unit_price !== undefined ? new Decimal(dto.unit_price) : null,
-          price_last_updated_at:
-            dto.unit_price !== undefined ? now : null,
+          price_last_updated_at: dto.unit_price !== undefined ? now : null,
           price_last_updated_by_user_id:
             dto.unit_price !== undefined ? userId : null,
           sku: dto.sku || null,
@@ -143,11 +142,7 @@ export class SupplierProductService {
   // FIND ALL
   // ---------------------------------------------------------------------------
 
-  async findAll(
-    tenantId: string,
-    supplierId: string,
-    isActive?: boolean,
-  ) {
+  async findAll(tenantId: string, supplierId: string, isActive?: boolean) {
     await this.verifySupplierExists(tenantId, supplierId);
 
     const where: any = {

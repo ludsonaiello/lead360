@@ -166,12 +166,14 @@ describe('TaskCalendarEventService', () => {
       expect(result.created_by_user_id).toBe(USER_ID);
 
       // Verify correct sync_status and google_event_id passed to prisma.create
-      expect(mockPrismaService.task_calendar_event.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          sync_status: 'local_only',
-          google_event_id: null,
-        }),
-      });
+      expect(mockPrismaService.task_calendar_event.create).toHaveBeenCalledWith(
+        {
+          data: expect.objectContaining({
+            sync_status: 'local_only',
+            google_event_id: null,
+          }),
+        },
+      );
     });
 
     it('should create event with synced status when Google connection exists', async () => {
@@ -206,12 +208,14 @@ describe('TaskCalendarEventService', () => {
       );
 
       // Verify correct sync_status and google_event_id passed to prisma.create
-      expect(mockPrismaService.task_calendar_event.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          sync_status: 'synced',
-          google_event_id: GOOGLE_EVENT_ID,
-        }),
-      });
+      expect(mockPrismaService.task_calendar_event.create).toHaveBeenCalledWith(
+        {
+          data: expect.objectContaining({
+            sync_status: 'synced',
+            google_event_id: GOOGLE_EVENT_ID,
+          }),
+        },
+      );
     });
 
     it('should create event with failed status when Google sync fails', async () => {
@@ -238,12 +242,14 @@ describe('TaskCalendarEventService', () => {
       expect(result.sync_status).toBe('failed');
 
       // Verify correct sync_status and null google_event_id passed to prisma.create
-      expect(mockPrismaService.task_calendar_event.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          sync_status: 'failed',
-          google_event_id: null,
-        }),
-      });
+      expect(mockPrismaService.task_calendar_event.create).toHaveBeenCalledWith(
+        {
+          data: expect.objectContaining({
+            sync_status: 'failed',
+            google_event_id: null,
+          }),
+        },
+      );
     });
 
     it('should throw BadRequestException when end_datetime <= start_datetime', async () => {
@@ -628,14 +634,9 @@ describe('TaskCalendarEventService', () => {
       mockPrismaService.task_calendar_event.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateEvent(
-          TENANT_A,
-          PROJECT_ID,
-          TASK_ID,
-          EVENT_ID,
-          USER_ID,
-          { title: 'Updated' },
-        ),
+        service.updateEvent(TENANT_A, PROJECT_ID, TASK_ID, EVENT_ID, USER_ID, {
+          title: 'Updated',
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -646,17 +647,10 @@ describe('TaskCalendarEventService', () => {
       );
 
       await expect(
-        service.updateEvent(
-          TENANT_A,
-          PROJECT_ID,
-          TASK_ID,
-          EVENT_ID,
-          USER_ID,
-          {
-            start_datetime: '2026-04-05T17:00:00.000Z',
-            end_datetime: '2026-04-05T08:00:00.000Z',
-          },
-        ),
+        service.updateEvent(TENANT_A, PROJECT_ID, TASK_ID, EVENT_ID, USER_ID, {
+          start_datetime: '2026-04-05T17:00:00.000Z',
+          end_datetime: '2026-04-05T08:00:00.000Z',
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -671,14 +665,9 @@ describe('TaskCalendarEventService', () => {
       );
 
       await expect(
-        service.updateEvent(
-          TENANT_A,
-          PROJECT_ID,
-          TASK_ID,
-          EVENT_ID,
-          USER_ID,
-          { start_datetime: '2026-04-05T18:00:00.000Z' },
-        ),
+        service.updateEvent(TENANT_A, PROJECT_ID, TASK_ID, EVENT_ID, USER_ID, {
+          start_datetime: '2026-04-05T18:00:00.000Z',
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -832,13 +821,7 @@ describe('TaskCalendarEventService', () => {
       mockPrismaService.task_calendar_event.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.deleteEvent(
-          TENANT_A,
-          PROJECT_ID,
-          TASK_ID,
-          EVENT_ID,
-          USER_ID,
-        ),
+        service.deleteEvent(TENANT_A, PROJECT_ID, TASK_ID, EVENT_ID, USER_ID),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -923,14 +906,9 @@ describe('TaskCalendarEventService', () => {
       mockPrismaService.task_calendar_event.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateEvent(
-          TENANT_B,
-          PROJECT_ID,
-          TASK_ID,
-          EVENT_ID,
-          USER_ID,
-          { title: 'Updated' },
-        ),
+        service.updateEvent(TENANT_B, PROJECT_ID, TASK_ID, EVENT_ID, USER_ID, {
+          title: 'Updated',
+        }),
       ).rejects.toThrow(NotFoundException);
 
       expect(
@@ -949,13 +927,7 @@ describe('TaskCalendarEventService', () => {
       mockPrismaService.task_calendar_event.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.deleteEvent(
-          TENANT_B,
-          PROJECT_ID,
-          TASK_ID,
-          EVENT_ID,
-          USER_ID,
-        ),
+        service.deleteEvent(TENANT_B, PROJECT_ID, TASK_ID, EVENT_ID, USER_ID),
       ).rejects.toThrow(NotFoundException);
 
       expect(
@@ -1031,9 +1003,9 @@ describe('TaskCalendarEventService', () => {
 
       expect(result1.id).toBe('evt-1');
       expect(result2.id).toBe('evt-2');
-      expect(mockPrismaService.task_calendar_event.create).toHaveBeenCalledTimes(
-        2,
-      );
+      expect(
+        mockPrismaService.task_calendar_event.create,
+      ).toHaveBeenCalledTimes(2);
     });
 
     it('Google Calendar sync is best-effort — creation never blocked', async () => {

@@ -193,15 +193,10 @@ export class UserManagementController {
         include: {
           memberships: {
             where: { status: 'ACTIVE' },
-            take: 1,
             include: {
               tenant: {
                 select: { id: true, subdomain: true, company_name: true },
               },
-            },
-          },
-          user_role_user_role_user_idTouser: {
-            include: {
               role: {
                 select: { name: true },
               },
@@ -225,7 +220,7 @@ export class UserManagementController {
           tenant_id: activeMembership?.tenant?.id ?? undefined,
           tenant_subdomain: activeMembership?.tenant?.subdomain,
           tenant_company_name: activeMembership?.tenant?.company_name,
-          roles: user.user_role_user_role_user_idTouser.map((ur) => ur.role.name),
+          roles: user.memberships.map((m) => m.role.name),
           last_login_at: user.last_login_at,
           created_at: user.created_at,
         };
@@ -284,15 +279,10 @@ export class UserManagementController {
       include: {
         memberships: {
           where: { status: 'ACTIVE' },
-          take: 1,
           include: {
             tenant: {
               select: { id: true, subdomain: true, company_name: true },
             },
-          },
-        },
-        user_role_user_role_user_idTouser: {
-          include: {
             role: {
               select: {
                 id: true,
@@ -322,11 +312,11 @@ export class UserManagementController {
       email_verified: user.email_verified,
       tenant_id: activeMembership?.tenant?.id ?? undefined,
       tenant: activeMembership?.tenant ?? null,
-      roles: user.user_role_user_role_user_idTouser.map((ur) => ({
-        id: ur.role.id,
-        name: ur.role.name,
-        description: ur.role.description,
-        assigned_at: ur.created_at,
+      roles: user.memberships.map((m) => ({
+        id: m.role.id,
+        name: m.role.name,
+        description: m.role.description,
+        assigned_at: m.joined_at ?? m.created_at,
       })),
       last_login_at: user.last_login_at,
       created_at: user.created_at,

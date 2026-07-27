@@ -1,0 +1,373 @@
+# Sprint 6 — Break Controls + My Hours Page
+
+**Module:** time-clock
+**File:** `./documentation/sprints/clockin_frontend/sprint_6.md`
+**Type:** Frontend — Page + Components
+**Depends On:** Sprint 5 (Clock In/Out Page)
+**Gate:** STOP — Breaks work, My Hours page shows history
+**Estimated Complexity:** Medium
+
+---
+
+## Developer Standard
+
+You are a masterclass-level engineer whose work makes Google, Amazon, and Apple engineers jealous of the quality. Every line you write is deliberate, precise, and production-grade.
+
+---
+
+## Critical Warnings
+
+- **This platform is 85% production-ready.** Never break existing code. Never leave the server running in the background.
+- **Read the codebase before touching anything.** Implement with surgical precision — not a single comma may break existing business logic.
+- **MySQL credentials are in the `.env` file** at `/var/www/lead360.app/api/.env`. Do NOT hardcode credentials anywhere.
+- **Never use `pkill -f`.** Always use `lsof -i :7000` + `kill {PID}`.
+- **Never use PM2.** This project does NOT use PM2.
+
+---
+
+## CRITICAL RULES — READ BEFORE ANYTHING
+
+1. **RULE 1 — Test every endpoint LIVE before writing any component.** Authenticate with the test credentials below, hit every endpoint this sprint consumes, verify the actual response shape. If the response differs from documentation, trust the actual API response and adjust your types accordingly. Do NOT guess response shapes.
+2. **DO NOT TOUCH THE BACKEND.** Do not modify any file under `/var/www/lead360.app/api/`. The backend is complete and running.
+3. **Backend runs on `http://localhost:8000`** (NestJS `--watch` mode via `npm run start:dev`). Do NOT restart it, do NOT run any backend commands.
+4. **Frontend runs on `http://localhost:7000`** (Next.js dev server). All your work is in `/var/www/lead360.app/app/`.
+5. **Use existing components, patterns, and modules.** Do NOT create new UI primitives. Use what exists in `app/src/components/ui/`.
+6. **Deliver masterclass production-quality code.** Use autocomplete inputs, masked inputs, search selects, modals — no browser alerts, no `window.confirm`, no `window.prompt`.
+7. **Respect patterns from other modules.** Read existing API clients and types before writing yours. Follow the same API call pattern, error handling, and loading state pattern as existing modules.
+
+---
+
+## Test Accounts
+
+| Account | Email | Password | Role |
+|---|---|---|---|
+| Tenant Owner | `contact@honeydo4you.com` | `978@F32c` | Owner — full access to all time-clock features |
+| Sys Admin | `ludsonaiello@gmail.com` | `978@F32c` | Platform admin |
+
+---
+
+## Environment
+
+- **Backend URL:** `http://localhost:8000` (NestJS, port 8000)
+- **Frontend URL:** `http://localhost:7000` (Next.js, port 7000)
+- **API Base Path:** `/api/v1`
+- **Swagger:** `http://127.0.0.1:8000/api/docs`
+- **Do NOT use PM2.** The dev server runs via `npm run start:dev` in watch mode.
+
+---
+
+## Dev Server
+
+```
+CHECK if port 7000 is already in use:
+  lsof -i :7000
+
+If a process is found, kill it by PID:
+  kill {PID}
+  If it does not stop: kill -9 {PID}
+
+Wait 2 seconds, confirm port is free:
+  lsof -i :7000   <- must return nothing before proceeding
+
+START the frontend dev server:
+  cd /var/www/lead360.app/app && npm run dev
+
+WAIT — the server takes 30 to 60 seconds to compile and become ready.
+
+Also confirm backend is running:
+  curl -s http://localhost:8000/health   <- must return 200
+
+KEEP both servers running for the entire duration of the sprint.
+Do NOT stop and restart between tests — keep them open.
+
+BEFORE marking the sprint COMPLETE:
+  lsof -i :7000
+  kill {PID}
+  Confirm port is free: lsof -i :7000   <- must return nothing
+```
+
+---
+
+## Objective
+
+Build the **Break Controls** component (integrated into the Clock page from Sprint 5) and the **My Hours** page where employees view their session history and submit disputes.
+
+---
+
+## Endpoints Consumed (6)
+
+| # | Method | Endpoint | Purpose |
+|---|--------|----------|---------|
+| 1 | POST | `/api/v1/time-clock/sessions/:id/breaks/start` | Start a break on the active session |
+| 2 | POST | `/api/v1/time-clock/sessions/:id/breaks/end` | End the active break |
+| 3 | GET | `/api/v1/time-clock/sessions/:id/breaks` | List all breaks for a session |
+| 4 | GET | `/api/v1/time-clock/sessions/mine` | Paginated history of own sessions |
+| 5 | GET | `/api/v1/time-clock/sessions/:id` | Session detail (with breaks and edit log) |
+| 6 | POST | `/api/v1/time-clock/sessions/:id/disputes` | Submit a dispute on a session |
+
+---
+
+## Pre-Sprint Checklist
+
+- [ ] Confirm Sprint 5 is complete: Clock page at `/workforce/clock` exists and clock-in/out cycle works
+- [ ] Confirm `app/src/components/time-clock/ClockButton.tsx` exists (from Sprint 5)
+- [ ] Confirm `app/src/components/time-clock/SessionDurationTimer.tsx` exists (from Sprint 5)
+- [ ] Confirm `app/src/lib/api/time-clock.ts` has break and session API functions
+- [ ] Read `app/src/components/ui/Select.tsx` — Select component
+- [ ] Read `app/src/components/ui/DatePicker.tsx` — DatePicker component
+- [ ] Read `app/src/components/ui/DateRangePicker.tsx` — DateRangePicker component
+- [ ] Read `app/src/components/ui/TimePicker.tsx` — TimePicker component
+- [ ] Read `app/src/components/ui/Modal.tsx` — Modal component
+- [ ] Read `app/src/components/ui/Textarea.tsx` — Textarea component
+- [ ] Read `app/src/components/ui/PaginationControls.tsx` — PaginationControls component
+- [ ] Read `app/src/components/ui/Badge.tsx` — Badge component
+- [ ] Confirm backend is running: `curl -s http://localhost:8000/health`
+
+---
+
+## Task 1 — Test All 6 Endpoints Live
+
+**What:** Before writing ANY code, authenticate and hit every endpoint this sprint consumes.
+
+```bash
+# Login as Tenant Owner
+TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"contact@honeydo4you.com","password":"978@F32c"}' | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+
+# First, clock in to get an active session (if not already clocked in)
+curl -s -X POST http://localhost:8000/api/v1/time-clock/sessions/clock-in \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"latitude":26.1224,"longitude":-80.1373,"location_source":"browser_gps"}' | head -c 3000
+
+# Get active session to get the session ID
+ACTIVE=$(curl -s http://localhost:8000/api/v1/time-clock/sessions/me/active \
+  -H "Authorization: Bearer $TOKEN")
+echo "$ACTIVE" | head -c 3000
+# Extract session ID from response for subsequent calls
+
+# 1. POST /sessions/:id/breaks/start — Start a break
+curl -s -X POST http://localhost:8000/api/v1/time-clock/sessions/{SESSION_ID}/breaks/start \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"break_type":"unpaid","break_label":"Lunch"}' | head -c 3000
+
+# 2. POST /sessions/:id/breaks/end — End the break
+curl -s -X POST http://localhost:8000/api/v1/time-clock/sessions/{SESSION_ID}/breaks/end \
+  -H "Authorization: Bearer $TOKEN" | head -c 3000
+
+# 3. GET /sessions/:id/breaks — List breaks
+curl -s http://localhost:8000/api/v1/time-clock/sessions/{SESSION_ID}/breaks \
+  -H "Authorization: Bearer $TOKEN" | head -c 3000
+
+# Clock out to create a completed session
+curl -s -X POST http://localhost:8000/api/v1/time-clock/sessions/clock-out \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"latitude":26.1224,"longitude":-80.1373,"location_source":"browser_gps"}' | head -c 3000
+
+# 4. GET /sessions/mine — Paginated history
+curl -s "http://localhost:8000/api/v1/time-clock/sessions/mine?page=1&limit=10" \
+  -H "Authorization: Bearer $TOKEN" | head -c 3000
+
+# 5. GET /sessions/:id — Session detail
+curl -s http://localhost:8000/api/v1/time-clock/sessions/{SESSION_ID} \
+  -H "Authorization: Bearer $TOKEN" | head -c 3000
+
+# 6. POST /sessions/:id/disputes — Submit dispute (on a completed session)
+curl -s -X POST http://localhost:8000/api/v1/time-clock/sessions/{SESSION_ID}/disputes \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"dispute_type":"flag_only","description":"Clock-in time was incorrect"}' | head -c 3000
+```
+
+**Acceptance:** All 6 endpoints return expected responses. Break start/end cycle works. Dispute submission works.
+**Do NOT:** Skip this step.
+
+---
+
+## Task 2 — Break Controls Component
+
+**What:** Build `BreakControls.tsx` and integrate into the Clock page's active session card.
+
+**File:** `app/src/components/time-clock/BreakControls.tsx`
+
+**Props:**
+```typescript
+interface BreakControlsProps {
+  sessionId: string;
+  isOnBreak: boolean;
+  currentBreakStartedAt?: string; // ISO timestamp
+  onBreakStarted: () => void; // Callback to refresh parent state
+  onBreakEnded: () => void;
+}
+```
+
+**Behavior when `isOnBreak === false` (not on break):**
+- Show "Start Break" button with `Pause` icon from `lucide-react`
+- Break type selector: `Select` with two options: `{ value: 'paid', label: 'Paid Break' }` and `{ value: 'unpaid', label: 'Unpaid Break' }` (default: unpaid)
+- Optional break label field: `Input` with placeholder "Break label (e.g., Lunch)"
+- On "Start Break" click: POST `/time-clock/sessions/{sessionId}/breaks/start` with `{ break_type, break_label? }`
+- Show `Loader2` spinner during API call
+- Handle errors:
+  - **400**: Session not active -> `ErrorModal`
+  - **409**: Break already active -> `ErrorModal`
+- On success: call `onBreakStarted()` to refresh parent
+
+**Behavior when `isOnBreak === true` (on break):**
+- Show "End Break" button with `Play` icon from `lucide-react`
+- Show break timer: duration since `currentBreakStartedAt` in HH:MM format, amber text color
+- On "End Break" click: POST `/time-clock/sessions/{sessionId}/breaks/end`
+- Handle errors:
+  - **404**: No active break -> `ErrorModal`
+- On success: call `onBreakEnded()` to refresh parent
+
+**Integration with Clock Page:**
+- Insert BreakControls between the active session card and the Clock Out button
+- When break starts: `SessionDurationTimer` pauses (isPaused=true), shows amber color
+- When break ends: `SessionDurationTimer` resumes
+
+---
+
+## Task 3 — My Hours Page
+
+**What:** Build the My Hours page at `app/src/app/(dashboard)/workforce/my-hours/page.tsx`.
+
+**Page:** `/workforce/my-hours`
+**Roles:** Owner, Admin, Project Manager, Employee
+
+**Layout:**
+
+```
++-------------------------------------------+
+| Breadcrumb: Workforce > My Hours          |
++-------------------------------------------+
+| Summary Card                              |
+| This Week: 32h 15m | Pay Period: 72h 30m |
++-------------------------------------------+
+| Filters:                                  |
+| [Date From] [Date To] [Project v] [Status]|
++-------------------------------------------+
+| Sessions List (paginated)                 |
+| +---------------------------------------+ |
+| | Apr 10 | 8:00 AM - 4:30 PM | 8h 30m  | |
+| | Project: Main St Renovation           | |
+| | Status: [Completed] [Flagged]         | |
+| +---------------------------------------+ |
+| | Apr 9  | 7:30 AM - 3:00 PM | 7h 30m  | |
+| | Project: Office Remodel               | |
+| | Status: [Completed]                   | |
+| +---------------------------------------+ |
+| [< Prev] Page 1 of 5 [Next >]            |
++-------------------------------------------+
+```
+
+**Components:**
+- **Summary card** at top: total hours this week, total hours this pay period (compute from session list or add summary endpoint if available)
+- **Filters:** DateRangePicker (from/to), Select for project, Select for status (all/active/completed/on_break)
+- **Session list:** paginated using `GET /time-clock/sessions/mine`
+- **Each row:** date, clock-in time, clock-out time (or "Active"), duration (format `total_worked_minutes` as Xh Ym), project name, task name, status badge, flag badge (if `is_flagged`)
+- **Tap/click row:** expand or navigate to session detail view
+- **Pagination:** use existing `PaginationControls` component
+
+**Session Detail View (expandable or modal):**
+- Full session info: clock-in/out times with GPS coordinates
+- Break list: each break with type (paid/unpaid), start/end times, duration
+- Edit log: any manual edits with before/after values and editor name
+- Dispute status: if a dispute exists, show its status, type, description
+- "Submit Dispute" button (visible on completed sessions with no pending dispute)
+
+---
+
+## Task 4 — Dispute Submission
+
+**What:** Build dispute submission from the My Hours session detail.
+
+**"Submit Dispute" button** on each completed session (if no pending dispute exists).
+
+**Modal: DisputeForm**
+**File:** `app/src/components/time-clock/DisputeForm.tsx`
+
+**Fields:**
+- **Dispute Type** (required): Radio or Select
+  - `flag_only` — "Flag for Review" (no time correction)
+  - `correction_request` — "Request Correction" (propose new times)
+- **Description** (required): `Textarea`, placeholder "Describe the issue with this session..."
+- **If `correction_request` selected, show additional fields:**
+  - `proposed_clock_in_at`: `DatePicker` + `TimePicker` combined
+  - `proposed_clock_out_at`: `DatePicker` + `TimePicker` combined
+  - `proposed_project_id`: project `Select` dropdown
+  - `proposed_task_id`: task `Select` dropdown (optional)
+  - `proposed_notes`: `Textarea` for proposed notes
+
+**Submit:** POST `/time-clock/sessions/{sessionId}/disputes`
+```json
+{
+  "dispute_type": "correction_request",
+  "description": "My clock-in time was wrong, I started at 7:30 not 8:00",
+  "proposed_clock_in_at": "2026-04-10T07:30:00Z",
+  "proposed_clock_out_at": "2026-04-10T16:00:00Z",
+  "proposed_project_id": "uuid",
+  "proposed_task_id": "uuid",
+  "proposed_notes": "Updated notes"
+}
+```
+
+**Handle errors:**
+- **409 Conflict**: "A dispute is already pending for this session" -> `ErrorModal`
+- **400 Bad Request**: Validation errors -> show field-level errors
+- **404**: Session not found -> `ErrorModal`
+
+**On success:** Show `SuccessModal` "Dispute submitted successfully", refresh session detail to show dispute status.
+
+**Existing dispute display:**
+- If a dispute already exists on the session, show its status badge: `pending` -> warning, `approved` -> success, `rejected` -> error
+- Show dispute description and any admin review notes
+
+---
+
+## Acceptance Criteria
+
+- [ ] All 6 endpoints tested live before any code was written
+- [ ] Break Controls: "Start Break" button with break type selector (paid/unpaid) and optional label
+- [ ] Break Controls: "End Break" button with break timer in amber
+- [ ] Break Controls: handles 400 (not active), 409 (already on break), 404 (no active break)
+- [ ] Break Controls: integrated into Clock page active session card
+- [ ] SessionDurationTimer pauses when on break, shows amber color
+- [ ] My Hours page: paginated list of own sessions
+- [ ] My Hours page: filters by date range, project, status
+- [ ] My Hours page: each row shows date, times, duration, project, status badge, flag badge
+- [ ] My Hours page: session detail shows breaks, edit log, dispute status
+- [ ] My Hours page: summary card with total hours this week and pay period
+- [ ] Dispute submission: modal with type selector, description, conditional correction fields
+- [ ] Dispute submission: handles 409 (pending dispute exists)
+- [ ] Existing dispute status displayed on session detail
+- [ ] Mobile responsive (375px viewport)
+- [ ] Loading spinners on all async operations
+- [ ] No `window.alert`, `window.confirm`, or `window.prompt` used
+- [ ] Uses existing UI components — no new UI primitives created
+- [ ] All new components in `app/src/components/time-clock/`
+- [ ] Dev server shut down before marking complete
+
+---
+
+## Gate Marker
+
+**STOP** — Break start/end cycle must work on the Clock page, and the My Hours page must display session history with dispute submission before Sprint 7 begins. Confirm:
+1. Start Break creates a break entry on the active session
+2. End Break completes the break
+3. SessionDurationTimer pauses during break
+4. My Hours page loads paginated session history
+5. Session detail shows breaks and dispute status
+6. Dispute submission creates a dispute record
+
+---
+
+## Handoff Notes
+
+**For Sprint 7 (Employee-Project Assignments + Shifts Admin):**
+- Break Controls component is built and integrated into the Clock page
+- My Hours page is built at `/workforce/my-hours`
+- DisputeForm component can be reused wherever dispute submission is needed
+- The `Select` component pattern from ProjectTaskSelector can be reused for employee and shift selectors

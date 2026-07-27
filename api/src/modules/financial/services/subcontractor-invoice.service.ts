@@ -38,13 +38,20 @@ export class SubcontractorInvoiceService {
     file?: Express.Multer.File,
   ) {
     // Validate subcontractor belongs to tenant
-    await this.validateSubcontractorBelongsToTenant(tenantId, dto.subcontractor_id);
+    await this.validateSubcontractorBelongsToTenant(
+      tenantId,
+      dto.subcontractor_id,
+    );
 
     // Validate project belongs to tenant
     await this.validateProjectBelongsToTenant(tenantId, dto.project_id);
 
     // Validate task belongs to project
-    await this.validateTaskBelongsToProject(tenantId, dto.task_id, dto.project_id);
+    await this.validateTaskBelongsToProject(
+      tenantId,
+      dto.task_id,
+      dto.project_id,
+    );
 
     // Check invoice_number uniqueness per tenant (if provided)
     if (dto.invoice_number) {
@@ -62,7 +69,11 @@ export class SubcontractorInvoiceService {
     }
 
     // Handle file upload if provided
-    let fileData: { file_id: string; file_url: string; file_name: string } | null = null;
+    let fileData: {
+      file_id: string;
+      file_url: string;
+      file_name: string;
+    } | null = null;
     if (file) {
       const uploadResult = await this.filesService.uploadFile(
         tenantId,
@@ -136,8 +147,12 @@ export class SubcontractorInvoiceService {
 
     // Validate status transition (forward-only)
     if (dto.status) {
-      const currentIdx = SubcontractorInvoiceService.STATUS_ORDER.indexOf(existing.status);
-      const newIdx = SubcontractorInvoiceService.STATUS_ORDER.indexOf(dto.status);
+      const currentIdx = SubcontractorInvoiceService.STATUS_ORDER.indexOf(
+        existing.status,
+      );
+      const newIdx = SubcontractorInvoiceService.STATUS_ORDER.indexOf(
+        dto.status,
+      );
 
       if (newIdx <= currentIdx) {
         throw new BadRequestException(
@@ -192,8 +207,10 @@ export class SubcontractorInvoiceService {
     if (dto.status !== undefined) data.status = dto.status;
     if (dto.amount !== undefined) data.amount = dto.amount;
     if (dto.notes !== undefined) data.notes = dto.notes ?? null;
-    if (dto.invoice_number !== undefined) data.invoice_number = dto.invoice_number || null;
-    if (dto.invoice_date !== undefined) data.invoice_date = dto.invoice_date ? new Date(dto.invoice_date) : null;
+    if (dto.invoice_number !== undefined)
+      data.invoice_number = dto.invoice_number || null;
+    if (dto.invoice_date !== undefined)
+      data.invoice_date = dto.invoice_date ? new Date(dto.invoice_date) : null;
 
     const updated = await this.prisma.subcontractor_task_invoice.update({
       where: { id: invoiceId },
@@ -230,11 +247,7 @@ export class SubcontractorInvoiceService {
   /**
    * Hard-delete a subcontractor invoice.
    */
-  async deleteInvoice(
-    tenantId: string,
-    invoiceId: string,
-    userId: string,
-  ) {
+  async deleteInvoice(tenantId: string, invoiceId: string, userId: string) {
     const existing = await this.prisma.subcontractor_task_invoice.findFirst({
       where: { id: invoiceId, tenant_id: tenantId },
       include: {
@@ -387,9 +400,15 @@ export class SubcontractorInvoiceService {
     return {
       subcontractor_id: subcontractorId,
       total_invoiced: totalAgg._sum.amount ? Number(totalAgg._sum.amount) : 0,
-      total_pending: pendingAgg._sum.amount ? Number(pendingAgg._sum.amount) : 0,
-      total_approved: approvedAgg._sum.amount ? Number(approvedAgg._sum.amount) : 0,
-      total_paid_invoices: paidAgg._sum.amount ? Number(paidAgg._sum.amount) : 0,
+      total_pending: pendingAgg._sum.amount
+        ? Number(pendingAgg._sum.amount)
+        : 0,
+      total_approved: approvedAgg._sum.amount
+        ? Number(approvedAgg._sum.amount)
+        : 0,
+      total_paid_invoices: paidAgg._sum.amount
+        ? Number(paidAgg._sum.amount)
+        : 0,
       invoices_count: totalAgg._count,
     };
   }

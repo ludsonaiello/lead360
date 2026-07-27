@@ -231,10 +231,7 @@ export class ProjectDashboardService {
    * - task_count, completed_task_count, delayed_task_count
    * - contract_value, progress_percent
    */
-  async getProjectsWithSummary(
-    tenantId: string,
-    query: ProjectSummaryQuery,
-  ) {
+  async getProjectsWithSummary(tenantId: string, query: ProjectSummaryQuery) {
     const page = Math.max(query.page || 1, 1);
     const limit = Math.min(Math.max(query.limit || 20, 1), 100);
     const skip = (page - 1) * limit;
@@ -329,9 +326,7 @@ export class ProjectDashboardService {
       contract_value:
         project.contract_value != null ? Number(project.contract_value) : null,
       progress_percent:
-        project.progress_percent != null
-          ? Number(project.progress_percent)
-          : 0,
+        project.progress_percent != null ? Number(project.progress_percent) : 0,
       assigned_pm: project.assigned_pm_user
         ? {
             id: project.assigned_pm_user.id,

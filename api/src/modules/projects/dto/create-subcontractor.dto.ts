@@ -117,8 +117,7 @@ export class CreateSubcontractorDto {
   bank_name?: string;
 
   @ApiPropertyOptional({
-    description:
-      'Bank routing number in plain text. Encrypted before storage.',
+    description: 'Bank routing number in plain text. Encrypted before storage.',
     example: '021000021',
   })
   @IsString()
@@ -126,8 +125,7 @@ export class CreateSubcontractorDto {
   bank_routing_number?: string;
 
   @ApiPropertyOptional({
-    description:
-      'Bank account number in plain text. Encrypted before storage.',
+    description: 'Bank account number in plain text. Encrypted before storage.',
     example: '123456789012',
   })
   @IsString()

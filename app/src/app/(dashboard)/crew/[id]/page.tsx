@@ -31,6 +31,7 @@ import { Tabs, TabItem } from '@/components/ui/Tabs';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { SkeletonPage } from '@/components/ui/Skeleton';
 import { CrewMemberForm } from '@/components/crew/CrewMemberForm';
+import HardDeleteCrewMemberModal from '@/components/crew/HardDeleteCrewMemberModal';
 import {
   getCrewMemberById,
   updateCrewMember,
@@ -70,7 +71,7 @@ interface RevealedField {
 export default function CrewMemberDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { canPerform } = useRBAC();
+  const { canPerform, hasRole } = useRBAC();
   const memberId = params?.id as string;
 
   const [member, setMember] = useState<CrewMember | null>(null);
@@ -94,8 +95,12 @@ export default function CrewMemberDetailPage() {
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
   const [isDeactivating, setIsDeactivating] = useState(false);
 
+  // Hard delete (Owner only)
+  const [showHardDeleteModal, setShowHardDeleteModal] = useState(false);
+
   const canEdit = canPerform('projects', 'edit');
   const canDelete = canPerform('projects', 'create'); // Owner/Admin
+  const canHardDelete = hasRole('Owner');
 
   const loadMember = useCallback(async () => {
     try {
@@ -270,6 +275,15 @@ export default function CrewMemberDetailPage() {
           {canDelete && member.is_active && (
             <Button variant="ghost" onClick={() => setShowDeactivateModal(true)} className="text-red-600 hover:text-red-700">
               <Trash2 className="w-4 h-4" /> Deactivate
+            </Button>
+          )}
+          {canHardDelete && (
+            <Button
+              variant="ghost"
+              onClick={() => setShowHardDeleteModal(true)}
+              className="text-red-700 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+            >
+              <Trash2 className="w-4 h-4" /> Permanent Delete
             </Button>
           )}
         </div>
@@ -554,6 +568,22 @@ export default function CrewMemberDetailPage() {
         cancelText="Cancel"
         variant="danger"
         loading={isDeactivating}
+      />
+
+      {/* Hard Delete Modal */}
+      <HardDeleteCrewMemberModal
+        isOpen={showHardDeleteModal}
+        onClose={() => setShowHardDeleteModal(false)}
+        onSuccess={() => router.push('/crew')}
+        crewMember={
+          member
+            ? {
+                id: member.id,
+                first_name: member.first_name,
+                last_name: member.last_name,
+              }
+            : null
+        }
       />
     </div>
   );

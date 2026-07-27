@@ -168,7 +168,9 @@ export class ReceiptService {
 
     // Enqueue OCR job (non-blocking — receipt is returned immediately)
     this.enqueueOcrJob(receipt.id, tenantId, receipt.file_id).catch((err) => {
-      this.logger.error(`Failed to enqueue OCR for receipt ${receipt.id}: ${err.message}`);
+      this.logger.error(
+        `Failed to enqueue OCR for receipt ${receipt.id}: ${err.message}`,
+      );
     });
 
     return this.formatReceiptResponse(receipt);
@@ -511,7 +513,8 @@ export class ReceiptService {
       receipt_id: receipt.id,
       ocr_status: receipt.ocr_status,
       ocr_vendor: receipt.ocr_vendor ?? null,
-      ocr_amount: receipt.ocr_amount != null ? Number(receipt.ocr_amount) : null,
+      ocr_amount:
+        receipt.ocr_amount != null ? Number(receipt.ocr_amount) : null,
       ocr_date: receipt.ocr_date ?? null,
       has_suggestions: hasSuggestions,
     };
@@ -553,13 +556,22 @@ export class ReceiptService {
     }
 
     // 3. Resolve fields with OCR fallbacks
-    const resolvedAmount = dto.amount ?? (receipt.ocr_amount != null ? Number(receipt.ocr_amount) : null);
+    const resolvedAmount =
+      dto.amount ??
+      (receipt.ocr_amount != null ? Number(receipt.ocr_amount) : null);
     const resolvedVendor = dto.vendor_name ?? receipt.ocr_vendor ?? null;
-    const resolvedDate = dto.entry_date ?? (receipt.ocr_date ? receipt.ocr_date.toISOString().split('T')[0] : null);
-    const resolvedTax = dto.tax_amount ?? (receipt.ocr_tax != null ? Number(receipt.ocr_tax) : null);
-    const resolvedDiscount = dto.discount ?? (receipt.ocr_discount != null ? Number(receipt.ocr_discount) : null);
+    const resolvedDate =
+      dto.entry_date ??
+      (receipt.ocr_date ? receipt.ocr_date.toISOString().split('T')[0] : null);
+    const resolvedTax =
+      dto.tax_amount ??
+      (receipt.ocr_tax != null ? Number(receipt.ocr_tax) : null);
+    const resolvedDiscount =
+      dto.discount ??
+      (receipt.ocr_discount != null ? Number(receipt.ocr_discount) : null);
     const resolvedTime = dto.entry_time ?? receipt.ocr_time ?? null;
-    const resolvedEntryType = receipt.ocr_entry_type === 'refund' ? 'income' : 'expense';
+    const resolvedEntryType =
+      receipt.ocr_entry_type === 'refund' ? 'income' : 'expense';
     const resolvedNotes = dto.notes ?? receipt.ocr_notes ?? null;
 
     // 4. Validate required fields (after OCR fallback resolution)
@@ -580,7 +592,9 @@ export class ReceiptService {
       select: { id: true, name: true, type: true },
     });
     if (!category) {
-      throw new NotFoundException('Financial category not found or does not belong to this tenant');
+      throw new NotFoundException(
+        'Financial category not found or does not belong to this tenant',
+      );
     }
 
     // 5b. Validate project belongs to tenant (if provided)
@@ -630,7 +644,11 @@ export class ReceiptService {
     let resolvedPaymentMethod: string | null = dto.payment_method ?? null;
     if (dto.payment_method_registry_id) {
       const registry = await this.prisma.payment_method_registry.findFirst({
-        where: { id: dto.payment_method_registry_id, tenant_id: tenantId, is_active: true },
+        where: {
+          id: dto.payment_method_registry_id,
+          tenant_id: tenantId,
+          is_active: true,
+        },
       });
       if (!registry) {
         throw new NotFoundException('Payment method not found or inactive');
@@ -648,7 +666,11 @@ export class ReceiptService {
     // 10. Validate purchased_by_user_id belongs to tenant
     if (dto.purchased_by_user_id) {
       const membership = await this.prisma.user_tenant_membership.findFirst({
-        where: { user_id: dto.purchased_by_user_id, tenant_id: tenantId, status: 'ACTIVE' },
+        where: {
+          user_id: dto.purchased_by_user_id,
+          tenant_id: tenantId,
+          status: 'ACTIVE',
+        },
       });
       if (!membership) {
         throw new NotFoundException('User not found in this tenant');
@@ -658,7 +680,11 @@ export class ReceiptService {
     // 11. Validate purchased_by_crew_member_id belongs to tenant
     if (dto.purchased_by_crew_member_id) {
       const member = await this.prisma.crew_member.findFirst({
-        where: { id: dto.purchased_by_crew_member_id, tenant_id: tenantId, is_active: true },
+        where: {
+          id: dto.purchased_by_crew_member_id,
+          tenant_id: tenantId,
+          is_active: true,
+        },
       });
       if (!member) {
         throw new NotFoundException('Crew member not found or inactive');
@@ -668,7 +694,9 @@ export class ReceiptService {
     // 12. Validate tax_amount < resolvedAmount (if both provided)
     if (dto.tax_amount !== undefined && dto.tax_amount !== null) {
       if (dto.tax_amount >= resolvedAmount) {
-        throw new BadRequestException('Tax amount must be less than the entry amount');
+        throw new BadRequestException(
+          'Tax amount must be less than the entry amount',
+        );
       }
     }
 
@@ -698,7 +726,9 @@ export class ReceiptService {
           tax_amount: resolvedTax,
           discount: resolvedDiscount,
           entry_date: entryDate,
-          entry_time: resolvedTime ? new Date(`1970-01-01T${resolvedTime}`) : null,
+          entry_time: resolvedTime
+            ? new Date(`1970-01-01T${resolvedTime}`)
+            : null,
           vendor_name: resolvedVendor,
           supplier_id: dto.supplier_id ?? null,
           payment_method: resolvedPaymentMethod as any,
@@ -775,11 +805,7 @@ export class ReceiptService {
    *
    * Roles: Owner, Admin, Manager, Bookkeeper only (no Employee/Field).
    */
-  async retryOcr(
-    tenantId: string,
-    receiptId: string,
-    userId: string,
-  ) {
+  async retryOcr(tenantId: string, receiptId: string, userId: string) {
     this.logger.log(
       `Retrying OCR for receipt ${receiptId} (tenant: ${tenantId}, user: ${userId})`,
     );
@@ -836,11 +862,7 @@ export class ReceiptService {
    * Also deletes the associated file record and physical file.
    * Receipts linked to an entry cannot be deleted — remove the entry first.
    */
-  async deleteReceipt(
-    tenantId: string,
-    receiptId: string,
-    userId: string,
-  ) {
+  async deleteReceipt(tenantId: string, receiptId: string, userId: string) {
     const receipt = await this.findReceiptOrThrow(tenantId, receiptId);
 
     // Guard: cannot delete a receipt that is linked to a financial entry
@@ -994,14 +1016,19 @@ export class ReceiptService {
       receipt_date: receipt.receipt_date,
       ocr_status: receipt.ocr_status,
       ocr_vendor: receipt.ocr_vendor ?? null,
-      ocr_amount: receipt.ocr_amount != null ? Number(receipt.ocr_amount) : null,
+      ocr_amount:
+        receipt.ocr_amount != null ? Number(receipt.ocr_amount) : null,
       ocr_date: receipt.ocr_date ?? null,
       ocr_tax: receipt.ocr_tax != null ? Number(receipt.ocr_tax) : null,
-      ocr_discount: receipt.ocr_discount != null ? Number(receipt.ocr_discount) : null,
-      ocr_subtotal: receipt.ocr_subtotal != null ? Number(receipt.ocr_subtotal) : null,
+      ocr_discount:
+        receipt.ocr_discount != null ? Number(receipt.ocr_discount) : null,
+      ocr_subtotal:
+        receipt.ocr_subtotal != null ? Number(receipt.ocr_subtotal) : null,
       ocr_time: receipt.ocr_time ?? null,
       ocr_entry_type: receipt.ocr_entry_type ?? null,
-      ocr_line_items: receipt.ocr_line_items ? this.safeJsonParse(receipt.ocr_line_items) : null,
+      ocr_line_items: receipt.ocr_line_items
+        ? this.safeJsonParse(receipt.ocr_line_items)
+        : null,
       ocr_notes: receipt.ocr_notes ?? null,
       is_categorized: receipt.is_categorized,
       uploaded_by_user_id: receipt.uploaded_by_user_id,

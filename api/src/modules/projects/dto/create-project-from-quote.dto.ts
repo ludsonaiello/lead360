@@ -9,7 +9,10 @@ import {
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateProjectFromQuoteDto {
-  @ApiPropertyOptional({ description: 'Project name (defaults to quote title if omitted)', maxLength: 200 })
+  @ApiPropertyOptional({
+    description: 'Project name (defaults to quote title if omitted)',
+    maxLength: 200,
+  })
   @IsOptional()
   @IsString()
   @MaxLength(200)
@@ -20,22 +23,33 @@ export class CreateProjectFromQuoteDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Start date (ISO date string)', example: '2026-04-01' })
+  @ApiPropertyOptional({
+    description: 'Start date (ISO date string)',
+    example: '2026-04-01',
+  })
   @IsOptional()
   @IsDateString()
   start_date?: string;
 
-  @ApiPropertyOptional({ description: 'Target completion date (ISO date string)', example: '2026-06-15' })
+  @ApiPropertyOptional({
+    description: 'Target completion date (ISO date string)',
+    example: '2026-06-15',
+  })
   @IsOptional()
   @IsDateString()
   target_completion_date?: string;
 
-  @ApiPropertyOptional({ description: 'Whether a permit is required', default: false })
+  @ApiPropertyOptional({
+    description: 'Whether a permit is required',
+    default: false,
+  })
   @IsOptional()
   @IsBoolean()
   permit_required?: boolean;
 
-  @ApiPropertyOptional({ description: 'Assigned project manager user ID (UUID)' })
+  @ApiPropertyOptional({
+    description: 'Assigned project manager user ID (UUID)',
+  })
   @IsOptional()
   @IsUUID()
   assigned_pm_user_id?: string;
@@ -45,7 +59,9 @@ export class CreateProjectFromQuoteDto {
   @IsString()
   notes?: string;
 
-  @ApiPropertyOptional({ description: 'Template ID to seed additional tasks from (UUID)' })
+  @ApiPropertyOptional({
+    description: 'Template ID to seed additional tasks from (UUID)',
+  })
   @IsOptional()
   @IsUUID()
   template_id?: string;

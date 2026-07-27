@@ -14,18 +14,29 @@ import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateChecklistTemplateItemDto {
-  @ApiProperty({ description: 'Item title', example: 'Final inspection passed', maxLength: 300 })
+  @ApiProperty({
+    description: 'Item title',
+    example: 'Final inspection passed',
+    maxLength: 300,
+  })
   @IsString()
   @MinLength(1)
   @MaxLength(300)
   title: string;
 
-  @ApiPropertyOptional({ description: 'Item description', example: 'Ensure all inspections have passed' })
+  @ApiPropertyOptional({
+    description: 'Item description',
+    example: 'Ensure all inspections have passed',
+  })
   @IsString()
   @IsOptional()
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Whether this item is required for completion', example: true, default: true })
+  @ApiPropertyOptional({
+    description: 'Whether this item is required for completion',
+    example: true,
+    default: true,
+  })
   @IsBoolean()
   @IsOptional()
   is_required?: boolean;
@@ -37,13 +48,20 @@ export class CreateChecklistTemplateItemDto {
 }
 
 export class CreateChecklistTemplateDto {
-  @ApiProperty({ description: 'Template name (unique per tenant)', example: 'Standard Roofing Completion', maxLength: 200 })
+  @ApiProperty({
+    description: 'Template name (unique per tenant)',
+    example: 'Standard Roofing Completion',
+    maxLength: 200,
+  })
   @IsString()
   @MinLength(1)
   @MaxLength(200)
   name: string;
 
-  @ApiPropertyOptional({ description: 'Template description', example: 'Checklist for residential roofing projects' })
+  @ApiPropertyOptional({
+    description: 'Template description',
+    example: 'Checklist for residential roofing projects',
+  })
   @IsString()
   @IsOptional()
   description?: string;

@@ -92,7 +92,10 @@ export class ReceiptController {
     },
   })
   @ApiResponse({ status: 201, description: 'Receipt uploaded successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid file type/size or validation error' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid file type/size or validation error',
+  })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   async uploadReceipt(
     @Request() req,
@@ -123,9 +126,24 @@ export class ReceiptController {
     description:
       'Returns paginated receipts. Optionally filter by project_id, task_id, or categorization status.',
   })
-  @ApiQuery({ name: 'project_id', required: false, type: String, description: 'Filter by project UUID' })
-  @ApiQuery({ name: 'task_id', required: false, type: String, description: 'Filter by task UUID' })
-  @ApiQuery({ name: 'is_categorized', required: false, type: Boolean, description: 'Filter by categorization status' })
+  @ApiQuery({
+    name: 'project_id',
+    required: false,
+    type: String,
+    description: 'Filter by project UUID',
+  })
+  @ApiQuery({
+    name: 'task_id',
+    required: false,
+    type: String,
+    description: 'Filter by task UUID',
+  })
+  @ApiQuery({
+    name: 'is_categorized',
+    required: false,
+    type: Boolean,
+    description: 'Filter by categorization status',
+  })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   @ApiResponse({ status: 200, description: 'Paginated list of receipts' })
@@ -170,10 +188,7 @@ export class ReceiptController {
     },
   })
   @ApiResponse({ status: 404, description: 'Receipt not found' })
-  async getOcrStatus(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getOcrStatus(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.receiptService.getOcrStatus(
       req.user.tenant_id,
       id,
@@ -216,7 +231,10 @@ export class ReceiptController {
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'Receipt already linked or validation error' })
+  @ApiResponse({
+    status: 400,
+    description: 'Receipt already linked or validation error',
+  })
   @ApiResponse({ status: 404, description: 'Receipt or category not found' })
   async createEntryFromReceipt(
     @Request() req,
@@ -251,19 +269,16 @@ export class ReceiptController {
   @ApiParam({ name: 'id', description: 'Receipt UUID' })
   @ApiResponse({
     status: 200,
-    description: 'OCR retry triggered — receipt returned with ocr_status = processing',
+    description:
+      'OCR retry triggered — receipt returned with ocr_status = processing',
   })
-  @ApiResponse({ status: 400, description: 'Receipt is currently processing or already complete' })
+  @ApiResponse({
+    status: 400,
+    description: 'Receipt is currently processing or already complete',
+  })
   @ApiResponse({ status: 404, description: 'Receipt not found' })
-  async retryOcr(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.receiptService.retryOcr(
-      req.user.tenant_id,
-      id,
-      req.user.id,
-    );
+  async retryOcr(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
+    return this.receiptService.retryOcr(req.user.tenant_id, id, req.user.id);
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -276,10 +291,7 @@ export class ReceiptController {
   @ApiParam({ name: 'id', description: 'Receipt UUID' })
   @ApiResponse({ status: 200, description: 'Receipt details' })
   @ApiResponse({ status: 404, description: 'Receipt not found' })
-  async getReceipt(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getReceipt(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.receiptService.getReceiptById(req.user.tenant_id, id);
   }
 
@@ -297,9 +309,18 @@ export class ReceiptController {
       'Both the receipt and the entry must belong to the same tenant.',
   })
   @ApiParam({ name: 'id', description: 'Receipt UUID' })
-  @ApiResponse({ status: 200, description: 'Receipt linked to financial entry' })
-  @ApiResponse({ status: 400, description: 'Already linked or entry already has a receipt' })
-  @ApiResponse({ status: 404, description: 'Receipt or financial entry not found' })
+  @ApiResponse({
+    status: 200,
+    description: 'Receipt linked to financial entry',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Already linked or entry already has a receipt',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Receipt or financial entry not found',
+  })
   async linkReceipt(
     @Request() req,
     @Param('id', ParseUUIDPipe) id: string,
@@ -323,12 +344,12 @@ export class ReceiptController {
   })
   @ApiParam({ name: 'id', description: 'Receipt UUID' })
   @ApiResponse({ status: 200, description: 'Receipt unlinked' })
-  @ApiResponse({ status: 400, description: 'Receipt is not linked to any entry' })
+  @ApiResponse({
+    status: 400,
+    description: 'Receipt is not linked to any entry',
+  })
   @ApiResponse({ status: 404, description: 'Receipt not found' })
-  async unlinkReceipt(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async unlinkReceipt(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.receiptService.unlinkReceiptFromEntry(
       req.user.tenant_id,
       id,
@@ -373,12 +394,12 @@ export class ReceiptController {
   })
   @ApiParam({ name: 'id', description: 'Receipt UUID' })
   @ApiResponse({ status: 200, description: 'Receipt and file deleted' })
-  @ApiResponse({ status: 400, description: 'Receipt is linked to a financial entry' })
+  @ApiResponse({
+    status: 400,
+    description: 'Receipt is linked to a financial entry',
+  })
   @ApiResponse({ status: 404, description: 'Receipt not found' })
-  async deleteReceipt(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async deleteReceipt(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.receiptService.deleteReceipt(
       req.user.tenant_id,
       id,

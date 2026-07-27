@@ -137,13 +137,12 @@ export class ChecklistTemplateService {
    * Get a single template by ID with its items.
    */
   async findOne(tenantId: string, id: string) {
-    const template =
-      await this.prisma.completion_checklist_template.findFirst({
-        where: { id, tenant_id: tenantId },
-        include: {
-          items: { orderBy: { order_index: 'asc' } },
-        },
-      });
+    const template = await this.prisma.completion_checklist_template.findFirst({
+      where: { id, tenant_id: tenantId },
+      include: {
+        items: { orderBy: { order_index: 'asc' } },
+      },
+    });
 
     if (!template) {
       throw new NotFoundException('Checklist template not found');
@@ -162,11 +161,10 @@ export class ChecklistTemplateService {
     userId: string,
     dto: UpdateChecklistTemplateDto,
   ) {
-    const existing =
-      await this.prisma.completion_checklist_template.findFirst({
-        where: { id, tenant_id: tenantId },
-        include: { items: true },
-      });
+    const existing = await this.prisma.completion_checklist_template.findFirst({
+      where: { id, tenant_id: tenantId },
+      include: { items: true },
+    });
 
     if (!existing) {
       throw new NotFoundException('Checklist template not found');

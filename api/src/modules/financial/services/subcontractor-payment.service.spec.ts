@@ -29,7 +29,11 @@ const mockPaymentRecord = (overrides: any = {}) => ({
   notes: 'Payment for electrical work',
   created_by_user_id: USER_ID,
   created_at: new Date(),
-  subcontractor: { id: SUB_ID, business_name: 'Acme Electric', trade_specialty: 'Electrical' },
+  subcontractor: {
+    id: SUB_ID,
+    business_name: 'Acme Electric',
+    trade_specialty: 'Electrical',
+  },
   project: null,
   ...overrides,
 });
@@ -62,7 +66,9 @@ describe('SubcontractorPaymentService', () => {
       ],
     }).compile();
 
-    service = module.get<SubcontractorPaymentService>(SubcontractorPaymentService);
+    service = module.get<SubcontractorPaymentService>(
+      SubcontractorPaymentService,
+    );
     jest.clearAllMocks();
   });
 
@@ -77,16 +83,27 @@ describe('SubcontractorPaymentService', () => {
     };
 
     it('should create a payment record and call audit log', async () => {
-      mockPrismaService.subcontractor.findFirst.mockResolvedValue(mockSubcontractor());
-      mockPrismaService.subcontractor_payment_record.create.mockResolvedValue(mockPaymentRecord());
+      mockPrismaService.subcontractor.findFirst.mockResolvedValue(
+        mockSubcontractor(),
+      );
+      mockPrismaService.subcontractor_payment_record.create.mockResolvedValue(
+        mockPaymentRecord(),
+      );
 
-      const result = await service.createPayment(TENANT_ID, USER_ID, SUB_ID, dto as any);
+      const result = await service.createPayment(
+        TENANT_ID,
+        USER_ID,
+        SUB_ID,
+        dto as any,
+      );
 
       expect(mockPrismaService.subcontractor.findFirst).toHaveBeenCalledWith({
         where: { id: SUB_ID, tenant_id: TENANT_ID },
       });
 
-      expect(mockPrismaService.subcontractor_payment_record.create).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.subcontractor_payment_record.create,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             tenant_id: TENANT_ID,
@@ -115,11 +132,15 @@ describe('SubcontractorPaymentService', () => {
         service.createPayment(TENANT_ID, USER_ID, SUB_ID, dto as any),
       ).rejects.toThrow(NotFoundException);
 
-      expect(mockPrismaService.subcontractor_payment_record.create).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.subcontractor_payment_record.create,
+      ).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException when payment_date is in the future', async () => {
-      mockPrismaService.subcontractor.findFirst.mockResolvedValue(mockSubcontractor());
+      mockPrismaService.subcontractor.findFirst.mockResolvedValue(
+        mockSubcontractor(),
+      );
 
       const futureDate = new Date();
       futureDate.setFullYear(futureDate.getFullYear() + 1);
@@ -132,18 +153,27 @@ describe('SubcontractorPaymentService', () => {
         } as any),
       ).rejects.toThrow(BadRequestException);
 
-      expect(mockPrismaService.subcontractor_payment_record.create).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.subcontractor_payment_record.create,
+      ).not.toHaveBeenCalled();
     });
   });
 
   describe('getPaymentHistory()', () => {
     it('should return paginated results filtered by tenant and subcontractor', async () => {
-      mockPrismaService.subcontractor_payment_record.findMany.mockResolvedValue([mockPaymentRecord()]);
+      mockPrismaService.subcontractor_payment_record.findMany.mockResolvedValue(
+        [mockPaymentRecord()],
+      );
       mockPrismaService.subcontractor_payment_record.count.mockResolvedValue(1);
 
-      const result = await service.getPaymentHistory(TENANT_ID, SUB_ID, { page: 1, limit: 20 });
+      const result = await service.getPaymentHistory(TENANT_ID, SUB_ID, {
+        page: 1,
+        limit: 20,
+      });
 
-      expect(mockPrismaService.subcontractor_payment_record.findMany).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.subcontractor_payment_record.findMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             tenant_id: TENANT_ID,
@@ -159,10 +189,12 @@ describe('SubcontractorPaymentService', () => {
 
   describe('getTotalPaid()', () => {
     it('should return aggregated total and count', async () => {
-      mockPrismaService.subcontractor_payment_record.aggregate.mockResolvedValue({
-        _sum: { amount: 15000 },
-        _count: 5,
-      });
+      mockPrismaService.subcontractor_payment_record.aggregate.mockResolvedValue(
+        {
+          _sum: { amount: 15000 },
+          _count: 5,
+        },
+      );
 
       const result = await service.getTotalPaid(TENANT_ID, SUB_ID);
 
@@ -171,10 +203,12 @@ describe('SubcontractorPaymentService', () => {
     });
 
     it('should return 0 when no payments exist', async () => {
-      mockPrismaService.subcontractor_payment_record.aggregate.mockResolvedValue({
-        _sum: { amount: null },
-        _count: 0,
-      });
+      mockPrismaService.subcontractor_payment_record.aggregate.mockResolvedValue(
+        {
+          _sum: { amount: null },
+          _count: 0,
+        },
+      );
 
       const result = await service.getTotalPaid(TENANT_ID, SUB_ID);
 

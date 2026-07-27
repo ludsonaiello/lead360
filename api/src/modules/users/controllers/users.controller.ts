@@ -33,6 +33,7 @@ import { DeactivateUserDto } from '../dto/deactivate-user.dto';
 import { ListUsersQueryDto } from '../dto/list-users-query.dto';
 import { UpdateMeDto } from '../dto/update-me.dto';
 import { ChangePasswordDto } from '../dto/change-password.dto';
+import { EditUserDto } from '../dto/edit-user.dto';
 import type { AuthenticatedUser } from '../../auth/entities/jwt-payload.entity';
 
 @ApiTags('Users')
@@ -207,6 +208,47 @@ export class UsersController {
     @Body() dto: UpdateUserRoleDto,
   ) {
     return this.usersService.changeRole(tenantId, membershipId, actor, dto);
+  }
+
+  @Patch(':id')
+  @Roles('Owner', 'Admin')
+  @ApiOperation({
+    summary: 'Edit user profile (admin)',
+    description:
+      'Update first_name, last_name, email, or phone for an existing membership.',
+  })
+  @ApiResponse({ status: 200, description: 'User updated' })
+  @ApiResponse({ status: 404, description: 'Membership not found' })
+  @ApiResponse({ status: 409, description: 'Email already in use' })
+  async editUser(
+    @TenantId() tenantId: string,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('id') membershipId: string,
+    @Body() dto: EditUserDto,
+  ) {
+    return this.usersService.editUser(tenantId, membershipId, actor, dto);
+  }
+
+  @Post(':id/resend-invite')
+  @Roles('Owner', 'Admin')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Resend invite email',
+    description:
+      'Generate a new invite token (invalidating the old one) and email a fresh invitation. Membership must be in INVITED status.',
+  })
+  @ApiResponse({ status: 200, description: 'Invitation resent' })
+  @ApiResponse({
+    status: 400,
+    description: 'Membership is not in INVITED status',
+  })
+  @ApiResponse({ status: 404, description: 'Membership not found' })
+  async resendInvite(
+    @TenantId() tenantId: string,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('id') membershipId: string,
+  ) {
+    return this.usersService.resendInvite(tenantId, membershipId, actor.id);
   }
 
   @Patch(':id/deactivate')

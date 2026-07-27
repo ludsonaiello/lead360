@@ -545,7 +545,6 @@ export class ExportService {
       include: {
         memberships: {
           where: { status: 'ACTIVE' },
-          take: 1,
           include: {
             tenant: {
               select: {
@@ -553,10 +552,6 @@ export class ExportService {
                 company_name: true,
               },
             },
-          },
-        },
-        user_role_user_role_user_idTouser: {
-          include: {
             role: {
               select: { name: true },
             },
@@ -572,9 +567,7 @@ export class ExportService {
       last_name: u.last_name,
       is_active: u.is_active,
       tenant_subdomain: u.memberships[0]?.tenant?.subdomain,
-      roles: u.user_role_user_role_user_idTouser
-        .map((ur) => ur.role.name)
-        .join(', '),
+      roles: u.memberships.map((m) => m.role.name).join(', '),
       created_at: u.created_at,
       last_login_at: u.last_login_at,
     }));

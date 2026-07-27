@@ -1,4 +1,11 @@
-import { IsOptional, IsNumber, IsDateString, IsString, IsUUID, Min } from 'class-validator';
+import {
+  IsOptional,
+  IsNumber,
+  IsDateString,
+  IsString,
+  IsUUID,
+  Min,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateCrewHourLogDto {

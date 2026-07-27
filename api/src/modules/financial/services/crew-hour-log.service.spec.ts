@@ -82,7 +82,9 @@ describe('CrewHourLogService', () => {
     };
 
     it('should create an hour log and call audit log', async () => {
-      mockPrismaService.crew_member.findFirst.mockResolvedValue({ id: CREW_MEMBER_ID });
+      mockPrismaService.crew_member.findFirst.mockResolvedValue({
+        id: CREW_MEMBER_ID,
+      });
       mockPrismaService.project.findFirst.mockResolvedValue({ id: PROJECT_ID });
       mockPrismaService.crew_hour_log.create.mockResolvedValue(mockHourLog());
 
@@ -117,7 +119,9 @@ describe('CrewHourLogService', () => {
     });
 
     it('should throw NotFoundException when project does not belong to tenant', async () => {
-      mockPrismaService.crew_member.findFirst.mockResolvedValue({ id: CREW_MEMBER_ID });
+      mockPrismaService.crew_member.findFirst.mockResolvedValue({
+        id: CREW_MEMBER_ID,
+      });
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -128,19 +132,28 @@ describe('CrewHourLogService', () => {
     });
 
     it('should validate task belongs to project when task_id provided', async () => {
-      mockPrismaService.crew_member.findFirst.mockResolvedValue({ id: CREW_MEMBER_ID });
+      mockPrismaService.crew_member.findFirst.mockResolvedValue({
+        id: CREW_MEMBER_ID,
+      });
       mockPrismaService.project.findFirst.mockResolvedValue({ id: PROJECT_ID });
       mockPrismaService.project_task.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.logHours(TENANT_ID, USER_ID, { ...dto, task_id: TASK_ID } as any),
+        service.logHours(TENANT_ID, USER_ID, {
+          ...dto,
+          task_id: TASK_ID,
+        } as any),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('should default hours_overtime to 0 when not provided', async () => {
-      mockPrismaService.crew_member.findFirst.mockResolvedValue({ id: CREW_MEMBER_ID });
+      mockPrismaService.crew_member.findFirst.mockResolvedValue({
+        id: CREW_MEMBER_ID,
+      });
       mockPrismaService.project.findFirst.mockResolvedValue({ id: PROJECT_ID });
-      mockPrismaService.crew_hour_log.create.mockResolvedValue(mockHourLog({ hours_overtime: 0 }));
+      mockPrismaService.crew_hour_log.create.mockResolvedValue(
+        mockHourLog({ hours_overtime: 0 }),
+      );
 
       await service.logHours(TENANT_ID, USER_ID, {
         crew_member_id: CREW_MEMBER_ID,
@@ -166,9 +179,14 @@ describe('CrewHourLogService', () => {
       const updated = mockHourLog({ hours_regular: 10.0 });
       mockPrismaService.crew_hour_log.update.mockResolvedValue(updated);
 
-      const result = await service.updateHours(TENANT_ID, HOUR_LOG_ID, USER_ID, {
-        hours_regular: 10.0,
-      });
+      const result = await service.updateHours(
+        TENANT_ID,
+        HOUR_LOG_ID,
+        USER_ID,
+        {
+          hours_regular: 10.0,
+        },
+      );
 
       expect(mockPrismaService.crew_hour_log.update).toHaveBeenCalledWith({
         where: { id: HOUR_LOG_ID },
@@ -191,7 +209,9 @@ describe('CrewHourLogService', () => {
       mockPrismaService.crew_hour_log.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateHours(TENANT_ID, 'nonexistent', USER_ID, { hours_regular: 10 }),
+        service.updateHours(TENANT_ID, 'nonexistent', USER_ID, {
+          hours_regular: 10,
+        }),
       ).rejects.toThrow(NotFoundException);
 
       expect(mockPrismaService.crew_hour_log.update).not.toHaveBeenCalled();
@@ -200,7 +220,9 @@ describe('CrewHourLogService', () => {
 
   describe('listHours()', () => {
     it('should return paginated results with tenant_id filter', async () => {
-      mockPrismaService.crew_hour_log.findMany.mockResolvedValue([mockHourLog()]);
+      mockPrismaService.crew_hour_log.findMany.mockResolvedValue([
+        mockHourLog(),
+      ]);
       mockPrismaService.crew_hour_log.count.mockResolvedValue(1);
 
       const result = await service.listHours(TENANT_ID, { page: 1, limit: 20 });

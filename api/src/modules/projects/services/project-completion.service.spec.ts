@@ -196,12 +196,12 @@ describe('ProjectCompletionService', () => {
     it('should throw NotFoundException if project does not exist', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getCompletion(TENANT_A, PROJECT_ID),
-      ).rejects.toThrow(NotFoundException);
-      await expect(
-        service.getCompletion(TENANT_A, PROJECT_ID),
-      ).rejects.toThrow('Project not found');
+      await expect(service.getCompletion(TENANT_A, PROJECT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+      await expect(service.getCompletion(TENANT_A, PROJECT_ID)).rejects.toThrow(
+        'Project not found',
+      );
     });
 
     it('should throw NotFoundException if no checklist exists', async () => {
@@ -210,20 +210,20 @@ describe('ProjectCompletionService', () => {
         null,
       );
 
-      await expect(
-        service.getCompletion(TENANT_A, PROJECT_ID),
-      ).rejects.toThrow(NotFoundException);
-      await expect(
-        service.getCompletion(TENANT_A, PROJECT_ID),
-      ).rejects.toThrow('No completion checklist exists for this project');
+      await expect(service.getCompletion(TENANT_A, PROJECT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+      await expect(service.getCompletion(TENANT_A, PROJECT_ID)).rejects.toThrow(
+        'No completion checklist exists for this project',
+      );
     });
 
     it('should enforce tenant isolation on project lookup', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getCompletion(TENANT_B, PROJECT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getCompletion(TENANT_B, PROJECT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
 
       expect(mockPrismaService.project.findFirst).toHaveBeenCalledWith({
         where: { id: PROJECT_ID, tenant_id: TENANT_B },
@@ -470,22 +470,10 @@ describe('ProjectCompletionService', () => {
       );
 
       await expect(
-        service.completeItem(
-          TENANT_A,
-          PROJECT_ID,
-          'non-existent',
-          USER_ID,
-          {},
-        ),
+        service.completeItem(TENANT_A, PROJECT_ID, 'non-existent', USER_ID, {}),
       ).rejects.toThrow(NotFoundException);
       await expect(
-        service.completeItem(
-          TENANT_A,
-          PROJECT_ID,
-          'non-existent',
-          USER_ID,
-          {},
-        ),
+        service.completeItem(TENANT_A, PROJECT_ID, 'non-existent', USER_ID, {}),
       ).rejects.toThrow('Checklist item not found');
     });
 
@@ -935,9 +923,7 @@ describe('ProjectCompletionService', () => {
             is_completed: false,
           }),
         ],
-        punch_list_items: [
-          mockPunchListItem({ status: 'resolved' }),
-        ],
+        punch_list_items: [mockPunchListItem({ status: 'resolved' })],
       });
 
       mockPrismaService.project_completion_checklist.findFirst.mockResolvedValue(
@@ -945,7 +931,10 @@ describe('ProjectCompletionService', () => {
       );
 
       mockPrismaService.project.update.mockResolvedValue(
-        mockProject({ status: 'completed', actual_completion_date: new Date() }),
+        mockProject({
+          status: 'completed',
+          actual_completion_date: new Date(),
+        }),
       );
 
       const result = await service.completeProject(
@@ -1007,9 +996,7 @@ describe('ProjectCompletionService', () => {
       mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
 
       const checklist = mockChecklist({
-        items: [
-          mockChecklistItem({ is_required: true, is_completed: true }),
-        ],
+        items: [mockChecklistItem({ is_required: true, is_completed: true })],
         punch_list_items: [
           mockPunchListItem({
             id: 'punch-1',
@@ -1053,9 +1040,7 @@ describe('ProjectCompletionService', () => {
       mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
 
       const checklist = mockChecklist({
-        items: [
-          mockChecklistItem({ is_required: true, is_completed: true }),
-        ],
+        items: [mockChecklistItem({ is_required: true, is_completed: true })],
         punch_list_items: [],
       });
 
@@ -1087,9 +1072,9 @@ describe('ProjectCompletionService', () => {
     it('getCompletion should enforce tenant_id on project lookup', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getCompletion(TENANT_B, PROJECT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getCompletion(TENANT_B, PROJECT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
 
       expect(mockPrismaService.project.findFirst).toHaveBeenCalledWith({
         where: { id: PROJECT_ID, tenant_id: TENANT_B },
@@ -1131,7 +1116,13 @@ describe('ProjectCompletionService', () => {
       );
 
       await expect(
-        service.completeItem(TENANT_A, PROJECT_ID, 'item-uuid-001', USER_ID, {}),
+        service.completeItem(
+          TENANT_A,
+          PROJECT_ID,
+          'item-uuid-001',
+          USER_ID,
+          {},
+        ),
       ).rejects.toThrow(NotFoundException);
 
       expect(

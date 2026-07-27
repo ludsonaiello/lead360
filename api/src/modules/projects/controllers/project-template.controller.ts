@@ -34,14 +34,21 @@ import { UpdateProjectTemplateDto } from '../dto/update-project-template.dto';
 @Controller('project-templates')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ProjectTemplateController {
-  constructor(private readonly projectTemplateService: ProjectTemplateService) {}
+  constructor(
+    private readonly projectTemplateService: ProjectTemplateService,
+  ) {}
 
   @Post()
   @Roles('Owner', 'Admin')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a project template (optionally with tasks)' })
+  @ApiOperation({
+    summary: 'Create a project template (optionally with tasks)',
+  })
   @ApiResponse({ status: 201, description: 'Project template created' })
-  @ApiResponse({ status: 400, description: 'Validation error or invalid task dependencies' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or invalid task dependencies',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — role not allowed' })
   async create(
@@ -59,7 +66,10 @@ export class ProjectTemplateController {
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   @ApiQuery({ name: 'is_active', required: false, type: Boolean })
   @ApiQuery({ name: 'industry_type', required: false, type: String })
-  @ApiResponse({ status: 200, description: 'Paginated list of project templates' })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of project templates',
+  })
   async findAll(
     @TenantId() tenantId: string,
     @Query('page') page?: string,
@@ -90,10 +100,15 @@ export class ProjectTemplateController {
 
   @Patch(':id')
   @Roles('Owner', 'Admin')
-  @ApiOperation({ summary: 'Update project template (replaces tasks if provided)' })
+  @ApiOperation({
+    summary: 'Update project template (replaces tasks if provided)',
+  })
   @ApiParam({ name: 'id', description: 'Project template UUID' })
   @ApiResponse({ status: 200, description: 'Updated project template' })
-  @ApiResponse({ status: 400, description: 'Validation error or invalid task dependencies' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or invalid task dependencies',
+  })
   @ApiResponse({ status: 404, description: 'Project template not found' })
   async update(
     @TenantId() tenantId: string,
@@ -107,7 +122,9 @@ export class ProjectTemplateController {
   @Delete(':id')
   @Roles('Owner', 'Admin')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete project template (hard delete, cascades tasks)' })
+  @ApiOperation({
+    summary: 'Delete project template (hard delete, cascades tasks)',
+  })
   @ApiParam({ name: 'id', description: 'Project template UUID' })
   @ApiResponse({ status: 204, description: 'Project template deleted' })
   @ApiResponse({ status: 404, description: 'Project template not found' })

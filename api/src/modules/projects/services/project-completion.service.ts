@@ -25,21 +25,20 @@ export class ProjectCompletionService {
   async getCompletion(tenantId: string, projectId: string) {
     await this.ensureProjectExists(tenantId, projectId);
 
-    const checklist =
-      await this.prisma.project_completion_checklist.findFirst({
-        where: { tenant_id: tenantId, project_id: projectId },
-        include: {
-          items: { orderBy: { order_index: 'asc' } },
-          punch_list_items: {
-            orderBy: { created_at: 'asc' },
-            include: {
-              assigned_to_crew: {
-                select: { id: true, first_name: true, last_name: true },
-              },
+    const checklist = await this.prisma.project_completion_checklist.findFirst({
+      where: { tenant_id: tenantId, project_id: projectId },
+      include: {
+        items: { orderBy: { order_index: 'asc' } },
+        punch_list_items: {
+          orderBy: { created_at: 'asc' },
+          include: {
+            assigned_to_crew: {
+              select: { id: true, first_name: true, last_name: true },
             },
           },
         },
-      });
+      },
+    });
 
     if (!checklist) {
       throw new NotFoundException(
@@ -63,10 +62,9 @@ export class ProjectCompletionService {
     await this.ensureProjectExists(tenantId, projectId);
 
     // Business rule: one active checklist per project
-    const existing =
-      await this.prisma.project_completion_checklist.findFirst({
-        where: { tenant_id: tenantId, project_id: projectId },
-      });
+    const existing = await this.prisma.project_completion_checklist.findFirst({
+      where: { tenant_id: tenantId, project_id: projectId },
+    });
 
     if (existing) {
       throw new ConflictException(
@@ -168,29 +166,27 @@ export class ProjectCompletionService {
   ) {
     const checklist = await this.getChecklistForProject(tenantId, projectId);
 
-    const item =
-      await this.prisma.project_completion_checklist_item.findFirst({
-        where: {
-          id: itemId,
-          checklist_id: checklist.id,
-          tenant_id: tenantId,
-        },
-      });
+    const item = await this.prisma.project_completion_checklist_item.findFirst({
+      where: {
+        id: itemId,
+        checklist_id: checklist.id,
+        tenant_id: tenantId,
+      },
+    });
 
     if (!item) {
       throw new NotFoundException('Checklist item not found');
     }
 
-    const updated =
-      await this.prisma.project_completion_checklist_item.update({
-        where: { id: itemId },
-        data: {
-          is_completed: true,
-          completed_at: new Date(),
-          completed_by_user_id: userId,
-          notes: dto.notes !== undefined ? dto.notes : item.notes,
-        },
-      });
+    const updated = await this.prisma.project_completion_checklist_item.update({
+      where: { id: itemId },
+      data: {
+        is_completed: true,
+        completed_at: new Date(),
+        completed_by_user_id: userId,
+        notes: dto.notes !== undefined ? dto.notes : item.notes,
+      },
+    });
 
     await this.auditLoggerService.logTenantChange({
       action: 'updated',
@@ -370,14 +366,13 @@ export class ProjectCompletionService {
   async completeProject(tenantId: string, projectId: string, userId: string) {
     const project = await this.ensureProjectExists(tenantId, projectId);
 
-    const checklist =
-      await this.prisma.project_completion_checklist.findFirst({
-        where: { tenant_id: tenantId, project_id: projectId },
-        include: {
-          items: true,
-          punch_list_items: true,
-        },
-      });
+    const checklist = await this.prisma.project_completion_checklist.findFirst({
+      where: { tenant_id: tenantId, project_id: projectId },
+      include: {
+        items: true,
+        punch_list_items: true,
+      },
+    });
 
     if (!checklist) {
       throw new ConflictException(
@@ -454,16 +449,12 @@ export class ProjectCompletionService {
     return project;
   }
 
-  private async getChecklistForProject(
-    tenantId: string,
-    projectId: string,
-  ) {
+  private async getChecklistForProject(tenantId: string, projectId: string) {
     await this.ensureProjectExists(tenantId, projectId);
 
-    const checklist =
-      await this.prisma.project_completion_checklist.findFirst({
-        where: { tenant_id: tenantId, project_id: projectId },
-      });
+    const checklist = await this.prisma.project_completion_checklist.findFirst({
+      where: { tenant_id: tenantId, project_id: projectId },
+    });
 
     if (!checklist) {
       throw new NotFoundException(
@@ -493,14 +484,12 @@ export class ProjectCompletionService {
       });
 
     const allRequiredComplete =
-      requiredItems.length > 0 &&
-      requiredItems.every((i) => i.is_completed);
+      requiredItems.length > 0 && requiredItems.every((i) => i.is_completed);
 
-    const checklist =
-      await this.prisma.project_completion_checklist.findFirst({
-        where: { id: checklistId, tenant_id: tenantId },
-        select: { completed_at: true },
-      });
+    const checklist = await this.prisma.project_completion_checklist.findFirst({
+      where: { id: checklistId, tenant_id: tenantId },
+      select: { completed_at: true },
+    });
 
     if (allRequiredComplete && !checklist?.completed_at) {
       await this.prisma.project_completion_checklist.update({

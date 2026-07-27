@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { FinancialEntryService } from '../../financial/services/financial-entry.service';
 import { ReceiptService } from '../../financial/services/receipt.service';
@@ -99,11 +96,7 @@ export class TaskFinancialService {
    * List all receipts for a specific task within a project.
    * Validates task ownership first.
    */
-  async getTaskReceipts(
-    tenantId: string,
-    projectId: string,
-    taskId: string,
-  ) {
+  async getTaskReceipts(tenantId: string, projectId: string, taskId: string) {
     await this.validateTaskBelongsToProject(tenantId, projectId, taskId);
 
     return this.receiptService.getTaskReceipts(tenantId, taskId);

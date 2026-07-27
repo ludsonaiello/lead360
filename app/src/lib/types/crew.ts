@@ -117,6 +117,34 @@ export interface CrewMemberFilters {
   search?: string;
 }
 
+// ========== HARD DELETE ==========
+
+export interface CrewDeleteImpact {
+  payment_records: number;
+  hour_logs: number;
+  financial_entries_set_null: number;
+  financial_entries_purchased_by_set_null: number;
+  task_assignments_set_null: number;
+  punch_list_assignments_set_null: number;
+  employee_profiles_decoupled: number;
+  has_profile_photo: boolean;
+}
+
+export interface CrewDeletePreview {
+  crew_member: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    is_active: boolean;
+  };
+  impact: CrewDeleteImpact;
+}
+
+export interface CrewHardDeleteResponse {
+  message: string;
+  impact: CrewDeleteImpact;
+}
+
 // ========== CREW HOURS SUMMARY ==========
 
 export interface CrewHoursSummary {

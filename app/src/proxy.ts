@@ -17,6 +17,7 @@ const publicRoutes = [
   '/public/share', // Public share links (no auth required)
   '/public/quotes', // Public quote viewer (no auth required)
   '/webhooks', // All webhook endpoints (called by external services like Twilio)
+  '/kiosk', // Kiosk mode — uses X-Kiosk-Token, not JWT
 ];
 
 // Routes that should redirect to dashboard if authenticated

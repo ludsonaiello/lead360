@@ -33,9 +33,7 @@ export class TaskDelayCheckProcessor extends WorkerHost {
     private readonly insuranceExpiryCheck: InsuranceExpiryCheckProcessor,
   ) {
     super();
-    this.logger.log(
-      'TaskDelayCheckProcessor worker initialized and ready',
-    );
+    this.logger.log('TaskDelayCheckProcessor worker initialized and ready');
   }
 
   async process(job: Job): Promise<any> {
@@ -45,9 +43,7 @@ export class TaskDelayCheckProcessor extends WorkerHost {
     // Job-name routing (Sprint 33) — single worker, multiple job types
     // -----------------------------------------------------------------------
     if (job.name === 'subcontractor-insurance-check') {
-      this.logger.log(
-        `Processing insurance expiry check job ${jobId}`,
-      );
+      this.logger.log(`Processing insurance expiry check job ${jobId}`);
       try {
         const results = await this.insuranceExpiryCheck.execute();
         this.logger.log(

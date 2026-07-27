@@ -37,7 +37,9 @@ export class TokenBlocklistService {
    */
   async blockUserTokens(userId: string): Promise<void> {
     // CacheService auto-deserializes: get the typed object directly
-    const record = await this.cache.get<ActiveTokenRecord>(`${this.TRACK_PREFIX}:${userId}`);
+    const record = await this.cache.get<ActiveTokenRecord>(
+      `${this.TRACK_PREFIX}:${userId}`,
+    );
     if (!record) return; // user has no active tracked token — nothing to block
 
     const remaining = record.exp - Math.floor(Date.now() / 1000);

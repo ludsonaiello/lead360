@@ -81,10 +81,19 @@ describe('CrewPaymentService', () => {
     };
 
     it('should create a payment record and call audit log', async () => {
-      mockPrismaService.crew_member.findFirst.mockResolvedValue(mockCrewMember());
-      mockPrismaService.crew_payment_record.create.mockResolvedValue(mockPaymentRecord());
+      mockPrismaService.crew_member.findFirst.mockResolvedValue(
+        mockCrewMember(),
+      );
+      mockPrismaService.crew_payment_record.create.mockResolvedValue(
+        mockPaymentRecord(),
+      );
 
-      const result = await service.createPayment(TENANT_ID, USER_ID, CREW_MEMBER_ID, dto as any);
+      const result = await service.createPayment(
+        TENANT_ID,
+        USER_ID,
+        CREW_MEMBER_ID,
+        dto as any,
+      );
 
       expect(mockPrismaService.crew_member.findFirst).toHaveBeenCalledWith({
         where: { id: CREW_MEMBER_ID, tenant_id: TENANT_ID },
@@ -119,11 +128,15 @@ describe('CrewPaymentService', () => {
         service.createPayment(TENANT_ID, USER_ID, CREW_MEMBER_ID, dto as any),
       ).rejects.toThrow(NotFoundException);
 
-      expect(mockPrismaService.crew_payment_record.create).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.crew_payment_record.create,
+      ).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException when payment_date is in the future', async () => {
-      mockPrismaService.crew_member.findFirst.mockResolvedValue(mockCrewMember());
+      mockPrismaService.crew_member.findFirst.mockResolvedValue(
+        mockCrewMember(),
+      );
 
       const futureDate = new Date();
       futureDate.setFullYear(futureDate.getFullYear() + 1);
@@ -136,11 +149,15 @@ describe('CrewPaymentService', () => {
         } as any),
       ).rejects.toThrow(BadRequestException);
 
-      expect(mockPrismaService.crew_payment_record.create).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.crew_payment_record.create,
+      ).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException when period_start_date is after period_end_date', async () => {
-      mockPrismaService.crew_member.findFirst.mockResolvedValue(mockCrewMember());
+      mockPrismaService.crew_member.findFirst.mockResolvedValue(
+        mockCrewMember(),
+      );
 
       await expect(
         service.createPayment(TENANT_ID, USER_ID, CREW_MEMBER_ID, {
@@ -155,15 +172,23 @@ describe('CrewPaymentService', () => {
   describe('getPaymentHistory()', () => {
     it('should return paginated results with tenant_id and crew_member_id filter', async () => {
       const payments = [mockPaymentRecord()];
-      mockPrismaService.crew_payment_record.findMany.mockResolvedValue(payments);
+      mockPrismaService.crew_payment_record.findMany.mockResolvedValue(
+        payments,
+      );
       mockPrismaService.crew_payment_record.count.mockResolvedValue(1);
 
-      const result = await service.getPaymentHistory(TENANT_ID, CREW_MEMBER_ID, {
-        page: 1,
-        limit: 20,
-      });
+      const result = await service.getPaymentHistory(
+        TENANT_ID,
+        CREW_MEMBER_ID,
+        {
+          page: 1,
+          limit: 20,
+        },
+      );
 
-      expect(mockPrismaService.crew_payment_record.findMany).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.crew_payment_record.findMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             tenant_id: TENANT_ID,
@@ -184,7 +209,9 @@ describe('CrewPaymentService', () => {
         project_id: PROJECT_ID,
       });
 
-      expect(mockPrismaService.crew_payment_record.findMany).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.crew_payment_record.findMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             project_id: PROJECT_ID,
@@ -199,9 +226,14 @@ describe('CrewPaymentService', () => {
       mockPrismaService.crew_payment_record.findMany.mockResolvedValue([]);
       mockPrismaService.crew_payment_record.count.mockResolvedValue(0);
 
-      const result = await service.listPayments(TENANT_ID, { page: 1, limit: 20 });
+      const result = await service.listPayments(TENANT_ID, {
+        page: 1,
+        limit: 20,
+      });
 
-      expect(mockPrismaService.crew_payment_record.findMany).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.crew_payment_record.findMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ tenant_id: TENANT_ID }),
         }),
@@ -216,9 +248,9 @@ describe('CrewPaymentService', () => {
 
       await service.listPayments(TENANT_ID, { limit: 500 });
 
-      expect(mockPrismaService.crew_payment_record.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ take: 100 }),
-      );
+      expect(
+        mockPrismaService.crew_payment_record.findMany,
+      ).toHaveBeenCalledWith(expect.objectContaining({ take: 100 }));
     });
   });
 
@@ -231,7 +263,9 @@ describe('CrewPaymentService', () => {
 
       const result = await service.getTotalPaid(TENANT_ID, CREW_MEMBER_ID);
 
-      expect(mockPrismaService.crew_payment_record.aggregate).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.crew_payment_record.aggregate,
+      ).toHaveBeenCalledWith({
         where: { tenant_id: TENANT_ID, crew_member_id: CREW_MEMBER_ID },
         _sum: { amount: true },
         _count: true,

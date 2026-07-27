@@ -84,10 +84,12 @@ export function RBACProvider({ children }: RBACProviderProps) {
     setError(null);
 
     try {
-      // Fetch roles and permissions in parallel
+      // Fetch roles and permissions in parallel.
+      // Use the /me endpoints — getUserRoles(:userId) is gated by Owner/Admin,
+      // which would 403 for any other role and lock the user out of the UI.
       const [rolesResponse, permissionsResponse] = await Promise.all([
-        rbacApi.getUserRoles(user.id),
-        rbacApi.getUserPermissions(user.id),
+        rbacApi.getMyRoles(),
+        rbacApi.getMyPermissions(),
       ]);
 
       // API returns array of UserRole objects directly (not wrapped)

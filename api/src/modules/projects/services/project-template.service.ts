@@ -70,7 +70,11 @@ export class ProjectTemplateService {
       entityId: result.id,
       tenantId,
       actorUserId: userId,
-      after: { id: result.id, name: result.name, task_count: result.tasks.length },
+      after: {
+        id: result.id,
+        name: result.name,
+        task_count: result.tasks.length,
+      },
       description: `Created project template: ${result.name}`,
     });
 
@@ -176,8 +180,10 @@ export class ProjectTemplateService {
       // Build update data from only provided fields (excluding tasks)
       const updateData: any = {};
       if (dto.name !== undefined) updateData.name = dto.name;
-      if (dto.description !== undefined) updateData.description = dto.description;
-      if (dto.industry_type !== undefined) updateData.industry_type = dto.industry_type;
+      if (dto.description !== undefined)
+        updateData.description = dto.description;
+      if (dto.industry_type !== undefined)
+        updateData.industry_type = dto.industry_type;
       if (dto.is_active !== undefined) updateData.is_active = dto.is_active;
 
       await tx.project_template.update({
@@ -223,8 +229,16 @@ export class ProjectTemplateService {
       entityId: id,
       tenantId,
       actorUserId: userId,
-      before: { name: existing.name, is_active: existing.is_active, task_count: existing.tasks.length },
-      after: { name: result.name, is_active: result.is_active, task_count: result.tasks.length },
+      before: {
+        name: existing.name,
+        is_active: existing.is_active,
+        task_count: existing.tasks.length,
+      },
+      after: {
+        name: result.name,
+        is_active: result.is_active,
+        task_count: result.tasks.length,
+      },
       description: `Updated project template: ${result.name}`,
     });
 
@@ -274,11 +288,16 @@ export class ProjectTemplateService {
 
     // Check for duplicate order_index values
     if (orderIndexes.size !== tasks.length) {
-      throw new BadRequestException('Duplicate order_index values found in tasks');
+      throw new BadRequestException(
+        'Duplicate order_index values found in tasks',
+      );
     }
 
     for (const task of tasks) {
-      if (task.depends_on_order_index !== undefined && task.depends_on_order_index !== null) {
+      if (
+        task.depends_on_order_index !== undefined &&
+        task.depends_on_order_index !== null
+      ) {
         if (!orderIndexes.has(task.depends_on_order_index)) {
           throw new BadRequestException(
             `Task at order_index ${task.order_index} references depends_on_order_index ${task.depends_on_order_index} which does not exist in the task list`,
@@ -295,7 +314,10 @@ export class ProjectTemplateService {
     // Detect circular dependencies via DFS cycle detection
     const depMap = new Map<number, number>();
     for (const task of tasks) {
-      if (task.depends_on_order_index !== undefined && task.depends_on_order_index !== null) {
+      if (
+        task.depends_on_order_index !== undefined &&
+        task.depends_on_order_index !== null
+      ) {
         depMap.set(task.order_index, task.depends_on_order_index);
       }
     }

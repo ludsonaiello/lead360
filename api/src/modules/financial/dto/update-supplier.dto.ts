@@ -5,7 +5,8 @@ import { CreateSupplierDto } from './create-supplier.dto';
 
 export class UpdateSupplierDto extends PartialType(CreateSupplierDto) {
   @ApiPropertyOptional({
-    description: 'Active status — deactivating hides from supplier picker but preserves historical references',
+    description:
+      'Active status — deactivating hides from supplier picker but preserves historical references',
     example: true,
   })
   @IsBoolean()

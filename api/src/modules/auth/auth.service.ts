@@ -312,7 +312,11 @@ export class AuthService {
 
     // Generate tokens using membership-resolved data
     const { accessToken, refreshToken, expiresIn } = await this.generateTokens(
-      { id: user.id, email: user.email, is_platform_admin: user.is_platform_admin },
+      {
+        id: user.id,
+        email: user.email,
+        is_platform_admin: user.is_platform_admin,
+      },
       roles,
       loginDto.remember_me || false,
       resolvedMembershipId,
@@ -732,7 +736,8 @@ export class AuthService {
         deleted_at: null,
       },
       include: {
-        user_role_user_role_user_idTouser: {
+        memberships: {
+          where: { status: 'ACTIVE' },
           include: {
             role: true,
           },
@@ -744,9 +749,7 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
-    const roles = user.user_role_user_role_user_idTouser.map(
-      (ur) => ur.role.name,
-    );
+    const roles = user.memberships.map((m) => m.role.name);
 
     // Resolve tenant from active membership (user no longer has tenant_id)
     const profileTenantId = await this.resolveUserTenantId(userId);

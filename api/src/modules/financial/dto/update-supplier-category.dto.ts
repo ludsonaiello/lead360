@@ -35,12 +35,14 @@ export class UpdateSupplierCategoryDto {
   @IsString()
   @IsOptional()
   @Matches(/^#[0-9A-Fa-f]{6}$/, {
-    message: 'Color must be a valid hex color in #RRGGBB format (e.g., #3B82F6)',
+    message:
+      'Color must be a valid hex color in #RRGGBB format (e.g., #3B82F6)',
   })
   color?: string;
 
   @ApiPropertyOptional({
-    description: 'Active status — deactivating hides from category picker but preserves assignments',
+    description:
+      'Active status — deactivating hides from category picker but preserves assignments',
     example: true,
   })
   @IsBoolean()

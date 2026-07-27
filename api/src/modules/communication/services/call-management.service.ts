@@ -667,8 +667,7 @@ export class CallManagementService {
       // Auto-queue transcription job (only for IVR calls without AI handling)
       // Voice AI calls already have real-time transcription via STT
       const isAiHandled =
-        isVoiceAiCall ||
-        (call_record as any)?.handled_by === 'voice_ai';
+        isVoiceAiCall || (call_record as any)?.handled_by === 'voice_ai';
       if (this.transcriptionJobService && !isAiHandled) {
         try {
           await this.transcriptionJobService.queueTranscription(callRecord.id);

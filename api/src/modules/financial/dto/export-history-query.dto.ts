@@ -1,21 +1,29 @@
-import {
-  IsOptional,
-  IsString,
-  IsIn,
-  Min,
-  Max,
-} from 'class-validator';
+import { IsOptional, IsString, IsIn, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ExportHistoryQueryDto {
   @ApiPropertyOptional({
     description: 'Filter by export type',
-    enum: ['quickbooks_expenses', 'quickbooks_invoices', 'xero_expenses', 'xero_invoices', 'pl_csv', 'entries_csv'],
+    enum: [
+      'quickbooks_expenses',
+      'quickbooks_invoices',
+      'xero_expenses',
+      'xero_invoices',
+      'pl_csv',
+      'entries_csv',
+    ],
   })
   @IsOptional()
   @IsString()
-  @IsIn(['quickbooks_expenses', 'quickbooks_invoices', 'xero_expenses', 'xero_invoices', 'pl_csv', 'entries_csv'])
+  @IsIn([
+    'quickbooks_expenses',
+    'quickbooks_invoices',
+    'xero_expenses',
+    'xero_invoices',
+    'pl_csv',
+    'entries_csv',
+  ])
   export_type?: string;
 
   @ApiPropertyOptional({

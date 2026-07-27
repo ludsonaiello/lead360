@@ -74,12 +74,14 @@ describe('ProjectDashboardService', () => {
       countSpy.mockResolvedValueOnce(3); // overdue_tasks_count
 
       // Projects with delays (groupBy returns array of groups)
-      jest.spyOn(prisma.project_task, 'groupBy').mockResolvedValue([
-        { project_id: 'proj-1' },
-        { project_id: 'proj-2' },
-        { project_id: 'proj-3' },
-        { project_id: 'proj-4' },
-      ] as any);
+      jest
+        .spyOn(prisma.project_task, 'groupBy')
+        .mockResolvedValue([
+          { project_id: 'proj-1' },
+          { project_id: 'proj-2' },
+          { project_id: 'proj-3' },
+          { project_id: 'proj-4' },
+        ] as any);
 
       // Upcoming deadlines
       jest.spyOn(prisma.project, 'findMany').mockResolvedValue([
@@ -91,19 +93,21 @@ describe('ProjectDashboardService', () => {
       ] as any);
 
       // Recent activity
-      jest
-        .spyOn(activityService, 'getTenantRecentActivity')
-        .mockResolvedValue([
-          {
-            activity_type: 'task_completed',
-            project_id: 'proj-1',
-            project: { id: 'proj-1', name: 'Kitchen Remodel', project_number: 'PRJ-0001' },
-            description: 'Completed task: Install countertops',
-            user_id: 'user-1',
-            user: { id: 'user-1', first_name: 'John', last_name: 'Smith' },
-            created_at: new Date('2026-03-16T10:30:00.000Z'),
+      jest.spyOn(activityService, 'getTenantRecentActivity').mockResolvedValue([
+        {
+          activity_type: 'task_completed',
+          project_id: 'proj-1',
+          project: {
+            id: 'proj-1',
+            name: 'Kitchen Remodel',
+            project_number: 'PRJ-0001',
           },
-        ]);
+          description: 'Completed task: Install countertops',
+          user_id: 'user-1',
+          user: { id: 'user-1', first_name: 'John', last_name: 'Smith' },
+          created_at: new Date('2026-03-16T10:30:00.000Z'),
+        },
+      ]);
     };
 
     it('should return complete dashboard data with correct structure', async () => {
@@ -267,25 +271,29 @@ describe('ProjectDashboardService', () => {
 
     it('should format recent activity with flattened user/project names', async () => {
       jest.spyOn(prisma.project, 'count').mockResolvedValue(1);
-      jest.spyOn(prisma.project, 'groupBy').mockResolvedValue([
-        { status: 'in_progress', _count: { id: 1 } },
-      ] as any);
+      jest
+        .spyOn(prisma.project, 'groupBy')
+        .mockResolvedValue([
+          { status: 'in_progress', _count: { id: 1 } },
+        ] as any);
       jest.spyOn(prisma.project_task, 'count').mockResolvedValue(0);
       jest.spyOn(prisma.project_task, 'groupBy').mockResolvedValue([] as any);
       jest.spyOn(prisma.project, 'findMany').mockResolvedValue([]);
-      jest
-        .spyOn(activityService, 'getTenantRecentActivity')
-        .mockResolvedValue([
-          {
-            activity_type: 'log_added',
-            project_id: 'proj-1',
-            project: { id: 'proj-1', name: 'Bathroom Reno', project_number: 'PRJ-0002' },
-            description: 'Added project log entry',
-            user_id: null,
-            user: null,
-            created_at: new Date('2026-03-16T08:00:00.000Z'),
+      jest.spyOn(activityService, 'getTenantRecentActivity').mockResolvedValue([
+        {
+          activity_type: 'log_added',
+          project_id: 'proj-1',
+          project: {
+            id: 'proj-1',
+            name: 'Bathroom Reno',
+            project_number: 'PRJ-0002',
           },
-        ]);
+          description: 'Added project log entry',
+          user_id: null,
+          user: null,
+          created_at: new Date('2026-03-16T08:00:00.000Z'),
+        },
+      ]);
 
       const result = await service.getDashboardData(TENANT_A, {});
 
@@ -305,9 +313,11 @@ describe('ProjectDashboardService', () => {
       targetDate.setDate(targetDate.getDate() + 10);
 
       jest.spyOn(prisma.project, 'count').mockResolvedValue(1);
-      jest.spyOn(prisma.project, 'groupBy').mockResolvedValue([
-        { status: 'in_progress', _count: { id: 1 } },
-      ] as any);
+      jest
+        .spyOn(prisma.project, 'groupBy')
+        .mockResolvedValue([
+          { status: 'in_progress', _count: { id: 1 } },
+        ] as any);
       jest.spyOn(prisma.project_task, 'count').mockResolvedValue(0);
       jest.spyOn(prisma.project_task, 'groupBy').mockResolvedValue([] as any);
       jest.spyOn(prisma.project, 'findMany').mockResolvedValue([
@@ -324,8 +334,12 @@ describe('ProjectDashboardService', () => {
       const result = await service.getDashboardData(TENANT_A, {});
 
       // days_remaining should be approximately 10 (±1 due to time-of-day rounding)
-      expect(result.upcoming_deadlines[0].days_remaining).toBeGreaterThanOrEqual(9);
-      expect(result.upcoming_deadlines[0].days_remaining).toBeLessThanOrEqual(11);
+      expect(
+        result.upcoming_deadlines[0].days_remaining,
+      ).toBeGreaterThanOrEqual(9);
+      expect(result.upcoming_deadlines[0].days_remaining).toBeLessThanOrEqual(
+        11,
+      );
     });
   });
 
@@ -346,13 +360,19 @@ describe('ProjectDashboardService', () => {
           actual_completion_date: null,
           contract_value: 25000,
           progress_percent: 45,
-          assigned_pm_user: { id: PM_USER_ID, first_name: 'Jane', last_name: 'Doe' },
+          assigned_pm_user: {
+            id: PM_USER_ID,
+            first_name: 'Jane',
+            last_name: 'Doe',
+          },
           lead: { id: 'lead-1', first_name: 'John', last_name: 'Smith' },
           _count: { tasks: 12 },
         },
       ];
 
-      jest.spyOn(prisma.project, 'findMany').mockResolvedValue(mockProjects as any);
+      jest
+        .spyOn(prisma.project, 'findMany')
+        .mockResolvedValue(mockProjects as any);
       jest.spyOn(prisma.project, 'count').mockResolvedValue(1);
 
       // completed tasks groupBy
@@ -576,7 +596,9 @@ describe('ProjectDashboardService', () => {
       jest.spyOn(prisma.project_task, 'count').mockResolvedValue(0);
       jest.spyOn(prisma.project_task, 'groupBy').mockResolvedValue([] as any);
       jest.spyOn(prisma.project, 'findMany').mockResolvedValue([]);
-      jest.spyOn(activityService, 'getTenantRecentActivity').mockResolvedValue([]);
+      jest
+        .spyOn(activityService, 'getTenantRecentActivity')
+        .mockResolvedValue([]);
 
       await service.getDashboardData(TENANT_A, {});
 
@@ -586,13 +608,15 @@ describe('ProjectDashboardService', () => {
         expect(args.where.tenant_id).toBe(TENANT_A);
       }
 
-      const projectGroupByCalls = (prisma.project.groupBy as jest.Mock).mock.calls;
+      const projectGroupByCalls = (prisma.project.groupBy as jest.Mock).mock
+        .calls;
       for (const [args] of projectGroupByCalls) {
         expect(args.where.tenant_id).toBe(TENANT_A);
       }
 
       // Every task query must have tenant_id
-      const taskCountCalls = (prisma.project_task.count as jest.Mock).mock.calls;
+      const taskCountCalls = (prisma.project_task.count as jest.Mock).mock
+        .calls;
       for (const [args] of taskCountCalls) {
         expect(args.where.tenant_id).toBe(TENANT_A);
       }

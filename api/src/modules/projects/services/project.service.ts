@@ -34,9 +34,12 @@ function normalizeProjectDecimals(project: any) {
   if (!project) return project;
   return {
     ...project,
-    contract_value: project.contract_value != null ? Number(project.contract_value) : null,
-    estimated_cost: project.estimated_cost != null ? Number(project.estimated_cost) : null,
-    progress_percent: project.progress_percent != null ? Number(project.progress_percent) : 0,
+    contract_value:
+      project.contract_value != null ? Number(project.contract_value) : null,
+    estimated_cost:
+      project.estimated_cost != null ? Number(project.estimated_cost) : null,
+    progress_percent:
+      project.progress_percent != null ? Number(project.progress_percent) : 0,
   };
 }
 
@@ -421,14 +424,16 @@ export class ProjectService {
       completedCounts.map((c) => [c.project_id, c._count.id]),
     );
 
-    const data = projects.map((project) => normalizeProjectDecimals({
-      ...project,
-      assigned_pm: project.assigned_pm_user,
-      assigned_pm_user: undefined,
-      task_count: project._count.tasks,
-      completed_task_count: completedMap.get(project.id) || 0,
-      _count: undefined,
-    }));
+    const data = projects.map((project) =>
+      normalizeProjectDecimals({
+        ...project,
+        assigned_pm: project.assigned_pm_user,
+        assigned_pm_user: undefined,
+        task_count: project._count.tasks,
+        completed_task_count: completedMap.get(project.id) || 0,
+        _count: undefined,
+      }),
+    );
 
     return {
       data,
@@ -693,12 +698,10 @@ export class ProjectService {
     // costSummary already contains project_id — destructure to avoid duplication
     const { project_id: _pid, ...costBreakdown } = costSummary;
 
-    const contractValue = project.contract_value != null
-      ? Number(project.contract_value)
-      : null;
-    const estimatedCost = project.estimated_cost != null
-      ? Number(project.estimated_cost)
-      : null;
+    const contractValue =
+      project.contract_value != null ? Number(project.contract_value) : null;
+    const estimatedCost =
+      project.estimated_cost != null ? Number(project.estimated_cost) : null;
     const totalActualCost = costBreakdown.total_actual_cost;
 
     // Margin calculations — null when contract_value is not set (e.g. standalone projects)
@@ -787,9 +790,7 @@ export class ProjectService {
     ]);
 
     const progressPercent =
-      totalTasks > 0
-        ? Math.round((doneTasks / totalTasks) * 10000) / 100
-        : 0;
+      totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 10000) / 100 : 0;
 
     // Use updateMany with tenant_id to enforce tenant isolation
     const result = await this.prisma.project.updateMany({
@@ -900,9 +901,7 @@ export class ProjectService {
       for (const templateTask of template.tasks) {
         if (templateTask.depends_on_order_index == null) continue;
 
-        const currentTaskId = orderIndexToTaskId.get(
-          templateTask.order_index,
-        );
+        const currentTaskId = orderIndexToTaskId.get(templateTask.order_index);
         const prerequisiteTaskId = orderIndexToTaskId.get(
           templateTask.depends_on_order_index,
         );

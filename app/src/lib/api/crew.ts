@@ -13,6 +13,8 @@ import type {
   RevealableCrewField,
   RevealFieldResponse,
   CrewHoursSummary,
+  CrewDeletePreview,
+  CrewHardDeleteResponse,
 } from '@/lib/types/crew';
 
 // ========== CREW MEMBER CRUD ==========
@@ -70,6 +72,37 @@ export const updateCrewMember = async (id: string, dto: UpdateCrewMemberDto): Pr
  */
 export const deactivateCrewMember = async (id: string): Promise<{ message: string }> => {
   const { data } = await apiClient.delete<{ message: string }>(`/crew/${id}`);
+  return data;
+};
+
+/**
+ * Preview the impact of permanently deleting a crew member.
+ * @endpoint GET /crew/:id/delete-preview
+ * @roles Owner
+ */
+export const getCrewMemberDeletePreview = async (
+  id: string,
+): Promise<CrewDeletePreview> => {
+  const { data } = await apiClient.get<CrewDeletePreview>(
+    `/crew/${id}/delete-preview`,
+  );
+  return data;
+};
+
+/**
+ * Permanently delete a crew member (cascade). Requires the caller to retype
+ * the crew member's full name as confirmation.
+ * @endpoint DELETE /crew/:id/hard
+ * @roles Owner
+ */
+export const hardDeleteCrewMember = async (
+  id: string,
+  confirmName: string,
+): Promise<CrewHardDeleteResponse> => {
+  const { data } = await apiClient.delete<CrewHardDeleteResponse>(
+    `/crew/${id}/hard`,
+    { data: { confirm_name: confirmName } },
+  );
   return data;
 };
 

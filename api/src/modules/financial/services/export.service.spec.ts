@@ -100,43 +100,63 @@ describe('ExportService', () => {
   // ==========================================================================
   describe('formatDateQB', () => {
     it('should format 2026-01-15 as 01/15/2026', () => {
-      expect((service as any).formatDateQB(new Date('2026-01-15'))).toBe('01/15/2026');
+      expect((service as any).formatDateQB(new Date('2026-01-15'))).toBe(
+        '01/15/2026',
+      );
     });
 
     it('should format 2026-12-31 as 12/31/2026', () => {
-      expect((service as any).formatDateQB(new Date('2026-12-31'))).toBe('12/31/2026');
+      expect((service as any).formatDateQB(new Date('2026-12-31'))).toBe(
+        '12/31/2026',
+      );
     });
 
     it('should format 2026-03-05 as 03/05/2026', () => {
-      expect((service as any).formatDateQB(new Date('2026-03-05'))).toBe('03/05/2026');
+      expect((service as any).formatDateQB(new Date('2026-03-05'))).toBe(
+        '03/05/2026',
+      );
     });
 
     it('should format 2026-02-28 as 02/28/2026', () => {
-      expect((service as any).formatDateQB(new Date('2026-02-28'))).toBe('02/28/2026');
+      expect((service as any).formatDateQB(new Date('2026-02-28'))).toBe(
+        '02/28/2026',
+      );
     });
 
     it('should zero-pad single-digit month/day: 2026-09-09 as 09/09/2026', () => {
-      expect((service as any).formatDateQB(new Date('2026-09-09'))).toBe('09/09/2026');
+      expect((service as any).formatDateQB(new Date('2026-09-09'))).toBe(
+        '09/09/2026',
+      );
     });
 
     it('should format 2026-07-04 as 07/04/2026', () => {
-      expect((service as any).formatDateQB(new Date('2026-07-04'))).toBe('07/04/2026');
+      expect((service as any).formatDateQB(new Date('2026-07-04'))).toBe(
+        '07/04/2026',
+      );
     });
 
     it('should format 2026-11-25 as 11/25/2026', () => {
-      expect((service as any).formatDateQB(new Date('2026-11-25'))).toBe('11/25/2026');
+      expect((service as any).formatDateQB(new Date('2026-11-25'))).toBe(
+        '11/25/2026',
+      );
     });
 
     it('should format 2025-01-01 as 01/01/2025', () => {
-      expect((service as any).formatDateQB(new Date('2025-01-01'))).toBe('01/01/2025');
+      expect((service as any).formatDateQB(new Date('2025-01-01'))).toBe(
+        '01/01/2025',
+      );
     });
 
     it('should format 2026-06-30 as 06/30/2026', () => {
-      expect((service as any).formatDateQB(new Date('2026-06-30'))).toBe('06/30/2026');
+      expect((service as any).formatDateQB(new Date('2026-06-30'))).toBe(
+        '06/30/2026',
+      );
     });
 
     it('should format 2026-10-31 as 10/31/2026', () => {
-      expect((service as any).formatDateQB(new Date('2026-10-31'))).toBe('10/31/2026');
+      expect((service as any).formatDateQB(new Date('2026-10-31'))).toBe(
+        '10/31/2026',
+      );
     });
   });
 
@@ -145,43 +165,63 @@ describe('ExportService', () => {
   // ==========================================================================
   describe('formatDateXero', () => {
     it('should format 2026-01-15 as 15/01/2026', () => {
-      expect((service as any).formatDateXero(new Date('2026-01-15'))).toBe('15/01/2026');
+      expect((service as any).formatDateXero(new Date('2026-01-15'))).toBe(
+        '15/01/2026',
+      );
     });
 
     it('should format 2026-12-31 as 31/12/2026', () => {
-      expect((service as any).formatDateXero(new Date('2026-12-31'))).toBe('31/12/2026');
+      expect((service as any).formatDateXero(new Date('2026-12-31'))).toBe(
+        '31/12/2026',
+      );
     });
 
     it('should format 2026-03-05 as 05/03/2026', () => {
-      expect((service as any).formatDateXero(new Date('2026-03-05'))).toBe('05/03/2026');
+      expect((service as any).formatDateXero(new Date('2026-03-05'))).toBe(
+        '05/03/2026',
+      );
     });
 
     it('should format 2026-02-28 as 28/02/2026', () => {
-      expect((service as any).formatDateXero(new Date('2026-02-28'))).toBe('28/02/2026');
+      expect((service as any).formatDateXero(new Date('2026-02-28'))).toBe(
+        '28/02/2026',
+      );
     });
 
     it('should zero-pad single-digit month/day: 2026-09-09 as 09/09/2026', () => {
-      expect((service as any).formatDateXero(new Date('2026-09-09'))).toBe('09/09/2026');
+      expect((service as any).formatDateXero(new Date('2026-09-09'))).toBe(
+        '09/09/2026',
+      );
     });
 
     it('should format 2026-07-04 as 04/07/2026', () => {
-      expect((service as any).formatDateXero(new Date('2026-07-04'))).toBe('04/07/2026');
+      expect((service as any).formatDateXero(new Date('2026-07-04'))).toBe(
+        '04/07/2026',
+      );
     });
 
     it('should format 2026-11-25 as 25/11/2026', () => {
-      expect((service as any).formatDateXero(new Date('2026-11-25'))).toBe('25/11/2026');
+      expect((service as any).formatDateXero(new Date('2026-11-25'))).toBe(
+        '25/11/2026',
+      );
     });
 
     it('should format 2025-01-01 as 01/01/2025', () => {
-      expect((service as any).formatDateXero(new Date('2025-01-01'))).toBe('01/01/2025');
+      expect((service as any).formatDateXero(new Date('2025-01-01'))).toBe(
+        '01/01/2025',
+      );
     });
 
     it('should format 2026-06-30 as 30/06/2026', () => {
-      expect((service as any).formatDateXero(new Date('2026-06-30'))).toBe('30/06/2026');
+      expect((service as any).formatDateXero(new Date('2026-06-30'))).toBe(
+        '30/06/2026',
+      );
     });
 
     it('should format 2026-10-31 as 31/10/2026', () => {
-      expect((service as any).formatDateXero(new Date('2026-10-31'))).toBe('31/10/2026');
+      expect((service as any).formatDateXero(new Date('2026-10-31'))).toBe(
+        '31/10/2026',
+      );
     });
   });
 
@@ -198,7 +238,9 @@ describe('ExportService', () => {
     });
 
     it('should return plain string when no special characters', () => {
-      expect((service as any).escapeCsvField('Hello World')).toBe('Hello World');
+      expect((service as any).escapeCsvField('Hello World')).toBe(
+        'Hello World',
+      );
     });
 
     it('should wrap in quotes when comma present', () => {
@@ -590,7 +632,9 @@ describe('ExportService', () => {
     });
 
     it('should map all 10 QB columns correctly in a single row', async () => {
-      mockPrisma.financial_category_account_mapping.findMany.mockResolvedValue([]);
+      mockPrisma.financial_category_account_mapping.findMany.mockResolvedValue(
+        [],
+      );
       mockPrisma.financial_entry.findMany.mockResolvedValue([
         {
           id: 'entry-full',
@@ -620,16 +664,16 @@ describe('ExportService', () => {
       );
 
       const row = lines[1].split(',');
-      expect(row[0]).toBe('03/15/2026');          // Date: MM/DD/YYYY
-      expect(row[1]).toBe('Lumber for deck');      // Description: from notes
-      expect(row[2]).toBe('250.75');               // Amount: positive
-      expect(row[3]).toBe('Materials - General');   // Account: fallback to category name
-      expect(row[4]).toBe('Home Depot');            // Name: supplier name
-      expect(row[5]).toBe('Smith Residence');       // Class: project name
-      expect(row[6]).toBe('Lumber for deck');       // Memo: from notes
-      expect(row[7]).toBe('Credit Card');           // Payment Method: translated
-      expect(row[8]).toBe('');                      // Check No: always empty
-      expect(row[9]).toBe('20.06');                 // Tax Amount
+      expect(row[0]).toBe('03/15/2026'); // Date: MM/DD/YYYY
+      expect(row[1]).toBe('Lumber for deck'); // Description: from notes
+      expect(row[2]).toBe('250.75'); // Amount: positive
+      expect(row[3]).toBe('Materials - General'); // Account: fallback to category name
+      expect(row[4]).toBe('Home Depot'); // Name: supplier name
+      expect(row[5]).toBe('Smith Residence'); // Class: project name
+      expect(row[6]).toBe('Lumber for deck'); // Memo: from notes
+      expect(row[7]).toBe('Credit Card'); // Payment Method: translated
+      expect(row[8]).toBe(''); // Check No: always empty
+      expect(row[9]).toBe('20.06'); // Tax Amount
     });
   });
 
@@ -1310,7 +1354,11 @@ describe('ExportService', () => {
 
     it('should map all 8 Xero columns correctly in a single row', async () => {
       mockPrisma.financial_category_account_mapping.findMany.mockResolvedValue([
-        { category_id: 'cat-xero', account_name: 'Materials', account_code: '5000' },
+        {
+          category_id: 'cat-xero',
+          account_name: 'Materials',
+          account_code: '5000',
+        },
       ]);
       mockPrisma.financial_entry.findMany.mockResolvedValue([
         {
@@ -1340,14 +1388,14 @@ describe('ExportService', () => {
       );
 
       const row = lines[1].split(',');
-      expect(row[0]).toBe('15/03/2026');           // Date: DD/MM/YYYY
-      expect(row[1]).toBe('-250.75');              // Amount: NEGATIVE
-      expect(row[2]).toBe('Home Depot');            // Payee: supplier name
-      expect(row[3]).toBe('Lumber for deck');       // Description: from notes
-      expect(row[4]).toBe('entry-ab');              // Reference: first 8 chars of UUID
-      expect(row[5]).toBe('5000');                  // Account Code: from mapping
-      expect(row[6]).toBe('10.0%');                 // Tax Rate: 25.08/250.75*100
-      expect(row[7]).toBe('Smith Residence');       // Tracking Name 1: project name
+      expect(row[0]).toBe('15/03/2026'); // Date: DD/MM/YYYY
+      expect(row[1]).toBe('-250.75'); // Amount: NEGATIVE
+      expect(row[2]).toBe('Home Depot'); // Payee: supplier name
+      expect(row[3]).toBe('Lumber for deck'); // Description: from notes
+      expect(row[4]).toBe('entry-ab'); // Reference: first 8 chars of UUID
+      expect(row[5]).toBe('5000'); // Account Code: from mapping
+      expect(row[6]).toBe('10.0%'); // Tax Rate: 25.08/250.75*100
+      expect(row[7]).toBe('Smith Residence'); // Tracking Name 1: project name
     });
   });
 
@@ -1814,13 +1862,17 @@ describe('ExportService', () => {
     const baseEntry = (overrides: any = {}) => ({
       id: 'entry-qr-001',
       entry_date: new Date('2026-03-15'),
-      amount: 150.50,
+      amount: 150.5,
       vendor_name: 'Staples',
       supplier_id: 'sup-001',
       payment_method: 'credit_card',
       project_id: 'proj-001',
       category_id: 'cat-001',
-      category: { name: 'Materials', type: 'expense', classification: 'cost_of_goods_sold' },
+      category: {
+        name: 'Materials',
+        type: 'expense',
+        classification: 'cost_of_goods_sold',
+      },
       supplier: { name: 'Staples Inc' },
       ...overrides,
     });
@@ -1873,11 +1925,17 @@ describe('ExportService', () => {
     // CHECK 1: Missing account mapping
     it('should detect missing account mappings when platform is provided', async () => {
       mockPrisma.financial_entry.findMany.mockResolvedValue([baseEntry()]);
-      mockPrisma.financial_category_account_mapping.findMany.mockResolvedValue([]); // No mappings
+      mockPrisma.financial_category_account_mapping.findMany.mockResolvedValue(
+        [],
+      ); // No mappings
 
-      const result = await service.getQualityReport(TENANT_ID, { platform: 'quickbooks' });
+      const result = await service.getQualityReport(TENANT_ID, {
+        platform: 'quickbooks',
+      });
 
-      const mappingIssues = result.issues.filter((i) => i.check_type === 'missing_account_mapping');
+      const mappingIssues = result.issues.filter(
+        (i) => i.check_type === 'missing_account_mapping',
+      );
       expect(mappingIssues.length).toBe(1);
       expect(mappingIssues[0].severity).toBe('warning');
       expect(mappingIssues[0].message).toContain('QB');
@@ -1888,7 +1946,9 @@ describe('ExportService', () => {
 
       const result = await service.getQualityReport(TENANT_ID, {});
 
-      const mappingIssues = result.issues.filter((i) => i.check_type === 'missing_account_mapping');
+      const mappingIssues = result.issues.filter(
+        (i) => i.check_type === 'missing_account_mapping',
+      );
       expect(mappingIssues.length).toBe(0);
     });
 
@@ -1896,13 +1956,27 @@ describe('ExportService', () => {
       mockPrisma.financial_entry.findMany.mockResolvedValue([
         baseEntry({ id: 'e1', category_id: 'cat-001' }),
         baseEntry({ id: 'e2', category_id: 'cat-001' }),
-        baseEntry({ id: 'e3', category_id: 'cat-002', category: { name: 'Labor', type: 'expense', classification: 'operating_expense' } }),
+        baseEntry({
+          id: 'e3',
+          category_id: 'cat-002',
+          category: {
+            name: 'Labor',
+            type: 'expense',
+            classification: 'operating_expense',
+          },
+        }),
       ]);
-      mockPrisma.financial_category_account_mapping.findMany.mockResolvedValue([]);
+      mockPrisma.financial_category_account_mapping.findMany.mockResolvedValue(
+        [],
+      );
 
-      const result = await service.getQualityReport(TENANT_ID, { platform: 'xero' });
+      const result = await service.getQualityReport(TENANT_ID, {
+        platform: 'xero',
+      });
 
-      const mappingIssues = result.issues.filter((i) => i.check_type === 'missing_account_mapping');
+      const mappingIssues = result.issues.filter(
+        (i) => i.check_type === 'missing_account_mapping',
+      );
       expect(mappingIssues.length).toBe(2); // cat-001 and cat-002, not 3
     });
 
@@ -1914,7 +1988,9 @@ describe('ExportService', () => {
 
       const result = await service.getQualityReport(TENANT_ID, {});
 
-      const vendorIssues = result.issues.filter((i) => i.check_type === 'missing_vendor');
+      const vendorIssues = result.issues.filter(
+        (i) => i.check_type === 'missing_vendor',
+      );
       expect(vendorIssues.length).toBe(1);
       expect(vendorIssues[0].severity).toBe('warning');
       expect(vendorIssues[0].entry_id).toBe('entry-qr-001');
@@ -1927,7 +2003,9 @@ describe('ExportService', () => {
 
       const result = await service.getQualityReport(TENANT_ID, {});
 
-      const vendorIssues = result.issues.filter((i) => i.check_type === 'missing_vendor');
+      const vendorIssues = result.issues.filter(
+        (i) => i.check_type === 'missing_vendor',
+      );
       expect(vendorIssues.length).toBe(0);
     });
 
@@ -1939,7 +2017,9 @@ describe('ExportService', () => {
 
       const result = await service.getQualityReport(TENANT_ID, {});
 
-      const classIssues = result.issues.filter((i) => i.check_type === 'missing_project_class');
+      const classIssues = result.issues.filter(
+        (i) => i.check_type === 'missing_project_class',
+      );
       expect(classIssues.length).toBe(1);
       expect(classIssues[0].severity).toBe('info');
     });
@@ -1948,13 +2028,19 @@ describe('ExportService', () => {
       mockPrisma.financial_entry.findMany.mockResolvedValue([
         baseEntry({
           project_id: null,
-          category: { name: 'Utilities', type: 'expense', classification: 'operating_expense' },
+          category: {
+            name: 'Utilities',
+            type: 'expense',
+            classification: 'operating_expense',
+          },
         }),
       ]);
 
       const result = await service.getQualityReport(TENANT_ID, {});
 
-      const classIssues = result.issues.filter((i) => i.check_type === 'missing_project_class');
+      const classIssues = result.issues.filter(
+        (i) => i.check_type === 'missing_project_class',
+      );
       expect(classIssues.length).toBe(0);
     });
 
@@ -1966,7 +2052,9 @@ describe('ExportService', () => {
 
       const result = await service.getQualityReport(TENANT_ID, {});
 
-      const zeroIssues = result.issues.filter((i) => i.check_type === 'zero_amount');
+      const zeroIssues = result.issues.filter(
+        (i) => i.check_type === 'zero_amount',
+      );
       expect(zeroIssues.length).toBe(1);
       expect(zeroIssues[0].severity).toBe('error');
       expect(zeroIssues[0].amount).toBe(0);
@@ -1983,7 +2071,9 @@ describe('ExportService', () => {
 
       const result = await service.getQualityReport(TENANT_ID, {});
 
-      const futureIssues = result.issues.filter((i) => i.check_type === 'future_date');
+      const futureIssues = result.issues.filter(
+        (i) => i.check_type === 'future_date',
+      );
       expect(futureIssues.length).toBe(1);
       expect(futureIssues[0].severity).toBe('warning');
     });
@@ -1995,7 +2085,9 @@ describe('ExportService', () => {
 
       const result = await service.getQualityReport(TENANT_ID, {});
 
-      const futureIssues = result.issues.filter((i) => i.check_type === 'future_date');
+      const futureIssues = result.issues.filter(
+        (i) => i.check_type === 'future_date',
+      );
       expect(futureIssues.length).toBe(0);
     });
 
@@ -2007,7 +2099,9 @@ describe('ExportService', () => {
 
       const result = await service.getQualityReport(TENANT_ID, {});
 
-      const pmIssues = result.issues.filter((i) => i.check_type === 'missing_payment_method');
+      const pmIssues = result.issues.filter(
+        (i) => i.check_type === 'missing_payment_method',
+      );
       expect(pmIssues.length).toBe(1);
       expect(pmIssues[0].severity).toBe('info');
     });
@@ -2018,7 +2112,7 @@ describe('ExportService', () => {
       mockPrisma.financial_entry.groupBy.mockResolvedValue([
         {
           entry_date: new Date('2026-03-15'),
-          amount: 150.50,
+          amount: 150.5,
           supplier_id: 'sup-001',
           _count: { id: 3 },
         },
@@ -2027,7 +2121,9 @@ describe('ExportService', () => {
 
       const result = await service.getQualityReport(TENANT_ID, {});
 
-      const dupIssues = result.issues.filter((i) => i.check_type === 'duplicate_entry_risk');
+      const dupIssues = result.issues.filter(
+        (i) => i.check_type === 'duplicate_entry_risk',
+      );
       expect(dupIssues.length).toBe(1);
       expect(dupIssues[0].severity).toBe('warning');
       expect(dupIssues[0].message).toContain('3 entries');
@@ -2040,7 +2136,7 @@ describe('ExportService', () => {
       mockPrisma.financial_entry.groupBy.mockResolvedValue([
         {
           entry_date: new Date('2026-03-15'),
-          amount: 50.00,
+          amount: 50.0,
           supplier_id: 'sup-001',
           _count: { id: 2 },
         },
@@ -2104,9 +2200,11 @@ describe('ExportService', () => {
 
       const result = await service.getQualityReport(TENANT_ID, {});
 
-      expect(result.errors).toBeGreaterThanOrEqual(1);  // zero_amount
-      expect(result.infos).toBeGreaterThanOrEqual(1);   // missing_payment_method
-      expect(result.total_issues).toBe(result.errors + result.warnings + result.infos);
+      expect(result.errors).toBeGreaterThanOrEqual(1); // zero_amount
+      expect(result.infos).toBeGreaterThanOrEqual(1); // missing_payment_method
+      expect(result.total_issues).toBe(
+        result.errors + result.warnings + result.infos,
+      );
     });
   });
 
@@ -2151,10 +2249,15 @@ describe('ExportService', () => {
     });
 
     it('should return paginated results with correct meta', async () => {
-      mockPrisma.financial_export_log.findMany.mockResolvedValue([mockExportLog()]);
+      mockPrisma.financial_export_log.findMany.mockResolvedValue([
+        mockExportLog(),
+      ]);
       mockPrisma.financial_export_log.count.mockResolvedValue(25);
 
-      const result = await service.getExportHistory(TENANT_ID, { page: 2, limit: 10 });
+      const result = await service.getExportHistory(TENANT_ID, {
+        page: 2,
+        limit: 10,
+      });
 
       expect(result.meta).toEqual({
         total: 25,
@@ -2191,7 +2294,9 @@ describe('ExportService', () => {
       mockPrisma.financial_export_log.findMany.mockResolvedValue([]);
       mockPrisma.financial_export_log.count.mockResolvedValue(0);
 
-      await service.getExportHistory(TENANT_ID, { export_type: 'xero_expenses' });
+      await service.getExportHistory(TENANT_ID, {
+        export_type: 'xero_expenses',
+      });
 
       expect(mockPrisma.financial_export_log.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -2201,7 +2306,9 @@ describe('ExportService', () => {
     });
 
     it('should parse filters_applied JSON string to object', async () => {
-      mockPrisma.financial_export_log.findMany.mockResolvedValue([mockExportLog()]);
+      mockPrisma.financial_export_log.findMany.mockResolvedValue([
+        mockExportLog(),
+      ]);
       mockPrisma.financial_export_log.count.mockResolvedValue(1);
 
       const result = await service.getExportHistory(TENANT_ID, {});
@@ -2237,7 +2344,9 @@ describe('ExportService', () => {
     });
 
     it('should include exported_by user relation with correct fields', async () => {
-      mockPrisma.financial_export_log.findMany.mockResolvedValue([mockExportLog()]);
+      mockPrisma.financial_export_log.findMany.mockResolvedValue([
+        mockExportLog(),
+      ]);
       mockPrisma.financial_export_log.count.mockResolvedValue(1);
 
       const result = await service.getExportHistory(TENANT_ID, {});

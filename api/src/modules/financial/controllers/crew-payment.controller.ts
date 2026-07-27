@@ -85,10 +85,7 @@ export class CrewPaymentController {
   @ApiParam({ name: 'id', description: 'Payment UUID' })
   @ApiResponse({ status: 200, description: 'Payment deleted successfully' })
   @ApiResponse({ status: 404, description: 'Payment not found' })
-  async delete(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async delete(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.crewPaymentService.deletePayment(
       req.user.tenant_id,
       id,

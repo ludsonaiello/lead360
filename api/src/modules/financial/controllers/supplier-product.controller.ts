@@ -40,7 +40,12 @@ export class SupplierProductController {
   @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper', 'Sales', 'Employee')
   @ApiOperation({ summary: 'List products for a supplier' })
   @ApiParam({ name: 'supplierId', description: 'Supplier UUID' })
-  @ApiQuery({ name: 'is_active', required: false, type: Boolean, description: 'Filter by active status (default: true)' })
+  @ApiQuery({
+    name: 'is_active',
+    required: false,
+    type: Boolean,
+    description: 'Filter by active status (default: true)',
+  })
   @ApiResponse({ status: 200, description: 'Array of supplier products' })
   @ApiResponse({ status: 404, description: 'Supplier not found' })
   async findAll(
@@ -48,7 +53,8 @@ export class SupplierProductController {
     @Param('supplierId', ParseUUIDPipe) supplierId: string,
     @Query('is_active') isActive?: string,
   ) {
-    const isActiveBool = isActive === 'true' ? true : isActive === 'false' ? false : undefined;
+    const isActiveBool =
+      isActive === 'true' ? true : isActive === 'false' ? false : undefined;
     return this.supplierProductService.findAll(
       req.user.tenant_id,
       supplierId,
@@ -62,7 +68,10 @@ export class SupplierProductController {
   @ApiParam({ name: 'supplierId', description: 'Supplier UUID' })
   @ApiResponse({ status: 201, description: 'Product created successfully' })
   @ApiResponse({ status: 404, description: 'Supplier not found' })
-  @ApiResponse({ status: 409, description: 'Product name already exists for this supplier' })
+  @ApiResponse({
+    status: 409,
+    description: 'Product name already exists for this supplier',
+  })
   async create(
     @Request() req,
     @Param('supplierId', ParseUUIDPipe) supplierId: string,
@@ -78,12 +87,17 @@ export class SupplierProductController {
 
   @Patch(':productId')
   @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
-  @ApiOperation({ summary: 'Update a supplier product (price change triggers history)' })
+  @ApiOperation({
+    summary: 'Update a supplier product (price change triggers history)',
+  })
   @ApiParam({ name: 'supplierId', description: 'Supplier UUID' })
   @ApiParam({ name: 'productId', description: 'Product UUID' })
   @ApiResponse({ status: 200, description: 'Product updated successfully' })
   @ApiResponse({ status: 404, description: 'Supplier or product not found' })
-  @ApiResponse({ status: 409, description: 'Product name already exists for this supplier' })
+  @ApiResponse({
+    status: 409,
+    description: 'Product name already exists for this supplier',
+  })
   async update(
     @Request() req,
     @Param('supplierId', ParseUUIDPipe) supplierId: string,
@@ -101,12 +115,27 @@ export class SupplierProductController {
 
   @Delete(':productId')
   @Roles('Owner', 'Admin', 'Bookkeeper')
-  @ApiOperation({ summary: 'Delete a supplier product (soft by default, permanent with ?permanent=true — Owner/Admin only)' })
+  @ApiOperation({
+    summary:
+      'Delete a supplier product (soft by default, permanent with ?permanent=true — Owner/Admin only)',
+  })
   @ApiParam({ name: 'supplierId', description: 'Supplier UUID' })
   @ApiParam({ name: 'productId', description: 'Product UUID' })
-  @ApiQuery({ name: 'permanent', required: false, type: Boolean, description: 'Set to true to permanently delete product and its price history (Owner/Admin only)' })
-  @ApiResponse({ status: 200, description: 'Product deactivated or permanently deleted' })
-  @ApiResponse({ status: 403, description: 'Insufficient permissions for permanent delete' })
+  @ApiQuery({
+    name: 'permanent',
+    required: false,
+    type: Boolean,
+    description:
+      'Set to true to permanently delete product and its price history (Owner/Admin only)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Product deactivated or permanently deleted',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Insufficient permissions for permanent delete',
+  })
   @ApiResponse({ status: 404, description: 'Supplier or product not found' })
   async delete(
     @Request() req,
@@ -142,7 +171,10 @@ export class SupplierProductController {
   @ApiOperation({ summary: 'Get price change history for a product' })
   @ApiParam({ name: 'supplierId', description: 'Supplier UUID' })
   @ApiParam({ name: 'productId', description: 'Product UUID' })
-  @ApiResponse({ status: 200, description: 'Price history ordered by most recent first' })
+  @ApiResponse({
+    status: 200,
+    description: 'Price history ordered by most recent first',
+  })
   @ApiResponse({ status: 404, description: 'Supplier or product not found' })
   async getPriceHistory(
     @Request() req,

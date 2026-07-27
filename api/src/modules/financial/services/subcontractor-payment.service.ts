@@ -205,11 +205,15 @@ export class SubcontractorPaymentService {
     const updateData: any = { updated_by_user_id: userId };
 
     if (dto.amount !== undefined) updateData.amount = dto.amount;
-    if (dto.payment_date !== undefined) updateData.payment_date = new Date(dto.payment_date);
-    if (dto.payment_method !== undefined) updateData.payment_method = dto.payment_method;
-    if (dto.reference_number !== undefined) updateData.reference_number = dto.reference_number || null;
+    if (dto.payment_date !== undefined)
+      updateData.payment_date = new Date(dto.payment_date);
+    if (dto.payment_method !== undefined)
+      updateData.payment_method = dto.payment_method;
+    if (dto.reference_number !== undefined)
+      updateData.reference_number = dto.reference_number || null;
     if (dto.notes !== undefined) updateData.notes = dto.notes || null;
-    if (dto.project_id !== undefined) updateData.project_id = dto.project_id || null;
+    if (dto.project_id !== undefined)
+      updateData.project_id = dto.project_id || null;
 
     const updated = await this.prisma.subcontractor_payment_record.update({
       where: { id: paymentId },
@@ -241,11 +245,7 @@ export class SubcontractorPaymentService {
   /**
    * Hard-delete a subcontractor payment record.
    */
-  async deletePayment(
-    tenantId: string,
-    paymentId: string,
-    userId: string,
-  ) {
+  async deletePayment(tenantId: string, paymentId: string, userId: string) {
     const existing = await this.prisma.subcontractor_payment_record.findFirst({
       where: { id: paymentId, tenant_id: tenantId },
       include: {

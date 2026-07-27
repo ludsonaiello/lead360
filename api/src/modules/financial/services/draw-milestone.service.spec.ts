@@ -158,18 +158,41 @@ describe('DrawMilestoneService', () => {
   describe('seedFromQuote()', () => {
     it('should create milestones from draw schedule entries with percentage calculation', async () => {
       const entries = [
-        mockDrawScheduleEntry({ draw_number: 1, calculation_type: 'percentage', value: 50, description: 'Deposit' }),
-        mockDrawScheduleEntry({ id: 'entry-2', draw_number: 2, calculation_type: 'percentage', value: 50, description: 'Final' }),
+        mockDrawScheduleEntry({
+          draw_number: 1,
+          calculation_type: 'percentage',
+          value: 50,
+          description: 'Deposit',
+        }),
+        mockDrawScheduleEntry({
+          id: 'entry-2',
+          draw_number: 2,
+          calculation_type: 'percentage',
+          value: 50,
+          description: 'Final',
+        }),
       ];
 
       // Use a mock transaction client
       const txMock = {
         draw_schedule_entry: { findMany: jest.fn().mockResolvedValue(entries) },
-        project: { findFirst: jest.fn().mockResolvedValue(mockProject({ contract_value: 10000 })) },
-        project_draw_milestone: { createMany: jest.fn().mockResolvedValue({ count: 2 }) },
+        project: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValue(mockProject({ contract_value: 10000 })),
+        },
+        project_draw_milestone: {
+          createMany: jest.fn().mockResolvedValue({ count: 2 }),
+        },
       };
 
-      await service.seedFromQuote(TENANT_ID, PROJECT_ID, QUOTE_ID, USER_ID, txMock);
+      await service.seedFromQuote(
+        TENANT_ID,
+        PROJECT_ID,
+        QUOTE_ID,
+        USER_ID,
+        txMock,
+      );
 
       expect(txMock.draw_schedule_entry.findMany).toHaveBeenCalledWith({
         where: { quote_id: QUOTE_ID },
@@ -178,7 +201,8 @@ describe('DrawMilestoneService', () => {
 
       expect(txMock.project_draw_milestone.createMany).toHaveBeenCalledTimes(1);
 
-      const createManyArg = txMock.project_draw_milestone.createMany.mock.calls[0][0];
+      const createManyArg =
+        txMock.project_draw_milestone.createMany.mock.calls[0][0];
       expect(createManyArg.data).toHaveLength(2);
 
       // percentage of 10000: 50% = 5000
@@ -196,18 +220,34 @@ describe('DrawMilestoneService', () => {
 
     it('should handle fixed_amount calculation type', async () => {
       const entries = [
-        mockDrawScheduleEntry({ calculation_type: 'fixed_amount', value: 3500 }),
+        mockDrawScheduleEntry({
+          calculation_type: 'fixed_amount',
+          value: 3500,
+        }),
       ];
 
       const txMock = {
         draw_schedule_entry: { findMany: jest.fn().mockResolvedValue(entries) },
-        project: { findFirst: jest.fn().mockResolvedValue(mockProject({ contract_value: 10000 })) },
-        project_draw_milestone: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
+        project: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValue(mockProject({ contract_value: 10000 })),
+        },
+        project_draw_milestone: {
+          createMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
       };
 
-      await service.seedFromQuote(TENANT_ID, PROJECT_ID, QUOTE_ID, USER_ID, txMock);
+      await service.seedFromQuote(
+        TENANT_ID,
+        PROJECT_ID,
+        QUOTE_ID,
+        USER_ID,
+        txMock,
+      );
 
-      const createManyArg = txMock.project_draw_milestone.createMany.mock.calls[0][0];
+      const createManyArg =
+        txMock.project_draw_milestone.createMany.mock.calls[0][0];
       // fixed_amount: calculated_amount = raw value
       expect(createManyArg.data[0].calculated_amount).toBe(3500);
       expect(createManyArg.data[0].notes).toBeNull();
@@ -220,13 +260,26 @@ describe('DrawMilestoneService', () => {
 
       const txMock = {
         draw_schedule_entry: { findMany: jest.fn().mockResolvedValue(entries) },
-        project: { findFirst: jest.fn().mockResolvedValue(mockProject({ contract_value: null })) },
-        project_draw_milestone: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
+        project: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValue(mockProject({ contract_value: null })),
+        },
+        project_draw_milestone: {
+          createMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
       };
 
-      await service.seedFromQuote(TENANT_ID, PROJECT_ID, QUOTE_ID, USER_ID, txMock);
+      await service.seedFromQuote(
+        TENANT_ID,
+        PROJECT_ID,
+        QUOTE_ID,
+        USER_ID,
+        txMock,
+      );
 
-      const createManyArg = txMock.project_draw_milestone.createMany.mock.calls[0][0];
+      const createManyArg =
+        txMock.project_draw_milestone.createMany.mock.calls[0][0];
       // When contract_value is null, calculated_amount falls back to raw value
       expect(createManyArg.data[0].calculated_amount).toBe(50);
       // Warning note should be set
@@ -240,7 +293,13 @@ describe('DrawMilestoneService', () => {
         project_draw_milestone: { createMany: jest.fn() },
       };
 
-      await service.seedFromQuote(TENANT_ID, PROJECT_ID, QUOTE_ID, USER_ID, txMock);
+      await service.seedFromQuote(
+        TENANT_ID,
+        PROJECT_ID,
+        QUOTE_ID,
+        USER_ID,
+        txMock,
+      );
 
       expect(txMock.project.findFirst).not.toHaveBeenCalled();
       expect(txMock.project_draw_milestone.createMany).not.toHaveBeenCalled();
@@ -250,19 +309,38 @@ describe('DrawMilestoneService', () => {
       const entryId1 = 'entry-id-aaa';
       const entryId2 = 'entry-id-bbb';
       const entries = [
-        mockDrawScheduleEntry({ id: entryId1, draw_number: 1, calculation_type: 'fixed_amount', value: 2000 }),
-        mockDrawScheduleEntry({ id: entryId2, draw_number: 2, calculation_type: 'fixed_amount', value: 3000 }),
+        mockDrawScheduleEntry({
+          id: entryId1,
+          draw_number: 1,
+          calculation_type: 'fixed_amount',
+          value: 2000,
+        }),
+        mockDrawScheduleEntry({
+          id: entryId2,
+          draw_number: 2,
+          calculation_type: 'fixed_amount',
+          value: 3000,
+        }),
       ];
 
       const txMock = {
         draw_schedule_entry: { findMany: jest.fn().mockResolvedValue(entries) },
         project: { findFirst: jest.fn().mockResolvedValue(mockProject()) },
-        project_draw_milestone: { createMany: jest.fn().mockResolvedValue({ count: 2 }) },
+        project_draw_milestone: {
+          createMany: jest.fn().mockResolvedValue({ count: 2 }),
+        },
       };
 
-      await service.seedFromQuote(TENANT_ID, PROJECT_ID, QUOTE_ID, USER_ID, txMock);
+      await service.seedFromQuote(
+        TENANT_ID,
+        PROJECT_ID,
+        QUOTE_ID,
+        USER_ID,
+        txMock,
+      );
 
-      const createManyArg = txMock.project_draw_milestone.createMany.mock.calls[0][0];
+      const createManyArg =
+        txMock.project_draw_milestone.createMany.mock.calls[0][0];
       expect(createManyArg.data[0].quote_draw_entry_id).toBe(entryId1);
       expect(createManyArg.data[1].quote_draw_entry_id).toBe(entryId2);
     });
@@ -277,13 +355,17 @@ describe('DrawMilestoneService', () => {
       mockPrismaService.project.findFirst.mockResolvedValue(
         mockProject({ contract_value: 10000 }),
       );
-      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(null);
+      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(
+        null,
+      );
 
       const createdMilestone = mockMilestone({
         value: 25,
         calculated_amount: 2500,
       });
-      mockPrismaService.project_draw_milestone.create.mockResolvedValue(createdMilestone);
+      mockPrismaService.project_draw_milestone.create.mockResolvedValue(
+        createdMilestone,
+      );
 
       const result = await service.create(TENANT_ID, PROJECT_ID, USER_ID, {
         draw_number: 1,
@@ -292,7 +374,9 @@ describe('DrawMilestoneService', () => {
         value: 25,
       });
 
-      expect(mockPrismaService.project_draw_milestone.create).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.project_draw_milestone.create,
+      ).toHaveBeenCalledWith({
         data: expect.objectContaining({
           tenant_id: TENANT_ID,
           project_id: PROJECT_ID,
@@ -314,14 +398,18 @@ describe('DrawMilestoneService', () => {
       mockPrismaService.project.findFirst.mockResolvedValue(
         mockProject({ contract_value: 10000 }),
       );
-      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(null);
+      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(
+        null,
+      );
 
       const createdMilestone = mockMilestone({
         calculation_type: 'fixed_amount',
         value: 7500,
         calculated_amount: 7500,
       });
-      mockPrismaService.project_draw_milestone.create.mockResolvedValue(createdMilestone);
+      mockPrismaService.project_draw_milestone.create.mockResolvedValue(
+        createdMilestone,
+      );
 
       const result = await service.create(TENANT_ID, PROJECT_ID, USER_ID, {
         draw_number: 1,
@@ -330,7 +418,9 @@ describe('DrawMilestoneService', () => {
         value: 7500,
       });
 
-      expect(mockPrismaService.project_draw_milestone.create).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.project_draw_milestone.create,
+      ).toHaveBeenCalledWith({
         data: expect.objectContaining({
           calculated_amount: 7500,
         }),
@@ -356,7 +446,9 @@ describe('DrawMilestoneService', () => {
 
     it('should throw BadRequestException for percentage > 100', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
-      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(null);
+      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(
+        null,
+      );
 
       await expect(
         service.create(TENANT_ID, PROJECT_ID, USER_ID, {
@@ -385,13 +477,17 @@ describe('DrawMilestoneService', () => {
       mockPrismaService.project.findFirst.mockResolvedValue(
         mockProject({ contract_value: 10000 }),
       );
-      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(null);
+      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(
+        null,
+      );
 
       const createdMilestone = mockMilestone({
         value: 50,
         calculated_amount: 4999.99,
       });
-      mockPrismaService.project_draw_milestone.create.mockResolvedValue(createdMilestone);
+      mockPrismaService.project_draw_milestone.create.mockResolvedValue(
+        createdMilestone,
+      );
 
       await service.create(TENANT_ID, PROJECT_ID, USER_ID, {
         draw_number: 1,
@@ -401,7 +497,9 @@ describe('DrawMilestoneService', () => {
         calculated_amount: 4999.99,
       });
 
-      expect(mockPrismaService.project_draw_milestone.create).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.project_draw_milestone.create,
+      ).toHaveBeenCalledWith({
         data: expect.objectContaining({
           calculated_amount: 4999.99,
         }),
@@ -440,19 +538,31 @@ describe('DrawMilestoneService', () => {
 
     it('should allow description update on invoiced milestone', async () => {
       const existing = mockMilestone({ status: 'invoiced' });
-      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(existing);
+      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(
+        existing,
+      );
 
       const updated = mockMilestone({
         status: 'invoiced',
         description: 'Updated description',
       });
-      mockPrismaService.project_draw_milestone.update.mockResolvedValue(updated);
+      mockPrismaService.project_draw_milestone.update.mockResolvedValue(
+        updated,
+      );
 
-      const result = await service.update(TENANT_ID, PROJECT_ID, MILESTONE_ID, USER_ID, {
-        description: 'Updated description',
-      });
+      const result = await service.update(
+        TENANT_ID,
+        PROJECT_ID,
+        MILESTONE_ID,
+        USER_ID,
+        {
+          description: 'Updated description',
+        },
+      );
 
-      expect(mockPrismaService.project_draw_milestone.update).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.project_draw_milestone.update,
+      ).toHaveBeenCalledWith({
         where: { id: MILESTONE_ID },
         data: { description: 'Updated description' },
       });
@@ -461,20 +571,35 @@ describe('DrawMilestoneService', () => {
 
     it('should allow calculated_amount change on pending milestone', async () => {
       const existing = mockMilestone({ status: 'pending' });
-      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(existing);
+      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(
+        existing,
+      );
 
-      const updated = mockMilestone({ status: 'pending', calculated_amount: 7000 });
-      mockPrismaService.project_draw_milestone.update.mockResolvedValue(updated);
-
-      const result = await service.update(TENANT_ID, PROJECT_ID, MILESTONE_ID, USER_ID, {
+      const updated = mockMilestone({
+        status: 'pending',
         calculated_amount: 7000,
       });
+      mockPrismaService.project_draw_milestone.update.mockResolvedValue(
+        updated,
+      );
+
+      const result = await service.update(
+        TENANT_ID,
+        PROJECT_ID,
+        MILESTONE_ID,
+        USER_ID,
+        {
+          calculated_amount: 7000,
+        },
+      );
 
       expect(result.calculated_amount).toBe(7000);
     });
 
     it('should throw NotFoundException when milestone does not exist', async () => {
-      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(null);
+      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(
+        null,
+      );
 
       await expect(
         service.update(TENANT_ID, PROJECT_ID, MILESTONE_ID, USER_ID, {
@@ -493,11 +618,20 @@ describe('DrawMilestoneService', () => {
       mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(
         mockMilestone({ status: 'pending' }),
       );
-      mockPrismaService.project_draw_milestone.delete.mockResolvedValue(undefined);
+      mockPrismaService.project_draw_milestone.delete.mockResolvedValue(
+        undefined,
+      );
 
-      const result = await service.delete(TENANT_ID, PROJECT_ID, MILESTONE_ID, USER_ID);
+      const result = await service.delete(
+        TENANT_ID,
+        PROJECT_ID,
+        MILESTONE_ID,
+        USER_ID,
+      );
 
-      expect(mockPrismaService.project_draw_milestone.delete).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.project_draw_milestone.delete,
+      ).toHaveBeenCalledWith({
         where: { id: MILESTONE_ID },
       });
       expect(result.message).toContain('deleted');
@@ -513,7 +647,9 @@ describe('DrawMilestoneService', () => {
         service.delete(TENANT_ID, PROJECT_ID, MILESTONE_ID, USER_ID),
       ).rejects.toThrow(BadRequestException);
 
-      expect(mockPrismaService.project_draw_milestone.delete).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.project_draw_milestone.delete,
+      ).not.toHaveBeenCalled();
     });
 
     it('should block deletion of paid milestone', async () => {
@@ -527,7 +663,9 @@ describe('DrawMilestoneService', () => {
     });
 
     it('should throw NotFoundException when milestone does not exist', async () => {
-      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(null);
+      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(
+        null,
+      );
 
       await expect(
         service.delete(TENANT_ID, PROJECT_ID, MILESTONE_ID, USER_ID),
@@ -541,8 +679,13 @@ describe('DrawMilestoneService', () => {
 
   describe('generateInvoice()', () => {
     it('should create invoice and transition milestone to invoiced atomically', async () => {
-      const pendingMilestone = mockMilestone({ status: 'pending', calculated_amount: 5000 });
-      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(pendingMilestone);
+      const pendingMilestone = mockMilestone({
+        status: 'pending',
+        calculated_amount: 5000,
+      });
+      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(
+        pendingMilestone,
+      );
 
       const createdInvoice = mockInvoice({
         amount: 5000,
@@ -550,8 +693,12 @@ describe('DrawMilestoneService', () => {
       });
 
       // The $transaction mock calls the fn with mockPrismaService as tx
-      mockPrismaService.project_invoice.create.mockResolvedValue(createdInvoice);
-      mockPrismaService.project_draw_milestone.update.mockResolvedValue(undefined);
+      mockPrismaService.project_invoice.create.mockResolvedValue(
+        createdInvoice,
+      );
+      mockPrismaService.project_draw_milestone.update.mockResolvedValue(
+        undefined,
+      );
       mockInvoiceNumberGeneratorService.generate.mockResolvedValue('INV-0001');
 
       const result = await service.generateInvoice(
@@ -580,7 +727,9 @@ describe('DrawMilestoneService', () => {
       });
 
       // Verify milestone was updated to invoiced
-      expect(mockPrismaService.project_draw_milestone.update).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.project_draw_milestone.update,
+      ).toHaveBeenCalledWith({
         where: { id: MILESTONE_ID },
         data: expect.objectContaining({
           status: 'invoiced',
@@ -603,16 +752,25 @@ describe('DrawMilestoneService', () => {
     });
 
     it('should include tax_amount in amount_due when provided', async () => {
-      const pendingMilestone = mockMilestone({ status: 'pending', calculated_amount: 5000 });
-      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(pendingMilestone);
+      const pendingMilestone = mockMilestone({
+        status: 'pending',
+        calculated_amount: 5000,
+      });
+      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(
+        pendingMilestone,
+      );
 
       const createdInvoice = mockInvoice({
         amount: 5000,
         tax_amount: 375,
         amount_due: 5375,
       });
-      mockPrismaService.project_invoice.create.mockResolvedValue(createdInvoice);
-      mockPrismaService.project_draw_milestone.update.mockResolvedValue(undefined);
+      mockPrismaService.project_invoice.create.mockResolvedValue(
+        createdInvoice,
+      );
+      mockPrismaService.project_draw_milestone.update.mockResolvedValue(
+        undefined,
+      );
 
       const result = await service.generateInvoice(
         TENANT_ID,
@@ -638,17 +796,31 @@ describe('DrawMilestoneService', () => {
       );
 
       await expect(
-        service.generateInvoice(TENANT_ID, PROJECT_ID, MILESTONE_ID, USER_ID, {}),
+        service.generateInvoice(
+          TENANT_ID,
+          PROJECT_ID,
+          MILESTONE_ID,
+          USER_ID,
+          {},
+        ),
       ).rejects.toThrow(BadRequestException);
 
       expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException for non-existent milestone', async () => {
-      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(null);
+      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(
+        null,
+      );
 
       await expect(
-        service.generateInvoice(TENANT_ID, PROJECT_ID, MILESTONE_ID, USER_ID, {}),
+        service.generateInvoice(
+          TENANT_ID,
+          PROJECT_ID,
+          MILESTONE_ID,
+          USER_ID,
+          {},
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -658,16 +830,28 @@ describe('DrawMilestoneService', () => {
         calculated_amount: 2000,
         description: 'Milestone Default Description',
       });
-      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(pendingMilestone);
+      mockPrismaService.project_draw_milestone.findFirst.mockResolvedValue(
+        pendingMilestone,
+      );
 
       const createdInvoice = mockInvoice({
         amount: 2000,
         description: 'Milestone Default Description',
       });
-      mockPrismaService.project_invoice.create.mockResolvedValue(createdInvoice);
-      mockPrismaService.project_draw_milestone.update.mockResolvedValue(undefined);
+      mockPrismaService.project_invoice.create.mockResolvedValue(
+        createdInvoice,
+      );
+      mockPrismaService.project_draw_milestone.update.mockResolvedValue(
+        undefined,
+      );
 
-      await service.generateInvoice(TENANT_ID, PROJECT_ID, MILESTONE_ID, USER_ID, {});
+      await service.generateInvoice(
+        TENANT_ID,
+        PROJECT_ID,
+        MILESTONE_ID,
+        USER_ID,
+        {},
+      );
 
       expect(mockPrismaService.project_invoice.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -688,7 +872,11 @@ describe('DrawMilestoneService', () => {
           draw_number: 1,
           value: 50,
           calculated_amount: 5000,
-          invoice: { id: INVOICE_ID, invoice_number: 'INV-0001', status: 'draft' },
+          invoice: {
+            id: INVOICE_ID,
+            invoice_number: 'INV-0001',
+            status: 'draft',
+          },
           invoice_id: INVOICE_ID,
         }),
         mockMilestone({
@@ -700,11 +888,15 @@ describe('DrawMilestoneService', () => {
         }),
       ];
 
-      mockPrismaService.project_draw_milestone.findMany.mockResolvedValue(milestones);
+      mockPrismaService.project_draw_milestone.findMany.mockResolvedValue(
+        milestones,
+      );
 
       const result = await service.findByProject(TENANT_ID, PROJECT_ID);
 
-      expect(mockPrismaService.project_draw_milestone.findMany).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.project_draw_milestone.findMany,
+      ).toHaveBeenCalledWith({
         where: { tenant_id: TENANT_ID, project_id: PROJECT_ID },
         include: {
           invoice: { select: { id: true, invoice_number: true, status: true } },

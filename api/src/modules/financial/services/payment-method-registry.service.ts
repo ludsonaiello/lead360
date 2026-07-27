@@ -327,25 +327,29 @@ export class PaymentMethodRegistryService {
     const existing = await this.findOne(tenantId, id);
 
     // 2. Check all tables that reference payment_method_registry_id
-    const [entryCount, recurringCount, invoicePaymentCount] = await Promise.all([
-      this.prisma.financial_entry.count({
-        where: { payment_method_registry_id: id },
-      }),
-      this.prisma.recurring_expense_rule.count({
-        where: { payment_method_registry_id: id },
-      }),
-      this.prisma.project_invoice_payment.count({
-        where: { payment_method_registry_id: id },
-      }),
-    ]);
+    const [entryCount, recurringCount, invoicePaymentCount] = await Promise.all(
+      [
+        this.prisma.financial_entry.count({
+          where: { payment_method_registry_id: id },
+        }),
+        this.prisma.recurring_expense_rule.count({
+          where: { payment_method_registry_id: id },
+        }),
+        this.prisma.project_invoice_payment.count({
+          where: { payment_method_registry_id: id },
+        }),
+      ],
+    );
 
     const totalUsage = entryCount + recurringCount + invoicePaymentCount;
 
     if (totalUsage > 0) {
       const references: string[] = [];
       if (entryCount > 0) references.push(`${entryCount} financial entry(ies)`);
-      if (recurringCount > 0) references.push(`${recurringCount} recurring rule(s)`);
-      if (invoicePaymentCount > 0) references.push(`${invoicePaymentCount} invoice payment(s)`);
+      if (recurringCount > 0)
+        references.push(`${recurringCount} recurring rule(s)`);
+      if (invoicePaymentCount > 0)
+        references.push(`${invoicePaymentCount} invoice payment(s)`);
       throw new BadRequestException(
         `Cannot permanently delete: payment method is referenced by ${references.join(', ')}`,
       );
@@ -367,7 +371,9 @@ export class PaymentMethodRegistryService {
       description: `Permanently deleted payment method: ${existing.nickname}`,
     });
 
-    return { message: `Payment method "${existing.nickname}" permanently deleted` };
+    return {
+      message: `Payment method "${existing.nickname}" permanently deleted`,
+    };
   }
 
   // ---------------------------------------------------------------------------

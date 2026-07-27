@@ -78,11 +78,27 @@ export class ProjectTaskController {
   // -------------------------------------------------------------------------
   @Get()
   @Roles('Owner', 'Admin', 'Manager', 'Field')
-  @ApiOperation({ summary: 'List tasks for a project (paginated, ordered by order_index)' })
+  @ApiOperation({
+    summary: 'List tasks for a project (paginated, ordered by order_index)',
+  })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 20, max: 100)' })
-  @ApiQuery({ name: 'status', required: false, description: 'Filter by status (not_started, in_progress, blocked, done)' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 20, max: 100)',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: 'Filter by status (not_started, in_progress, blocked, done)',
+  })
   @ApiResponse({ status: 200, description: 'Paginated list of tasks' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
@@ -108,7 +124,10 @@ export class ProjectTaskController {
   @ApiOperation({ summary: 'Get task detail with assignees and dependencies' })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'id', description: 'Task UUID' })
-  @ApiResponse({ status: 200, description: 'Task detail with computed is_delayed' })
+  @ApiResponse({
+    status: 200,
+    description: 'Task detail with computed is_delayed',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Task not found' })
   async findOne(
@@ -128,11 +147,17 @@ export class ProjectTaskController {
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'id', description: 'Task UUID' })
   @ApiResponse({ status: 200, description: 'Task updated successfully' })
-  @ApiResponse({ status: 400, description: 'Validation error or invalid status transition' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or invalid status transition',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   @ApiResponse({ status: 404, description: 'Task not found' })
-  @ApiResponse({ status: 409, description: 'Conflict — prerequisite tasks not complete' })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict — prerequisite tasks not complete',
+  })
   async update(
     @TenantId() tenantId: string,
     @CurrentUser('id') userId: string,
@@ -179,11 +204,21 @@ export class ProjectTaskController {
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'taskId', description: 'Task UUID (the dependent task)' })
   @ApiResponse({ status: 201, description: 'Dependency created successfully' })
-  @ApiResponse({ status: 400, description: 'Validation error or self-reference' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or self-reference',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
-  @ApiResponse({ status: 404, description: 'Task or dependency target not found' })
-  @ApiResponse({ status: 409, description: 'Conflict — duplicate dependency or circular dependency detected' })
+  @ApiResponse({
+    status: 404,
+    description: 'Task or dependency target not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description:
+      'Conflict — duplicate dependency or circular dependency detected',
+  })
   async addDependency(
     @TenantId() tenantId: string,
     @CurrentUser('id') userId: string,
@@ -240,15 +275,26 @@ export class ProjectTaskController {
   @Post(':taskId/assignees')
   @Roles('Owner', 'Admin', 'Manager')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Assign a crew member, subcontractor, or user to a task' })
+  @ApiOperation({
+    summary: 'Assign a crew member, subcontractor, or user to a task',
+  })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'taskId', description: 'Task UUID' })
   @ApiResponse({ status: 201, description: 'Assignee added successfully' })
-  @ApiResponse({ status: 400, description: 'Validation error — type mismatch or missing ID' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error — type mismatch or missing ID',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
-  @ApiResponse({ status: 404, description: 'Task, project, or assignee not found' })
-  @ApiResponse({ status: 409, description: 'Conflict — assignee already assigned to this task' })
+  @ApiResponse({
+    status: 404,
+    description: 'Task, project, or assignee not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict — assignee already assigned to this task',
+  })
   async assignToTask(
     @TenantId() tenantId: string,
     @CurrentUser('id') userId: string,
@@ -317,7 +363,10 @@ export class ProjectTaskController {
     status: 200,
     description: 'SMS queued for delivery',
   })
-  @ApiResponse({ status: 400, description: 'Validation error or no phone available' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or no phone available',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   @ApiResponse({ status: 404, description: 'Task, project, or lead not found' })
@@ -350,8 +399,14 @@ export class ProjectTaskController {
   @ApiOperation({ summary: 'Create a calendar event for a task' })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'taskId', description: 'Task UUID' })
-  @ApiResponse({ status: 201, description: 'Calendar event created successfully' })
-  @ApiResponse({ status: 400, description: 'Validation error — end_datetime must be after start_datetime' })
+  @ApiResponse({
+    status: 201,
+    description: 'Calendar event created successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error — end_datetime must be after start_datetime',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   @ApiResponse({ status: 404, description: 'Task not found' })
@@ -379,7 +434,10 @@ export class ProjectTaskController {
   @ApiOperation({ summary: 'List calendar events for a task' })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'taskId', description: 'Task UUID' })
-  @ApiResponse({ status: 200, description: 'List of calendar events for the task' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of calendar events for the task',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   @ApiResponse({ status: 404, description: 'Task not found' })
@@ -404,8 +462,14 @@ export class ProjectTaskController {
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'taskId', description: 'Task UUID' })
   @ApiParam({ name: 'eventId', description: 'Calendar event UUID' })
-  @ApiResponse({ status: 200, description: 'Calendar event updated successfully' })
-  @ApiResponse({ status: 400, description: 'Validation error — end_datetime must be after start_datetime' })
+  @ApiResponse({
+    status: 200,
+    description: 'Calendar event updated successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error — end_datetime must be after start_datetime',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   @ApiResponse({ status: 404, description: 'Calendar event not found' })
@@ -437,7 +501,10 @@ export class ProjectTaskController {
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'taskId', description: 'Task UUID' })
   @ApiParam({ name: 'eventId', description: 'Calendar event UUID' })
-  @ApiResponse({ status: 204, description: 'Calendar event deleted successfully' })
+  @ApiResponse({
+    status: 204,
+    description: 'Calendar event deleted successfully',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   @ApiResponse({ status: 404, description: 'Calendar event not found' })

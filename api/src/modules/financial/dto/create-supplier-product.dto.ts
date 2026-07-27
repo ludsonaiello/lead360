@@ -38,7 +38,7 @@ export class CreateSupplierProductDto {
 
   @ApiPropertyOptional({
     description: 'Current price per unit (null if unknown)',
-    example: 45.50,
+    example: 45.5,
   })
   @IsNumber({ maxDecimalPlaces: 4 })
   @IsOptional()

@@ -92,17 +92,13 @@ export class TaskCommunicationService {
     }
 
     // 5. Call SmsSendingService
-    const smsResponse = await this.smsSendingService.sendSms(
-      tenantId,
-      userId,
-      {
-        to_phone: resolvedPhone,
-        text_body: dto.text_body,
-        lead_id: resolvedLeadId || undefined,
-        related_entity_type: 'project_task',
-        related_entity_id: taskId,
-      },
-    );
+    const smsResponse = await this.smsSendingService.sendSms(tenantId, userId, {
+      to_phone: resolvedPhone,
+      text_body: dto.text_body,
+      lead_id: resolvedLeadId || undefined,
+      related_entity_type: 'project_task',
+      related_entity_id: taskId,
+    });
 
     // 6. Audit log
     this.auditLogger.logTenantChange({
@@ -172,9 +168,7 @@ export class TaskCommunicationService {
     }
 
     if (!lead.phones || lead.phones.length === 0) {
-      throw new BadRequestException(
-        'No phone number available for this lead',
-      );
+      throw new BadRequestException('No phone number available for this lead');
     }
 
     const rawPhone = lead.phones[0].phone;

@@ -85,9 +85,7 @@ export class TaskDependencyService {
     });
 
     if (existing) {
-      throw new ConflictException(
-        'This dependency already exists',
-      );
+      throw new ConflictException('This dependency already exists');
     }
 
     // Circular dependency detection (DFS)

@@ -47,9 +47,7 @@ export class PermitService {
       permit_type: dto.permit_type,
       permit_number: dto.permit_number ?? null,
       status: dto.status ?? 'pending_application',
-      submitted_date: dto.submitted_date
-        ? new Date(dto.submitted_date)
-        : null,
+      submitted_date: dto.submitted_date ? new Date(dto.submitted_date) : null,
       approved_date: dto.approved_date ? new Date(dto.approved_date) : null,
       expiry_date: dto.expiry_date ? new Date(dto.expiry_date) : null,
       issuing_authority: dto.issuing_authority ?? null,
@@ -223,7 +221,11 @@ export class PermitService {
         user_id: userId,
         activity_type: 'permit_status_changed',
         description: `Permit "${after.permit_type}" status changed from ${before.status} to ${dto.status}`,
-        metadata: { permit_id: permitId, old_status: before.status, new_status: dto.status },
+        metadata: {
+          permit_id: permitId,
+          old_status: before.status,
+          new_status: dto.status,
+        },
       });
     }
 

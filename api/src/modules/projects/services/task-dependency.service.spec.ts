@@ -103,11 +103,17 @@ describe('TaskDependencyService', () => {
 
     it('should create a dependency and return formatted response', async () => {
       mockPrisma.project_task.findFirst
-        .mockResolvedValueOnce(mockTask({ id: TASK_A_ID, title: 'Install shingles' }))
-        .mockResolvedValueOnce(mockTask({ id: TASK_B_ID, title: 'Remove old shingles' }));
+        .mockResolvedValueOnce(
+          mockTask({ id: TASK_A_ID, title: 'Install shingles' }),
+        )
+        .mockResolvedValueOnce(
+          mockTask({ id: TASK_B_ID, title: 'Remove old shingles' }),
+        );
       mockPrisma.task_dependency.findUnique.mockResolvedValue(null);
       mockPrisma.task_dependency.findMany.mockResolvedValue([]); // no existing deps
-      mockPrisma.task_dependency.create.mockResolvedValue(mockDependencyRecord());
+      mockPrisma.task_dependency.create.mockResolvedValue(
+        mockDependencyRecord(),
+      );
 
       const result = await service.addDependency(
         TENANT_ID,
@@ -312,7 +318,9 @@ describe('TaskDependencyService', () => {
 
       expect(result.depends_on).toHaveLength(1);
       expect(result.depends_on[0].depends_on_task_id).toBe(TASK_B_ID);
-      expect(result.depends_on[0].depends_on_task_title).toBe('Remove old shingles');
+      expect(result.depends_on[0].depends_on_task_title).toBe(
+        'Remove old shingles',
+      );
 
       expect(result.depended_on_by).toHaveLength(1);
       expect(result.depended_on_by[0].task_id).toBe(TASK_C_ID);

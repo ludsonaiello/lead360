@@ -87,9 +87,9 @@ describe('InsuranceExpiryCheckProcessor', () => {
 
     it('should return "valid" when expiry date is beyond 30 days', () => {
       const valid = new Date('2026-04-16'); // 31 days from now
-      expect(
-        processor.computeComplianceStatus(valid, today, threshold),
-      ).toBe('valid');
+      expect(processor.computeComplianceStatus(valid, today, threshold)).toBe(
+        'valid',
+      );
     });
 
     it('should return "valid" when expiry date is far in the future', () => {
@@ -141,7 +141,9 @@ describe('InsuranceExpiryCheckProcessor', () => {
 
       expect(result.subcontractors_checked).toBe(0);
       expect(result.notifications_sent).toBe(0);
-      expect(mockNotificationsService.createNotification).not.toHaveBeenCalled();
+      expect(
+        mockNotificationsService.createNotification,
+      ).not.toHaveBeenCalled();
     });
   });
 
@@ -228,7 +230,9 @@ describe('InsuranceExpiryCheckProcessor', () => {
       await processor.execute();
 
       expect(mockPrisma.subcontractor.updateMany).not.toHaveBeenCalled();
-      expect(mockNotificationsService.createNotification).not.toHaveBeenCalled();
+      expect(
+        mockNotificationsService.createNotification,
+      ).not.toHaveBeenCalled();
     });
 
     it('should not update or notify for "unknown" (no expiry date) subcontractors', async () => {
@@ -242,7 +246,9 @@ describe('InsuranceExpiryCheckProcessor', () => {
       await processor.execute();
 
       expect(mockPrisma.subcontractor.updateMany).not.toHaveBeenCalled();
-      expect(mockNotificationsService.createNotification).not.toHaveBeenCalled();
+      expect(
+        mockNotificationsService.createNotification,
+      ).not.toHaveBeenCalled();
     });
   });
 
@@ -279,7 +285,9 @@ describe('InsuranceExpiryCheckProcessor', () => {
       const result = await processor.execute();
 
       expect(result.notifications_sent).toBe(2);
-      expect(mockNotificationsService.createNotification).toHaveBeenCalledTimes(2);
+      expect(mockNotificationsService.createNotification).toHaveBeenCalledTimes(
+        2,
+      );
       expect(mockNotificationsService.createNotification).toHaveBeenCalledWith(
         expect.objectContaining({
           tenant_id: 'tenant-a',
@@ -325,7 +333,9 @@ describe('InsuranceExpiryCheckProcessor', () => {
 
       expect(mockNotificationsService.createNotification).toHaveBeenCalledWith(
         expect.objectContaining({
-          message: expect.stringContaining("Insurance for 'Quick Electric' expires on"),
+          message: expect.stringContaining(
+            "Insurance for 'Quick Electric' expires on",
+          ),
         }),
       );
     });
@@ -352,7 +362,9 @@ describe('InsuranceExpiryCheckProcessor', () => {
       const result = await processor.execute();
 
       expect(result.notifications_sent).toBe(0);
-      expect(mockNotificationsService.createNotification).not.toHaveBeenCalled();
+      expect(
+        mockNotificationsService.createNotification,
+      ).not.toHaveBeenCalled();
     });
   });
 
@@ -385,7 +397,9 @@ describe('InsuranceExpiryCheckProcessor', () => {
       const result = await processor.execute();
 
       expect(result.notifications_sent).toBe(0);
-      expect(mockNotificationsService.createNotification).not.toHaveBeenCalled();
+      expect(
+        mockNotificationsService.createNotification,
+      ).not.toHaveBeenCalled();
     });
 
     it('should check dedup using tenant_id + type + related_entity_id + today', async () => {
@@ -638,11 +652,9 @@ describe('InsuranceExpiryCheckProcessor', () => {
             is_active: true,
             deleted_at: null,
             memberships: {
-              some: { tenant_id: 'tenant-x', status: 'ACTIVE' },
-            },
-            user_role_user_role_user_idTouser: {
               some: {
                 tenant_id: 'tenant-x',
+                status: 'ACTIVE',
                 role: { name: { in: ['Owner', 'Admin'] } },
               },
             },

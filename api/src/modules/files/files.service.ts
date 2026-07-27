@@ -927,13 +927,34 @@ export class FilesService {
       vendor,
       subInvoice,
     ] = await Promise.all([
-      this.prisma.receipt.findFirst({ where: { file_id: fileId }, select: { id: true, financial_entry_id: true } }),
-      this.prisma.project_document.findFirst({ where: { file_id: fileId }, select: { id: true } }),
-      this.prisma.project_photo.findFirst({ where: { file_id: fileId }, select: { id: true } }),
-      this.prisma.project_log_attachment.findFirst({ where: { file_id: fileId }, select: { id: true } }),
-      this.prisma.subcontractor_document.findFirst({ where: { file_id: fileId }, select: { id: true } }),
-      this.prisma.vendor.findFirst({ where: { signature_file_id: fileId }, select: { id: true } }),
-      this.prisma.subcontractor_task_invoice.findFirst({ where: { file_id: fileId }, select: { id: true } }),
+      this.prisma.receipt.findFirst({
+        where: { file_id: fileId },
+        select: { id: true, financial_entry_id: true },
+      }),
+      this.prisma.project_document.findFirst({
+        where: { file_id: fileId },
+        select: { id: true },
+      }),
+      this.prisma.project_photo.findFirst({
+        where: { file_id: fileId },
+        select: { id: true },
+      }),
+      this.prisma.project_log_attachment.findFirst({
+        where: { file_id: fileId },
+        select: { id: true },
+      }),
+      this.prisma.subcontractor_document.findFirst({
+        where: { file_id: fileId },
+        select: { id: true },
+      }),
+      this.prisma.vendor.findFirst({
+        where: { signature_file_id: fileId },
+        select: { id: true },
+      }),
+      this.prisma.subcontractor_task_invoice.findFirst({
+        where: { file_id: fileId },
+        select: { id: true },
+      }),
     ]);
 
     if (receipt) {
@@ -1431,7 +1452,9 @@ export class FilesService {
     for (const file of files) {
       const refs = await this.findFileReferences(file.file_id);
       if (refs.length > 0) {
-        blockedFiles.push(`"${file.original_filename}" (used by ${refs.join(', ')})`);
+        blockedFiles.push(
+          `"${file.original_filename}" (used by ${refs.join(', ')})`,
+        );
       }
     }
     if (blockedFiles.length > 0) {

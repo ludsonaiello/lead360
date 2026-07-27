@@ -13,11 +13,12 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import ProtectedRoute from '@/components/rbac/shared/ProtectedRoute';
 import InviteUserModal from '@/components/users/InviteUserModal';
 import ChangeRoleModal from '@/components/users/ChangeRoleModal';
+import EditUserModal from '@/components/users/EditUserModal';
 import DeactivateUserModal from '@/components/users/DeactivateUserModal';
 import ReactivateUserModal from '@/components/users/ReactivateUserModal';
 import DeleteUserModal from '@/components/users/DeleteUserModal';
 import { useRBAC } from '@/contexts/RBACContext';
-import { listUsers } from '@/lib/api/users';
+import { listUsers, resendInvite } from '@/lib/api/users';
 import type { MembershipItem, MembershipStatus, ListUsersParams } from '@/lib/types/users';
 
 // ---------------------------------------------------------------------------
@@ -79,9 +80,11 @@ export default function UsersListPage() {
   const { hasRole } = useRBAC();
   const [selectedMember, setSelectedMember] = useState<MembershipItem | null>(null);
   const [showChangeRoleModal, setShowChangeRoleModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
   const [showReactivateModal, setShowReactivateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   // -----------------------------------------------------------------------
   // Data fetching
@@ -137,6 +140,25 @@ export default function UsersListPage() {
 
   const goToNextPage = () => setPage((p) => Math.min(p + 1, meta.total_pages));
   const goToPrevPage = () => setPage((p) => Math.max(p - 1, 1));
+
+  const handleResendInvite = async (member: MembershipItem) => {
+    setResendingId(member.id);
+    try {
+      await resendInvite(member.id);
+      toast.success(`Invite resent to ${member.email}`);
+    } catch (err: unknown) {
+      const apiError = err as { status?: number; message?: string };
+      if (apiError.status === 400) {
+        toast.error(apiError.message || 'Only invited members can be resent.');
+      } else if (apiError.status === 404) {
+        toast.error('Membership not found.');
+      } else {
+        toast.error(apiError.message || 'Failed to resend invite.');
+      }
+    } finally {
+      setResendingId(null);
+    }
+  };
 
   const showingFrom = meta.total === 0 ? 0 : (page - 1) * meta.limit + 1;
   const showingTo = Math.min(page * meta.limit, meta.total);
@@ -300,6 +322,25 @@ export default function UsersListPage() {
                             {member.status !== 'INACTIVE' && (
                               <button
                                 type="button"
+                                onClick={() => { setSelectedMember(member); setShowEditModal(true); }}
+                                className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+                              >
+                                Edit
+                              </button>
+                            )}
+                            {member.status === 'INVITED' && (
+                              <button
+                                type="button"
+                                onClick={() => handleResendInvite(member)}
+                                disabled={resendingId === member.id}
+                                className="text-sm text-purple-600 dark:text-purple-400 hover:underline font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {resendingId === member.id ? 'Resending...' : 'Resend Invite'}
+                              </button>
+                            )}
+                            {member.status !== 'INACTIVE' && (
+                              <button
+                                type="button"
                                 onClick={() => { setSelectedMember(member); setShowChangeRoleModal(true); }}
                                 className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
                               >
@@ -387,7 +428,26 @@ export default function UsersListPage() {
                     </div>
 
                     {/* Mobile action buttons */}
-                    <div className="flex items-center gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex-wrap">
+                      {member.status !== 'INACTIVE' && (
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedMember(member); setShowEditModal(true); }}
+                          className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {member.status === 'INVITED' && (
+                        <button
+                          type="button"
+                          onClick={() => handleResendInvite(member)}
+                          disabled={resendingId === member.id}
+                          className="text-sm text-purple-600 dark:text-purple-400 hover:underline font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {resendingId === member.id ? 'Resending...' : 'Resend Invite'}
+                        </button>
+                      )}
                       {member.status !== 'INACTIVE' && (
                         <button
                           type="button"
@@ -480,6 +540,12 @@ export default function UsersListPage() {
       <ChangeRoleModal
         isOpen={showChangeRoleModal}
         onClose={() => { setShowChangeRoleModal(false); setSelectedMember(null); }}
+        onSuccess={() => fetchUsers()}
+        member={selectedMember}
+      />
+      <EditUserModal
+        isOpen={showEditModal}
+        onClose={() => { setShowEditModal(false); setSelectedMember(null); }}
         onSuccess={() => fetchUsers()}
         member={selectedMember}
       />

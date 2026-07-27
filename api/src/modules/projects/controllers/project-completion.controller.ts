@@ -44,9 +44,14 @@ export class ProjectCompletionController {
 
   @Get('completion')
   @Roles('Owner', 'Admin', 'Manager')
-  @ApiOperation({ summary: 'Get completion checklist with items and punch list' })
+  @ApiOperation({
+    summary: 'Get completion checklist with items and punch list',
+  })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
-  @ApiResponse({ status: 200, description: 'Completion checklist with items and punch list' })
+  @ApiResponse({
+    status: 200,
+    description: 'Completion checklist with items and punch list',
+  })
   @ApiResponse({ status: 404, description: 'Project or checklist not found' })
   async getCompletion(
     @TenantId() tenantId: string,
@@ -62,11 +67,16 @@ export class ProjectCompletionController {
   @Post('completion')
   @Roles('Owner', 'Admin', 'Manager')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Start completion checklist (optionally from template)' })
+  @ApiOperation({
+    summary: 'Start completion checklist (optionally from template)',
+  })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiResponse({ status: 201, description: 'Completion checklist created' })
   @ApiResponse({ status: 404, description: 'Project or template not found' })
-  @ApiResponse({ status: 409, description: 'Checklist already exists for this project' })
+  @ApiResponse({
+    status: 409,
+    description: 'Checklist already exists for this project',
+  })
   async startCompletion(
     @TenantId() tenantId: string,
     @Param('projectId', ParseUUIDPipe) projectId: string,
@@ -90,8 +100,14 @@ export class ProjectCompletionController {
   @ApiOperation({ summary: 'Mark a checklist item as completed' })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'itemId', description: 'Checklist item UUID' })
-  @ApiResponse({ status: 200, description: 'Item completed, full checklist returned' })
-  @ApiResponse({ status: 404, description: 'Project, checklist, or item not found' })
+  @ApiResponse({
+    status: 200,
+    description: 'Item completed, full checklist returned',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project, checklist, or item not found',
+  })
   async completeItem(
     @TenantId() tenantId: string,
     @Param('projectId', ParseUUIDPipe) projectId: string,
@@ -117,7 +133,10 @@ export class ProjectCompletionController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Add a manual checklist item (not from template)' })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
-  @ApiResponse({ status: 201, description: 'Manual item added, full checklist returned' })
+  @ApiResponse({
+    status: 201,
+    description: 'Manual item added, full checklist returned',
+  })
   @ApiResponse({ status: 404, description: 'Project or checklist not found' })
   async addManualItem(
     @TenantId() tenantId: string,
@@ -142,7 +161,10 @@ export class ProjectCompletionController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Add a punch list item (deficiency to resolve)' })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
-  @ApiResponse({ status: 201, description: 'Punch list item created, full checklist returned' })
+  @ApiResponse({
+    status: 201,
+    description: 'Punch list item created, full checklist returned',
+  })
   @ApiResponse({ status: 404, description: 'Project or checklist not found' })
   async addPunchListItem(
     @TenantId() tenantId: string,
@@ -164,11 +186,19 @@ export class ProjectCompletionController {
 
   @Patch('completion/punch-list/:itemId')
   @Roles('Owner', 'Admin', 'Manager')
-  @ApiOperation({ summary: 'Update a punch list item (status, description, assignment)' })
+  @ApiOperation({
+    summary: 'Update a punch list item (status, description, assignment)',
+  })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'itemId', description: 'Punch list item UUID' })
-  @ApiResponse({ status: 200, description: 'Punch list item updated, full checklist returned' })
-  @ApiResponse({ status: 404, description: 'Project, checklist, or punch list item not found' })
+  @ApiResponse({
+    status: 200,
+    description: 'Punch list item updated, full checklist returned',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project, checklist, or punch list item not found',
+  })
   async updatePunchListItem(
     @TenantId() tenantId: string,
     @Param('projectId', ParseUUIDPipe) projectId: string,
@@ -193,13 +223,15 @@ export class ProjectCompletionController {
   @Roles('Owner', 'Admin', 'Manager')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Complete the project (validates all checklist items + punch list)',
+    summary:
+      'Complete the project (validates all checklist items + punch list)',
   })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiResponse({ status: 200, description: 'Project marked as completed' })
   @ApiResponse({
     status: 409,
-    description: 'Cannot complete — incomplete checklist items or unresolved punch list items',
+    description:
+      'Cannot complete — incomplete checklist items or unresolved punch list items',
   })
   async completeProject(
     @TenantId() tenantId: string,

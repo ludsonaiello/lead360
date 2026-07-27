@@ -117,8 +117,7 @@ export class ProjectPhotoController {
   ) {
     return this.projectPhotoService.findAll(tenantId, projectId, {
       task_id: taskId || undefined,
-      is_public:
-        isPublic !== undefined ? isPublic === 'true' : undefined,
+      is_public: isPublic !== undefined ? isPublic === 'true' : undefined,
       date_from: dateFrom || undefined,
       date_to: dateTo || undefined,
     });
@@ -193,8 +192,7 @@ export class ProjectPhotoController {
   ) {
     return this.projectPhotoService.getTimeline(tenantId, projectId, {
       task_id: taskId || undefined,
-      is_public:
-        isPublic !== undefined ? isPublic === 'true' : undefined,
+      is_public: isPublic !== undefined ? isPublic === 'true' : undefined,
       date_from: dateFrom || undefined,
       date_to: dateTo || undefined,
       page: page ? parseInt(page, 10) : undefined,
@@ -287,12 +285,7 @@ export class ProjectPhotoController {
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.projectPhotoService.delete(
-      tenantId,
-      projectId,
-      id,
-      req.user.id,
-    );
+    await this.projectPhotoService.delete(tenantId, projectId, id, req.user.id);
     return { message: 'Photo deleted' };
   }
 }

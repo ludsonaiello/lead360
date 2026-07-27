@@ -11,7 +11,8 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ListFinancialEntriesDto {
   @ApiPropertyOptional({
-    description: 'Project ID — omit to list all tenant entries across all projects',
+    description:
+      'Project ID — omit to list all tenant entries across all projects',
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
   @IsOptional()

@@ -1,4 +1,12 @@
-import { IsOptional, IsNumber, IsString, IsEnum, IsDateString, Min, MaxLength } from 'class-validator';
+import {
+  IsOptional,
+  IsNumber,
+  IsString,
+  IsEnum,
+  IsDateString,
+  Min,
+  MaxLength,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateSubcontractorInvoiceDto {

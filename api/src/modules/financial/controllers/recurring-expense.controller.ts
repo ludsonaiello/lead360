@@ -49,10 +49,7 @@ export class RecurringExpenseController {
   @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
   @ApiOperation({ summary: 'Preview upcoming expense obligations' })
   @ApiResponse({ status: 200, description: 'Upcoming obligations preview' })
-  async getPreview(
-    @Request() req,
-    @Query() query: PreviewRecurringRulesDto,
-  ) {
+  async getPreview(@Request() req, @Query() query: PreviewRecurringRulesDto) {
     return this.recurringExpenseService.getPreview(
       req.user.tenant_id,
       query.days,
@@ -70,10 +67,7 @@ export class RecurringExpenseController {
     status: 200,
     description: 'Paginated list of rules with monthly obligation summary',
   })
-  async findAll(
-    @Request() req,
-    @Query() query: ListRecurringRulesDto,
-  ) {
+  async findAll(@Request() req, @Query() query: ListRecurringRulesDto) {
     return this.recurringExpenseService.findAll(req.user.tenant_id, query);
   }
 
@@ -87,10 +81,7 @@ export class RecurringExpenseController {
   @ApiOperation({ summary: 'Create a new recurring expense rule' })
   @ApiResponse({ status: 201, description: 'Rule created successfully' })
   @ApiResponse({ status: 400, description: 'Validation error' })
-  async create(
-    @Request() req,
-    @Body() dto: CreateRecurringRuleDto,
-  ) {
+  async create(@Request() req, @Body() dto: CreateRecurringRuleDto) {
     return this.recurringExpenseService.create(
       req.user.tenant_id,
       req.user.id,
@@ -113,10 +104,7 @@ export class RecurringExpenseController {
     description: 'Rule details with last entry and next 3 dates',
   })
   @ApiResponse({ status: 404, description: 'Rule not found' })
-  async findOne(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.recurringExpenseService.findOne(req.user.tenant_id, id);
   }
 
@@ -157,10 +145,7 @@ export class RecurringExpenseController {
   @ApiParam({ name: 'id', description: 'Rule UUID' })
   @ApiResponse({ status: 200, description: 'Rule cancelled successfully' })
   @ApiResponse({ status: 404, description: 'Rule not found' })
-  async cancel(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async cancel(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.recurringExpenseService.cancel(
       req.user.tenant_id,
       id,
@@ -179,10 +164,7 @@ export class RecurringExpenseController {
   @ApiParam({ name: 'id', description: 'Rule UUID' })
   @ApiResponse({ status: 200, description: 'Rule paused successfully' })
   @ApiResponse({ status: 400, description: 'Rule is not active' })
-  async pause(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async pause(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.recurringExpenseService.pause(
       req.user.tenant_id,
       id,
@@ -201,10 +183,7 @@ export class RecurringExpenseController {
   @ApiParam({ name: 'id', description: 'Rule UUID' })
   @ApiResponse({ status: 200, description: 'Rule resumed successfully' })
   @ApiResponse({ status: 400, description: 'Rule is not paused' })
-  async resume(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async resume(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.recurringExpenseService.resume(
       req.user.tenant_id,
       id,
@@ -228,10 +207,7 @@ export class RecurringExpenseController {
     status: 400,
     description: 'Rule is cancelled or completed',
   })
-  async trigger(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async trigger(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.recurringExpenseService.triggerNow(
       req.user.tenant_id,
       id,

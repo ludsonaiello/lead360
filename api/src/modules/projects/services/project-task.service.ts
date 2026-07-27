@@ -371,7 +371,8 @@ export class ProjectTaskService {
       if (blockingDeps.length > 0) {
         throw new ConflictException({
           statusCode: 409,
-          message: 'Cannot transition status: prerequisite tasks are not complete',
+          message:
+            'Cannot transition status: prerequisite tasks are not complete',
           error: 'Conflict',
           blocking_dependencies: blockingDeps,
         });

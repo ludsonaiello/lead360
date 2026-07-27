@@ -189,13 +189,13 @@ describe('ChecklistTemplateService', () => {
         mockTemplateRecord(),
       );
 
-      await expect(
-        service.create(TENANT_A, USER_ID, dto),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.create(TENANT_A, USER_ID, dto)).rejects.toThrow(
+        ConflictException,
+      );
 
-      await expect(
-        service.create(TENANT_A, USER_ID, dto),
-      ).rejects.toThrow('A checklist template with this name already exists');
+      await expect(service.create(TENANT_A, USER_ID, dto)).rejects.toThrow(
+        'A checklist template with this name already exists',
+      );
     });
 
     it('should allow same template name for different tenants', async () => {
@@ -284,7 +284,9 @@ describe('ChecklistTemplateService', () => {
       mockPrismaService.completion_checklist_template.findMany.mockResolvedValue(
         templates,
       );
-      mockPrismaService.completion_checklist_template.count.mockResolvedValue(2);
+      mockPrismaService.completion_checklist_template.count.mockResolvedValue(
+        2,
+      );
 
       const result = await service.findAll(TENANT_A);
 
@@ -299,7 +301,9 @@ describe('ChecklistTemplateService', () => {
       mockPrismaService.completion_checklist_template.findMany.mockResolvedValue(
         [],
       );
-      mockPrismaService.completion_checklist_template.count.mockResolvedValue(0);
+      mockPrismaService.completion_checklist_template.count.mockResolvedValue(
+        0,
+      );
 
       await service.findAll(TENANT_A);
 
@@ -323,7 +327,9 @@ describe('ChecklistTemplateService', () => {
       mockPrismaService.completion_checklist_template.findMany.mockResolvedValue(
         [],
       );
-      mockPrismaService.completion_checklist_template.count.mockResolvedValue(0);
+      mockPrismaService.completion_checklist_template.count.mockResolvedValue(
+        0,
+      );
 
       await service.findAll(TENANT_A, { is_active: true });
 
@@ -343,7 +349,9 @@ describe('ChecklistTemplateService', () => {
       mockPrismaService.completion_checklist_template.findMany.mockResolvedValue(
         [],
       );
-      mockPrismaService.completion_checklist_template.count.mockResolvedValue(0);
+      mockPrismaService.completion_checklist_template.count.mockResolvedValue(
+        0,
+      );
 
       await service.findAll(TENANT_A, { limit: 999 });
 
@@ -356,7 +364,9 @@ describe('ChecklistTemplateService', () => {
       mockPrismaService.completion_checklist_template.findMany.mockResolvedValue(
         [],
       );
-      mockPrismaService.completion_checklist_template.count.mockResolvedValue(0);
+      mockPrismaService.completion_checklist_template.count.mockResolvedValue(
+        0,
+      );
 
       await service.findAll(TENANT_A, { page: -5 });
 
@@ -369,7 +379,9 @@ describe('ChecklistTemplateService', () => {
       mockPrismaService.completion_checklist_template.findMany.mockResolvedValue(
         [],
       );
-      mockPrismaService.completion_checklist_template.count.mockResolvedValue(0);
+      mockPrismaService.completion_checklist_template.count.mockResolvedValue(
+        0,
+      );
 
       await service.findAll(TENANT_A);
 
@@ -396,9 +408,7 @@ describe('ChecklistTemplateService', () => {
 
       expect(
         mockPrismaService.completion_checklist_template.findMany,
-      ).toHaveBeenCalledWith(
-        expect.objectContaining({ skip: 10, take: 10 }),
-      );
+      ).toHaveBeenCalledWith(expect.objectContaining({ skip: 10, take: 10 }));
       expect(result.meta.totalPages).toBe(5);
       expect(result.meta.page).toBe(2);
     });
@@ -443,9 +453,9 @@ describe('ChecklistTemplateService', () => {
         null,
       );
 
-      await expect(
-        service.findOne(TENANT_A, 'non-existent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(TENANT_A, 'non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should not return template from another tenant (tenant isolation)', async () => {
@@ -453,9 +463,9 @@ describe('ChecklistTemplateService', () => {
         null,
       );
 
-      await expect(
-        service.findOne(TENANT_B, 'clt-uuid-001'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(TENANT_B, 'clt-uuid-001')).rejects.toThrow(
+        NotFoundException,
+      );
 
       expect(
         mockPrismaService.completion_checklist_template.findFirst,
@@ -717,7 +727,9 @@ describe('ChecklistTemplateService', () => {
       mockPrismaService.completion_checklist_template.findMany.mockResolvedValue(
         [],
       );
-      mockPrismaService.completion_checklist_template.count.mockResolvedValue(0);
+      mockPrismaService.completion_checklist_template.count.mockResolvedValue(
+        0,
+      );
 
       await service.findAll(TENANT_A);
 
@@ -732,9 +744,9 @@ describe('ChecklistTemplateService', () => {
         null,
       );
 
-      await expect(
-        service.findOne(TENANT_B, 'clt-uuid-001'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(TENANT_B, 'clt-uuid-001')).rejects.toThrow(
+        NotFoundException,
+      );
 
       const whereArg =
         mockPrismaService.completion_checklist_template.findFirst.mock
@@ -784,9 +796,11 @@ describe('ChecklistTemplateService', () => {
         const tx = {
           completion_checklist_template: {
             create: jest.fn().mockResolvedValue({ id: 'clt-uuid-new' }),
-            findFirst: jest.fn().mockResolvedValue(
-              mockTemplateRecord({ id: 'clt-uuid-new', items: [] }),
-            ),
+            findFirst: jest
+              .fn()
+              .mockResolvedValue(
+                mockTemplateRecord({ id: 'clt-uuid-new', items: [] }),
+              ),
           },
           completion_checklist_template_item: {
             createMany: jest.fn().mockResolvedValue({ count: 1 }),

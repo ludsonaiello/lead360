@@ -27,6 +27,8 @@ import type {
   AdminUserDetail,
   AdminCreateUserResponse,
   CreateUserAdminDto,
+  EditUserDto,
+  ResendInviteResponse,
 } from '../types/users';
 
 // ============================================================================
@@ -72,6 +74,18 @@ export async function reactivateUser(membershipId: string): Promise<ReactivateRe
 /** Delete a user (soft or hard based on history) — Owner only */
 export async function deleteUser(membershipId: string): Promise<void> {
   await apiClient.delete(`/users/${membershipId}`);
+}
+
+/** Edit a user's profile (admin) */
+export async function editUser(membershipId: string, dto: EditUserDto): Promise<MembershipItem> {
+  const response = await apiClient.patch<MembershipItem>(`/users/${membershipId}`, dto);
+  return response.data;
+}
+
+/** Resend invite email — generates a new token and invalidates the previous one */
+export async function resendInvite(membershipId: string): Promise<ResendInviteResponse> {
+  const response = await apiClient.post<ResendInviteResponse>(`/users/${membershipId}/resend-invite`);
+  return response.data;
 }
 
 // ============================================================================
@@ -186,6 +200,8 @@ export const usersApi = {
   deactivateUser,
   reactivateUser,
   deleteUser,
+  editUser,
+  resendInvite,
   getMe,
   updateMe,
   changeMyPassword,

@@ -328,9 +328,9 @@ describe('SubcontractorService', () => {
     it('should throw NotFoundException when tenant_id does not match', async () => {
       mockPrismaService.subcontractor.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.findOne('other-tenant-id', SUB_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('other-tenant-id', SUB_ID)).rejects.toThrow(
+        NotFoundException,
+      );
 
       expect(mockPrismaService.subcontractor.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -571,9 +571,7 @@ describe('SubcontractorService', () => {
     });
 
     it('should throw NotFoundException when contact does not exist', async () => {
-      mockPrismaService.subcontractor_contact.findFirst.mockResolvedValue(
-        null,
-      );
+      mockPrismaService.subcontractor_contact.findFirst.mockResolvedValue(null);
 
       await expect(
         service.removeContact(TENANT_ID, SUB_ID, 'nonexistent'),

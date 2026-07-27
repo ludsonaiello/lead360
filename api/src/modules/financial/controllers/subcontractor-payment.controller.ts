@@ -56,7 +56,10 @@ export class SubcontractorPaymentController {
   @Get('subcontractor-payments')
   @Roles('Owner', 'Admin', 'Bookkeeper')
   @ApiOperation({ summary: 'List subcontractor payments (paginated)' })
-  @ApiResponse({ status: 200, description: 'Paginated list of subcontractor payments' })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of subcontractor payments',
+  })
   async findAll(@Request() req, @Query() query: ListSubcontractorPaymentsDto) {
     return this.subcontractorPaymentService.listPayments(
       req.user.tenant_id,
@@ -87,14 +90,13 @@ export class SubcontractorPaymentController {
   @Delete('subcontractor-payments/:id')
   @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Permanently delete a subcontractor payment record' })
+  @ApiOperation({
+    summary: 'Permanently delete a subcontractor payment record',
+  })
   @ApiParam({ name: 'id', description: 'Payment UUID' })
   @ApiResponse({ status: 200, description: 'Payment deleted successfully' })
   @ApiResponse({ status: 404, description: 'Payment not found' })
-  async delete(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async delete(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.subcontractorPaymentService.deletePayment(
       req.user.tenant_id,
       id,
@@ -181,10 +183,7 @@ export class SubcontractorPaymentSummaryController {
         req.user.tenant_id,
         id,
       ),
-      this.subcontractorPaymentService.getTotalPaid(
-        req.user.tenant_id,
-        id,
-      ),
+      this.subcontractorPaymentService.getTotalPaid(req.user.tenant_id, id),
     ]);
 
     return {

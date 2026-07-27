@@ -52,9 +52,21 @@ export class ProjectInvoiceController {
   @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
   @ApiOperation({ summary: 'List invoices for a project' })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
-  @ApiQuery({ name: 'status', required: false, enum: ['draft', 'sent', 'partial', 'paid', 'voided'] })
-  @ApiQuery({ name: 'date_from', required: false, description: 'Filter by created_at from (ISO date)' })
-  @ApiQuery({ name: 'date_to', required: false, description: 'Filter by created_at to (ISO date)' })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['draft', 'sent', 'partial', 'paid', 'voided'],
+  })
+  @ApiQuery({
+    name: 'date_from',
+    required: false,
+    description: 'Filter by created_at from (ISO date)',
+  })
+  @ApiQuery({
+    name: 'date_to',
+    required: false,
+    description: 'Filter by created_at to (ISO date)',
+  })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Paginated list of invoices' })
@@ -80,7 +92,10 @@ export class ProjectInvoiceController {
   @ApiOperation({ summary: 'Create an invoice manually' })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiBody({ type: CreateProjectInvoiceDto })
-  @ApiResponse({ status: 201, description: 'Invoice created with status draft' })
+  @ApiResponse({
+    status: 201,
+    description: 'Invoice created with status draft',
+  })
   async create(
     @Request() req: AuthenticatedRequest,
     @Param('projectId', ParseUUIDPipe) projectId: string,
@@ -103,7 +118,10 @@ export class ProjectInvoiceController {
   @ApiOperation({ summary: 'Get a single invoice with payments' })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'id', description: 'Invoice UUID' })
-  @ApiResponse({ status: 200, description: 'Invoice with payments and milestone details' })
+  @ApiResponse({
+    status: 200,
+    description: 'Invoice with payments and milestone details',
+  })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
   async findOne(
     @Request() req: AuthenticatedRequest,
@@ -181,8 +199,14 @@ export class ProjectInvoiceController {
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'id', description: 'Invoice UUID' })
   @ApiBody({ type: VoidInvoiceDto })
-  @ApiResponse({ status: 200, description: 'Invoice voided, linked milestone reset to pending' })
-  @ApiResponse({ status: 400, description: 'Invoice is already voided or reason missing' })
+  @ApiResponse({
+    status: 200,
+    description: 'Invoice voided, linked milestone reset to pending',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invoice is already voided or reason missing',
+  })
   async voidInvoice(
     @Request() req: AuthenticatedRequest,
     @Param('projectId', ParseUUIDPipe) projectId: string,
@@ -205,7 +229,10 @@ export class ProjectInvoiceController {
   @Delete(':id')
   @Roles('Owner', 'Admin')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Permanently delete an invoice (any status, cascades payments, resets milestones)' })
+  @ApiOperation({
+    summary:
+      'Permanently delete an invoice (any status, cascades payments, resets milestones)',
+  })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'id', description: 'Invoice UUID' })
   @ApiResponse({ status: 200, description: 'Invoice deleted successfully' })
@@ -234,8 +261,14 @@ export class ProjectInvoiceController {
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'id', description: 'Invoice UUID' })
   @ApiBody({ type: RecordInvoicePaymentDto })
-  @ApiResponse({ status: 201, description: 'Payment recorded, invoice updated atomically' })
-  @ApiResponse({ status: 400, description: 'Payment exceeds amount due or invoice is voided' })
+  @ApiResponse({
+    status: 201,
+    description: 'Payment recorded, invoice updated atomically',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Payment exceeds amount due or invoice is voided',
+  })
   async recordPayment(
     @Request() req: AuthenticatedRequest,
     @Param('projectId', ParseUUIDPipe) projectId: string,
@@ -260,7 +293,10 @@ export class ProjectInvoiceController {
   @ApiOperation({ summary: 'List payments for an invoice' })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'id', description: 'Invoice UUID' })
-  @ApiResponse({ status: 200, description: 'List of payments ordered by payment_date' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of payments ordered by payment_date',
+  })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
   async getPayments(
     @Request() req: AuthenticatedRequest,
@@ -281,11 +317,16 @@ export class ProjectInvoiceController {
   @Delete(':id/payments/:paymentId')
   @Roles('Owner', 'Admin')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Delete a payment from an invoice (recalculates invoice totals)' })
+  @ApiOperation({
+    summary: 'Delete a payment from an invoice (recalculates invoice totals)',
+  })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({ name: 'id', description: 'Invoice UUID' })
   @ApiParam({ name: 'paymentId', description: 'Payment UUID' })
-  @ApiResponse({ status: 200, description: 'Payment deleted, invoice recalculated' })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment deleted, invoice recalculated',
+  })
   @ApiResponse({ status: 404, description: 'Invoice or payment not found' })
   async deletePayment(
     @Request() req: AuthenticatedRequest,

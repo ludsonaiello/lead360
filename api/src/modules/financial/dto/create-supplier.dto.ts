@@ -132,7 +132,8 @@ export class CreateSupplierDto {
   country?: string;
 
   @ApiPropertyOptional({
-    description: 'Latitude for map display (from Google Places or manual entry)',
+    description:
+      'Latitude for map display (from Google Places or manual entry)',
     example: 29.7604,
   })
   @IsNumber()
@@ -142,7 +143,8 @@ export class CreateSupplierDto {
   latitude?: number;
 
   @ApiPropertyOptional({
-    description: 'Longitude for map display (from Google Places or manual entry)',
+    description:
+      'Longitude for map display (from Google Places or manual entry)',
     example: -95.3698,
   })
   @IsNumber()
@@ -152,7 +154,8 @@ export class CreateSupplierDto {
   longitude?: number;
 
   @ApiPropertyOptional({
-    description: 'Google Place ID — when provided, triggers address auto-fill from Google Places API',
+    description:
+      'Google Place ID — when provided, triggers address auto-fill from Google Places API',
     example: 'ChIJAYWNSLS4QIYROwVl894CDco',
   })
   @IsString()

@@ -40,10 +40,7 @@ export class SupplierController {
   @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper', 'Sales', 'Employee')
   @ApiOperation({ summary: 'List suppliers with filters and pagination' })
   @ApiResponse({ status: 200, description: 'Paginated list of suppliers' })
-  async findAll(
-    @Request() req,
-    @Query() query: ListSuppliersDto,
-  ) {
+  async findAll(@Request() req, @Query() query: ListSuppliersDto) {
     return this.supplierService.findAll(req.user.tenant_id, query);
   }
 
@@ -53,26 +50,33 @@ export class SupplierController {
   @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
   @ApiOperation({ summary: 'Create a new supplier' })
   @ApiResponse({ status: 201, description: 'Supplier created successfully' })
-  @ApiResponse({ status: 400, description: 'Validation error or invalid category IDs' })
-  @ApiResponse({ status: 409, description: 'Supplier name already exists for this tenant' })
-  @ApiResponse({ status: 422, description: 'Google Places address resolution failed' })
-  async create(
-    @Request() req,
-    @Body() dto: CreateSupplierDto,
-  ) {
-    return this.supplierService.create(
-      req.user.tenant_id,
-      req.user.id,
-      dto,
-    );
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or invalid category IDs',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Supplier name already exists for this tenant',
+  })
+  @ApiResponse({
+    status: 422,
+    description: 'Google Places address resolution failed',
+  })
+  async create(@Request() req, @Body() dto: CreateSupplierDto) {
+    return this.supplierService.create(req.user.tenant_id, req.user.id, dto);
   }
 
   // ========== MAP (MUST be before :id route) ==========
 
   @Get('map')
   @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper', 'Sales', 'Employee')
-  @ApiOperation({ summary: 'Get all active suppliers with lat/lng for map rendering' })
-  @ApiResponse({ status: 200, description: 'Array of suppliers with coordinates' })
+  @ApiOperation({
+    summary: 'Get all active suppliers with lat/lng for map rendering',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Array of suppliers with coordinates',
+  })
   async findForMap(@Request() req) {
     return this.supplierService.findForMap(req.user.tenant_id);
   }
@@ -83,12 +87,12 @@ export class SupplierController {
   @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper', 'Sales', 'Employee')
   @ApiOperation({ summary: 'Get a single supplier with full details' })
   @ApiParam({ name: 'id', description: 'Supplier UUID' })
-  @ApiResponse({ status: 200, description: 'Full supplier details with categories and products' })
+  @ApiResponse({
+    status: 200,
+    description: 'Full supplier details with categories and products',
+  })
   @ApiResponse({ status: 404, description: 'Supplier not found' })
-  async findOne(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.supplierService.findOne(req.user.tenant_id, id);
   }
 
@@ -118,11 +122,26 @@ export class SupplierController {
 
   @Delete(':id')
   @Roles('Owner', 'Admin', 'Bookkeeper')
-  @ApiOperation({ summary: 'Delete a supplier (soft by default, permanent with ?permanent=true)' })
+  @ApiOperation({
+    summary:
+      'Delete a supplier (soft by default, permanent with ?permanent=true)',
+  })
   @ApiParam({ name: 'id', description: 'Supplier UUID' })
-  @ApiQuery({ name: 'permanent', required: false, type: Boolean, description: 'Set to true to permanently delete (only works if supplier has no financial data)' })
-  @ApiResponse({ status: 200, description: 'Supplier deactivated or permanently deleted' })
-  @ApiResponse({ status: 400, description: 'Cannot permanently delete — supplier has financial data' })
+  @ApiQuery({
+    name: 'permanent',
+    required: false,
+    type: Boolean,
+    description:
+      'Set to true to permanently delete (only works if supplier has no financial data)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Supplier deactivated or permanently deleted',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot permanently delete — supplier has financial data',
+  })
   @ApiResponse({ status: 404, description: 'Supplier not found' })
   async delete(
     @Request() req,
@@ -136,11 +155,7 @@ export class SupplierController {
         req.user.id,
       );
     }
-    return this.supplierService.softDelete(
-      req.user.tenant_id,
-      id,
-      req.user.id,
-    );
+    return this.supplierService.softDelete(req.user.tenant_id, id, req.user.id);
   }
 
   // ========== STATISTICS ==========
@@ -149,12 +164,12 @@ export class SupplierController {
   @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper', 'Sales', 'Employee')
   @ApiOperation({ summary: 'Get supplier spend statistics' })
   @ApiParam({ name: 'id', description: 'Supplier UUID' })
-  @ApiResponse({ status: 200, description: 'Supplier statistics with spend breakdown' })
+  @ApiResponse({
+    status: 200,
+    description: 'Supplier statistics with spend breakdown',
+  })
   @ApiResponse({ status: 404, description: 'Supplier not found' })
-  async getStatistics(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getStatistics(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.supplierService.getStatistics(req.user.tenant_id, id);
   }
 }

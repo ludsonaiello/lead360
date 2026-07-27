@@ -311,9 +311,7 @@ export class ProjectLogService {
     });
 
     // Collect ALL attachment file IDs for storage cleanup
-    const fileIdsToDelete: string[] = log.attachments.map(
-      (a) => a.file_id,
-    );
+    const fileIdsToDelete: string[] = log.attachments.map((a) => a.file_id);
 
     // Delete linked project_photo records first (removes FK to file)
     if (linkedPhotos.length > 0) {
@@ -355,11 +353,7 @@ export class ProjectLogService {
   // 4. findAttachments(tenantId, projectId, logId)
   // ---------------------------------------------------------------------------
 
-  async findAttachments(
-    tenantId: string,
-    projectId: string,
-    logId: string,
-  ) {
+  async findAttachments(tenantId: string, projectId: string, logId: string) {
     // Verify project exists and belongs to tenant
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, tenant_id: tenantId },
@@ -440,9 +434,7 @@ export class ProjectLogService {
             last_name: log.author.last_name,
           }
         : null,
-      log_date: log.log_date
-        ? log.log_date.toISOString().split('T')[0]
-        : null,
+      log_date: log.log_date ? log.log_date.toISOString().split('T')[0] : null,
       content: log.content,
       is_public: log.is_public,
       weather_delay: log.weather_delay,

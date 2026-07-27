@@ -12,19 +12,29 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { CreateChecklistTemplateItemDto } from './create-checklist-template.dto';
 
 export class UpdateChecklistTemplateDto {
-  @ApiPropertyOptional({ description: 'Template name (unique per tenant)', example: 'Updated Roofing Completion', maxLength: 200 })
+  @ApiPropertyOptional({
+    description: 'Template name (unique per tenant)',
+    example: 'Updated Roofing Completion',
+    maxLength: 200,
+  })
   @IsString()
   @MinLength(1)
   @MaxLength(200)
   @IsOptional()
   name?: string;
 
-  @ApiPropertyOptional({ description: 'Template description', example: 'Updated checklist for residential roofing projects' })
+  @ApiPropertyOptional({
+    description: 'Template description',
+    example: 'Updated checklist for residential roofing projects',
+  })
   @IsString()
   @IsOptional()
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Whether the template is active', example: true })
+  @ApiPropertyOptional({
+    description: 'Whether the template is active',
+    example: true,
+  })
   @IsBoolean()
   @IsOptional()
   is_active?: boolean;

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   Logger,
   NotFoundException,
@@ -22,11 +23,7 @@ export class CrewHourLogService {
    * Log hours for a crew member.
    * source='manual', clockin_event_id=null. hours_regular > 0.
    */
-  async logHours(
-    tenantId: string,
-    userId: string,
-    dto: CreateCrewHourLogDto,
-  ) {
+  async logHours(tenantId: string, userId: string, dto: CreateCrewHourLogDto) {
     // Validate crew member belongs to tenant
     await this.validateCrewMemberBelongsToTenant(tenantId, dto.crew_member_id);
 
@@ -35,7 +32,11 @@ export class CrewHourLogService {
 
     // Validate task belongs to project (if provided)
     if (dto.task_id) {
-      await this.validateTaskBelongsToProject(tenantId, dto.task_id, dto.project_id);
+      await this.validateTaskBelongsToProject(
+        tenantId,
+        dto.task_id,
+        dto.project_id,
+      );
     }
 
     const hourLog = await this.prisma.crew_hour_log.create({
@@ -203,14 +204,24 @@ export class CrewHourLogService {
 
     // Validate task if being changed
     if (dto.task_id) {
-      await this.validateTaskBelongsToProject(tenantId, dto.task_id, existing.project_id);
+      if (!existing.project_id) {
+        throw new BadRequestException(
+          'Cannot assign a task to an hour log that is not linked to a project',
+        );
+      }
+      await this.validateTaskBelongsToProject(
+        tenantId,
+        dto.task_id,
+        existing.project_id,
+      );
     }
 
     const data: any = {};
     if (dto.task_id !== undefined) data.task_id = dto.task_id ?? null;
     if (dto.log_date !== undefined) data.log_date = new Date(dto.log_date);
     if (dto.hours_regular !== undefined) data.hours_regular = dto.hours_regular;
-    if (dto.hours_overtime !== undefined) data.hours_overtime = dto.hours_overtime;
+    if (dto.hours_overtime !== undefined)
+      data.hours_overtime = dto.hours_overtime;
     if (dto.notes !== undefined) data.notes = dto.notes ?? null;
 
     const updated = await this.prisma.crew_hour_log.update({
@@ -246,11 +257,7 @@ export class CrewHourLogService {
   /**
    * Hard-delete a crew hour log entry.
    */
-  async deleteHours(
-    tenantId: string,
-    hourLogId: string,
-    userId: string,
-  ) {
+  async deleteHours(tenantId: string, hourLogId: string, userId: string) {
     const existing = await this.prisma.crew_hour_log.findFirst({
       where: { id: hourLogId, tenant_id: tenantId },
       include: {

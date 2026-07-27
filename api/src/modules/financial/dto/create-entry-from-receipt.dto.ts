@@ -12,7 +12,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateEntryFromReceiptDto {
   @ApiPropertyOptional({
-    description: 'Project ID for the expense entry (omit for business-level overhead expenses like fuel, office supplies)',
+    description:
+      'Project ID for the expense entry (omit for business-level overhead expenses like fuel, office supplies)',
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
   @IsOptional()
@@ -38,8 +39,9 @@ export class CreateEntryFromReceiptDto {
   category_id: string;
 
   @ApiPropertyOptional({
-    description: 'Entry amount. If not provided, OCR-detected amount is used as fallback.',
-    example: 450.00,
+    description:
+      'Entry amount. If not provided, OCR-detected amount is used as fallback.',
+    example: 450.0,
     minimum: 0.01,
   })
   @IsOptional()
@@ -49,7 +51,7 @@ export class CreateEntryFromReceiptDto {
 
   @ApiPropertyOptional({
     description: 'Tax amount (must be less than amount)',
-    example: 35.50,
+    example: 35.5,
   })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -58,7 +60,7 @@ export class CreateEntryFromReceiptDto {
 
   @ApiPropertyOptional({
     description: 'Discount amount applied to the receipt',
-    example: 5.00,
+    example: 5.0,
   })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -66,7 +68,8 @@ export class CreateEntryFromReceiptDto {
   discount?: number;
 
   @ApiPropertyOptional({
-    description: 'Entry date in ISO format. If not provided, OCR-detected date is used as fallback.',
+    description:
+      'Entry date in ISO format. If not provided, OCR-detected date is used as fallback.',
     example: '2026-03-10',
   })
   @IsOptional()
@@ -83,7 +86,8 @@ export class CreateEntryFromReceiptDto {
   entry_time?: string;
 
   @ApiPropertyOptional({
-    description: 'Vendor name. If not provided, OCR-detected vendor is used as fallback.',
+    description:
+      'Vendor name. If not provided, OCR-detected vendor is used as fallback.',
     example: 'Home Depot',
     maxLength: 200,
   })
@@ -102,17 +106,40 @@ export class CreateEntryFromReceiptDto {
   supplier_id?: string;
 
   @ApiPropertyOptional({
-    description: 'Payment method enum (ignored if payment_method_registry_id provided)',
-    enum: ['cash', 'check', 'bank_transfer', 'venmo', 'zelle', 'credit_card', 'debit_card', 'ACH'],
+    description:
+      'Payment method enum (ignored if payment_method_registry_id provided)',
+    enum: [
+      'cash',
+      'check',
+      'bank_transfer',
+      'venmo',
+      'zelle',
+      'credit_card',
+      'debit_card',
+      'ACH',
+    ],
   })
   @IsOptional()
-  @IsEnum(['cash', 'check', 'bank_transfer', 'venmo', 'zelle', 'credit_card', 'debit_card', 'ACH'], {
-    message: 'Invalid payment method',
-  })
+  @IsEnum(
+    [
+      'cash',
+      'check',
+      'bank_transfer',
+      'venmo',
+      'zelle',
+      'credit_card',
+      'debit_card',
+      'ACH',
+    ],
+    {
+      message: 'Invalid payment method',
+    },
+  )
   payment_method?: string;
 
   @ApiPropertyOptional({
-    description: 'Payment method registry ID (auto-copies type into payment_method)',
+    description:
+      'Payment method registry ID (auto-copies type into payment_method)',
     example: '550e8400-e29b-41d4-a716-446655440006',
   })
   @IsOptional()
@@ -121,7 +148,8 @@ export class CreateEntryFromReceiptDto {
   payment_method_registry_id?: string;
 
   @ApiPropertyOptional({
-    description: 'User who made the purchase (mutually exclusive with purchased_by_crew_member_id)',
+    description:
+      'User who made the purchase (mutually exclusive with purchased_by_crew_member_id)',
     example: '550e8400-e29b-41d4-a716-446655440007',
   })
   @IsOptional()
@@ -130,7 +158,8 @@ export class CreateEntryFromReceiptDto {
   purchased_by_user_id?: string;
 
   @ApiPropertyOptional({
-    description: 'Crew member who made the purchase (mutually exclusive with purchased_by_user_id)',
+    description:
+      'Crew member who made the purchase (mutually exclusive with purchased_by_user_id)',
     example: '550e8400-e29b-41d4-a716-446655440008',
   })
   @IsOptional()
@@ -157,7 +186,8 @@ export class CreateEntryFromReceiptDto {
   subcontractor_id?: string;
 
   @ApiPropertyOptional({
-    description: 'Submission status (Owner/Admin/Manager/Bookkeeper only — Employee value is overridden to pending_review)',
+    description:
+      'Submission status (Owner/Admin/Manager/Bookkeeper only — Employee value is overridden to pending_review)',
     enum: ['pending_review', 'confirmed'],
     default: 'confirmed',
   })
@@ -169,7 +199,8 @@ export class CreateEntryFromReceiptDto {
 
   @ApiPropertyOptional({
     description: 'Additional notes',
-    example: 'Purchased lumber for deck project — removed personal items from receipt total',
+    example:
+      'Purchased lumber for deck project — removed personal items from receipt total',
     maxLength: 2000,
   })
   @IsOptional()

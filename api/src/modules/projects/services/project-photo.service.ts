@@ -540,9 +540,7 @@ export class ProjectPhotoService {
     return date.toISOString().split('T')[0];
   }
 
-  private groupPhotosByDate(
-    photos: any[],
-  ): { date: string; photos: any[] }[] {
+  private groupPhotosByDate(photos: any[]): { date: string; photos: any[] }[] {
     const groups = new Map<string, any[]>();
 
     for (const photo of photos) {
@@ -566,9 +564,7 @@ export class ProjectPhotoService {
       thumbnail_url: photo.thumbnail_url,
       caption: photo.caption,
       is_public: photo.is_public,
-      task: photo.task
-        ? { id: photo.task.id, title: photo.task.title }
-        : null,
+      task: photo.task ? { id: photo.task.id, title: photo.task.title } : null,
       log: photo.log ? { id: photo.log.id } : null,
       uploaded_by: photo.uploaded_by_user
         ? {

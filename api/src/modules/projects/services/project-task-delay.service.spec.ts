@@ -53,7 +53,10 @@ describe('ProjectTaskService — Delay Detection (Sprint 16)', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditLoggerService, useValue: mockAuditLogger },
         { provide: ProjectService, useValue: mockProjectService },
-        { provide: ProjectActivityService, useValue: mockProjectActivityService },
+        {
+          provide: ProjectActivityService,
+          useValue: mockProjectActivityService,
+        },
         { provide: TaskDependencyService, useValue: mockTaskDependencyService },
       ],
     }).compile();

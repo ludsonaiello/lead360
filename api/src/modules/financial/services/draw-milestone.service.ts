@@ -62,9 +62,7 @@ export class DrawMilestoneService {
     // Build milestone data array with calculated amounts
     const milestoneData = entries.map((entry) => {
       const contractValue =
-        project?.contract_value != null
-          ? Number(project.contract_value)
-          : null;
+        project?.contract_value != null ? Number(project.contract_value) : null;
       const entryValue = Number(entry.value);
 
       let calculatedAmount: number;

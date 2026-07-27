@@ -1,9 +1,4 @@
-import {
-  IsString,
-  IsOptional,
-  IsEnum,
-  MaxLength,
-} from 'class-validator';
+import { IsString, IsOptional, IsEnum, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum FinancialCategoryType {
@@ -45,7 +40,8 @@ export class CreateFinancialCategoryDto {
   type: FinancialCategoryType;
 
   @ApiPropertyOptional({
-    description: 'Category classification for P&L reporting. Defaults to cost_of_goods_sold if omitted.',
+    description:
+      'Category classification for P&L reporting. Defaults to cost_of_goods_sold if omitted.',
     enum: FinancialCategoryClassification,
     example: FinancialCategoryClassification.COST_OF_GOODS_SOLD,
     default: FinancialCategoryClassification.COST_OF_GOODS_SOLD,

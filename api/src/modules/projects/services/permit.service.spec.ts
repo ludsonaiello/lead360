@@ -83,7 +83,9 @@ describe('PermitService', () => {
     service = module.get<PermitService>(PermitService);
     prisma = module.get<PrismaService>(PrismaService);
     auditLogger = module.get<AuditLoggerService>(AuditLoggerService);
-    activityService = module.get<ProjectActivityService>(ProjectActivityService);
+    activityService = module.get<ProjectActivityService>(
+      ProjectActivityService,
+    );
 
     jest.clearAllMocks();
   });
@@ -251,9 +253,9 @@ describe('PermitService', () => {
     it('should throw NotFoundException if project does not exist', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.findAll(TENANT_A, 'nonexistent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findAll(TENANT_A, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should include inspections array in each response', async () => {
@@ -305,7 +307,11 @@ describe('PermitService', () => {
   // ===========================================================================
   describe('update', () => {
     it('should update permit fields', async () => {
-      const updated = { ...mockPermit, status: 'submitted', submitted_date: new Date() };
+      const updated = {
+        ...mockPermit,
+        status: 'submitted',
+        submitted_date: new Date(),
+      };
       mockPrismaService.permit.findFirst.mockResolvedValue(mockPermit);
       mockPrismaService.permit.update.mockResolvedValue(updated);
 
@@ -322,7 +328,11 @@ describe('PermitService', () => {
 
     it('should auto-set approved_date when transitioning to approved', async () => {
       const before = { ...mockPermit, status: 'submitted' };
-      const after = { ...before, status: 'approved', approved_date: new Date() };
+      const after = {
+        ...before,
+        status: 'approved',
+        approved_date: new Date(),
+      };
       mockPrismaService.permit.findFirst.mockResolvedValue(before);
       mockPrismaService.permit.update.mockResolvedValue(after);
 
@@ -536,9 +546,9 @@ describe('PermitService', () => {
       // Project does not exist for tenant B
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.findAll(TENANT_B, PROJECT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findAll(TENANT_B, PROJECT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should not return a permit belonging to another tenant in findOne', async () => {

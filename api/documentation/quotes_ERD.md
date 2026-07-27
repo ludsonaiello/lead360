@@ -428,6 +428,104 @@ approved approved
 paid paid
         }
     
+
+
+        clock_in_mode {
+            anywhere anywhere
+specific_addresses specific_addresses
+active_job_sites active_job_sites
+        }
+    
+
+
+        geofence_violation_action {
+            block block
+warn_only warn_only
+        }
+    
+
+
+        gps_unavailable_action {
+            block block
+allow_flagged allow_flagged
+        }
+    
+
+
+        pay_period_type {
+            weekly weekly
+biweekly biweekly
+semimonthly semimonthly
+monthly monthly
+        }
+    
+
+
+        clock_session_status {
+            active active
+on_break on_break
+completed completed
+        }
+    
+
+
+        location_source {
+            browser_gps browser_gps
+native_gps native_gps
+kiosk kiosk
+manual manual
+        }
+    
+
+
+        geofence_status {
+            inside inside
+outside outside
+unavailable unavailable
+not_enforced not_enforced
+        }
+    
+
+
+        work_shift_status {
+            scheduled scheduled
+in_progress in_progress
+completed completed
+missed missed
+cancelled cancelled
+        }
+    
+
+
+        break_type {
+            paid paid
+unpaid unpaid
+        }
+    
+
+
+        dispute_type {
+            flag_only flag_only
+correction_request correction_request
+        }
+    
+
+
+        dispute_status {
+            pending pending
+approved approved
+rejected rejected
+resolved resolved
+        }
+    
+
+
+        address_source {
+            manual manual
+imported_from_quote imported_from_quote
+imported_from_lead imported_from_lead
+        }
+    
   "audit_log" {
     String id "🗝️"
     audit_log_actor_type actor_type 
@@ -2752,6 +2850,164 @@ paid paid
     DateTime updated_at 
     }
   
+
+  "time_clock_settings" {
+    String id "🗝️"
+    clock_in_mode clock_in_mode 
+    geofence_violation_action geofence_violation_action 
+    Boolean gps_required 
+    gps_unavailable_action gps_unavailable_action 
+    Boolean require_job_tag 
+    Boolean require_task_tag 
+    Boolean overtime_enabled 
+    Decimal overtime_daily_threshold_hours "❓"
+    Decimal overtime_weekly_threshold_hours "❓"
+    Decimal overtime_multiplier "❓"
+    pay_period_type pay_period_type 
+    Int pay_period_start_day "❓"
+    DateTime pay_period_anchor_date "❓"
+    Boolean kiosk_mode_enabled 
+    String kiosk_token_hash "❓"
+    Int shift_reminder_minutes 
+    Int missed_shift_threshold_minutes 
+    Boolean native_app_features_enabled 
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "employee_profile" {
+    String id "🗝️"
+    Decimal hourly_rate "❓"
+    Boolean overtime_rule_override 
+    Decimal overtime_daily_threshold_hours "❓"
+    Decimal overtime_weekly_threshold_hours "❓"
+    String kiosk_pin_hash "❓"
+    Int kiosk_pin_failed_attempts 
+    DateTime kiosk_pin_locked_until "❓"
+    Boolean is_active 
+    String push_subscription_json "❓"
+    String push_token_native "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "clockin_address" {
+    String id "🗝️"
+    String label 
+    String address_line1 
+    String address_line2 "❓"
+    String city 
+    String state 
+    String zip_code 
+    Decimal latitude 
+    Decimal longitude 
+    Int radius_meters 
+    Boolean is_active 
+    address_source source 
+    String source_address_id "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "employee_project_assignment" {
+    String id "🗝️"
+    DateTime created_at 
+    }
+  
+
+  "work_shift" {
+    String id "🗝️"
+    DateTime scheduled_start 
+    DateTime scheduled_end 
+    String title "❓"
+    String notes "❓"
+    work_shift_status status 
+    DateTime reminder_sent_at "❓"
+    DateTime published_at "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "clock_session" {
+    String id "🗝️"
+    clock_session_status status 
+    DateTime clock_in_at 
+    DateTime clock_out_at "❓"
+    Decimal clock_in_latitude "❓"
+    Decimal clock_in_longitude "❓"
+    location_source clock_in_location_source 
+    geofence_status clock_in_geofence_status 
+    Decimal clock_out_latitude "❓"
+    Decimal clock_out_longitude "❓"
+    location_source clock_out_location_source 
+    geofence_status clock_out_geofence_status 
+    Int total_worked_minutes "❓"
+    Int regular_minutes "❓"
+    Int overtime_minutes "❓"
+    Boolean is_manual_edit 
+    Boolean is_flagged 
+    String flag_reason "❓"
+    Boolean labor_cost_posted 
+    String labor_cost_entry_id "❓"
+    Boolean labor_cost_reconciliation_needed 
+    String notes "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "break_entry" {
+    String id "🗝️"
+    break_type break_type 
+    String break_label "❓"
+    DateTime started_at 
+    DateTime ended_at "❓"
+    Int duration_minutes "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "clock_session_edit_log" {
+    String id "🗝️"
+    String field_changed 
+    String original_value "❓"
+    String new_value "❓"
+    String reason 
+    DateTime edited_at 
+    }
+  
+
+  "time_dispute" {
+    String id "🗝️"
+    dispute_type dispute_type 
+    String description 
+    DateTime proposed_clock_in_at "❓"
+    DateTime proposed_clock_out_at "❓"
+    String proposed_project_id "❓"
+    String proposed_task_id "❓"
+    String proposed_notes "❓"
+    dispute_status status 
+    String review_notes "❓"
+    DateTime reviewed_at "❓"
+    DateTime created_at 
+    DateTime updated_at 
+    }
+  
+
+  "clock_session_location_log" {
+    String id "🗝️"
+    DateTime captured_at 
+    Decimal latitude 
+    Decimal longitude 
+    Decimal accuracy_meters "❓"
+    geofence_status geofence_status 
+    }
+  
     "audit_log" |o--|| "audit_log_actor_type" : "enum:actor_type"
     "audit_log" |o--|| "audit_log_status" : "enum:status"
     "audit_log" }o--|o "user" : "user"
@@ -3110,7 +3366,7 @@ paid paid
     "crew_hour_log" |o--|| "hour_log_source" : "enum:source"
     "crew_hour_log" }o--|| "tenant" : "tenant"
     "crew_hour_log" }o--|| crew_member : "crew_member"
-    "crew_hour_log" }o--|| project : "project"
+    "crew_hour_log" }o--|o project : "project"
     "crew_hour_log" }o--|o project_task : "task"
     "crew_hour_log" }o--|| "user" : "created_by"
     "subcontractor_payment_record" |o--|| "payment_method" : "enum:payment_method"
@@ -3170,4 +3426,52 @@ paid paid
     "financial_category_account_mapping" }o--|| financial_category : "category"
     "financial_category_account_mapping" }o--|| "user" : "created_by"
     "financial_category_account_mapping" }o--|o "user" : "updated_by"
+    "time_clock_settings" |o--|| "clock_in_mode" : "enum:clock_in_mode"
+    "time_clock_settings" |o--|| "geofence_violation_action" : "enum:geofence_violation_action"
+    "time_clock_settings" |o--|| "gps_unavailable_action" : "enum:gps_unavailable_action"
+    "time_clock_settings" |o--|| "pay_period_type" : "enum:pay_period_type"
+    "time_clock_settings" |o--|| "tenant" : "tenant"
+    "employee_profile" }o--|| "tenant" : "tenant"
+    "employee_profile" }o--|| "user" : "user"
+    "employee_profile" }o--|o crew_member : "crew_member"
+    "clockin_address" |o--|| "address_source" : "enum:source"
+    "clockin_address" }o--|| "tenant" : "tenant"
+    "clockin_address" }o--|o project : "project"
+    "clockin_address" }o--|| "user" : "created_by"
+    "employee_project_assignment" }o--|| "tenant" : "tenant"
+    "employee_project_assignment" }o--|| employee_profile : "employee_profile"
+    "employee_project_assignment" }o--|| project : "project"
+    "employee_project_assignment" }o--|| "user" : "assigned_by"
+    "work_shift" |o--|| "work_shift_status" : "enum:status"
+    "work_shift" }o--|| "tenant" : "tenant"
+    "work_shift" }o--|| employee_profile : "employee_profile"
+    "work_shift" }o--|o project : "project"
+    "work_shift" }o--|o project_task : "task"
+    "work_shift" }o--|| "user" : "created_by"
+    "clock_session" |o--|| "clock_session_status" : "enum:status"
+    "clock_session" |o--|| "location_source" : "enum:clock_in_location_source"
+    "clock_session" |o--|| "geofence_status" : "enum:clock_in_geofence_status"
+    "clock_session" |o--|| "location_source" : "enum:clock_out_location_source"
+    "clock_session" |o--|| "geofence_status" : "enum:clock_out_geofence_status"
+    "clock_session" }o--|| "tenant" : "tenant"
+    "clock_session" }o--|| employee_profile : "employee_profile"
+    "clock_session" }o--|o work_shift : "work_shift"
+    "clock_session" }o--|o project : "project"
+    "clock_session" }o--|o project_task : "task"
+    "clock_session" }o--|o clockin_address : "clockin_address"
+    "break_entry" |o--|| "break_type" : "enum:break_type"
+    "break_entry" }o--|| "tenant" : "tenant"
+    "break_entry" }o--|| clock_session : "clock_session"
+    "clock_session_edit_log" }o--|| "tenant" : "tenant"
+    "clock_session_edit_log" }o--|| clock_session : "clock_session"
+    "clock_session_edit_log" }o--|| "user" : "edited_by"
+    "time_dispute" |o--|| "dispute_type" : "enum:dispute_type"
+    "time_dispute" |o--|| "dispute_status" : "enum:status"
+    "time_dispute" }o--|| "tenant" : "tenant"
+    "time_dispute" }o--|| clock_session : "clock_session"
+    "time_dispute" }o--|| "user" : "submitted_by"
+    "time_dispute" }o--|o "user" : "reviewed_by"
+    "clock_session_location_log" |o--|| "geofence_status" : "enum:geofence_status"
+    "clock_session_location_log" }o--|| "tenant" : "tenant"
+    "clock_session_location_log" }o--|| clock_session : "clock_session"
 ```

@@ -198,7 +198,10 @@ describe('CrewMemberService', () => {
 
   describe('findAll()', () => {
     it('should include tenant_id in query and return paginated response', async () => {
-      const records = [mockCrewMemberRecord(), mockCrewMemberRecord({ id: 'crew-uuid-002' })];
+      const records = [
+        mockCrewMemberRecord(),
+        mockCrewMemberRecord({ id: 'crew-uuid-002' }),
+      ];
       mockPrismaService.crew_member.findMany.mockResolvedValue(records);
       mockPrismaService.crew_member.count.mockResolvedValue(2);
 
@@ -314,9 +317,7 @@ describe('CrewMemberService', () => {
         first_name: 'Jane',
       });
 
-      expect(mockEncryptionService.encrypt).toHaveBeenCalledWith(
-        '999-88-7777',
-      );
+      expect(mockEncryptionService.encrypt).toHaveBeenCalledWith('999-88-7777');
       expect(mockPrismaService.crew_member.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({

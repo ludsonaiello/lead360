@@ -45,10 +45,15 @@ export class SubcontractorInvoiceController {
   @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Create a subcontractor task invoice (with optional file upload)' })
+  @ApiOperation({
+    summary: 'Create a subcontractor task invoice (with optional file upload)',
+  })
   @ApiResponse({ status: 201, description: 'Invoice created successfully' })
   @ApiResponse({ status: 400, description: 'Validation error' })
-  @ApiResponse({ status: 404, description: 'Subcontractor, project, or task not found' })
+  @ApiResponse({
+    status: 404,
+    description: 'Subcontractor, project, or task not found',
+  })
   @ApiResponse({ status: 409, description: 'Invoice number already exists' })
   async create(
     @Request() req,
@@ -76,10 +81,16 @@ export class SubcontractorInvoiceController {
 
   @Patch('subcontractor-invoices/:id')
   @Roles('Owner', 'Admin', 'Manager', 'Bookkeeper')
-  @ApiOperation({ summary: 'Update a subcontractor invoice (status, amount, notes, invoice_number, invoice_date)' })
+  @ApiOperation({
+    summary:
+      'Update a subcontractor invoice (status, amount, notes, invoice_number, invoice_date)',
+  })
   @ApiParam({ name: 'id', description: 'Invoice UUID' })
   @ApiResponse({ status: 200, description: 'Invoice updated' })
-  @ApiResponse({ status: 400, description: 'Invalid status transition or field update' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid status transition or field update',
+  })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
   @ApiResponse({ status: 409, description: 'Invoice number already exists' })
   async update(
@@ -102,10 +113,7 @@ export class SubcontractorInvoiceController {
   @ApiParam({ name: 'id', description: 'Invoice UUID' })
   @ApiResponse({ status: 200, description: 'Invoice deleted successfully' })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
-  async delete(
-    @Request() req,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async delete(@Request() req, @Param('id', ParseUUIDPipe) id: string) {
     return this.subcontractorInvoiceService.deleteInvoice(
       req.user.tenant_id,
       id,
@@ -162,7 +170,10 @@ export class SubcontractorInvoiceListController {
       'Includes task and project details for context.',
   })
   @ApiParam({ name: 'id', description: 'Subcontractor UUID' })
-  @ApiResponse({ status: 200, description: 'List of invoices for the subcontractor' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of invoices for the subcontractor',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — insufficient role' })
   async getSubcontractorInvoices(

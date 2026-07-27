@@ -22,12 +22,34 @@ export class CreatePaymentMethodRegistryDto {
 
   @ApiProperty({
     description: 'Payment method type',
-    enum: ['cash', 'check', 'bank_transfer', 'venmo', 'zelle', 'credit_card', 'debit_card', 'ACH'],
+    enum: [
+      'cash',
+      'check',
+      'bank_transfer',
+      'venmo',
+      'zelle',
+      'credit_card',
+      'debit_card',
+      'ACH',
+    ],
     example: 'credit_card',
   })
-  @IsEnum(['cash', 'check', 'bank_transfer', 'venmo', 'zelle', 'credit_card', 'debit_card', 'ACH'], {
-    message: 'type must be one of: cash, check, bank_transfer, venmo, zelle, credit_card, debit_card, ACH',
-  })
+  @IsEnum(
+    [
+      'cash',
+      'check',
+      'bank_transfer',
+      'venmo',
+      'zelle',
+      'credit_card',
+      'debit_card',
+      'ACH',
+    ],
+    {
+      message:
+        'type must be one of: cash, check, bank_transfer, venmo, zelle, credit_card, debit_card, ACH',
+    },
+  )
   type: string;
 
   @ApiPropertyOptional({
@@ -41,7 +63,8 @@ export class CreatePaymentMethodRegistryDto {
   bank_name?: string;
 
   @ApiPropertyOptional({
-    description: 'Last 4 digits of card/account number (display label only). Must be exactly 4 numeric digits.',
+    description:
+      'Last 4 digits of card/account number (display label only). Must be exactly 4 numeric digits.',
     example: '4521',
   })
   @IsOptional()

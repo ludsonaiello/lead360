@@ -1,8 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { FinancialEntryLineItemService } from './financial-entry-line-item.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { AuditLoggerService } from '../../audit/services/audit-logger.service';
@@ -99,7 +96,9 @@ describe('FinancialEntryLineItemService', () => {
       ],
     }).compile();
 
-    service = module.get<FinancialEntryLineItemService>(FinancialEntryLineItemService);
+    service = module.get<FinancialEntryLineItemService>(
+      FinancialEntryLineItemService,
+    );
     jest.resetAllMocks();
   });
 
@@ -115,23 +114,40 @@ describe('FinancialEntryLineItemService', () => {
     };
 
     it('should create a line item and compute total', async () => {
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(null);
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
+      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(
+        null,
+      );
       mockPrismaService.financial_entry_line_item.create.mockResolvedValue(
         mockLineItemRecord(),
       );
 
-      const result = await service.create(TENANT_ID, ENTRY_ID, USER_ID, ['Employee'], dto);
+      const result = await service.create(
+        TENANT_ID,
+        ENTRY_ID,
+        USER_ID,
+        ['Employee'],
+        dto,
+      );
 
-      const createCall = mockPrismaService.financial_entry_line_item.create.mock.calls[0][0];
+      const createCall =
+        mockPrismaService.financial_entry_line_item.create.mock.calls[0][0];
       expect(Number(createCall.data.total)).toBe(20); // 2 * 10
       expect(result).toEqual(mockLineItemRecord());
     });
 
     it('should auto-fill from supplier product when supplier_product_id provided', async () => {
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.supplier_product.findFirst.mockResolvedValue(mockSupplierProduct());
-      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(null);
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
+      mockPrismaService.supplier_product.findFirst.mockResolvedValue(
+        mockSupplierProduct(),
+      );
+      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(
+        null,
+      );
       mockPrismaService.financial_entry_line_item.create.mockResolvedValue(
         mockLineItemRecord({ supplier_product_id: PRODUCT_ID }),
       );
@@ -143,15 +159,22 @@ describe('FinancialEntryLineItemService', () => {
         supplier_product_id: PRODUCT_ID,
       });
 
-      const createCall = mockPrismaService.financial_entry_line_item.create.mock.calls[0][0];
+      const createCall =
+        mockPrismaService.financial_entry_line_item.create.mock.calls[0][0];
       expect(createCall.data.unit_of_measure).toBe('ton');
       expect(createCall.data.supplier_product_id).toBe(PRODUCT_ID);
     });
 
     it('should prefer user-provided values over supplier product auto-fill', async () => {
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.supplier_product.findFirst.mockResolvedValue(mockSupplierProduct());
-      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(null);
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
+      mockPrismaService.supplier_product.findFirst.mockResolvedValue(
+        mockSupplierProduct(),
+      );
+      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(
+        null,
+      );
       mockPrismaService.financial_entry_line_item.create.mockResolvedValue(
         mockLineItemRecord(),
       );
@@ -164,28 +187,34 @@ describe('FinancialEntryLineItemService', () => {
         supplier_product_id: PRODUCT_ID,
       });
 
-      const createCall = mockPrismaService.financial_entry_line_item.create.mock.calls[0][0];
+      const createCall =
+        mockPrismaService.financial_entry_line_item.create.mock.calls[0][0];
       expect(createCall.data.unit_of_measure).toBe('bag');
       expect(Number(createCall.data.unit_price)).toBe(50);
     });
 
     it('should auto-increment order_index when not provided', async () => {
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(
-        { order_index: 2 },
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
       );
+      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue({
+        order_index: 2,
+      });
       mockPrismaService.financial_entry_line_item.create.mockResolvedValue(
         mockLineItemRecord({ order_index: 3 }),
       );
 
       await service.create(TENANT_ID, ENTRY_ID, USER_ID, ['Owner'], dto);
 
-      const createCall = mockPrismaService.financial_entry_line_item.create.mock.calls[0][0];
+      const createCall =
+        mockPrismaService.financial_entry_line_item.create.mock.calls[0][0];
       expect(createCall.data.order_index).toBe(3);
     });
 
     it('should use provided order_index when specified', async () => {
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
       mockPrismaService.financial_entry_line_item.create.mockResolvedValue(
         mockLineItemRecord({ order_index: 5 }),
       );
@@ -195,7 +224,8 @@ describe('FinancialEntryLineItemService', () => {
         order_index: 5,
       });
 
-      const createCall = mockPrismaService.financial_entry_line_item.create.mock.calls[0][0];
+      const createCall =
+        mockPrismaService.financial_entry_line_item.create.mock.calls[0][0];
       expect(createCall.data.order_index).toBe(5);
     });
 
@@ -231,17 +261,27 @@ describe('FinancialEntryLineItemService', () => {
       mockPrismaService.financial_entry.findFirst.mockResolvedValue(
         mockEntryRecord({ submission_status: 'denied' }),
       );
-      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(null);
+      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(
+        null,
+      );
       mockPrismaService.financial_entry_line_item.create.mockResolvedValue(
         mockLineItemRecord(),
       );
 
-      const result = await service.create(TENANT_ID, ENTRY_ID, USER_ID, ['Employee'], dto);
+      const result = await service.create(
+        TENANT_ID,
+        ENTRY_ID,
+        USER_ID,
+        ['Employee'],
+        dto,
+      );
       expect(result).toBeDefined();
     });
 
     it('should throw NotFoundException when supplier product is invalid', async () => {
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
       mockPrismaService.supplier_product.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -253,21 +293,30 @@ describe('FinancialEntryLineItemService', () => {
     });
 
     it('should include tenant_id in the created line item', async () => {
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(null);
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
+      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(
+        null,
+      );
       mockPrismaService.financial_entry_line_item.create.mockResolvedValue(
         mockLineItemRecord(),
       );
 
       await service.create(TENANT_ID, ENTRY_ID, USER_ID, ['Owner'], dto);
 
-      const createCall = mockPrismaService.financial_entry_line_item.create.mock.calls[0][0];
+      const createCall =
+        mockPrismaService.financial_entry_line_item.create.mock.calls[0][0];
       expect(createCall.data.tenant_id).toBe(TENANT_ID);
     });
 
     it('should call auditLogger with action "created"', async () => {
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(null);
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
+      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(
+        null,
+      );
       mockPrismaService.financial_entry_line_item.create.mockResolvedValue(
         mockLineItemRecord(),
       );
@@ -295,13 +344,21 @@ describe('FinancialEntryLineItemService', () => {
         mockLineItemRecord({ id: 'i-1', order_index: 0 }),
         mockLineItemRecord({ id: 'i-2', order_index: 1 }),
       ];
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.financial_entry_line_item.findMany.mockResolvedValue(items);
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
+      mockPrismaService.financial_entry_line_item.findMany.mockResolvedValue(
+        items,
+      );
 
-      const result = await service.findAll(TENANT_ID, ENTRY_ID, USER_ID, ['Owner']);
+      const result = await service.findAll(TENANT_ID, ENTRY_ID, USER_ID, [
+        'Owner',
+      ]);
 
       expect(result).toHaveLength(2);
-      expect(mockPrismaService.financial_entry_line_item.findMany).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.financial_entry_line_item.findMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { tenant_id: TENANT_ID, financial_entry_id: ENTRY_ID },
           orderBy: { order_index: 'asc' },
@@ -310,10 +367,16 @@ describe('FinancialEntryLineItemService', () => {
     });
 
     it('should return empty array when no line items exist', async () => {
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.financial_entry_line_item.findMany.mockResolvedValue([]);
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
+      mockPrismaService.financial_entry_line_item.findMany.mockResolvedValue(
+        [],
+      );
 
-      const result = await service.findAll(TENANT_ID, ENTRY_ID, USER_ID, ['Owner']);
+      const result = await service.findAll(TENANT_ID, ENTRY_ID, USER_ID, [
+        'Owner',
+      ]);
       expect(result).toEqual([]);
     });
 
@@ -346,12 +409,22 @@ describe('FinancialEntryLineItemService', () => {
     it('should update description and return updated item', async () => {
       const existing = mockLineItemRecord();
       const updated = mockLineItemRecord({ description: 'Updated lumber' });
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(existing);
-      mockPrismaService.financial_entry_line_item.update.mockResolvedValue(updated);
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
+      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(
+        existing,
+      );
+      mockPrismaService.financial_entry_line_item.update.mockResolvedValue(
+        updated,
+      );
 
       const result = await service.update(
-        TENANT_ID, ENTRY_ID, ITEM_ID, USER_ID, ['Owner'],
+        TENANT_ID,
+        ENTRY_ID,
+        ITEM_ID,
+        USER_ID,
+        ['Owner'],
         { description: 'Updated lumber' },
       );
 
@@ -359,68 +432,102 @@ describe('FinancialEntryLineItemService', () => {
     });
 
     it('should recompute total when quantity changes', async () => {
-      const existing = mockLineItemRecord({ quantity: new Decimal(2), unit_price: new Decimal(10) });
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(existing);
+      const existing = mockLineItemRecord({
+        quantity: new Decimal(2),
+        unit_price: new Decimal(10),
+      });
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
+      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(
+        existing,
+      );
       mockPrismaService.financial_entry_line_item.update.mockResolvedValue(
-        mockLineItemRecord({ quantity: new Decimal(5), total: new Decimal(50) }),
+        mockLineItemRecord({
+          quantity: new Decimal(5),
+          total: new Decimal(50),
+        }),
       );
 
-      await service.update(
-        TENANT_ID, ENTRY_ID, ITEM_ID, USER_ID, ['Owner'],
-        { quantity: 5 },
-      );
+      await service.update(TENANT_ID, ENTRY_ID, ITEM_ID, USER_ID, ['Owner'], {
+        quantity: 5,
+      });
 
-      const updateCall = mockPrismaService.financial_entry_line_item.update.mock.calls[0][0];
+      const updateCall =
+        mockPrismaService.financial_entry_line_item.update.mock.calls[0][0];
       expect(Number(updateCall.data.total)).toBe(50); // 5 * 10
     });
 
     it('should recompute total when unit_price changes', async () => {
-      const existing = mockLineItemRecord({ quantity: new Decimal(2), unit_price: new Decimal(10) });
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(existing);
+      const existing = mockLineItemRecord({
+        quantity: new Decimal(2),
+        unit_price: new Decimal(10),
+      });
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
+      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(
+        existing,
+      );
       mockPrismaService.financial_entry_line_item.update.mockResolvedValue(
-        mockLineItemRecord({ unit_price: new Decimal(15), total: new Decimal(30) }),
+        mockLineItemRecord({
+          unit_price: new Decimal(15),
+          total: new Decimal(30),
+        }),
       );
 
-      await service.update(
-        TENANT_ID, ENTRY_ID, ITEM_ID, USER_ID, ['Owner'],
-        { unit_price: 15 },
-      );
+      await service.update(TENANT_ID, ENTRY_ID, ITEM_ID, USER_ID, ['Owner'], {
+        unit_price: 15,
+      });
 
-      const updateCall = mockPrismaService.financial_entry_line_item.update.mock.calls[0][0];
+      const updateCall =
+        mockPrismaService.financial_entry_line_item.update.mock.calls[0][0];
       expect(Number(updateCall.data.total)).toBe(30); // 2 * 15
     });
 
     it('should NOT recompute total when only notes change', async () => {
       const existing = mockLineItemRecord();
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(existing);
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
+      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(
+        existing,
+      );
       mockPrismaService.financial_entry_line_item.update.mockResolvedValue(
         mockLineItemRecord({ notes: 'updated note' }),
       );
 
-      await service.update(
-        TENANT_ID, ENTRY_ID, ITEM_ID, USER_ID, ['Owner'],
-        { notes: 'updated note' },
-      );
+      await service.update(TENANT_ID, ENTRY_ID, ITEM_ID, USER_ID, ['Owner'], {
+        notes: 'updated note',
+      });
 
-      const updateCall = mockPrismaService.financial_entry_line_item.update.mock.calls[0][0];
+      const updateCall =
+        mockPrismaService.financial_entry_line_item.update.mock.calls[0][0];
       expect(updateCall.data).not.toHaveProperty('total');
     });
 
     it('should throw NotFoundException when line item does not exist', async () => {
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(null);
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
+      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(
+        null,
+      );
 
       await expect(
-        service.update(TENANT_ID, ENTRY_ID, 'nonexistent', USER_ID, ['Owner'], { description: 'x' }),
+        service.update(TENANT_ID, ENTRY_ID, 'nonexistent', USER_ID, ['Owner'], {
+          description: 'x',
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('should validate supplier_product_id if provided', async () => {
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(mockLineItemRecord());
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
+      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(
+        mockLineItemRecord(),
+      );
       mockPrismaService.supplier_product.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -433,14 +540,19 @@ describe('FinancialEntryLineItemService', () => {
     it('should call auditLogger with before/after', async () => {
       const existing = mockLineItemRecord();
       const updated = mockLineItemRecord({ description: 'Changed' });
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(existing);
-      mockPrismaService.financial_entry_line_item.update.mockResolvedValue(updated);
-
-      await service.update(
-        TENANT_ID, ENTRY_ID, ITEM_ID, USER_ID, ['Owner'],
-        { description: 'Changed' },
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
       );
+      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(
+        existing,
+      );
+      mockPrismaService.financial_entry_line_item.update.mockResolvedValue(
+        updated,
+      );
+
+      await service.update(TENANT_ID, ENTRY_ID, ITEM_ID, USER_ID, ['Owner'], {
+        description: 'Changed',
+      });
 
       expect(mockAuditLoggerService.logTenantChange).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -459,21 +571,39 @@ describe('FinancialEntryLineItemService', () => {
 
   describe('delete()', () => {
     it('should delete a line item and return success message', async () => {
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(mockLineItemRecord());
-      mockPrismaService.financial_entry_line_item.delete.mockResolvedValue(mockLineItemRecord());
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
+      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(
+        mockLineItemRecord(),
+      );
+      mockPrismaService.financial_entry_line_item.delete.mockResolvedValue(
+        mockLineItemRecord(),
+      );
 
-      const result = await service.delete(TENANT_ID, ENTRY_ID, ITEM_ID, USER_ID, ['Owner']);
+      const result = await service.delete(
+        TENANT_ID,
+        ENTRY_ID,
+        ITEM_ID,
+        USER_ID,
+        ['Owner'],
+      );
 
       expect(result).toEqual({ message: 'Line item deleted successfully.' });
-      expect(mockPrismaService.financial_entry_line_item.delete).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.financial_entry_line_item.delete,
+      ).toHaveBeenCalledWith({
         where: { id: ITEM_ID },
       });
     });
 
     it('should throw NotFoundException when line item does not exist', async () => {
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(null);
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
+      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(
+        null,
+      );
 
       await expect(
         service.delete(TENANT_ID, ENTRY_ID, 'nonexistent', USER_ID, ['Owner']),
@@ -492,9 +622,15 @@ describe('FinancialEntryLineItemService', () => {
 
     it('should call auditLogger with action "deleted"', async () => {
       const existing = mockLineItemRecord();
-      mockPrismaService.financial_entry.findFirst.mockResolvedValue(mockEntryRecord());
-      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(existing);
-      mockPrismaService.financial_entry_line_item.delete.mockResolvedValue(existing);
+      mockPrismaService.financial_entry.findFirst.mockResolvedValue(
+        mockEntryRecord(),
+      );
+      mockPrismaService.financial_entry_line_item.findFirst.mockResolvedValue(
+        existing,
+      );
+      mockPrismaService.financial_entry_line_item.delete.mockResolvedValue(
+        existing,
+      );
 
       await service.delete(TENANT_ID, ENTRY_ID, ITEM_ID, USER_ID, ['Owner']);
 

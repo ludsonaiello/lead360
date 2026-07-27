@@ -26,6 +26,7 @@ import { ProjectsModule } from './modules/projects/projects.module';
 import { FinancialModule } from './modules/financial/financial.module';
 import { UsersModule } from './modules/users/users.module';
 import { PortalModule } from './modules/portal/portal.module';
+import { TimeClockModule } from './modules/time-clock/time-clock.module';
 import { PuppeteerProcessManagerModule } from './core/puppeteer/puppeteer-process-manager.module';
 
 @Module({
@@ -100,6 +101,7 @@ import { PuppeteerProcessManagerModule } from './core/puppeteer/puppeteer-proces
     FinancialModule, // Financial Gate 1 — Categories, entries, project cost summaries
     UsersModule, // User management — Invite, RBAC, self-service profile
     PortalModule, // Customer portal authentication (Sprint 31)
+    TimeClockModule, // Time Clock — Employee time tracking, clock sessions, shifts, kiosk
   ],
   controllers: [HealthController],
   providers: [

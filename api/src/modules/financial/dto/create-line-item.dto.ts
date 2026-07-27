@@ -51,7 +51,8 @@ export class CreateLineItemDto {
   unit_of_measure?: string;
 
   @ApiPropertyOptional({
-    description: 'Supplier product ID (auto-fills unit_of_measure and unit_price if not provided)',
+    description:
+      'Supplier product ID (auto-fills unit_of_measure and unit_price if not provided)',
   })
   @IsOptional()
   @IsUUID()

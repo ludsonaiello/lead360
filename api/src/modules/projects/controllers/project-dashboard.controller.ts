@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -23,9 +18,7 @@ import { DashboardQueryDto, GanttQueryDto } from '../dto/dashboard-query.dto';
 @Controller('projects/dashboard')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ProjectDashboardController {
-  constructor(
-    private readonly dashboardService: ProjectDashboardService,
-  ) {}
+  constructor(private readonly dashboardService: ProjectDashboardService) {}
 
   // -------------------------------------------------------------------------
   // GET /projects/dashboard — Aggregated dashboard data
@@ -39,10 +32,26 @@ export class ProjectDashboardController {
       'active project counts, delayed/overdue task counts, upcoming deadlines, ' +
       'and recent activity feed. All data scoped to tenant.',
   })
-  @ApiQuery({ name: 'status', required: false, description: 'Filter by project status' })
-  @ApiQuery({ name: 'assigned_pm_user_id', required: false, description: 'Filter by assigned PM user ID' })
-  @ApiQuery({ name: 'date_from', required: false, description: 'Filter projects created on or after (ISO 8601)' })
-  @ApiQuery({ name: 'date_to', required: false, description: 'Filter projects created on or before (ISO 8601)' })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: 'Filter by project status',
+  })
+  @ApiQuery({
+    name: 'assigned_pm_user_id',
+    required: false,
+    description: 'Filter by assigned PM user ID',
+  })
+  @ApiQuery({
+    name: 'date_from',
+    required: false,
+    description: 'Filter projects created on or after (ISO 8601)',
+  })
+  @ApiQuery({
+    name: 'date_to',
+    required: false,
+    description: 'Filter projects created on or before (ISO 8601)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Dashboard aggregated data',
@@ -69,7 +78,10 @@ export class ProjectDashboardController {
           items: {
             type: 'object',
             properties: {
-              project_id: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+              project_id: {
+                type: 'string',
+                example: '550e8400-e29b-41d4-a716-446655440000',
+              },
               project_name: { type: 'string', example: 'Kitchen Remodel' },
               target_completion_date: { type: 'string', example: '2026-04-15' },
               days_remaining: { type: 'number', example: 5 },
@@ -82,12 +94,24 @@ export class ProjectDashboardController {
             type: 'object',
             properties: {
               activity_type: { type: 'string', example: 'task_completed' },
-              project_id: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+              project_id: {
+                type: 'string',
+                example: '550e8400-e29b-41d4-a716-446655440000',
+              },
               project_name: { type: 'string', example: 'Kitchen Remodel' },
-              description: { type: 'string', example: 'Completed task: Install countertops' },
-              user_id: { type: 'string', example: '660e8400-e29b-41d4-a716-446655440001' },
+              description: {
+                type: 'string',
+                example: 'Completed task: Install countertops',
+              },
+              user_id: {
+                type: 'string',
+                example: '660e8400-e29b-41d4-a716-446655440001',
+              },
               user_name: { type: 'string', example: 'John Smith' },
-              created_at: { type: 'string', example: '2026-03-16T10:30:00.000Z' },
+              created_at: {
+                type: 'string',
+                example: '2026-03-16T10:30:00.000Z',
+              },
             },
           },
         },
@@ -120,11 +144,33 @@ export class ProjectDashboardController {
       'date ranges, contract values, and progress percentage. Suitable for rendering ' +
       'a gantt chart or detailed project list view.',
   })
-  @ApiQuery({ name: 'status', required: false, description: 'Filter by project status' })
-  @ApiQuery({ name: 'assigned_pm_user_id', required: false, description: 'Filter by assigned PM user ID' })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by project name or number' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 20, max: 100)' })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: 'Filter by project status',
+  })
+  @ApiQuery({
+    name: 'assigned_pm_user_id',
+    required: false,
+    description: 'Filter by assigned PM user ID',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Search by project name or number',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 20, max: 100)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Paginated project list with summary data',
@@ -140,10 +186,26 @@ export class ProjectDashboardController {
               project_number: { type: 'string', example: 'PRJ-0042' },
               name: { type: 'string', example: 'Kitchen Remodel' },
               status: { type: 'string', example: 'in_progress' },
-              start_date: { type: 'string', example: '2026-03-01', nullable: true },
-              target_completion_date: { type: 'string', example: '2026-04-15', nullable: true },
-              actual_completion_date: { type: 'string', example: null, nullable: true },
-              contract_value: { type: 'number', example: 25000.0, nullable: true },
+              start_date: {
+                type: 'string',
+                example: '2026-03-01',
+                nullable: true,
+              },
+              target_completion_date: {
+                type: 'string',
+                example: '2026-04-15',
+                nullable: true,
+              },
+              actual_completion_date: {
+                type: 'string',
+                example: null,
+                nullable: true,
+              },
+              contract_value: {
+                type: 'number',
+                example: 25000.0,
+                nullable: true,
+              },
               progress_percent: { type: 'number', example: 45.0 },
               assigned_pm: {
                 type: 'object',

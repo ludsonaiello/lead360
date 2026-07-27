@@ -62,7 +62,12 @@ export class FinancialEntryService {
     userRoles: string[],
     query: ListFinancialEntriesQueryDto,
   ) {
-    const where = this.buildEntryWhereClause(tenantId, userId, userRoles, query);
+    const where = this.buildEntryWhereClause(
+      tenantId,
+      userId,
+      userRoles,
+      query,
+    );
 
     // Pagination
     const page = query.page || 1;
@@ -119,10 +124,7 @@ export class FinancialEntryService {
    * Get paginated entries with submission_status = pending_review.
    * Used by Manager/Admin/Owner/Bookkeeper approval queue.
    */
-  async getPendingEntries(
-    tenantId: string,
-    query: ListPendingEntriesQueryDto,
-  ) {
+  async getPendingEntries(tenantId: string, query: ListPendingEntriesQueryDto) {
     const page = query.page || 1;
     const limit = Math.min(query.limit || 20, 100);
     const skip = (page - 1) * limit;
@@ -189,10 +191,7 @@ export class FinancialEntryService {
   /**
    * Get paginated entries for a project with optional filters.
    */
-  async getProjectEntries(
-    tenantId: string,
-    query: ListFinancialEntriesDto,
-  ) {
+  async getProjectEntries(tenantId: string, query: ListFinancialEntriesDto) {
     const page = query.page || 1;
     const limit = Math.min(query.limit || 20, 100);
     const skip = (page - 1) * limit;
@@ -319,12 +318,18 @@ export class FinancialEntryService {
 
     // 7. Validate purchased_by_user_id belongs to tenant
     if (dto.purchased_by_user_id) {
-      await this.validateUserBelongsToTenant(tenantId, dto.purchased_by_user_id);
+      await this.validateUserBelongsToTenant(
+        tenantId,
+        dto.purchased_by_user_id,
+      );
     }
 
     // 8. Validate purchased_by_crew_member_id belongs to tenant
     if (dto.purchased_by_crew_member_id) {
-      await this.validateCrewMemberBelongsToTenant(tenantId, dto.purchased_by_crew_member_id);
+      await this.validateCrewMemberBelongsToTenant(
+        tenantId,
+        dto.purchased_by_crew_member_id,
+      );
     }
 
     // 9. Validate tax_amount < amount (if both provided)
@@ -357,7 +362,9 @@ export class FinancialEntryService {
         tax_amount: dto.tax_amount ?? null,
         discount: dto.discount ?? null,
         entry_date: new Date(dto.entry_date),
-        entry_time: dto.entry_time ? new Date(`1970-01-01T${dto.entry_time}`) : null,
+        entry_time: dto.entry_time
+          ? new Date(`1970-01-01T${dto.entry_time}`)
+          : null,
         vendor_name: dto.vendor_name ?? null,
         supplier_id: dto.supplier_id ?? null,
         payment_method: resolvedPaymentMethod as any,
@@ -420,7 +427,10 @@ export class FinancialEntryService {
           'Access denied. You can only edit your own entries.',
         );
       }
-      if (existing.submission_status !== 'pending_review' && existing.submission_status !== 'denied') {
+      if (
+        existing.submission_status !== 'pending_review' &&
+        existing.submission_status !== 'denied'
+      ) {
         throw new ForbiddenException(
           'Access denied. You can only edit entries with pending_review or denied status.',
         );
@@ -438,22 +448,40 @@ export class FinancialEntryService {
     }
 
     // 3c. Validate purchased_by_user_id if changed
-    if (dto.purchased_by_user_id !== undefined && dto.purchased_by_user_id !== null) {
-      await this.validateUserBelongsToTenant(tenantId, dto.purchased_by_user_id);
+    if (
+      dto.purchased_by_user_id !== undefined &&
+      dto.purchased_by_user_id !== null
+    ) {
+      await this.validateUserBelongsToTenant(
+        tenantId,
+        dto.purchased_by_user_id,
+      );
     }
 
     // 3d. Validate purchased_by_crew_member_id if changed
-    if (dto.purchased_by_crew_member_id !== undefined && dto.purchased_by_crew_member_id !== null) {
-      await this.validateCrewMemberBelongsToTenant(tenantId, dto.purchased_by_crew_member_id);
+    if (
+      dto.purchased_by_crew_member_id !== undefined &&
+      dto.purchased_by_crew_member_id !== null
+    ) {
+      await this.validateCrewMemberBelongsToTenant(
+        tenantId,
+        dto.purchased_by_crew_member_id,
+      );
     }
 
     // 3e. Validate tax vs amount on the RESULTING state
-    const resultingAmount = dto.amount !== undefined ? dto.amount : Number(existing.amount);
-    const resultingTax = dto.tax_amount !== undefined
-      ? dto.tax_amount
-      : (existing.tax_amount ? Number(existing.tax_amount) : null);
+    const resultingAmount =
+      dto.amount !== undefined ? dto.amount : Number(existing.amount);
+    const resultingTax =
+      dto.tax_amount !== undefined
+        ? dto.tax_amount
+        : existing.tax_amount
+          ? Number(existing.tax_amount)
+          : null;
     if (resultingTax !== null && resultingTax >= resultingAmount) {
-      throw new BadRequestException('Tax amount must be less than the entry amount');
+      throw new BadRequestException(
+        'Tax amount must be less than the entry amount',
+      );
     }
 
     // 3f. Validate entry_date not in the future (if changed)
@@ -496,9 +524,8 @@ export class FinancialEntryService {
 
     // 6. Track supplier change
     const oldSupplierId = existing.supplier_id;
-    const newSupplierId = dto.supplier_id !== undefined
-      ? dto.supplier_id
-      : existing.supplier_id;
+    const newSupplierId =
+      dto.supplier_id !== undefined ? dto.supplier_id : existing.supplier_id;
 
     // 7. Build update data object (only include fields that were provided in dto)
     const data: any = {
@@ -510,14 +537,17 @@ export class FinancialEntryService {
     if (dto.amount !== undefined) data.amount = dto.amount;
     if (dto.tax_amount !== undefined) data.tax_amount = dto.tax_amount ?? null;
     if (dto.discount !== undefined) data.discount = dto.discount ?? null;
-    if (dto.entry_date !== undefined) data.entry_date = new Date(dto.entry_date);
+    if (dto.entry_date !== undefined)
+      data.entry_date = new Date(dto.entry_date);
     if (dto.entry_time !== undefined) {
       data.entry_time = dto.entry_time
         ? new Date(`1970-01-01T${dto.entry_time}`)
         : null;
     }
-    if (dto.vendor_name !== undefined) data.vendor_name = dto.vendor_name ?? null;
-    if (dto.supplier_id !== undefined) data.supplier_id = dto.supplier_id ?? null;
+    if (dto.vendor_name !== undefined)
+      data.vendor_name = dto.vendor_name ?? null;
+    if (dto.supplier_id !== undefined)
+      data.supplier_id = dto.supplier_id ?? null;
     if (dto.notes !== undefined) data.notes = dto.notes ?? null;
 
     // Payment method fields — registry auto-copy takes precedence
@@ -535,7 +565,8 @@ export class FinancialEntryService {
       data.purchased_by_user_id = dto.purchased_by_user_id ?? null;
     }
     if (dto.purchased_by_crew_member_id !== undefined) {
-      data.purchased_by_crew_member_id = dto.purchased_by_crew_member_id ?? null;
+      data.purchased_by_crew_member_id =
+        dto.purchased_by_crew_member_id ?? null;
     }
 
     // 8. Execute Prisma update with enriched include
@@ -607,7 +638,10 @@ export class FinancialEntryService {
           'Access denied. You can only delete your own entries.',
         );
       }
-      if (existing.submission_status !== 'pending_review' && existing.submission_status !== 'denied') {
+      if (
+        existing.submission_status !== 'pending_review' &&
+        existing.submission_status !== 'denied'
+      ) {
         throw new ForbiddenException(
           'Access denied. You can only delete entries with pending_review or denied status.',
         );
@@ -659,7 +693,10 @@ export class FinancialEntryService {
     const existing = await this.fetchEntryOrFail(tenantId, entryId);
 
     // 2. Verify entry is pending_review or denied (BR-17)
-    if (existing.submission_status !== 'pending_review' && existing.submission_status !== 'denied') {
+    if (
+      existing.submission_status !== 'pending_review' &&
+      existing.submission_status !== 'denied'
+    ) {
       throw new BadRequestException(
         'Only pending or denied entries can be approved.',
       );
@@ -684,7 +721,10 @@ export class FinancialEntryService {
       actorUserId: approverId,
       before: existing,
       after: updated,
-      metadata: { workflow_action: 'EXPENSE_APPROVED', approval_notes: dto.notes },
+      metadata: {
+        workflow_action: 'EXPENSE_APPROVED',
+        approval_notes: dto.notes,
+      },
       description: `Approved financial entry ${entryId}`,
     });
 
@@ -740,7 +780,10 @@ export class FinancialEntryService {
       actorUserId: rejectorId,
       before: existing,
       after: updated,
-      metadata: { workflow_action: 'EXPENSE_REJECTED', rejection_reason: dto.rejection_reason },
+      metadata: {
+        workflow_action: 'EXPENSE_REJECTED',
+        rejection_reason: dto.rejection_reason,
+      },
       description: `Rejected financial entry ${entryId}: ${dto.rejection_reason}`,
     });
 
@@ -775,9 +818,7 @@ export class FinancialEntryService {
 
     // 3. Verify entry is denied — only denied entries can be resubmitted
     if (existing.submission_status !== 'denied') {
-      throw new BadRequestException(
-        'Only denied entries can be resubmitted.',
-      );
+      throw new BadRequestException('Only denied entries can be resubmitted.');
     }
 
     // 4. Build update data — clear rejection fields and reset to pending_review
@@ -806,13 +847,25 @@ export class FinancialEntryService {
     }
 
     // 5c. Validate purchased_by_user_id if changed
-    if (dto.purchased_by_user_id !== undefined && dto.purchased_by_user_id !== null) {
-      await this.validateUserBelongsToTenant(tenantId, dto.purchased_by_user_id);
+    if (
+      dto.purchased_by_user_id !== undefined &&
+      dto.purchased_by_user_id !== null
+    ) {
+      await this.validateUserBelongsToTenant(
+        tenantId,
+        dto.purchased_by_user_id,
+      );
     }
 
     // 5d. Validate purchased_by_crew_member_id if changed
-    if (dto.purchased_by_crew_member_id !== undefined && dto.purchased_by_crew_member_id !== null) {
-      await this.validateCrewMemberBelongsToTenant(tenantId, dto.purchased_by_crew_member_id);
+    if (
+      dto.purchased_by_crew_member_id !== undefined &&
+      dto.purchased_by_crew_member_id !== null
+    ) {
+      await this.validateCrewMemberBelongsToTenant(
+        tenantId,
+        dto.purchased_by_crew_member_id,
+      );
     }
 
     // 5e. Payment method registry auto-copy
@@ -847,12 +900,18 @@ export class FinancialEntryService {
     );
 
     // 5g. Validate tax vs amount on RESULTING state
-    const resultingAmount = dto.amount !== undefined ? dto.amount : Number(existing.amount);
-    const resultingTax = dto.tax_amount !== undefined
-      ? dto.tax_amount
-      : (existing.tax_amount ? Number(existing.tax_amount) : null);
+    const resultingAmount =
+      dto.amount !== undefined ? dto.amount : Number(existing.amount);
+    const resultingTax =
+      dto.tax_amount !== undefined
+        ? dto.tax_amount
+        : existing.tax_amount
+          ? Number(existing.tax_amount)
+          : null;
     if (resultingTax !== null && resultingTax >= resultingAmount) {
-      throw new BadRequestException('Tax amount must be less than the entry amount');
+      throw new BadRequestException(
+        'Tax amount must be less than the entry amount',
+      );
     }
 
     // 5h. Validate entry_date not in the future (if changed)
@@ -865,26 +924,28 @@ export class FinancialEntryService {
     if (dto.amount !== undefined) data.amount = dto.amount;
     if (dto.tax_amount !== undefined) data.tax_amount = dto.tax_amount ?? null;
     if (dto.discount !== undefined) data.discount = dto.discount ?? null;
-    if (dto.entry_date !== undefined) data.entry_date = new Date(dto.entry_date);
+    if (dto.entry_date !== undefined)
+      data.entry_date = new Date(dto.entry_date);
     if (dto.entry_time !== undefined) {
       data.entry_time = dto.entry_time
         ? new Date(`1970-01-01T${dto.entry_time}`)
         : null;
     }
-    if (dto.vendor_name !== undefined) data.vendor_name = dto.vendor_name ?? null;
+    if (dto.vendor_name !== undefined)
+      data.vendor_name = dto.vendor_name ?? null;
     if (dto.notes !== undefined) data.notes = dto.notes ?? null;
     if (dto.purchased_by_user_id !== undefined) {
       data.purchased_by_user_id = dto.purchased_by_user_id ?? null;
     }
     if (dto.purchased_by_crew_member_id !== undefined) {
-      data.purchased_by_crew_member_id = dto.purchased_by_crew_member_id ?? null;
+      data.purchased_by_crew_member_id =
+        dto.purchased_by_crew_member_id ?? null;
     }
 
     // 6. Track supplier change for spend update
     const oldSupplierId = existing.supplier_id;
-    const newSupplierId = dto.supplier_id !== undefined
-      ? dto.supplier_id
-      : existing.supplier_id;
+    const newSupplierId =
+      dto.supplier_id !== undefined ? dto.supplier_id : existing.supplier_id;
 
     // 7. Execute Prisma update with enriched include
     const updated = await this.prisma.financial_entry.update({
@@ -938,7 +999,12 @@ export class FinancialEntryService {
     query: ListFinancialEntriesQueryDto,
   ): Promise<string> {
     // 1. Build where clause using shared filter builder
-    const where = this.buildEntryWhereClause(tenantId, userId, userRoles, query);
+    const where = this.buildEntryWhereClause(
+      tenantId,
+      userId,
+      userRoles,
+      query,
+    );
 
     // 2. Count total matching entries
     const count = await this.prisma.financial_entry.count({ where });
@@ -971,7 +1037,9 @@ export class FinancialEntryService {
         supplier: { select: { name: true } },
         payment_method_registry_rel: { select: { nickname: true } },
         purchased_by_user: { select: { first_name: true, last_name: true } },
-        purchased_by_crew_member: { select: { first_name: true, last_name: true } },
+        purchased_by_crew_member: {
+          select: { first_name: true, last_name: true },
+        },
         created_by: { select: { first_name: true, last_name: true } },
       },
       orderBy: { entry_date: 'desc' },
@@ -1072,7 +1140,8 @@ export class FinancialEntryService {
     for (const entry of entries) {
       const amount = Number(entry.amount);
       const categoryType = entry.category.type;
-      costByCategory[categoryType] = (costByCategory[categoryType] || 0) + amount;
+      costByCategory[categoryType] =
+        (costByCategory[categoryType] || 0) + amount;
       totalActualCost += amount;
     }
 
@@ -1235,7 +1304,8 @@ export class FinancialEntryService {
       supplier_name: entry.supplier?.name ?? null,
       payment_method: entry.payment_method,
       payment_method_registry_id: entry.payment_method_registry_id,
-      payment_method_nickname: entry.payment_method_registry_rel?.nickname ?? null,
+      payment_method_nickname:
+        entry.payment_method_registry_rel?.nickname ?? null,
       purchased_by_user_id: entry.purchased_by_user_id,
       purchased_by_user_name: entry.purchased_by_user
         ? `${entry.purchased_by_user.first_name} ${entry.purchased_by_user.last_name}`
@@ -1338,9 +1408,7 @@ export class FinancialEntryService {
     });
 
     if (!category) {
-      throw new NotFoundException(
-        'Financial category not found or inactive',
-      );
+      throw new NotFoundException('Financial category not found or inactive');
     }
 
     return category;
@@ -1478,9 +1546,12 @@ export class FinancialEntryService {
     if (query.entry_type) where.entry_type = query.entry_type;
     if (query.supplier_id) where.supplier_id = query.supplier_id;
     if (query.payment_method) where.payment_method = query.payment_method;
-    if (query.submission_status) where.submission_status = query.submission_status;
-    if (query.purchased_by_user_id) where.purchased_by_user_id = query.purchased_by_user_id;
-    if (query.purchased_by_crew_member_id) where.purchased_by_crew_member_id = query.purchased_by_crew_member_id;
+    if (query.submission_status)
+      where.submission_status = query.submission_status;
+    if (query.purchased_by_user_id)
+      where.purchased_by_user_id = query.purchased_by_user_id;
+    if (query.purchased_by_crew_member_id)
+      where.purchased_by_crew_member_id = query.purchased_by_crew_member_id;
 
     // Category type filter (requires join)
     if (query.category_type) {
@@ -1489,7 +1560,10 @@ export class FinancialEntryService {
 
     // Classification filter (requires join)
     if (query.classification) {
-      where.category = { ...where.category, classification: query.classification };
+      where.category = {
+        ...where.category,
+        classification: query.classification,
+      };
     }
 
     // Date range
@@ -1501,7 +1575,8 @@ export class FinancialEntryService {
 
     // Boolean filters
     if (query.has_receipt !== undefined) where.has_receipt = query.has_receipt;
-    if (query.is_recurring_instance !== undefined) where.is_recurring_instance = query.is_recurring_instance;
+    if (query.is_recurring_instance !== undefined)
+      where.is_recurring_instance = query.is_recurring_instance;
 
     // Search (vendor_name and notes)
     if (query.search) {
@@ -1526,7 +1601,12 @@ export class FinancialEntryService {
   private escapeCsvField(value: string | null | undefined): string {
     if (value === null || value === undefined) return '';
     const str = String(value);
-    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    if (
+      str.includes(',') ||
+      str.includes('"') ||
+      str.includes('\n') ||
+      str.includes('\r')
+    ) {
       return `"${str.replace(/"/g, '""')}"`;
     }
     return str;

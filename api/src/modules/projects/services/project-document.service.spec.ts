@@ -121,7 +121,10 @@ describe('ProjectDocumentService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: AuditLoggerService, useValue: mockAuditLoggerService },
         { provide: FilesService, useValue: mockFilesService },
-        { provide: ProjectActivityService, useValue: mockProjectActivityService },
+        {
+          provide: ProjectActivityService,
+          useValue: mockProjectActivityService,
+        },
       ],
     }).compile();
 
@@ -137,7 +140,9 @@ describe('ProjectDocumentService', () => {
     it('should upload document and return correct shape', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
       mockFilesService.uploadFile.mockResolvedValue(mockUploadResult());
-      mockPrismaService.project_document.create.mockResolvedValue(mockDocument());
+      mockPrismaService.project_document.create.mockResolvedValue(
+        mockDocument(),
+      );
 
       const result = await service.upload(
         TENANT_A,
@@ -161,7 +166,9 @@ describe('ProjectDocumentService', () => {
     it('should call FilesService.uploadFile with correct category mapping', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
       mockFilesService.uploadFile.mockResolvedValue(mockUploadResult());
-      mockPrismaService.project_document.create.mockResolvedValue(mockDocument());
+      mockPrismaService.project_document.create.mockResolvedValue(
+        mockDocument(),
+      );
 
       await service.upload(TENANT_A, PROJECT_ID, USER_ID, mockFile(), {
         document_type: ProjectDocumentType.CONTRACT,
@@ -182,7 +189,9 @@ describe('ProjectDocumentService', () => {
     it('should map permit type to misc FileCategory', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
       mockFilesService.uploadFile.mockResolvedValue(mockUploadResult());
-      mockPrismaService.project_document.create.mockResolvedValue(mockDocument());
+      mockPrismaService.project_document.create.mockResolvedValue(
+        mockDocument(),
+      );
 
       await service.upload(TENANT_A, PROJECT_ID, USER_ID, mockFile(), {
         document_type: ProjectDocumentType.PERMIT,
@@ -199,7 +208,9 @@ describe('ProjectDocumentService', () => {
     it('should map agreement type to contract FileCategory', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
       mockFilesService.uploadFile.mockResolvedValue(mockUploadResult());
-      mockPrismaService.project_document.create.mockResolvedValue(mockDocument());
+      mockPrismaService.project_document.create.mockResolvedValue(
+        mockDocument(),
+      );
 
       await service.upload(TENANT_A, PROJECT_ID, USER_ID, mockFile(), {
         document_type: ProjectDocumentType.AGREEMENT,
@@ -234,7 +245,9 @@ describe('ProjectDocumentService', () => {
     it('should create audit log on upload', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
       mockFilesService.uploadFile.mockResolvedValue(mockUploadResult());
-      mockPrismaService.project_document.create.mockResolvedValue(mockDocument());
+      mockPrismaService.project_document.create.mockResolvedValue(
+        mockDocument(),
+      );
 
       await service.upload(TENANT_A, PROJECT_ID, USER_ID, mockFile(), {
         document_type: ProjectDocumentType.CONTRACT,
@@ -253,7 +266,9 @@ describe('ProjectDocumentService', () => {
     it('should log project activity on upload', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
       mockFilesService.uploadFile.mockResolvedValue(mockUploadResult());
-      mockPrismaService.project_document.create.mockResolvedValue(mockDocument());
+      mockPrismaService.project_document.create.mockResolvedValue(
+        mockDocument(),
+      );
 
       await service.upload(TENANT_A, PROJECT_ID, USER_ID, mockFile(), {
         document_type: ProjectDocumentType.CONTRACT,
@@ -271,7 +286,9 @@ describe('ProjectDocumentService', () => {
     it('should set is_public to false by default', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(mockProject());
       mockFilesService.uploadFile.mockResolvedValue(mockUploadResult());
-      mockPrismaService.project_document.create.mockResolvedValue(mockDocument());
+      mockPrismaService.project_document.create.mockResolvedValue(
+        mockDocument(),
+      );
 
       await service.upload(TENANT_A, PROJECT_ID, USER_ID, mockFile(), {
         document_type: ProjectDocumentType.CONTRACT,
@@ -325,9 +342,9 @@ describe('ProjectDocumentService', () => {
     it('should throw NotFoundException when project does not exist', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.findAll(TENANT_A, PROJECT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findAll(TENANT_A, PROJECT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -337,8 +354,12 @@ describe('ProjectDocumentService', () => {
 
   describe('delete()', () => {
     it('should delete document and file from storage', async () => {
-      mockPrismaService.project_document.findFirst.mockResolvedValue(mockDocument());
-      mockPrismaService.project_document.delete.mockResolvedValue(mockDocument());
+      mockPrismaService.project_document.findFirst.mockResolvedValue(
+        mockDocument(),
+      );
+      mockPrismaService.project_document.delete.mockResolvedValue(
+        mockDocument(),
+      );
 
       await service.delete(TENANT_A, PROJECT_ID, DOC_ID, USER_ID);
 
@@ -361,8 +382,12 @@ describe('ProjectDocumentService', () => {
     });
 
     it('should create audit log on delete', async () => {
-      mockPrismaService.project_document.findFirst.mockResolvedValue(mockDocument());
-      mockPrismaService.project_document.delete.mockResolvedValue(mockDocument());
+      mockPrismaService.project_document.findFirst.mockResolvedValue(
+        mockDocument(),
+      );
+      mockPrismaService.project_document.delete.mockResolvedValue(
+        mockDocument(),
+      );
 
       await service.delete(TENANT_A, PROJECT_ID, DOC_ID, USER_ID);
 
@@ -397,7 +422,9 @@ describe('ProjectDocumentService', () => {
     });
 
     it('findAll: filters by tenant_id', async () => {
-      mockPrismaService.project.findFirst.mockResolvedValue(mockProject({ tenant_id: TENANT_B }));
+      mockPrismaService.project.findFirst.mockResolvedValue(
+        mockProject({ tenant_id: TENANT_B }),
+      );
       mockPrismaService.project_document.findMany.mockResolvedValue([]);
 
       await service.findAll(TENANT_B, PROJECT_ID);
@@ -416,13 +443,15 @@ describe('ProjectDocumentService', () => {
         service.delete(TENANT_B, PROJECT_ID, DOC_ID, USER_ID),
       ).rejects.toThrow(NotFoundException);
 
-      expect(mockPrismaService.project_document.findFirst).toHaveBeenCalledWith({
-        where: {
-          id: DOC_ID,
-          tenant_id: TENANT_B,
-          project_id: PROJECT_ID,
+      expect(mockPrismaService.project_document.findFirst).toHaveBeenCalledWith(
+        {
+          where: {
+            id: DOC_ID,
+            tenant_id: TENANT_B,
+            project_id: PROJECT_ID,
+          },
         },
-      });
+      );
     });
   });
 });

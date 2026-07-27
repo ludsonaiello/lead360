@@ -49,7 +49,10 @@ import { ProjectCompletionController } from './controllers/project-completion.co
 import { ProjectCompletionService } from './services/project-completion.service';
 import { TaskFinancialController } from './controllers/task-financial.controller';
 import { TaskFinancialService } from './services/task-financial.service';
-import { TaskCrewHourController, CrewHourSummaryController } from './controllers/task-crew-hour.controller';
+import {
+  TaskCrewHourController,
+  CrewHourSummaryController,
+} from './controllers/task-crew-hour.controller';
 import { TaskCrewHourService } from './services/task-crew-hour.service';
 import { ProjectDashboardController } from './controllers/project-dashboard.controller';
 import { ProjectDashboardService } from './services/project-dashboard.service';
@@ -168,9 +171,7 @@ export class ProjectsModule implements OnModuleInit {
     await this.setupRepeatableDelayCheckJob();
 
     // Sprint 33: Register and schedule the subcontractor insurance expiry check
-    await this.insuranceExpiryCheckScheduler.setup(
-      this.projectManagementQueue,
-    );
+    await this.insuranceExpiryCheckScheduler.setup(this.projectManagementQueue);
 
     this.logger.log('ProjectsModule initialization complete');
   }

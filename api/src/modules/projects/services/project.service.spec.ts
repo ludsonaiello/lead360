@@ -672,7 +672,7 @@ describe('ProjectService', () => {
         mockProjectWithRelations(),
       );
       mockPrismaService.project_task.count
-        .mockResolvedValueOnce(5)  // total tasks
+        .mockResolvedValueOnce(5) // total tasks
         .mockResolvedValueOnce(2); // completed tasks
 
       const result = await service.findOne(TENANT_ID, PROJECT_ID);
@@ -686,17 +686,17 @@ describe('ProjectService', () => {
     it('should throw NotFoundException for non-existent project', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.findOne(TENANT_ID, 'non-existent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(TENANT_ID, 'non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should filter by tenant_id (tenant isolation)', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.findOne(TENANT_B_ID, PROJECT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(TENANT_B_ID, PROJECT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
 
       expect(mockPrismaService.project.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -751,9 +751,7 @@ describe('ProjectService', () => {
     it('should clear actual_completion_date when moving away from completed', async () => {
       mockPrismaService.project.findFirst
         .mockReset()
-        .mockResolvedValueOnce(
-          mockProjectRecord({ status: 'completed' }),
-        )
+        .mockResolvedValueOnce(mockProjectRecord({ status: 'completed' }))
         .mockResolvedValueOnce(mockProjectWithRelations());
 
       await service.update(TENANT_ID, PROJECT_ID, USER_ID, {
@@ -871,8 +869,8 @@ describe('ProjectService', () => {
         entry_count: 8,
       });
       mockPrismaService.project_task.count
-        .mockResolvedValueOnce(10)  // total tasks
-        .mockResolvedValueOnce(4);  // completed tasks
+        .mockResolvedValueOnce(10) // total tasks
+        .mockResolvedValueOnce(4); // completed tasks
       mockPrismaService.receipt.count.mockResolvedValue(5);
 
       const result = await service.getFinancialSummary(TENANT_ID, PROJECT_ID);
@@ -885,7 +883,7 @@ describe('ProjectService', () => {
       expect(result.completed_task_count).toBe(4);
       expect(result.receipt_count).toBe(5);
       expect(result.margin_estimated).toBe(13000.0); // 45000 - 32000
-      expect(result.margin_actual).toBe(32500.0);    // 45000 - 12500
+      expect(result.margin_actual).toBe(32500.0); // 45000 - 12500
     });
 
     it('should return null margins when contract_value is null (standalone project)', async () => {
@@ -952,7 +950,7 @@ describe('ProjectService', () => {
       expect(result.contract_value).toBe(20000.0);
       expect(result.estimated_cost).toBeNull();
       expect(result.margin_estimated).toBeNull(); // null because estimated_cost is null
-      expect(result.margin_actual).toBe(17000.0);  // 20000 - 3000
+      expect(result.margin_actual).toBe(17000.0); // 20000 - 3000
       expect(result.receipt_count).toBe(2);
     });
 
@@ -1355,7 +1353,10 @@ describe('ProjectService', () => {
         quote_id: QUOTE_ID,
       });
 
-      const result = await service.getChangeOrdersRedirect(TENANT_ID, PROJECT_ID);
+      const result = await service.getChangeOrdersRedirect(
+        TENANT_ID,
+        PROJECT_ID,
+      );
 
       expect(result).toEqual({
         redirect_url: `/quotes/${QUOTE_ID}?tab=change-orders`,
@@ -1401,9 +1402,9 @@ describe('ProjectService', () => {
     it('should not return projects from other tenants (findOne)', async () => {
       mockPrismaService.project.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.findOne(TENANT_B_ID, PROJECT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(TENANT_B_ID, PROJECT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should not update projects from other tenants', async () => {

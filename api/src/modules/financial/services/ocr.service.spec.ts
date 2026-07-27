@@ -77,19 +77,19 @@ describe('OcrService', () => {
     it('should extract amount with dollar sign', () => {
       const text = 'STORE\nTOTAL $125.50';
       const result = service.parseReceiptText(text);
-      expect(result.ocr_amount).toBe(125.50);
+      expect(result.ocr_amount).toBe(125.5);
     });
 
     it('should extract amount without dollar sign', () => {
       const text = 'STORE\nTOTAL 125.50';
       const result = service.parseReceiptText(text);
-      expect(result.ocr_amount).toBe(125.50);
+      expect(result.ocr_amount).toBe(125.5);
     });
 
     it('should extract amount with comma as thousands separator', () => {
       const text = 'STORE\nGRAND TOTAL $1,250.00';
       const result = service.parseReceiptText(text);
-      expect(result.ocr_amount).toBe(1250.00);
+      expect(result.ocr_amount).toBe(1250.0);
     });
 
     it('should extract amount with multiple comma groups', () => {
@@ -113,13 +113,13 @@ describe('OcrService', () => {
     it('should handle AMOUNT DUE keyword', () => {
       const text = 'STORE\nAMOUNT DUE: $45.00';
       const result = service.parseReceiptText(text);
-      expect(result.ocr_amount).toBe(45.00);
+      expect(result.ocr_amount).toBe(45.0);
     });
 
     it('should handle BALANCE DUE keyword', () => {
       const text = 'STORE\nBALANCE DUE $78.50';
       const result = service.parseReceiptText(text);
-      expect(result.ocr_amount).toBe(78.50);
+      expect(result.ocr_amount).toBe(78.5);
     });
 
     it('should handle GRAND TOTAL keyword', () => {
@@ -131,19 +131,19 @@ describe('OcrService', () => {
     it('should handle TOTAL DUE keyword', () => {
       const text = 'STORE\nTOTAL DUE $220.00';
       const result = service.parseReceiptText(text);
-      expect(result.ocr_amount).toBe(220.00);
+      expect(result.ocr_amount).toBe(220.0);
     });
 
     it('should fallback to largest amount when no TOTAL keyword found', () => {
       const text = 'STORE\nItem A  $12.99\nItem B  $8.50\nItem C  $45.00';
       const result = service.parseReceiptText(text);
-      expect(result.ocr_amount).toBe(45.00);
+      expect(result.ocr_amount).toBe(45.0);
     });
 
     it('should handle comma-formatted amount in fallback path (no TOTAL keyword)', () => {
       const text = 'STORE\nCustom Cabinets  $2,499.00\nLabor  $1,750.00';
       const result = service.parseReceiptText(text);
-      expect(result.ocr_amount).toBe(2499.00);
+      expect(result.ocr_amount).toBe(2499.0);
     });
 
     it('should return null when no amounts found', () => {

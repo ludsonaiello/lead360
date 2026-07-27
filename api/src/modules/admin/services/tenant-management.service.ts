@@ -779,9 +779,7 @@ export class TenantManagementService {
           is_active: user.is_active,
           last_login_at: user.last_login_at,
           created_at: user.created_at,
-          roles: user.memberships.map(
-            (m) => m.role.name,
-          ),
+          roles: user.memberships.map((m) => m.role.name),
         })),
         stats: {
           user_count: (tenant as any)._count?.memberships || 0,

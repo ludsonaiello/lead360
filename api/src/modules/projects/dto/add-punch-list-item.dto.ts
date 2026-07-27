@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsUUID, MaxLength, MinLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AddPunchListItemDto {
@@ -14,7 +20,8 @@ export class AddPunchListItemDto {
 
   @ApiPropertyOptional({
     description: 'Detailed description of the deficiency',
-    example: 'Paint chipping on north-side window trim, needs scraping and two coats',
+    example:
+      'Paint chipping on north-side window trim, needs scraping and two coats',
   })
   @IsString()
   @IsOptional()

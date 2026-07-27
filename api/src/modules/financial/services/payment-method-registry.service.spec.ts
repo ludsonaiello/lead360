@@ -327,9 +327,9 @@ describe('PaymentMethodRegistryService', () => {
         null,
       );
 
-      await expect(
-        service.findOne(TENANT_A, 'nonexistent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(TENANT_A, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should NOT return records from other tenants (tenant isolation)', async () => {
@@ -337,9 +337,9 @@ describe('PaymentMethodRegistryService', () => {
         null,
       );
 
-      await expect(
-        service.findOne(TENANT_B, PM_ID_1),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(TENANT_B, PM_ID_1)).rejects.toThrow(
+        NotFoundException,
+      );
 
       expect(
         mockPrismaService.payment_method_registry.findFirst,
@@ -779,15 +779,21 @@ describe('PaymentMethodRegistryService', () => {
   describe('hardDelete()', () => {
     it('should permanently delete a payment method with zero usage', async () => {
       const existing = mockPaymentMethod();
-      mockPrismaService.payment_method_registry.findFirst.mockResolvedValue(existing);
+      mockPrismaService.payment_method_registry.findFirst.mockResolvedValue(
+        existing,
+      );
       mockPrismaService.financial_entry.count.mockResolvedValue(0);
       mockPrismaService.recurring_expense_rule.count.mockResolvedValue(0);
       mockPrismaService.project_invoice_payment.count.mockResolvedValue(0);
-      mockPrismaService.payment_method_registry.delete.mockResolvedValue(existing);
+      mockPrismaService.payment_method_registry.delete.mockResolvedValue(
+        existing,
+      );
 
       const result = await service.hardDelete(TENANT_A, PM_ID_1, USER_ID);
 
-      expect(mockPrismaService.payment_method_registry.delete).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.payment_method_registry.delete,
+      ).toHaveBeenCalledWith({
         where: { id: PM_ID_1 },
       });
       expect(result.message).toContain('permanently deleted');
@@ -805,7 +811,9 @@ describe('PaymentMethodRegistryService', () => {
 
     it('should throw BadRequestException when payment method has financial entries', async () => {
       const existing = mockPaymentMethod();
-      mockPrismaService.payment_method_registry.findFirst.mockResolvedValue(existing);
+      mockPrismaService.payment_method_registry.findFirst.mockResolvedValue(
+        existing,
+      );
       mockPrismaService.financial_entry.count.mockResolvedValue(3);
       mockPrismaService.recurring_expense_rule.count.mockResolvedValue(0);
       mockPrismaService.project_invoice_payment.count.mockResolvedValue(0);
@@ -818,12 +826,16 @@ describe('PaymentMethodRegistryService', () => {
         service.hardDelete(TENANT_A, PM_ID_1, USER_ID),
       ).rejects.toThrow('Cannot permanently delete');
 
-      expect(mockPrismaService.payment_method_registry.delete).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.payment_method_registry.delete,
+      ).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException when payment method has recurring rules', async () => {
       const existing = mockPaymentMethod();
-      mockPrismaService.payment_method_registry.findFirst.mockResolvedValue(existing);
+      mockPrismaService.payment_method_registry.findFirst.mockResolvedValue(
+        existing,
+      );
       mockPrismaService.financial_entry.count.mockResolvedValue(0);
       mockPrismaService.recurring_expense_rule.count.mockResolvedValue(2);
       mockPrismaService.project_invoice_payment.count.mockResolvedValue(0);
@@ -835,7 +847,9 @@ describe('PaymentMethodRegistryService', () => {
 
     it('should throw BadRequestException when payment method has invoice payments', async () => {
       const existing = mockPaymentMethod();
-      mockPrismaService.payment_method_registry.findFirst.mockResolvedValue(existing);
+      mockPrismaService.payment_method_registry.findFirst.mockResolvedValue(
+        existing,
+      );
       mockPrismaService.financial_entry.count.mockResolvedValue(0);
       mockPrismaService.recurring_expense_rule.count.mockResolvedValue(0);
       mockPrismaService.project_invoice_payment.count.mockResolvedValue(1);
@@ -847,7 +861,9 @@ describe('PaymentMethodRegistryService', () => {
 
     it('should include detailed reference counts in error message', async () => {
       const existing = mockPaymentMethod();
-      mockPrismaService.payment_method_registry.findFirst.mockResolvedValue(existing);
+      mockPrismaService.payment_method_registry.findFirst.mockResolvedValue(
+        existing,
+      );
       mockPrismaService.financial_entry.count.mockResolvedValue(5);
       mockPrismaService.recurring_expense_rule.count.mockResolvedValue(2);
       mockPrismaService.project_invoice_payment.count.mockResolvedValue(0);
@@ -858,7 +874,9 @@ describe('PaymentMethodRegistryService', () => {
     });
 
     it('should throw NotFoundException if record does not exist', async () => {
-      mockPrismaService.payment_method_registry.findFirst.mockResolvedValue(null);
+      mockPrismaService.payment_method_registry.findFirst.mockResolvedValue(
+        null,
+      );
 
       await expect(
         service.hardDelete(TENANT_A, 'nonexistent', USER_ID),
