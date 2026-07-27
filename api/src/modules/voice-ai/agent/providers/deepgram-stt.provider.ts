@@ -31,7 +31,9 @@ export class DeepgramSttProvider implements SttProvider {
 
     // Deepgram SDK v3+ requires an options object with 'key' property
     // DEBUG: Log API key presence and format
-    this.logger.log(`🔍 DEBUG: Deepgram API Key: ${config.apiKey ? `${config.apiKey.substring(0, 10)}... (length: ${config.apiKey.length})` : 'MISSING'}`);
+    this.logger.log(
+      `🔍 DEBUG: Deepgram API Key: ${config.apiKey ? `${config.apiKey.substring(0, 10)}... (length: ${config.apiKey.length})` : 'MISSING'}`,
+    );
 
     const deepgram = createClient({ key: config.apiKey });
 
@@ -52,7 +54,9 @@ export class DeepgramSttProvider implements SttProvider {
       vad_events: config.vad_events ?? true,
     };
 
-    this.logger.log(`🔍 DEBUG: Deepgram connection options: ${JSON.stringify(connectionOptions)}`);
+    this.logger.log(
+      `🔍 DEBUG: Deepgram connection options: ${JSON.stringify(connectionOptions)}`,
+    );
 
     const connection = deepgram.listen.live(connectionOptions);
 
@@ -86,7 +90,9 @@ export class DeepgramSttProvider implements SttProvider {
         }
         if (event === 'error') {
           connection.on(LiveTranscriptionEvents.Error, (error) => {
-            this.logger.error(`❌ Deepgram error details: ${JSON.stringify(error, null, 2)}`);
+            this.logger.error(
+              `❌ Deepgram error details: ${JSON.stringify(error, null, 2)}`,
+            );
             handler(error);
           });
         }

@@ -780,11 +780,7 @@ export class LeadsService {
       const sanitized = phone.replace(/\D/g, '');
       const last10 = sanitized.slice(-10);
       if (last10.length >= 10) {
-        allVariations.push(
-          last10,
-          `1${last10}`,
-          `+1${last10}`,
-        );
+        allVariations.push(last10, `1${last10}`, `+1${last10}`);
       } else {
         allVariations.push(sanitized);
       }

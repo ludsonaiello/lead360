@@ -187,9 +187,7 @@ export class HttpBookAppointmentTool implements AgentTool {
     },
     context: ToolExecutionContext,
   ): Promise<string> {
-    console.log(
-      `[HttpBookAppointmentTool] Booking for lead: ${args.lead_id}`,
-    );
+    console.log(`[HttpBookAppointmentTool] Booking for lead: ${args.lead_id}`);
 
     const response = await toolBookAppointment(context.tenant_id, args);
 

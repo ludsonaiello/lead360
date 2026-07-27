@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { PrismaClient, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
@@ -19,11 +20,24 @@ const prisma = new PrismaClient();
  * Idempotent: Can be run multiple times safely
  */
 
+function requireEnv(key: string): string {
+  const value = process.env[key];
+
+  if (!value) {
+    throw new Error(
+      `${key} is not set. Define PLATFORM_ADMIN_EMAIL and PLATFORM_ADMIN_PASSWORD in api/.env ` +
+        `before seeding — the platform admin credentials must never be committed to source control.`,
+    );
+  }
+
+  return value;
+}
+
 const PLATFORM_ADMIN_USER = {
-  email: 'ludsonaiello@gmail.com',
-  password: '978@F32c', // Will be hashed
-  first_name: 'Ludson',
-  last_name: 'Aiello',
+  email: requireEnv('PLATFORM_ADMIN_EMAIL'),
+  password: requireEnv('PLATFORM_ADMIN_PASSWORD'), // Will be hashed
+  first_name: process.env.PLATFORM_ADMIN_FIRST_NAME ?? 'Platform',
+  last_name: process.env.PLATFORM_ADMIN_LAST_NAME ?? 'Admin',
   is_platform_admin: true,
   is_active: true,
   email_verified: true,
@@ -97,9 +111,8 @@ async function seedPlatformAdmin() {
     console.log(`  ✓ Created Platform Admin user: ${PLATFORM_ADMIN_USER.email}`);
     console.log(`  ✓ User ID: ${user.id}`);
     console.log(`\n✨ Platform Admin user seeded successfully!\n`);
-    console.log(`🔐 Login credentials:`);
-    console.log(`   Email: ${PLATFORM_ADMIN_USER.email}`);
-    console.log(`   Password: ${PLATFORM_ADMIN_USER.password}\n`);
+    console.log(`🔐 Sign in with ${PLATFORM_ADMIN_USER.email}`);
+    console.log(`   Password: the value of PLATFORM_ADMIN_PASSWORD in api/.env\n`);
   } catch (error) {
     console.error('❌ Error seeding Platform Admin user:', error);
     throw error;

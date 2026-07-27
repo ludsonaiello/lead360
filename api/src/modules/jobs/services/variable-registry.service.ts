@@ -684,7 +684,8 @@ export class VariableRegistryService {
       name: 'temporary_password',
       type: VariableDataType.STRING,
       category: VariableCategory.PORTAL,
-      description: 'Auto-generated temporary password (must be changed on first login)',
+      description:
+        'Auto-generated temporary password (must be changed on first login)',
       example: 'Tmp!x9Kz4mQw',
       required: false,
     },
@@ -692,8 +693,10 @@ export class VariableRegistryService {
       name: 'portal_reset_link',
       type: VariableDataType.URL,
       category: VariableCategory.PORTAL,
-      description: 'Portal password reset URL with embedded token (expires in 1 hour)',
-      example: 'https://acme.lead360.app/public/reset-password?token=abc123def456',
+      description:
+        'Portal password reset URL with embedded token (expires in 1 hour)',
+      example:
+        'https://acme.lead360.app/public/reset-password?token=abc123def456',
       required: false,
     },
   };

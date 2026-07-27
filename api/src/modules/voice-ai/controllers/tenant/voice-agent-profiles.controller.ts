@@ -288,9 +288,6 @@ export class VoiceAgentProfilesController {
     @Request() req: { user: { tenant_id: string } },
     @Param('id') id: string,
   ) {
-    await this.voiceAgentProfilesService.deleteOverride(
-      req.user.tenant_id,
-      id,
-    );
+    await this.voiceAgentProfilesService.deleteOverride(req.user.tenant_id, id);
   }
 }

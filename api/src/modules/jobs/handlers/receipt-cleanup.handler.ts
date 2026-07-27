@@ -75,7 +75,9 @@ export class ReceiptCleanupHandler {
         return { success: true, deleted: 0, failed: 0 };
       }
 
-      this.logger.log(`Found ${orphanReceipts.length} orphan receipts to clean up`);
+      this.logger.log(
+        `Found ${orphanReceipts.length} orphan receipts to clean up`,
+      );
 
       await this.jobQueue.logJobExecution(
         jobId,

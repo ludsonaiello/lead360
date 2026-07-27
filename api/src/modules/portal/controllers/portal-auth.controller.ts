@@ -113,7 +113,11 @@ export class PortalAuthController {
   })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(@Body() dto: PortalLoginDto) {
-    return this.portalAuthService.login(dto.tenant_slug, dto.email, dto.password);
+    return this.portalAuthService.login(
+      dto.tenant_slug,
+      dto.email,
+      dto.password,
+    );
   }
 
   @Post('forgot-password')
@@ -175,8 +179,14 @@ export class PortalAuthController {
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'Current password incorrect or validation failed' })
-  @ApiResponse({ status: 401, description: 'Unauthorized — invalid or missing portal token' })
+  @ApiResponse({
+    status: 400,
+    description: 'Current password incorrect or validation failed',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized — invalid or missing portal token',
+  })
   async changePassword(
     @CurrentPortalUser() user: AuthenticatedPortalUser,
     @Body() dto: PortalChangePasswordDto,

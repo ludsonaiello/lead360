@@ -3,7 +3,8 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class PortalLoginDto {
   @ApiProperty({
-    description: 'Tenant subdomain (e.g., "acmeplumbing" from acmeplumbing.lead360.app)',
+    description:
+      'Tenant subdomain (e.g., "acmeplumbing" from acmeplumbing.lead360.app)',
     example: 'acmeplumbing',
   })
   @IsString()

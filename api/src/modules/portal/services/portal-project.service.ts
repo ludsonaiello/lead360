@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 
 /**
@@ -96,11 +93,7 @@ export class PortalProjectService {
    *   - Task titles + statuses (no notes, no costs, no crew)
    *   - Permit statuses (no notes, no internal details)
    */
-  async getProjectDetail(
-    tenantId: string,
-    leadId: string,
-    projectId: string,
-  ) {
+  async getProjectDetail(tenantId: string, leadId: string, projectId: string) {
     const project = await this.prisma.project.findFirst({
       where: {
         id: projectId,

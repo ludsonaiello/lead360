@@ -11,7 +11,8 @@ export class PortalResetPasswordDto {
   token: string;
 
   @ApiProperty({
-    description: 'New password (min 8 chars, uppercase, lowercase, number, special char)',
+    description:
+      'New password (min 8 chars, uppercase, lowercase, number, special char)',
     example: 'NewP@ss1',
   })
   @IsString()

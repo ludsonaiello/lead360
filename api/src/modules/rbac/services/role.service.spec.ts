@@ -34,12 +34,32 @@ describe('RoleService', () => {
 
   describe('listActiveRoles', () => {
     const mockRoles = [
-      { id: 'role-1', name: 'Owner', description: 'Full access to all features' },
+      {
+        id: 'role-1',
+        name: 'Owner',
+        description: 'Full access to all features',
+      },
       { id: 'role-2', name: 'Admin', description: 'Administrative access' },
-      { id: 'role-3', name: 'Estimator', description: 'Create and manage quotes' },
-      { id: 'role-4', name: 'Project Manager', description: 'Manage active projects' },
-      { id: 'role-5', name: 'Bookkeeper', description: 'Manage all financial data' },
-      { id: 'role-6', name: 'Employee', description: 'Limited access for field workers' },
+      {
+        id: 'role-3',
+        name: 'Estimator',
+        description: 'Create and manage quotes',
+      },
+      {
+        id: 'role-4',
+        name: 'Project Manager',
+        description: 'Manage active projects',
+      },
+      {
+        id: 'role-5',
+        name: 'Bookkeeper',
+        description: 'Manage all financial data',
+      },
+      {
+        id: 'role-6',
+        name: 'Employee',
+        description: 'Limited access for field workers',
+      },
       { id: 'role-7', name: 'Read-only', description: null },
     ];
 

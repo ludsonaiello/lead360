@@ -182,9 +182,7 @@ export class ElevenLabsTtsProvider implements StreamingTtsProvider {
             this.ws!.send(JSON.stringify(initMessage));
             this.logger.debug('📤 Sent initialization message');
           } catch (error) {
-            this.logger.error(
-              `Failed to send init message: ${error.message}`,
-            );
+            this.logger.error(`Failed to send init message: ${error.message}`);
           }
 
           // Send any queued messages
@@ -224,7 +222,9 @@ export class ElevenLabsTtsProvider implements StreamingTtsProvider {
           ) {
             this.attemptReconnect();
           } else if (this.disconnectRequested) {
-            this.logger.log('🛑 Reconnection skipped - disconnect was requested');
+            this.logger.log(
+              '🛑 Reconnection skipped - disconnect was requested',
+            );
           } else if (this.reconnectAttempts >= this.maxReconnectAttempts) {
             this.logger.error(
               `❌ Max reconnection attempts (${this.maxReconnectAttempts}) reached - giving up`,

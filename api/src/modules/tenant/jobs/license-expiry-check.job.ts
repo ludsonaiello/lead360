@@ -106,14 +106,21 @@ export class LicenseExpiryCheckJob {
     try {
       const tenant = licenses[0].tenant;
 
-      // Get Owner and Admin users for this tenant
+      // Get Owner and Admin users for this tenant (canonical: user_tenant_membership)
       const allUsers = await this.prisma.user.findMany({
         where: {
           is_active: true,
-          memberships: { some: { tenant_id: tenantId, status: 'ACTIVE' } },
+          memberships: {
+            some: {
+              tenant_id: tenantId,
+              status: 'ACTIVE',
+              role: { name: { in: ['Owner', 'Admin'] } },
+            },
+          },
         },
         include: {
-          user_role_user_role_user_idTouser: {
+          memberships: {
+            where: { tenant_id: tenantId, status: 'ACTIVE' },
             include: {
               role: {
                 select: {
@@ -125,11 +132,8 @@ export class LicenseExpiryCheckJob {
         },
       });
 
-      // Filter by role name (check if user has Owner or Admin role)
       const recipients = allUsers.filter((user) =>
-        user.user_role_user_role_user_idTouser.some((ur) =>
-          ['Owner', 'Admin'].includes(ur.role.name),
-        ),
+        user.memberships.some((m) => ['Owner', 'Admin'].includes(m.role.name)),
       );
 
       if (recipients.length === 0) {

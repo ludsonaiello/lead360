@@ -512,11 +512,15 @@ IMPORTANT:
 
       // Conditional provider selection - Cartesia is default (preserves existing behavior)
       if (this.context.providers.tts.provider_key === 'elevenlabs_tts') {
-        this.logger.log(`  Using provider: ElevenLabs TTS (${this.context.providers.tts.provider_key})`);
+        this.logger.log(
+          `  Using provider: ElevenLabs TTS (${this.context.providers.tts.provider_key})`,
+        );
         this.streamingTtsProvider = new ElevenLabsTtsProvider();
       } else {
         // Default to Cartesia for ALL other cases (cartesia, undefined, null, unknown, etc.)
-        this.logger.log(`  Using provider: Cartesia TTS (${this.context.providers.tts.provider_key || 'default'})`);
+        this.logger.log(
+          `  Using provider: Cartesia TTS (${this.context.providers.tts.provider_key || 'default'})`,
+        );
         this.streamingTtsProvider = new CartesiaWebSocketTtsProvider();
       }
 
@@ -524,11 +528,11 @@ IMPORTANT:
       // CRITICAL: Spread provider config FIRST, then override with profile-resolved values
       // This ensures IVR language selection takes precedence over database defaults
       const streamingTtsConfig = {
-        ...this.context.providers.tts.config,  // ← Provider defaults come FIRST
+        ...this.context.providers.tts.config, // ← Provider defaults come FIRST
         apiKey: this.context.providers.tts.api_key,
         voiceId: this.context.providers.tts.voice_id || '',
-        language: this.context.behavior.language,         // ← Profile language overrides
-        language_code: this.context.behavior.language,    // ← Also set language_code for ElevenLabs
+        language: this.context.behavior.language, // ← Profile language overrides
+        language_code: this.context.behavior.language, // ← Also set language_code for ElevenLabs
       };
 
       // Sprint VAB-05: Diagnostic logging for debugging authentication issues (2026-03-10)
@@ -627,10 +631,10 @@ IMPORTANT:
       // CRITICAL: Spread provider config FIRST, then override with profile-resolved values
       // This ensures IVR language selection takes precedence over database defaults
       const sttConfig = {
-        ...this.context.providers.stt.config,             // ← Provider defaults come FIRST
+        ...this.context.providers.stt.config, // ← Provider defaults come FIRST
         apiKey: this.context.providers.stt.api_key,
-        language: this.context.behavior.language,         // ← Profile language overrides
-        language_code: this.context.behavior.language,    // ← Also set language_code for ElevenLabs
+        language: this.context.behavior.language, // ← Profile language overrides
+        language_code: this.context.behavior.language, // ← Also set language_code for ElevenLabs
       };
       this.logger.log('🔍 STT Configuration Debug:');
       this.logger.log(`  Provider: ${this.context.providers.stt.provider_key}`);
@@ -903,7 +907,11 @@ IMPORTANT:
         let chainCount = 0;
         let hasMoreToolCalls = true;
 
-        while (hasMoreToolCalls && chainCount < MAX_TOOL_CHAIN && this.isActive) {
+        while (
+          hasMoreToolCalls &&
+          chainCount < MAX_TOOL_CHAIN &&
+          this.isActive
+        ) {
           chainCount++;
 
           // Get follow-up response WITH tool definitions so LLM can chain
@@ -1836,7 +1844,9 @@ IMPORTANT:
         const sipParticipant = Array.from(
           this.room.remoteParticipants.values(),
         ).find(
-          (p) => p.kind === ParticipantKind.SIP || p.kind === ParticipantKind.STANDARD,
+          (p) =>
+            p.kind === ParticipantKind.SIP ||
+            p.kind === ParticipantKind.STANDARD,
         );
 
         if (sipParticipant && this.livekitConfig.url) {
@@ -1854,7 +1864,9 @@ IMPORTANT:
           );
 
           await roomService.removeParticipant(roomName, participantIdentity);
-          this.logger.log('✅ SIP participant disconnected — Twilio call will end');
+          this.logger.log(
+            '✅ SIP participant disconnected — Twilio call will end',
+          );
           this.voiceLogger?.logSessionEvent('sip_participant_disconnected', {
             participant_identity: participantIdentity,
             room_name: roomName,
@@ -2179,8 +2191,16 @@ IMPORTANT:
 
     // Common filler sounds - ignore (English + Portuguese + Spanish)
     const fillerSounds = [
-      'uh', 'um', 'ah', 'mm', 'hmm', 'mhm', 'uh-huh',
-      'hm', 'eh', 'oh',
+      'uh',
+      'um',
+      'ah',
+      'mm',
+      'hmm',
+      'mhm',
+      'uh-huh',
+      'hm',
+      'eh',
+      'oh',
     ];
     if (fillerSounds.includes(cleaned)) {
       return false;

@@ -2127,7 +2127,10 @@ export async function seedPrebuiltTemplates(): Promise<void> {
           html_content: template.html_content || undefined,
           css_content: template.css_content || undefined,
           changes_summary: 'Initial version (pre-built template)',
-          created_by_user_id: 'system', // System-generated seed data
+          // System-generated seed data has no human author. This column is
+          // nullable and FK-constrained, so a placeholder like 'system' fails
+          // with P2003 on a fresh database where no such user exists.
+          created_by_user_id: null,
         },
       });
 

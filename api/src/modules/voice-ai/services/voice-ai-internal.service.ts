@@ -942,7 +942,9 @@ export class VoiceAiInternalService {
         if (lead.service_requests?.[0]) {
           // Use existing active service_request
           serviceRequestId = lead.service_requests[0].id;
-          this.logger.log(`[Tool] Using existing service_request: ${serviceRequestId}`);
+          this.logger.log(
+            `[Tool] Using existing service_request: ${serviceRequestId}`,
+          );
         } else if (primaryAddress) {
           // Create a service_request linked to lead's address for calendar location
           const sr = await this.prisma.service_request.create({
@@ -957,7 +959,9 @@ export class VoiceAiInternalService {
             },
           });
           serviceRequestId = sr.id;
-          this.logger.log(`[Tool] Created service_request: ${serviceRequestId} with address ${primaryAddress.id}`);
+          this.logger.log(
+            `[Tool] Created service_request: ${serviceRequestId} with address ${primaryAddress.id}`,
+          );
         }
 
         // Create appointment using AppointmentsService
@@ -980,8 +984,12 @@ export class VoiceAiInternalService {
 
         // Build human-readable date/time for voice
         const bookedDate = new Date(dto.confirmed_date! + 'T12:00:00');
-        const bookedDayName = bookedDate.toLocaleDateString('en-US', { weekday: 'long' });
-        const bookedTimeDisplay = this.formatTimeForVoice(dto.confirmed_start_time!);
+        const bookedDayName = bookedDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+        });
+        const bookedTimeDisplay = this.formatTimeForVoice(
+          dto.confirmed_start_time!,
+        );
 
         return {
           status: 'appointment_booked',
@@ -1284,7 +1292,9 @@ export class VoiceAiInternalService {
 
         // Human-readable date/time for voice
         const reschDate = new Date(dto.new_date! + 'T12:00:00');
-        const reschDayName = reschDate.toLocaleDateString('en-US', { weekday: 'long' });
+        const reschDayName = reschDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+        });
         const reschTimeDisplay = this.formatTimeForVoice(dto.new_time!);
 
         return {
@@ -1381,8 +1391,12 @@ export class VoiceAiInternalService {
         );
 
         // Get day name for current appointment date
-        const currentDate = new Date(currentAppointment.scheduled_date + 'T12:00:00');
-        const currentDayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+        const currentDate = new Date(
+          currentAppointment.scheduled_date + 'T12:00:00',
+        );
+        const currentDayName = currentDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+        });
 
         return {
           status: 'slots_available',
@@ -1391,7 +1405,9 @@ export class VoiceAiInternalService {
             date: currentAppointment.scheduled_date,
             day_name: currentDayName,
             time: currentAppointment.start_time,
-            time_display: this.formatTimeForVoice(currentAppointment.start_time),
+            time_display: this.formatTimeForVoice(
+              currentAppointment.start_time,
+            ),
             type: appointmentType.name,
           },
           available_slots: flatSlots,
@@ -1785,6 +1801,8 @@ export class VoiceAiInternalService {
     const [h, m] = time.split(':').map(Number);
     const period = h >= 12 ? 'P.M' : 'A.M';
     const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-    return m === 0 ? `${hour12} ${period}` : `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+    return m === 0
+      ? `${hour12} ${period}`
+      : `${hour12}:${String(m).padStart(2, '0')} ${period}`;
   }
 }

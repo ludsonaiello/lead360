@@ -9,7 +9,10 @@ import type {
 } from '../entities/portal-jwt-payload.entity';
 
 @Injectable()
-export class PortalJwtStrategy extends PassportStrategy(Strategy, 'portal-jwt') {
+export class PortalJwtStrategy extends PassportStrategy(
+  Strategy,
+  'portal-jwt',
+) {
   constructor(
     configService: ConfigService,
     private readonly prisma: PrismaService,

@@ -985,19 +985,16 @@ export class ApprovalWorkflowService {
     tenantId: string,
     tx: Prisma.TransactionClient,
   ): Promise<any> {
-    // Find user with role in tenant
-    const userRole = await tx.user_role.findFirst({
+    // Find approver via canonical user_tenant_membership (user_role is deprecated)
+    const membership = await tx.user_tenant_membership.findFirst({
       where: {
         tenant_id: tenantId,
-        role: {
-          name: role,
-        },
-        user_user_role_user_idTouser: {
-          is_active: true,
-        },
+        status: 'ACTIVE',
+        role: { name: role },
+        user: { is_active: true, deleted_at: null },
       },
       include: {
-        user_user_role_user_idTouser: {
+        user: {
           select: {
             id: true,
             first_name: true,
@@ -1009,12 +1006,12 @@ export class ApprovalWorkflowService {
       orderBy: { created_at: 'asc' }, // First user with role
     });
 
-    if (!userRole) {
+    if (!membership) {
       throw new BadRequestException(
         `No active user with role ${role} found in tenant`,
       );
     }
 
-    return userRole.user_user_role_user_idTouser;
+    return membership.user;
   }
 }

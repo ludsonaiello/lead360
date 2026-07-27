@@ -119,7 +119,9 @@ async function voiceAgentEntrypoint(ctx: JobContext): Promise<void> {
     // When Twilio uses <Dial><Sip>, it creates two call SIDs:
     // - Child DialCallSid (what we have): SIP outbound leg to LiveKit
     // - Parent CallSid (what we need): Original inbound call with metadata
-    console.log('[VoiceAgent] 📋 Resolving parent call SID from Redis mapping...');
+    console.log(
+      '[VoiceAgent] 📋 Resolving parent call SID from Redis mapping...',
+    );
     const parentCallSidResult = await getParentCallSid(callSid);
     let parentCallSid = callSid; // Default to child if no mapping found
 
@@ -397,9 +399,9 @@ async function runAgentSession(
   // Create HTTP-based tool instances for VAB architecture
   // Tools are conditionally registered based on tenant feature flags
   const tools: AgentTool[] = [
-    new HttpFindLeadTool(),        // Always available
+    new HttpFindLeadTool(), // Always available
     new HttpCheckServiceAreaTool(), // Always available
-    new HttpEndCallTool(),          // Always available
+    new HttpEndCallTool(), // Always available
   ];
 
   if (context.behavior.lead_creation_enabled) {

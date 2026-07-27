@@ -40,9 +40,7 @@ import type { AuthenticatedPortalUser } from '../entities/portal-jwt-payload.ent
 @UseGuards(PortalAuthGuard)
 @ApiBearerAuth()
 export class PortalProjectController {
-  constructor(
-    private readonly portalProjectService: PortalProjectService,
-  ) {}
+  constructor(private readonly portalProjectService: PortalProjectService) {}
 
   // ---------------------------------------------------------------------------
   // GET /portal/:customerSlug/projects
@@ -63,8 +61,14 @@ export class PortalProjectController {
     status: 200,
     description: 'Paginated list of portal-enabled projects',
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized — invalid or missing portal token' })
-  @ApiResponse({ status: 403, description: 'Forbidden — customerSlug does not match token' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized — invalid or missing portal token',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden — customerSlug does not match token',
+  })
   async listProjects(
     @Param('customerSlug') customerSlug: string,
     @Query() query: PortalPaginationQueryDto,
@@ -101,9 +105,18 @@ export class PortalProjectController {
     status: 200,
     description: 'Project detail with tasks and permits (no costs/crew/notes)',
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized — invalid or missing portal token' })
-  @ApiResponse({ status: 403, description: 'Forbidden — customerSlug does not match token' })
-  @ApiResponse({ status: 404, description: 'Project not found or not portal-enabled' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized — invalid or missing portal token',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden — customerSlug does not match token',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project not found or not portal-enabled',
+  })
   async getProjectDetail(
     @Param('customerSlug') customerSlug: string,
     @Param('id') projectId: string,
@@ -142,9 +155,18 @@ export class PortalProjectController {
     status: 200,
     description: 'Paginated list of public project logs with attachments',
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized — invalid or missing portal token' })
-  @ApiResponse({ status: 403, description: 'Forbidden — customerSlug does not match token' })
-  @ApiResponse({ status: 404, description: 'Project not found or not portal-enabled' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized — invalid or missing portal token',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden — customerSlug does not match token',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project not found or not portal-enabled',
+  })
   async getPublicLogs(
     @Param('customerSlug') customerSlug: string,
     @Param('id') projectId: string,
@@ -185,9 +207,18 @@ export class PortalProjectController {
     status: 200,
     description: 'Paginated list of public project photos',
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized — invalid or missing portal token' })
-  @ApiResponse({ status: 403, description: 'Forbidden — customerSlug does not match token' })
-  @ApiResponse({ status: 404, description: 'Project not found or not portal-enabled' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized — invalid or missing portal token',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden — customerSlug does not match token',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project not found or not portal-enabled',
+  })
   async getPublicPhotos(
     @Param('customerSlug') customerSlug: string,
     @Param('id') projectId: string,

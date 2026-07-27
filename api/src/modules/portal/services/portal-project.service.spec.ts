@@ -406,24 +406,16 @@ describe('PortalProjectService', () => {
     });
 
     it('should return only public logs with content, date, author, and attachments', async () => {
-      mockPrismaService.project_log.findMany.mockResolvedValue([
-        mockPublicLog,
-      ]);
+      mockPrismaService.project_log.findMany.mockResolvedValue([mockPublicLog]);
       mockPrismaService.project_log.count.mockResolvedValue(1);
 
-      const result = await service.getPublicLogs(
-        TENANT_A,
-        PROJECT_ID,
-        LEAD_ID,
-      );
+      const result = await service.getPublicLogs(TENANT_A, PROJECT_ID, LEAD_ID);
 
       expect(result.data).toHaveLength(1);
       const log = result.data[0];
       expect(log.id).toBe('log-1');
       expect(log.log_date).toBe('2026-04-10');
-      expect(log.content).toBe(
-        'Demolition work completed ahead of schedule.',
-      );
+      expect(log.content).toBe('Demolition work completed ahead of schedule.');
       expect(log.author).toBe('Mike Johnson');
       expect(log.weather_delay).toBe(false);
       expect(log.attachments).toHaveLength(1);
@@ -506,11 +498,7 @@ describe('PortalProjectService', () => {
       ]);
       mockPrismaService.project_log.count.mockResolvedValue(1);
 
-      const result = await service.getPublicLogs(
-        TENANT_A,
-        PROJECT_ID,
-        LEAD_ID,
-      );
+      const result = await service.getPublicLogs(TENANT_A, PROJECT_ID, LEAD_ID);
 
       expect(result.data[0].author).toBe('Mike');
     });
@@ -631,8 +619,7 @@ describe('PortalProjectService', () => {
 
       await service.listProjects(TENANT_A, LEAD_ID);
 
-      const where =
-        mockPrismaService.project.findMany.mock.calls[0][0].where;
+      const where = mockPrismaService.project.findMany.mock.calls[0][0].where;
       expect(where.tenant_id).toBe(TENANT_A);
     });
 

@@ -147,9 +147,9 @@ describe('PortalAuthService', () => {
       prisma.portal_account.findUnique.mockResolvedValue(null);
       prisma.lead.findFirst.mockResolvedValue(null);
 
-      await expect(service.createForLead(TENANT_ID, 'nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.createForLead(TENANT_ID, 'nonexistent'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should queue welcome email after account creation', async () => {
@@ -211,7 +211,11 @@ describe('PortalAuthService', () => {
         last_name: 'Smith',
       });
 
-      const result = await service.login('acme', 'john@example.com', 'Correct@Pass1');
+      const result = await service.login(
+        'acme',
+        'john@example.com',
+        'Correct@Pass1',
+      );
 
       expect(result.token).toBe('mock-portal-jwt-token');
       expect(result.customer_slug).toBe('john-smith');
@@ -333,7 +337,12 @@ describe('PortalAuthService', () => {
       });
 
       await expect(
-        service.changePassword(PORTAL_ACCOUNT_ID, TENANT_ID, 'WrongOld!1', 'NewP@ss1!'),
+        service.changePassword(
+          PORTAL_ACCOUNT_ID,
+          TENANT_ID,
+          'WrongOld!1',
+          'NewP@ss1!',
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -346,7 +355,12 @@ describe('PortalAuthService', () => {
       });
 
       await expect(
-        service.changePassword(PORTAL_ACCOUNT_ID, TENANT_ID, 'SameP@ss1', 'SameP@ss1'),
+        service.changePassword(
+          PORTAL_ACCOUNT_ID,
+          TENANT_ID,
+          'SameP@ss1',
+          'SameP@ss1',
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -354,7 +368,12 @@ describe('PortalAuthService', () => {
       prisma.portal_account.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.changePassword('nonexistent', TENANT_ID, 'OldP@ss1', 'NewP@ss1!'),
+        service.changePassword(
+          'nonexistent',
+          TENANT_ID,
+          'OldP@ss1',
+          'NewP@ss1!',
+        ),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -381,7 +400,10 @@ describe('PortalAuthService', () => {
         last_name: 'Smith',
       });
 
-      const result = await service.requestPasswordReset('acme', 'john@example.com');
+      const result = await service.requestPasswordReset(
+        'acme',
+        'john@example.com',
+      );
 
       expect(result.message).toContain('password reset link');
       expect(prisma.portal_account.update).toHaveBeenCalledWith({
@@ -403,7 +425,10 @@ describe('PortalAuthService', () => {
       });
       prisma.portal_account.findUnique.mockResolvedValue(null);
 
-      const result = await service.requestPasswordReset('acme', 'fake@example.com');
+      const result = await service.requestPasswordReset(
+        'acme',
+        'fake@example.com',
+      );
 
       expect(result.message).toContain('password reset link');
       expect(prisma.portal_account.update).not.toHaveBeenCalled();
@@ -412,7 +437,10 @@ describe('PortalAuthService', () => {
     it('should return success for non-existent tenant (prevent enumeration)', async () => {
       prisma.tenant.findUnique.mockResolvedValue(null);
 
-      const result = await service.requestPasswordReset('fake', 'john@example.com');
+      const result = await service.requestPasswordReset(
+        'fake',
+        'john@example.com',
+      );
 
       expect(result.message).toContain('password reset link');
     });

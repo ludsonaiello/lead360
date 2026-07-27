@@ -167,9 +167,13 @@ function buildBusinessContext(context: VoiceAiContext): string {
   // Services offered (with IDs for create_lead tool)
   if (context.services.length > 0) {
     lines.push('');
-    lines.push('Services offered (use the id when calling create_lead with requested_service_ids):');
+    lines.push(
+      'Services offered (use the id when calling create_lead with requested_service_ids):',
+    );
     for (const svc of context.services) {
-      lines.push(`- id: "${svc.id}" | name: "${svc.name}"${svc.description ? ` | description: ${svc.description}` : ''}`);
+      lines.push(
+        `- id: "${svc.id}" | name: "${svc.name}"${svc.description ? ` | description: ${svc.description}` : ''}`,
+      );
     }
   }
 
@@ -181,7 +185,9 @@ function buildBusinessContext(context: VoiceAiContext): string {
     for (const area of context.service_areas) {
       const key = area.type;
       if (!byType[key]) byType[key] = [];
-      byType[key].push(area.state ? `${area.value}, ${area.state}` : area.value);
+      byType[key].push(
+        area.state ? `${area.value}, ${area.state}` : area.value,
+      );
     }
     for (const [type, values] of Object.entries(byType)) {
       lines.push(`- ${type}: ${values.join(', ')}`);

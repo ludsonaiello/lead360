@@ -48,6 +48,47 @@ export class UserRolesController {
   ) {}
 
   /**
+   * Get current user's roles in current tenant.
+   *
+   * Any authenticated user can call this to load their own roles. Used by the
+   * frontend RBACContext on every page load — must NOT be gated by Owner/Admin
+   * since that would lock non-admin roles (Employee, Crew Leader) out of the UI.
+   */
+  @Get('me')
+  @ApiOperation({ summary: 'Get current user roles in current tenant' })
+  @ApiResponse({
+    status: 200,
+    description: 'Current user roles retrieved successfully',
+  })
+  async getMyRoles(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @TenantId() tenantId: string,
+  ) {
+    return this.userRoleService.getUserRoles(currentUser.id, tenantId);
+  }
+
+  /**
+   * Get current user's permissions in current tenant.
+   *
+   * Same rationale as `GET me` — used by the frontend RBACContext for the
+   * logged-in user, so it must be available to any authenticated user.
+   */
+  @Get('me/permissions')
+  @ApiOperation({
+    summary: 'Get all permissions current user has in current tenant',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Current user permissions retrieved successfully',
+  })
+  async getMyPermissions(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @TenantId() tenantId: string,
+  ) {
+    return this.rbacService.getUserPermissions(currentUser.id, tenantId);
+  }
+
+  /**
    * Get user's roles in current tenant
    */
   @Get(':userId')

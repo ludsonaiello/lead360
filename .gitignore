@@ -32,6 +32,8 @@
 
 # env files (can opt-in for committing if needed)
 /app/.env*
+# ...but the key template must be committed so a fresh clone knows what to set
+!/app/.env.example
 
 # vercel
 /app/.vercel

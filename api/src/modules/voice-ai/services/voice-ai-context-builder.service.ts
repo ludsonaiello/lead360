@@ -686,8 +686,7 @@ export class VoiceAiContextBuilderService {
           custom_greeting:
             override?.custom_greeting ?? globalProfile.default_greeting,
           custom_instructions:
-            override?.custom_instructions ??
-            globalProfile.default_instructions,
+            override?.custom_instructions ?? globalProfile.default_instructions,
           active_profile: {
             id: globalProfile.id,
             title: globalProfile.display_name,
@@ -717,8 +716,7 @@ export class VoiceAiContextBuilderService {
           language: override.agent_profile.language_code,
           voice_id: override.agent_profile.voice_id,
           custom_greeting:
-            override.custom_greeting ??
-            override.agent_profile.default_greeting,
+            override.custom_greeting ?? override.agent_profile.default_greeting,
           custom_instructions:
             override.custom_instructions ??
             override.agent_profile.default_instructions,

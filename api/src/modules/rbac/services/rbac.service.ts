@@ -53,11 +53,13 @@ export class RBACService {
         return true;
       }
 
-      // Get user's roles WITH their permissions in a SINGLE query (fixes N+1 problem)
-      const userRoles = await this.prisma.user_role.findMany({
+      // Get user's active memberships (with role + permissions) in a SINGLE query.
+      // Reads from user_tenant_membership (canonical) — user_role is deprecated.
+      const memberships = await this.prisma.user_tenant_membership.findMany({
         where: {
           user_id: userId,
           tenant_id: tenantId,
+          status: 'ACTIVE',
         },
         include: {
           role: {
@@ -76,21 +78,23 @@ export class RBACService {
         },
       });
 
-      // No roles = no permissions
-      if (userRoles.length === 0) {
-        this.logger.debug(`User ${userId} has no roles in tenant ${tenantId}`);
+      // No active memberships = no permissions
+      if (memberships.length === 0) {
+        this.logger.debug(
+          `User ${userId} has no active membership in tenant ${tenantId}`,
+        );
         return false;
       }
 
       // Check each role's permissions (in-memory, no additional queries)
-      for (const userRole of userRoles) {
+      for (const membership of memberships) {
         // Skip inactive roles
-        if (!userRole.role.is_active) {
+        if (!membership.role.is_active) {
           continue;
         }
 
         // Check if any permission matches
-        for (const rp of userRole.role.role_permission) {
+        for (const rp of membership.role.role_permission) {
           const permission = rp.permission;
           const module = permission.module;
 
@@ -102,7 +106,7 @@ export class RBACService {
             module.is_active
           ) {
             this.logger.debug(
-              `Permission granted: user ${userId} (role: ${userRole.role.name}) has ${moduleName}:${action}`,
+              `Permission granted: user ${userId} (role: ${membership.role.name}) has ${moduleName}:${action}`,
             );
             return true;
           }
@@ -147,29 +151,30 @@ export class RBACService {
         });
       }
 
-      // Get user's roles
-      const userRoles = await this.prisma.user_role.findMany({
+      // Get user's active memberships (canonical role source)
+      const memberships = await this.prisma.user_tenant_membership.findMany({
         where: {
           user_id: userId,
           tenant_id: tenantId,
+          status: 'ACTIVE',
         },
         include: {
           role: true,
         },
       });
 
-      if (userRoles.length === 0) {
+      if (memberships.length === 0) {
         return [];
       }
 
       // Filter only active roles
-      const activeRoles = userRoles.filter((ur) => ur.role.is_active);
-      if (activeRoles.length === 0) {
+      const activeMemberships = memberships.filter((m) => m.role.is_active);
+      if (activeMemberships.length === 0) {
         return [];
       }
 
       // Get all permissions from all active roles
-      const roleIds = activeRoles.map((ur) => ur.role.id);
+      const roleIds = activeMemberships.map((m) => m.role.id);
 
       const rolePermissions = await this.prisma.role_permission.findMany({
         where: {
@@ -321,10 +326,11 @@ export class RBACService {
         return true;
       }
 
-      const count = await this.prisma.user_role.count({
+      const count = await this.prisma.user_tenant_membership.count({
         where: {
           user_id: userId,
           tenant_id: tenantId,
+          status: 'ACTIVE',
           role: {
             name: { in: roleNames },
             is_active: true,

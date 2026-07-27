@@ -29,13 +29,19 @@ export class UserRoleService {
   ) {}
 
   /**
-   * Get user's roles in specific tenant
+   * Get user's roles in specific tenant.
+   *
+   * Reads from user_tenant_membership (canonical) — user_role is deprecated.
+   * Returns shape compatible with the legacy frontend RBACContext consumer:
+   * each item exposes a `.role` object with id/name/description plus an
+   * `assigned_at` field.
    */
   async getUserRoles(userId: string, tenantId: string) {
-    return this.prisma.user_role.findMany({
+    const memberships = await this.prisma.user_tenant_membership.findMany({
       where: {
         user_id: userId,
         tenant_id: tenantId,
+        status: 'ACTIVE',
       },
       include: {
         role: {
@@ -48,9 +54,19 @@ export class UserRoleService {
         },
       },
       orderBy: {
-        assigned_at: 'desc',
+        created_at: 'desc',
       },
     });
+
+    return memberships.map((m) => ({
+      id: m.id,
+      user_id: m.user_id,
+      role_id: m.role_id,
+      tenant_id: m.tenant_id,
+      role: m.role,
+      assigned_at: m.joined_at ?? m.created_at,
+      created_at: m.created_at,
+    }));
   }
 
   /**

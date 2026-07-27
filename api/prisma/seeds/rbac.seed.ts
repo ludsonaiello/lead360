@@ -20,113 +20,632 @@ const prisma = new PrismaClient();
 // ============================================
 
 const modules = [
-  { name: 'dashboard', display_name: 'Dashboard', description: 'Main dashboard and analytics overview', sort_order: 1, icon: 'dashboard' },
-  { name: 'leads', display_name: 'Lead Management', description: 'Manage leads and prospects', sort_order: 2, icon: 'users' },
-  { name: 'quotes', display_name: 'Quote Builder', description: 'Create and manage quotes', sort_order: 3, icon: 'file-text' },
-  { name: 'projects', display_name: 'Project Management', description: 'Manage projects and workflows', sort_order: 4, icon: 'briefcase' },
-  { name: 'tasks', display_name: 'Task Management', description: 'Manage tasks and assignments', sort_order: 5, icon: 'check-square' },
-  { name: 'invoices', display_name: 'Invoice Management', description: 'Create and manage invoices', sort_order: 6, icon: 'file-invoice' },
-  { name: 'payments', display_name: 'Payment Processing', description: 'Track and process payments', sort_order: 7, icon: 'credit-card' },
-  { name: 'expenses', display_name: 'Expense Tracking', description: 'Track business expenses', sort_order: 8, icon: 'receipt' },
-  { name: 'reports', display_name: 'Reports & Analytics', description: 'View and export reports', sort_order: 9, icon: 'chart-bar' },
-  { name: 'calendar', display_name: 'Calendar & Scheduling', description: 'Manage schedules and appointments', sort_order: 10, icon: 'calendar' },
-  { name: 'timeclock', display_name: 'Time Clock', description: 'Employee time tracking', sort_order: 11, icon: 'clock' },
-  { name: 'users', display_name: 'User Management', description: 'Manage users and roles', sort_order: 12, icon: 'users-cog' },
-  { name: 'settings', display_name: 'Business Settings', description: 'Configure business settings', sort_order: 13, icon: 'cog' },
-  { name: 'subscription', display_name: 'Subscription & Billing', description: 'Manage subscription and billing', sort_order: 14, icon: 'credit-card-alt' },
+  {
+    name: 'dashboard',
+    display_name: 'Dashboard',
+    description: 'Main dashboard and analytics overview',
+    sort_order: 1,
+    icon: 'dashboard',
+  },
+  {
+    name: 'leads',
+    display_name: 'Lead Management',
+    description: 'Manage leads and prospects',
+    sort_order: 2,
+    icon: 'users',
+  },
+  {
+    name: 'quotes',
+    display_name: 'Quote Builder',
+    description: 'Create and manage quotes',
+    sort_order: 3,
+    icon: 'file-text',
+  },
+  {
+    name: 'projects',
+    display_name: 'Project Management',
+    description: 'Manage projects and workflows',
+    sort_order: 4,
+    icon: 'briefcase',
+  },
+  {
+    name: 'tasks',
+    display_name: 'Task Management',
+    description: 'Manage tasks and assignments',
+    sort_order: 5,
+    icon: 'check-square',
+  },
+  {
+    name: 'invoices',
+    display_name: 'Invoice Management',
+    description: 'Create and manage invoices',
+    sort_order: 6,
+    icon: 'file-invoice',
+  },
+  {
+    name: 'payments',
+    display_name: 'Payment Processing',
+    description: 'Track and process payments',
+    sort_order: 7,
+    icon: 'credit-card',
+  },
+  {
+    name: 'expenses',
+    display_name: 'Expense Tracking',
+    description: 'Track business expenses',
+    sort_order: 8,
+    icon: 'receipt',
+  },
+  {
+    name: 'reports',
+    display_name: 'Reports & Analytics',
+    description: 'View and export reports',
+    sort_order: 9,
+    icon: 'chart-bar',
+  },
+  {
+    name: 'calendar',
+    display_name: 'Calendar & Scheduling',
+    description: 'Manage schedules and appointments',
+    sort_order: 10,
+    icon: 'calendar',
+  },
+  {
+    name: 'timeclock',
+    display_name: 'Time Clock',
+    description: 'Employee time tracking',
+    sort_order: 11,
+    icon: 'clock',
+  },
+  {
+    name: 'users',
+    display_name: 'User Management',
+    description: 'Manage users and roles',
+    sort_order: 12,
+    icon: 'users-cog',
+  },
+  {
+    name: 'settings',
+    display_name: 'Business Settings',
+    description: 'Configure business settings',
+    sort_order: 13,
+    icon: 'cog',
+  },
+  {
+    name: 'subscription',
+    display_name: 'Subscription & Billing',
+    description: 'Manage subscription and billing',
+    sort_order: 14,
+    icon: 'credit-card-alt',
+  },
+  {
+    name: 'communications',
+    display_name: 'Communications',
+    description: 'Email, SMS and WhatsApp messaging',
+    sort_order: 15,
+    icon: 'message-square',
+  },
+  {
+    name: 'voice_ai',
+    display_name: 'Voice AI Agent',
+    description: 'Configure and operate the voice AI agent',
+    sort_order: 16,
+    icon: 'phone-call',
+  },
+  {
+    name: 'files',
+    display_name: 'File Management',
+    description: 'Upload, share and manage files',
+    sort_order: 20,
+    icon: 'folder',
+  },
+  {
+    name: 'audit',
+    display_name: 'Audit Logs',
+    description: 'View and export audit history',
+    sort_order: 87,
+    icon: 'shield',
+  },
 ];
 
 // ============================================
 // PERMISSION DEFINITIONS (per module)
 // ============================================
 
-const modulePermissions: Record<string, Array<{ action: string; display_name: string; description?: string }>> = {
+const modulePermissions: Record<
+  string,
+  Array<{ action: string; display_name: string; description?: string }>
+> = {
   dashboard: [
-    { action: 'view', display_name: 'View Dashboard', description: 'View dashboard and analytics' },
+    {
+      action: 'view',
+      display_name: 'View Dashboard',
+      description: 'View dashboard and analytics',
+    },
   ],
   leads: [
-    { action: 'view', display_name: 'View Leads', description: 'View leads and their details' },
-    { action: 'create', display_name: 'Create Leads', description: 'Create new leads' },
-    { action: 'edit', display_name: 'Edit Leads', description: 'Edit existing leads' },
-    { action: 'delete', display_name: 'Delete Leads', description: 'Delete leads' },
-    { action: 'export', display_name: 'Export Leads', description: 'Export leads to CSV/PDF' },
+    {
+      action: 'view',
+      display_name: 'View Leads',
+      description: 'View leads and their details',
+    },
+    {
+      action: 'create',
+      display_name: 'Create Leads',
+      description: 'Create new leads',
+    },
+    {
+      action: 'edit',
+      display_name: 'Edit Leads',
+      description: 'Edit existing leads',
+    },
+    {
+      action: 'delete',
+      display_name: 'Delete Leads',
+      description: 'Delete leads',
+    },
+    {
+      action: 'export',
+      display_name: 'Export Leads',
+      description: 'Export leads to CSV/PDF',
+    },
   ],
   quotes: [
-    { action: 'view', display_name: 'View Quotes', description: 'View quotes and their details' },
-    { action: 'create', display_name: 'Create Quotes', description: 'Create new quotes' },
-    { action: 'edit', display_name: 'Edit Quotes', description: 'Edit existing quotes' },
-    { action: 'delete', display_name: 'Delete Quotes', description: 'Delete quotes' },
-    { action: 'send', display_name: 'Send Quotes', description: 'Send quotes to customers' },
-    { action: 'approve', display_name: 'Approve Quotes', description: 'Approve quotes before sending' },
-    { action: 'export', display_name: 'Export Quotes', description: 'Export quotes to PDF' },
+    {
+      action: 'view',
+      display_name: 'View Quotes',
+      description: 'View quotes and their details',
+    },
+    {
+      action: 'create',
+      display_name: 'Create Quotes',
+      description: 'Create new quotes',
+    },
+    {
+      action: 'edit',
+      display_name: 'Edit Quotes',
+      description: 'Edit existing quotes',
+    },
+    {
+      action: 'delete',
+      display_name: 'Delete Quotes',
+      description: 'Delete quotes',
+    },
+    {
+      action: 'send',
+      display_name: 'Send Quotes',
+      description: 'Send quotes to customers',
+    },
+    {
+      action: 'approve',
+      display_name: 'Approve Quotes',
+      description: 'Approve quotes before sending',
+    },
+    {
+      action: 'export',
+      display_name: 'Export Quotes',
+      description: 'Export quotes to PDF',
+    },
   ],
   projects: [
-    { action: 'view', display_name: 'View Projects', description: 'View projects and their details' },
-    { action: 'create', display_name: 'Create Projects', description: 'Create new projects' },
-    { action: 'edit', display_name: 'Edit Projects', description: 'Edit existing projects' },
-    { action: 'delete', display_name: 'Delete Projects', description: 'Delete projects' },
-    { action: 'export', display_name: 'Export Projects', description: 'Export project data' },
+    {
+      action: 'view',
+      display_name: 'View Projects',
+      description: 'View projects and their details',
+    },
+    {
+      action: 'create',
+      display_name: 'Create Projects',
+      description: 'Create new projects',
+    },
+    {
+      action: 'edit',
+      display_name: 'Edit Projects',
+      description: 'Edit existing projects',
+    },
+    {
+      action: 'delete',
+      display_name: 'Delete Projects',
+      description: 'Delete projects',
+    },
+    {
+      action: 'export',
+      display_name: 'Export Projects',
+      description: 'Export project data',
+    },
   ],
   tasks: [
-    { action: 'view', display_name: 'View Tasks', description: 'View tasks and their details' },
-    { action: 'create', display_name: 'Create Tasks', description: 'Create new tasks' },
-    { action: 'edit', display_name: 'Edit Tasks', description: 'Edit existing tasks' },
-    { action: 'delete', display_name: 'Delete Tasks', description: 'Delete tasks' },
-    { action: 'assign', display_name: 'Assign Tasks', description: 'Assign tasks to users' },
+    {
+      action: 'view',
+      display_name: 'View Tasks',
+      description: 'View tasks and their details',
+    },
+    {
+      action: 'create',
+      display_name: 'Create Tasks',
+      description: 'Create new tasks',
+    },
+    {
+      action: 'edit',
+      display_name: 'Edit Tasks',
+      description: 'Edit existing tasks',
+    },
+    {
+      action: 'delete',
+      display_name: 'Delete Tasks',
+      description: 'Delete tasks',
+    },
+    {
+      action: 'assign',
+      display_name: 'Assign Tasks',
+      description: 'Assign tasks to users',
+    },
   ],
   invoices: [
-    { action: 'view', display_name: 'View Invoices', description: 'View invoices and their details' },
-    { action: 'create', display_name: 'Create Invoices', description: 'Create new invoices' },
-    { action: 'edit', display_name: 'Edit Invoices', description: 'Edit existing invoices' },
-    { action: 'delete', display_name: 'Delete Invoices', description: 'Delete invoices' },
-    { action: 'send', display_name: 'Send Invoices', description: 'Send invoices to customers' },
-    { action: 'export', display_name: 'Export Invoices', description: 'Export invoices to PDF' },
+    {
+      action: 'view',
+      display_name: 'View Invoices',
+      description: 'View invoices and their details',
+    },
+    {
+      action: 'create',
+      display_name: 'Create Invoices',
+      description: 'Create new invoices',
+    },
+    {
+      action: 'edit',
+      display_name: 'Edit Invoices',
+      description: 'Edit existing invoices',
+    },
+    {
+      action: 'delete',
+      display_name: 'Delete Invoices',
+      description: 'Delete invoices',
+    },
+    {
+      action: 'send',
+      display_name: 'Send Invoices',
+      description: 'Send invoices to customers',
+    },
+    {
+      action: 'export',
+      display_name: 'Export Invoices',
+      description: 'Export invoices to PDF',
+    },
   ],
   payments: [
-    { action: 'view', display_name: 'View Payments', description: 'View payment records' },
-    { action: 'create', display_name: 'Record Payments', description: 'Record new payments' },
-    { action: 'edit', display_name: 'Edit Payments', description: 'Edit payment records' },
-    { action: 'delete', display_name: 'Delete Payments', description: 'Delete payment records' },
-    { action: 'export', display_name: 'Export Payments', description: 'Export payment data' },
+    {
+      action: 'view',
+      display_name: 'View Payments',
+      description: 'View payment records',
+    },
+    {
+      action: 'create',
+      display_name: 'Record Payments',
+      description: 'Record new payments',
+    },
+    {
+      action: 'edit',
+      display_name: 'Edit Payments',
+      description: 'Edit payment records',
+    },
+    {
+      action: 'delete',
+      display_name: 'Delete Payments',
+      description: 'Delete payment records',
+    },
+    {
+      action: 'export',
+      display_name: 'Export Payments',
+      description: 'Export payment data',
+    },
   ],
   expenses: [
-    { action: 'view', display_name: 'View Expenses', description: 'View expense records' },
-    { action: 'create', display_name: 'Create Expenses', description: 'Create new expenses' },
-    { action: 'edit', display_name: 'Edit Expenses', description: 'Edit existing expenses' },
-    { action: 'delete', display_name: 'Delete Expenses', description: 'Delete expenses' },
-    { action: 'export', display_name: 'Export Expenses', description: 'Export expense data' },
+    {
+      action: 'view',
+      display_name: 'View Expenses',
+      description: 'View expense records',
+    },
+    {
+      action: 'create',
+      display_name: 'Create Expenses',
+      description: 'Create new expenses',
+    },
+    {
+      action: 'edit',
+      display_name: 'Edit Expenses',
+      description: 'Edit existing expenses',
+    },
+    {
+      action: 'delete',
+      display_name: 'Delete Expenses',
+      description: 'Delete expenses',
+    },
+    {
+      action: 'export',
+      display_name: 'Export Expenses',
+      description: 'Export expense data',
+    },
   ],
   reports: [
-    { action: 'view', display_name: 'View Reports', description: 'View all reports' },
-    { action: 'export', display_name: 'Export Reports', description: 'Export reports to CSV/PDF' },
+    {
+      action: 'view',
+      display_name: 'View Reports',
+      description: 'View all reports',
+    },
+    {
+      action: 'export',
+      display_name: 'Export Reports',
+      description: 'Export reports to CSV/PDF',
+    },
   ],
   calendar: [
-    { action: 'view', display_name: 'View Calendar', description: 'View calendar and appointments' },
-    { action: 'create', display_name: 'Create Events', description: 'Create calendar events' },
-    { action: 'edit', display_name: 'Edit Events', description: 'Edit calendar events' },
-    { action: 'delete', display_name: 'Delete Events', description: 'Delete calendar events' },
+    {
+      action: 'view',
+      display_name: 'View Calendar',
+      description: 'View calendar and appointments',
+    },
+    {
+      action: 'create',
+      display_name: 'Create Events',
+      description: 'Create calendar events',
+    },
+    {
+      action: 'edit',
+      display_name: 'Edit Events',
+      description: 'Edit calendar events',
+    },
+    {
+      action: 'delete',
+      display_name: 'Delete Events',
+      description: 'Delete calendar events',
+    },
   ],
   timeclock: [
-    { action: 'view', display_name: 'View Time Entries', description: 'View time clock entries' },
-    { action: 'clock_in', display_name: 'Clock In', description: 'Clock in for work' },
-    { action: 'clock_out', display_name: 'Clock Out', description: 'Clock out from work' },
-    { action: 'edit', display_name: 'Edit Time Entries', description: 'Edit time clock entries' },
-    { action: 'delete', display_name: 'Delete Time Entries', description: 'Delete time clock entries' },
+    {
+      action: 'view',
+      display_name: 'View Time Entries',
+      description: 'View time clock entries',
+    },
+    {
+      action: 'clock_in',
+      display_name: 'Clock In',
+      description: 'Clock in for work',
+    },
+    {
+      action: 'clock_out',
+      display_name: 'Clock Out',
+      description: 'Clock out from work',
+    },
+    {
+      action: 'edit',
+      display_name: 'Edit Time Entries',
+      description: 'Edit time clock entries',
+    },
+    {
+      action: 'delete',
+      display_name: 'Delete Time Entries',
+      description: 'Delete time clock entries',
+    },
+    {
+      action: 'manage_settings',
+      display_name: 'Manage Time Clock Settings',
+      description: 'Configure time clock tenant settings',
+    },
+    {
+      action: 'manage_employees',
+      display_name: 'Manage Employee Profiles',
+      description: 'Create and manage employee time clock profiles',
+    },
+    {
+      action: 'manage_addresses',
+      display_name: 'Manage Clock-In Addresses',
+      description: 'Create and manage geofence clock-in locations',
+    },
+    {
+      action: 'manage_shifts',
+      display_name: 'Manage Work Shifts',
+      description: 'Create and manage scheduled work shifts',
+    },
+    {
+      action: 'view_own',
+      display_name: 'View Own Time Data',
+      description: 'View own clock sessions and hours',
+    },
+    {
+      action: 'view_all',
+      display_name: 'View All Time Data',
+      description: 'View all employee clock sessions and hours',
+    },
+    {
+      action: 'edit_session',
+      display_name: 'Edit Clock Sessions',
+      description: 'Manually edit clock session times',
+    },
+    {
+      action: 'submit_dispute',
+      display_name: 'Submit Time Disputes',
+      description: 'Submit time correction disputes',
+    },
+    {
+      action: 'review_disputes',
+      display_name: 'Review Time Disputes',
+      description: 'Approve or reject time correction disputes',
+    },
+    {
+      action: 'view_reports',
+      display_name: 'View Time Reports',
+      description: 'Access time clock reports and analytics',
+    },
+    {
+      action: 'export_payroll',
+      display_name: 'Export Payroll',
+      description: 'Export payroll data to CSV',
+    },
+    {
+      action: 'manage_kiosk',
+      display_name: 'Manage Kiosk',
+      description: 'Configure and manage kiosk mode',
+    },
   ],
   users: [
-    { action: 'view', display_name: 'View Users', description: 'View user list and details' },
-    { action: 'create', display_name: 'Create Users', description: 'Create new users' },
-    { action: 'edit', display_name: 'Edit Users', description: 'Edit user information' },
-    { action: 'delete', display_name: 'Delete Users', description: 'Delete users' },
-    { action: 'manage_roles', display_name: 'Manage Roles', description: 'Assign and remove user roles' },
+    {
+      action: 'view',
+      display_name: 'View Users',
+      description: 'View user list and details',
+    },
+    {
+      action: 'create',
+      display_name: 'Create Users',
+      description: 'Create new users',
+    },
+    {
+      action: 'edit',
+      display_name: 'Edit Users',
+      description: 'Edit user information',
+    },
+    {
+      action: 'delete',
+      display_name: 'Delete Users',
+      description: 'Delete users',
+    },
+    {
+      action: 'manage_roles',
+      display_name: 'Manage Roles',
+      description: 'Assign and remove user roles',
+    },
   ],
   settings: [
-    { action: 'view', display_name: 'View Settings', description: 'View business settings' },
-    { action: 'edit', display_name: 'Edit Settings', description: 'Edit business settings' },
+    {
+      action: 'view',
+      display_name: 'View Settings',
+      description: 'View business settings',
+    },
+    {
+      action: 'edit',
+      display_name: 'Edit Settings',
+      description: 'Edit business settings',
+    },
   ],
   subscription: [
-    { action: 'view', display_name: 'View Subscription', description: 'View subscription details' },
-    { action: 'edit', display_name: 'Manage Subscription', description: 'Change subscription plan and billing' },
+    {
+      action: 'view',
+      display_name: 'View Subscription',
+      description: 'View subscription details',
+    },
+    {
+      action: 'edit',
+      display_name: 'Manage Subscription',
+      description: 'Change subscription plan and billing',
+    },
+  ],
+  communications: [
+    {
+      action: 'view',
+      display_name: 'View Communications',
+      description: 'View communication setup and history',
+    },
+    {
+      action: 'create',
+      display_name: 'Create Communications',
+      description: 'Create communication templates',
+    },
+    {
+      action: 'edit',
+      display_name: 'Edit Communications',
+      description: 'Edit communication templates',
+    },
+    {
+      action: 'delete',
+      display_name: 'Delete Communications',
+      description: 'Delete communication templates',
+    },
+    {
+      action: 'send',
+      display_name: 'Send Communications / Email',
+      description: 'Send emails, SMS and WhatsApp messages',
+    },
+  ],
+  voice_ai: [
+    {
+      action: 'view',
+      display_name: 'View Voice Agent',
+      description: 'View voice AI agent configuration',
+    },
+    {
+      action: 'create',
+      display_name: 'Create Voice Agent',
+      description: 'Create voice AI agent profiles',
+    },
+    {
+      action: 'edit',
+      display_name: 'Edit Voice AI Agent',
+      description: 'Edit voice AI agent profiles',
+    },
+    {
+      action: 'update',
+      display_name: 'Update Voice AI Agent',
+      description: 'Update voice AI agent settings',
+    },
+    {
+      action: 'delete',
+      display_name: 'Delete Voice AI Agent',
+      description: 'Delete voice AI agent profiles',
+    },
+    {
+      action: 'manage',
+      display_name: 'Manage Voice AI Agent',
+      description: 'Manage voice AI credentials and providers',
+    },
+  ],
+  files: [
+    {
+      action: 'view',
+      display_name: 'View Files',
+      description: 'View and list files',
+    },
+    {
+      action: 'create',
+      display_name: 'Upload Files',
+      description: 'Upload new Files',
+    },
+    {
+      action: 'delete',
+      display_name: 'Delete Files',
+      description: 'Delete files',
+    },
+    {
+      action: 'share',
+      display_name: 'Create Share Links',
+      description: 'Create public share links',
+    },
+    {
+      action: 'revoke-share',
+      display_name: 'Revoke Share Links',
+      description: 'Revoke share links',
+    },
+    {
+      action: 'bulk-operations',
+      display_name: 'Bulk Operations',
+      description: 'Bulk delete and download',
+    },
+    {
+      action: 'manage-orphans',
+      display_name: 'Manage Orphans',
+      description: 'View and trash orphan files',
+    },
+  ],
+  audit: [
+    {
+      action: 'view',
+      display_name: 'View Audit Logs',
+      description: 'View Audit Logs',
+    },
+    {
+      action: 'export',
+      display_name: 'Export Audit Logs',
+      description: 'Export Audit Logs',
+    },
   ],
 };
 
@@ -137,13 +656,15 @@ const modulePermissions: Record<string, Array<{ action: string; display_name: st
 const roleTemplates = [
   {
     name: 'Owner',
-    description: 'Full access to all features including billing and subscription management',
+    description:
+      'Full access to all features including billing and subscription management',
     is_system_template: true,
     permissions: 'ALL', // Special marker - will get all permissions
   },
   {
     name: 'Admin',
-    description: 'Administrative access to all features except billing and subscription',
+    description:
+      'Administrative access to all features except billing and subscription',
     is_system_template: true,
     permissions: 'ALL_EXCEPT', // All except subscription module
     except_modules: ['subscription'],
@@ -154,10 +675,17 @@ const roleTemplates = [
     is_system_template: true,
     permissions: [
       'dashboard:view',
-      'leads:view', 'leads:create', 'leads:edit',
-      'quotes:view', 'quotes:create', 'quotes:edit', 'quotes:send',
-      'projects:view', 'projects:create',
-      'calendar:view', 'calendar:edit',
+      'leads:view',
+      'leads:create',
+      'leads:edit',
+      'quotes:view',
+      'quotes:create',
+      'quotes:edit',
+      'quotes:send',
+      'projects:view',
+      'projects:create',
+      'calendar:view',
+      'calendar:edit',
     ],
   },
   {
@@ -168,34 +696,71 @@ const roleTemplates = [
       'dashboard:view',
       'leads:view',
       'quotes:view',
-      'projects:view', 'projects:create', 'projects:edit',
-      'tasks:view', 'tasks:create', 'tasks:edit', 'tasks:assign',
-      'calendar:view', 'calendar:create', 'calendar:edit',
+      'projects:view',
+      'projects:create',
+      'projects:edit',
+      'tasks:view',
+      'tasks:create',
+      'tasks:edit',
+      'tasks:assign',
+      'calendar:view',
+      'calendar:create',
+      'calendar:edit',
       'reports:view',
+      'timeclock:view',
+      'timeclock:clock_in',
+      'timeclock:clock_out',
+      'timeclock:manage_shifts',
+      'timeclock:view_own',
+      'timeclock:view_all',
+      'timeclock:submit_dispute',
+      'timeclock:view_reports',
     ],
   },
   {
     name: 'Bookkeeper',
-    description: 'Manage all financial operations including invoices, payments, and expenses',
+    description:
+      'Manage all financial operations including invoices, payments, and expenses',
     is_system_template: true,
     permissions: [
       'dashboard:view',
       'leads:view',
       'quotes:view',
       'projects:view',
-      'invoices:view', 'invoices:create', 'invoices:edit', 'invoices:send', 'invoices:export',
-      'payments:view', 'payments:create', 'payments:edit', 'payments:export',
-      'expenses:view', 'expenses:create', 'expenses:edit', 'expenses:export',
-      'reports:view', 'reports:export',
+      'invoices:view',
+      'invoices:create',
+      'invoices:edit',
+      'invoices:send',
+      'invoices:export',
+      'payments:view',
+      'payments:create',
+      'payments:edit',
+      'payments:export',
+      'expenses:view',
+      'expenses:create',
+      'expenses:edit',
+      'expenses:export',
+      'reports:view',
+      'reports:export',
+      'timeclock:view',
+      'timeclock:view_all',
+      'timeclock:view_reports',
+      'timeclock:export_payroll',
     ],
   },
   {
     name: 'Employee',
-    description: 'Limited access for field workers - clock in/out and view assigned tasks',
+    description:
+      'Limited access for field workers - clock in/out and view assigned tasks',
     is_system_template: true,
     permissions: [
-      'timeclock:view', 'timeclock:clock_in', 'timeclock:clock_out',
-      'tasks:view', 'tasks:edit', // Can edit their own tasks (status updates)
+      'timeclock:view',
+      'timeclock:clock_in',
+      'timeclock:clock_out',
+      'timeclock:view_own',
+      'timeclock:submit_dispute',
+      'tasks:view',
+      'tasks:edit', // Can edit their own tasks (status updates)
       'calendar:view',
     ],
   },
@@ -203,10 +768,7 @@ const roleTemplates = [
     name: 'Read-only',
     description: 'View-only access for stakeholders, investors, or auditors',
     is_system_template: true,
-    permissions: [
-      'dashboard:view',
-      'reports:view', 'reports:export',
-    ],
+    permissions: ['dashboard:view', 'reports:view', 'reports:export'],
   },
 ];
 
@@ -247,7 +809,9 @@ async function seedPermissions() {
     });
 
     if (!module) {
-      console.warn(`⚠️  Module "${moduleName}" not found, skipping permissions`);
+      console.warn(
+        `⚠️  Module "${moduleName}" not found, skipping permissions`,
+      );
       continue;
     }
 
@@ -307,19 +871,19 @@ async function seedRoleTemplates() {
 
     if (template.permissions === 'ALL') {
       // Owner gets all permissions
-      templatePermissionIds = allPermissions.map(p => p.id);
+      templatePermissionIds = allPermissions.map((p) => p.id);
     } else if (template.permissions === 'ALL_EXCEPT') {
       // Admin gets all except specified modules
       const exceptModules = (template as any).except_modules || [];
       templatePermissionIds = allPermissions
-        .filter(p => !exceptModules.includes(p.module.name))
-        .map(p => p.id);
+        .filter((p) => !exceptModules.includes(p.module.name))
+        .map((p) => p.id);
     } else if (Array.isArray(template.permissions)) {
       // Specific permissions (e.g., "leads:view", "quotes:create")
       for (const permString of template.permissions) {
         const [moduleName, action] = permString.split(':');
         const permission = allPermissions.find(
-          p => p.module.name === moduleName && p.action === action
+          (p) => p.module.name === moduleName && p.action === action,
         );
         if (permission) {
           templatePermissionIds.push(permission.id);
@@ -345,7 +909,9 @@ async function seedRoleTemplates() {
       });
     }
 
-    console.log(`  ✓ ${template.name} (${templatePermissionIds.length} permissions)`);
+    console.log(
+      `  ✓ ${template.name} (${templatePermissionIds.length} permissions)`,
+    );
   }
 
   console.log(`✅ Seeded ${roleTemplates.length} role templates`);
@@ -364,7 +930,9 @@ async function seedDefaultRoles() {
     });
 
     if (!roleTemplate) {
-      console.warn(`⚠️  Template "${template.name}" not found, skipping role creation`);
+      console.warn(
+        `⚠️  Template "${template.name}" not found, skipping role creation`,
+      );
       continue;
     }
 
@@ -402,7 +970,9 @@ async function seedDefaultRoles() {
       });
     }
 
-    console.log(`  ✓ ${role.name} role created with ${roleTemplate.role_template_permission.length} permissions`);
+    console.log(
+      `  ✓ ${role.name} role created with ${roleTemplate.role_template_permission.length} permissions`,
+    );
   }
 
   console.log(`✅ Seeded ${roleTemplates.length} default roles`);

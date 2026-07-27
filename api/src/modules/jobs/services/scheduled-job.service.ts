@@ -74,7 +74,9 @@ export class ScheduledJobService {
     });
 
     if (!existing) {
-      throw new NotFoundException(`Scheduled job with ID ${scheduleId} not found`);
+      throw new NotFoundException(
+        `Scheduled job with ID ${scheduleId} not found`,
+      );
     }
 
     if (updates.schedule) {

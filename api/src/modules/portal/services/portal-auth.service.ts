@@ -121,7 +121,8 @@ export class PortalAuthService {
       });
 
       if (tenant) {
-        const baseDomain = this.configService.get<string>('PORTAL_BASE_DOMAIN') || 'lead360.app';
+        const baseDomain =
+          this.configService.get<string>('PORTAL_BASE_DOMAIN') || 'lead360.app';
         const portalUrl = `https://${tenant.subdomain}.${baseDomain}/public/${customerSlug}/projects/`;
         await this.jobQueue.queueEmail({
           to: primaryEmail,
@@ -147,7 +148,10 @@ export class PortalAuthService {
       `Portal account created for lead=${leadId}, slug=${customerSlug}`,
     );
 
-    return { customer_slug: customerSlug, temporary_password: temporaryPassword };
+    return {
+      customer_slug: customerSlug,
+      temporary_password: temporaryPassword,
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -182,7 +186,10 @@ export class PortalAuthService {
     }
 
     // Verify password
-    const isPasswordValid = await bcrypt.compare(password, account.password_hash);
+    const isPasswordValid = await bcrypt.compare(
+      password,
+      account.password_hash,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -275,7 +282,12 @@ export class PortalAuthService {
     // Resolve tenant
     const tenant = await this.prisma.tenant.findUnique({
       where: { subdomain: tenantSlug },
-      select: { id: true, subdomain: true, company_name: true, is_active: true },
+      select: {
+        id: true,
+        subdomain: true,
+        company_name: true,
+        is_active: true,
+      },
     });
 
     if (!tenant || !tenant.is_active) {
@@ -298,7 +310,9 @@ export class PortalAuthService {
 
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiresAt = new Date(Date.now() + this.RESET_TOKEN_EXPIRY_MS);
+    const resetTokenExpiresAt = new Date(
+      Date.now() + this.RESET_TOKEN_EXPIRY_MS,
+    );
 
     await this.prisma.portal_account.update({
       where: { id: account.id },
@@ -315,7 +329,8 @@ export class PortalAuthService {
         select: { first_name: true, last_name: true },
       });
 
-      const baseDomain = this.configService.get<string>('PORTAL_BASE_DOMAIN') || 'lead360.app';
+      const baseDomain =
+        this.configService.get<string>('PORTAL_BASE_DOMAIN') || 'lead360.app';
       const resetUrl = `https://${tenant.subdomain}.${baseDomain}/public/reset-password?token=${resetToken}`;
       await this.jobQueue.queueEmail({
         to: email,
@@ -370,7 +385,10 @@ export class PortalAuthService {
       },
     });
 
-    return { message: 'Password reset successfully. You can now log in with your new password.' };
+    return {
+      message:
+        'Password reset successfully. You can now log in with your new password.',
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -429,7 +447,8 @@ export class PortalAuthService {
     let logoUrl: string | null = null;
     if (tenant.file_tenant_logo_file_idTofile?.storage_path) {
       const storagePath = tenant.file_tenant_logo_file_idTofile.storage_path;
-      const appUrl = this.configService.get<string>('APP_URL') || 'https://app.lead360.app';
+      const appUrl =
+        this.configService.get<string>('APP_URL') || 'https://app.lead360.app';
       if (storagePath.includes('/uploads/public/')) {
         const parts = storagePath.split('/uploads/public/');
         logoUrl = `${appUrl}/uploads/public/${parts[1]}`;

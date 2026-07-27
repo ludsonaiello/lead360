@@ -61,6 +61,58 @@ async function seedScheduledJobs() {
       timeout_seconds: 600,
       next_run_at: calculateNextRun('0 0 1 * *', 'America/New_York'),
     },
+    {
+      id: randomBytes(16).toString('hex'),
+      job_type: 'subcontractor-insurance-check',
+      name: 'Subcontractor Insurance Expiry Check',
+      description:
+        'Daily scan for subcontractor insurance expiry. Notifies tenant owners and admins of expired or expiring insurance.',
+      schedule: '0 7 * * *', // 7:00 AM daily
+      timezone: 'UTC',
+      is_enabled: true,
+      max_retries: 3,
+      timeout_seconds: 300,
+      next_run_at: calculateNextRun('0 7 * * *', 'UTC'),
+    },
+    {
+      id: randomBytes(16).toString('hex'),
+      job_type: 'project-task-delay-check',
+      name: 'Project Task Delay Check',
+      description:
+        'Daily scan for overdue project tasks. Creates notifications for assigned project managers.',
+      schedule: '0 6 * * *', // 6:00 AM daily
+      timezone: 'UTC',
+      is_enabled: true,
+      max_retries: 3,
+      timeout_seconds: 300,
+      next_run_at: calculateNextRun('0 6 * * *', 'UTC'),
+    },
+    {
+      id: randomBytes(16).toString('hex'),
+      job_type: 'receipt-cleanup',
+      name: 'Orphan Receipt Cleanup',
+      description:
+        'Deletes receipts not linked to any financial entry after 7 days. Removes both the receipt record and associated file from disk.',
+      schedule: '0 */2 * * *', // Every 2 hours
+      timezone: 'America/New_York',
+      is_enabled: true,
+      max_retries: 3,
+      timeout_seconds: 300,
+      next_run_at: calculateNextRun('0 */2 * * *', 'America/New_York'),
+    },
+    {
+      id: randomBytes(16).toString('hex'),
+      job_type: 'ai-voice-pricing-activation',
+      name: 'AI Voice Pricing Activation',
+      description:
+        'Automatically activates AI voice pricing when the effective_date arrives. Deactivates old pricing and sets new pricing as current.',
+      schedule: '15 0 * * *', // 12:15 AM daily
+      timezone: 'UTC',
+      is_enabled: true,
+      max_retries: 3,
+      timeout_seconds: 300,
+      next_run_at: calculateNextRun('15 0 * * *', 'UTC'),
+    },
   ];
 
   for (const job of jobs) {
